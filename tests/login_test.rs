@@ -1,3 +1,5 @@
+// integration test for login 
+
 extern crate xmlrpc; 
 
 use xmlrpc::{Request}; 
@@ -7,6 +9,7 @@ use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::{Duration, Instant}; 
 
+// port and address for the test server
 const PORT: u16 = 8000;
 const URL: &'static str= "http://127.0.0.1"; 
 
@@ -17,9 +20,12 @@ impl Drop for Reap{
     } 
 }
 
+// sets up python xmlrpc server for testing
 fn setup() -> Result <Reap, ()> {
+    // logs when server started 
     let start = Instant::now(); 
-    let mut child = match Command::new("python3").arg("tests/exampleserver/exampleServer.py").spawn() {
+    // runs the python command to start the test server
+    let mut child = match Command::new("python3").arg("tests/test_server/test_server.py").spawn() {
         Ok(child) => child,
         Err(e) => {
             eprintln!(
@@ -30,7 +36,9 @@ fn setup() -> Result <Reap, ()> {
         }   
     };
 
+    // logs how many tries it took to connect to server
     let mut iteration = 0; 
+    // attempts to connect to python server
     loop {
         match child.try_wait().unwrap(){
             None => {} 
@@ -52,7 +60,10 @@ fn setup() -> Result <Reap, ()> {
     }
 }
 
+// runs the tests
 fn run_tests(){
+    // creates the url string to connect to serve
+    // TODO: determine if this is a good way to do it 
     let mut url_string = "".to_owned(); 
     url_string.push_str(URL);
     url_string.push_str(":");
@@ -68,6 +79,7 @@ fn run_tests(){
 
 }
 
+// prints out xml version o request for debugging 
 fn debug_request_xml(xml: xmlrpc::Request){
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
@@ -76,6 +88,7 @@ fn debug_request_xml(xml: xmlrpc::Request){
     };
 }
 
+// prints out xml version of response for debugging 
 fn debug_response_xml(xml: xmlrpc::Value){
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
