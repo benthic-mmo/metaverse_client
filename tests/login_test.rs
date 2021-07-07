@@ -1,13 +1,12 @@
 // integration test for login 
 
-extern crate xmlrpc; 
-
-use xmlrpc::{Request}; 
 
 use std::net::TcpStream; 
 use std::process::{Child, Command}; 
 use std::thread::sleep;
-use std::time::{Duration, Instant}; 
+use std::time::{Duration, Instant};
+
+use login::models::simulator_login_protocol::{SimulatorLoginProtocol};
 
 // port and address for the test server
 const PORT: u16 = 8000;
@@ -62,6 +61,32 @@ fn setup() -> Result <Reap, ()> {
 
 // runs the tests
 fn run_tests(){
+    // this is the test login command
+    // will make this better to test logging in
+    let test_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
+        first: "1".to_string(),
+        last: "2".to_string(),
+        passwd: "1".to_string(),
+        start:"1".to_string(),
+        channel:"1".to_string(),
+        version:"1".to_string(),
+        platform:"1".to_string(),
+        platform_string:"1".to_string(),
+        platform_version:"1".to_string(),
+        mac:"1".to_string(),
+        id0:"1".to_string(),
+        agree_to_tos: false,
+        read_critical: false,
+        viewer_digest: "1".to_string(),
+        address_size:"1".to_string(),
+        extended_errors:"1".to_string(),
+        last_exec_event:1,
+        last_exec_duration:"1".to_string(),
+        skipoptional:false,
+        options:"1".to_string(),
+    };
+
+
     // creates the url string to connect to serve
     // TODO: determine if this is a good way to do it 
     let mut url_string = "".to_owned(); 
@@ -70,16 +95,16 @@ fn run_tests(){
     url_string.push_str(&PORT.to_string());
 
     println!("url string {}", url_string);
-    let req = Request::new("Login").arg(1).arg(2);
-    debug_request_xml(req.clone());
 
+
+    let req = xmlrpc::Request::new("Login").arg(1).arg(2);
+    debug_request_xml(req.clone());
     let login = req.call_url(&url_string).unwrap();
     debug_response_xml(login.clone());
     assert_eq!(login.as_i64(), Some(1 + 2));
-
 }
 
-// prints out xml version o request for debugging 
+// prints out xml of request for debugging 
 fn debug_request_xml(xml: xmlrpc::Request){
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
@@ -88,7 +113,7 @@ fn debug_request_xml(xml: xmlrpc::Request){
     };
 }
 
-// prints out xml version of response for debugging 
+// prints out xml of response for debugging 
 fn debug_response_xml(xml: xmlrpc::Value){
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
