@@ -20,7 +20,7 @@ impl Drop for Reap{
 }
 
 // sets up python xmlrpc server for testing
-fn setup() -> Result <Reap, ()> {
+fn setup() -> Result <Reap, String> {
     // logs when server started 
     let start = Instant::now(); 
     // runs the python command to start the test server
@@ -31,14 +31,13 @@ fn setup() -> Result <Reap, ()> {
                 "could not start test server, ignoring test({})",
                 e 
             );
-            return Err(());
+            return Err("Could not start test server".to_string());
         }   
     };
 
     // logs how many tries it took to connect to server
-    let mut iteration = 0; 
     // attempts to connect to python server
-    loop {
+    for iteration in 0.. {
         match child.try_wait().unwrap(){
             None => {} 
             Some(status) => panic!("python process died {}", status),
@@ -55,15 +54,15 @@ fn setup() -> Result <Reap, ()> {
             Err(_) => {} 
         }
         sleep(Duration::from_millis(50)); 
-        iteration += 1;
     }
+    return Ok(Reap(child));
 }
 
 // runs the tests
 fn run_tests(){
     // this is the test login command
     // will make this better to test logging in
-    let test_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
+    let _test_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
         first: "1".to_string(),
         last: "2".to_string(),
         passwd: "1".to_string(),
@@ -126,7 +125,7 @@ fn debug_response_xml(xml: xmlrpc::Value){
 fn main(){
     let mut reaper = match setup() {
         Ok(reap) => reap, 
-        Err(()) => return,
+        Err(_string) => return,
     };
     
     match reaper.0.try_wait().unwrap() {
