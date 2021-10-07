@@ -1,6 +1,6 @@
-mod models;
+use login::models;
 
 pub fn main() {
-    models::simulator_login_protocol::hello();
+    login::models::simulator_login_protocol::hello();
     println!("Hello, world!");
 }
