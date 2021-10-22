@@ -26,8 +26,8 @@ pub struct TestProtocol{
     pub age: i64, 
 }
 
-impl TestProtocol{
-     pub fn ToValue(&self) -> xmlrpc::Value{
+impl Into<xmlrpc::Value> for TestProtocol{
+     fn into(self) -> xmlrpc::Value{
          xmlrpc::Value::Struct(vec![
         ("name".to_string(), xmlrpc::Value::from(self.name.clone())),
         ("age".to_string(), xmlrpc::Value::from(self.age.clone()))

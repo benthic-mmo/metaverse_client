@@ -98,7 +98,7 @@ fn run_tests(){
         age: 4 
     }; 
 
-    let req = xmlrpc::Request::new("Login").arg(testprotocol.ToValue());
+    let req = xmlrpc::Request::new("Login").arg(testprotocol);
     debug_request_xml(req.clone());
     let login = req.call_url(&url_string).unwrap();
     debug_response_xml(login.clone());
