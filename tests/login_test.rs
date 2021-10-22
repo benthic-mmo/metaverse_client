@@ -1,12 +1,11 @@
 // integration test for login 
 
-
 use std::net::TcpStream; 
 use std::process::{Child, Command}; 
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use login::models::simulator_login_protocol::{SimulatorLoginProtocol};
+use login::models::simulator_login_protocol::{SimulatorLoginProtocol,TestProtocol};
 
 // port and address for the test server
 const PORT: u16 = 8000;
@@ -92,11 +91,14 @@ fn run_tests(){
     url_string.push_str(URL);
     url_string.push_str(":");
     url_string.push_str(&PORT.to_string());
-
     println!("url string {}", url_string);
 
+    let testprotocol : TestProtocol = TestProtocol{
+        name: "craig".to_string(), 
+        age: 4 
+    }; 
 
-    let req = xmlrpc::Request::new("Login").arg(1).arg(2);
+    let req = xmlrpc::Request::new("Login").arg(testprotocol.ToValue());
     debug_request_xml(req.clone());
     let login = req.call_url(&url_string).unwrap();
     debug_response_xml(login.clone());

@@ -21,6 +21,20 @@ pub struct SimulatorLoginProtocol{
     pub options: String,
 }
 
+pub struct TestProtocol{
+    pub name: String, 
+    pub age: i64, 
+}
+
+impl TestProtocol{
+     pub fn ToValue(&self) -> xmlrpc::Value{
+         xmlrpc::Value::Struct(vec![
+        ("name".to_string(), xmlrpc::Value::from(self.name.clone())),
+        ("age".to_string(), xmlrpc::Value::from(self.age.clone()))
+         ].into_iter().collect())
+     }
+ }
+
 pub fn hello() -> i64{
     return 2 + 2 
 } 
