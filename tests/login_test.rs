@@ -124,6 +124,7 @@ fn run_tests(){
     
     let login = req.call_url(&url_string).unwrap();
     debug_response_xml(login.clone());
+    println!("{:?}", login);
     assert_eq!(login.as_i64(), Some(1));
 }
 
