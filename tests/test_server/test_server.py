@@ -15,9 +15,9 @@ with SimpleXMLRPCServer((HOST, PORT),
     # this defines the login command.
     # Doesn't do much right now
     # just adds to test if it's working
-    def Login(x, y): 
-        return x + y
-    server.register_function(Login)
+    def login_to_simulator(x): 
+        return 1
+    server.register_function(login_to_simulator)
 
     # prints where it's serving on for debug
     print("serving on: " + HOST + ":" + str(PORT))
