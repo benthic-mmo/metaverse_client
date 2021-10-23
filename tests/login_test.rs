@@ -5,7 +5,7 @@ use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use login::models::simulator_login_protocol::{SimulatorLoginProtocol,TestProtocol};
+use login::models::simulator_login_protocol::{SimulatorLoginProtocol};
 
 // port and address for the test server
 const PORT: u16 = 8000;
@@ -61,7 +61,7 @@ fn setup() -> Result <Reap, String> {
 fn run_tests(){
     // this is the test login command
     // will make this better to test logging in
-    let _test_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
+    let example_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
         first: "1".to_string(),
         last: "2".to_string(),
         passwd: "1".to_string(),
@@ -93,16 +93,12 @@ fn run_tests(){
     url_string.push_str(&PORT.to_string());
     println!("url string {}", url_string);
 
-    let testprotocol : TestProtocol = TestProtocol{
-        name: "craig".to_string(), 
-        age: 4 
-    }; 
-
-    let req = xmlrpc::Request::new("Login").arg(testprotocol);
+    let req = xmlrpc::Request::new("login_to_simulator").arg(example_login);
     debug_request_xml(req.clone());
+    
     let login = req.call_url(&url_string).unwrap();
     debug_response_xml(login.clone());
-    assert_eq!(login.as_i64(), Some(1 + 2));
+    assert_eq!(login.as_i64(), Some(1));
 }
 
 // prints out xml of request for debugging 
