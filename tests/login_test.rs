@@ -5,7 +5,7 @@ use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use login::models::simulator_login_protocol::{SimulatorLoginProtocol};
+use login::models::simulator_login_protocol::{SimulatorLoginProtocol, SimulatorLoginOptions};
 
 // port and address for the test server
 const PORT: u16 = 8000;
@@ -59,31 +59,57 @@ fn setup() -> Result <Reap, String> {
 
 // runs the tests
 fn run_tests(){
-    // this is the test login command
-    // will make this better to test logging in
-    let example_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
-        first: "1".to_string(),
-        last: "2".to_string(),
-        passwd: "1".to_string(),
-        start:"1".to_string(),
-        channel:"1".to_string(),
-        version:"1".to_string(),
-        platform:"1".to_string(),
-        platform_string:"1".to_string(),
-        platform_version:"1".to_string(),
-        mac:"1".to_string(),
-        id0:"1".to_string(),
-        agree_to_tos: false,
-        read_critical: false,
-        viewer_digest: "1".to_string(),
-        address_size:"1".to_string(),
-        extended_errors:"1".to_string(),
-        last_exec_event:1,
-        last_exec_duration:"1".to_string(),
-        skipoptional:false,
-        options:"1".to_string(),
-    };
+    let example_options: SimulatorLoginOptions = SimulatorLoginOptions{
+        adult_compliant:        "1".to_string(),
+        advanced_mode:          "1".to_string(),
+        avatar_picker_url:      "1".to_string(),
+        buddy_list:             "1".to_string(),
+        classified_categories:  "1".to_string(),
+        currency:               "1".to_string(),
+        destination_guide_url:  "1".to_string(),
+        display_names:          "1".to_string(),
+        event_categories:       "1".to_string(),
+        gestures:               "1".to_string(),
+        global_textures:        "1".to_string(),
+        inventory_root:         "1".to_string(),
+        inventory_skeleton:     "1".to_string(),
+        inventory_lib_root:     "1".to_string(),
+        inventory_lib_owner:    "1".to_string(),
+        inventory_skel_lib:     "1".to_string(),
+        login_flags:            "1".to_string(),
+        max_agent_groups:       "1".to_string(),
+        max_groups:             "1".to_string(),
+        map_server_url:         "1".to_string(), 
+        newuser_config:         "1".to_string(), 
+        search:                 "1".to_string(), 
+        tutorial_setting:       "1".to_string(), 
+        ui_config:              "1".to_string(),
+        voice_config:           "1".to_string()
 
+    };
+    
+    let example_login: SimulatorLoginProtocol = SimulatorLoginProtocol{
+        first:              "1".to_string(),
+        last:               "2".to_string(),
+        passwd:             "1".to_string(),
+        start:              "1".to_string(),
+        channel:            "1".to_string(),
+        version:            "1".to_string(),
+        platform:           "1".to_string(),
+        platform_string:    "1".to_string(),
+        platform_version:   "1".to_string(),
+        mac:                "1".to_string(),
+        id0:                "1".to_string(),
+        agree_to_tos:       false,
+        read_critical:      false,
+        viewer_digest:      "1".to_string(),
+        address_size:       "1".to_string(),
+        extended_errors:    "1".to_string(),
+        last_exec_event:    1,
+        last_exec_duration: "1".to_string(),
+        skipoptional:       false,
+        options:            example_options,
+    };
 
     // creates the url string to connect to serve
     // TODO: determine if this is a good way to do it 
