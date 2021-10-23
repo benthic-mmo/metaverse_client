@@ -37,12 +37,15 @@ pub struct SimulatorLoginProtocol{
 
 
 ///SimulatorLoginOptions - the contents of the options field in the SimulatorLoginProtocol 
-///none of these are documented :( 
+///none of these are documented :(
+///parameters seem to randomly swap between using _ and - to break up words. 
+///I've documented these fields in the struct and the Value impl
 pub struct SimulatorLoginOptions{
     pub adult_compliant:        String, 
     pub advanced_mode:          String, 
     pub avatar_picker_url:      String,
     pub buddy_list:             String,
+        //buddy-list in xml
     pub classified_categories:  String,
     pub currency:               String, 
     pub destination_guide_url:  String, 
@@ -50,20 +53,33 @@ pub struct SimulatorLoginOptions{
     pub event_categories:       String, 
     pub gestures:               String, 
     pub global_textures:        String, 
-    pub inventory_root:         String, 
-    pub inventory_skeleton:     String, 
+        //global-textures in xml
+    pub inventory_root:         String,
+        //inventory-root in xml
+    pub inventory_skeleton:     String,
+        //inventory-skeleton in xml
     pub inventory_lib_root:     String, 
-    pub inventory_lib_owner:    String, 
-    pub inventory_skel_lib:     String, 
-    pub login_flags:            String, 
-    pub max_agent_groups:       String, 
-    pub max_groups:             String, 
+        //inventory-lib-root in xml
+    pub inventory_lib_owner:    String,
+        //inventory-lib-owner in xml
+    pub inventory_skel_lib:     String,
+        //inventory-skel-lib in xml 
+    pub login_flags:            String,
+        //login-flags in xml 
+    pub max_agent_groups:       String,
+        //max-agent-groups in xml
+    pub max_groups:             String,
     pub map_server_url:         String,
+        //map-server-url in xml 
     pub newuser_config:         String, 
+        //newusuer-config in xml 
     pub search:                 String, 
-    pub tutorial_setting:       String, 
-    pub ui_config:              String, 
+    pub tutorial_setting:       String,
+        //tutorial-setting in xml 
+    pub ui_config:              String,
+        //ui-config in xml
     pub voice_config:           String 
+        //voice-config in xml 
 }
 
 impl Into<xmlrpc::Value> for SimulatorLoginOptions {
@@ -72,27 +88,39 @@ impl Into<xmlrpc::Value> for SimulatorLoginOptions {
             ("adult_compliant"          .to_string(), xmlrpc::Value::from(self.adult_compliant.clone())),
             ("advanced_mode"            .to_string(), xmlrpc::Value::from(self.advanced_mode.clone())), 
             ("avatar_picker_url"        .to_string(), xmlrpc::Value::from(self.avatar_picker_url.clone())), 
-            ("buddy_list"               .to_string(), xmlrpc::Value::from(self.buddy_list.clone())), 
+            ("buddy-list"               .to_string(), xmlrpc::Value::from(self.buddy_list.clone())),
+                //buddy-list in xml, buddy_list in source
             ("classified_categories"    .to_string(), xmlrpc::Value::from(self.classified_categories.clone())), 
             ("currency"                 .to_string(), xmlrpc::Value::from(self.currency.clone())), 
             ("destination_guide_url"    .to_string(), xmlrpc::Value::from(self.destination_guide_url.clone())), 
             ("display_names"            .to_string(), xmlrpc::Value::from(self.display_names.clone())), 
             ("event_categories"         .to_string(), xmlrpc::Value::from(self.event_categories.clone())), 
             ("gestures"                 .to_string(), xmlrpc::Value::from(self.gestures.clone())), 
-            ("global_textures"          .to_string(), xmlrpc::Value::from(self.global_textures.clone())), 
-            ("inventory_root"           .to_string(), xmlrpc::Value::from(self.inventory_root.clone())), 
-            ("inventory_skeleton"       .to_string(), xmlrpc::Value::from(self.inventory_skeleton.clone())),
-            ("inventory_lib_root"       .to_string(), xmlrpc::Value::from(self.inventory_lib_root.clone())), 
-            ("inventory_skel_lib"       .to_string(), xmlrpc::Value::from(self.inventory_skel_lib.clone())),
-            ("login_flags"              .to_string(), xmlrpc::Value::from(self.login_flags.clone())), 
-            ("max_agent_groups"         .to_string(), xmlrpc::Value::from(self.max_agent_groups.clone())), 
+            ("global-textures"          .to_string(), xmlrpc::Value::from(self.global_textures.clone())), 
+                //global-textures in xml, global_textures in source
+            ("inventory-root"           .to_string(), xmlrpc::Value::from(self.inventory_root.clone())), 
+                //inventory-root in xml, iniventory_root in source
+            ("inventory-skeleton"       .to_string(), xmlrpc::Value::from(self.inventory_skeleton.clone())),
+                //inventory-skeleton in xml, inventory_skeleton in source
+            ("inventory-lib-root"       .to_string(), xmlrpc::Value::from(self.inventory_lib_root.clone())), 
+                //inventory-lib-root in xml, inventory_lib_root in source
+            ("inventory-skel-lib"       .to_string(), xmlrpc::Value::from(self.inventory_skel_lib.clone())),
+                //inventory-skel-lib in xml, inventory_skel_lib in source
+            ("login-flags"              .to_string(), xmlrpc::Value::from(self.login_flags.clone())), 
+                //login-flags in xml, login_flags in source 
+            ("max-agent-groups"         .to_string(), xmlrpc::Value::from(self.max_agent_groups.clone())), 
+                //max-agent-groups in xml, max_agent_groups in source
             ("max_groups"               .to_string(), xmlrpc::Value::from(self.max_groups.clone())),
-            ("map_server_url"           .to_string(), xmlrpc::Value::from(self.map_server_url.clone())),
-            ("newuser_config"           .to_string(), xmlrpc::Value::from(self.newuser_config.clone())),
+            ("map-server-url"           .to_string(), xmlrpc::Value::from(self.map_server_url.clone())),
+                //map-server-url in xml, ma_server_url in source 
+            ("newuser-config"           .to_string(), xmlrpc::Value::from(self.newuser_config.clone())),
+                //newuser-config in xml, newuser_config in source
             ("search"                   .to_string(), xmlrpc::Value::from(self.search.clone())), 
             ("tutorial_setting"         .to_string(), xmlrpc::Value::from(self.tutorial_setting.clone())), 
-            ("ui_config"                .to_string(), xmlrpc::Value::from(self.ui_config.clone())), 
-            ("voice_config"             .to_string(), xmlrpc::Value::from(self.voice_config.clone()))
+            ("ui-config"                .to_string(), xmlrpc::Value::from(self.ui_config.clone())), 
+                //ui-config in xml, ui_config in source
+            ("voice-config"             .to_string(), xmlrpc::Value::from(self.voice_config.clone()))
+                //voice-config in xml, voice_config in source
         ].into_iter().collect())
     } 
 } 
