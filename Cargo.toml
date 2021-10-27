@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 xmlrpc = "0.15.0"
+lazy_static = "1.4.0"
