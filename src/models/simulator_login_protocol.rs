@@ -1,5 +1,6 @@
 ///SimulatorLoginProtocol- the struct for creating a login call
 ///implemented from the protocol as defined by http://opensimulator.org/wiki/SimulatorLoginProtocol
+#[derive(Clone)]
 pub struct SimulatorLoginProtocol{
     pub first:              String, //First name of the user 
     pub last:               String, //Last name of the user 
@@ -40,6 +41,7 @@ pub struct SimulatorLoginProtocol{
 ///none of these are documented :(
 ///parameters seem to randomly swap between using _ and - to break up words. 
 ///I've documented these fields in the struct and the Value impl
+#[derive(Clone)]
 pub struct SimulatorLoginOptions{
     pub adult_compliant:        String, 
     pub advanced_mode:          String, 
