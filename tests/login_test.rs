@@ -74,6 +74,7 @@ impl Drop for Reap {
     }
 }
 
+///Tests login struct against a dummy python server
 #[test]
 fn test_python() {
     let mut reaper = match setup() {
@@ -102,6 +103,7 @@ fn test_python() {
     }
 }
 
+///Tests connectivity with osgrid, attempts login with invalid credentials
 #[test]
 fn test_grid_osgrid() {
     let prod_server_url = build_test_url("http://login.osgrid.org", 80);
@@ -110,6 +112,9 @@ fn test_grid_osgrid() {
     assert_eq!(login_response["reason"], xmlrpc::Value::from("key"));
 }
 
+///Tests login with live credentials. Creds need to be set in the TestSettings.toml file
+///uses your real username and password so be careful not to commit this file !!
+///TODO: make this an optional test that passes or skips whel creds file is not present
 #[test]
 fn test_grid_osgrid_creds() {
     let mut settings = config::Config::default();
