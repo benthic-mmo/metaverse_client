@@ -1,7 +1,60 @@
-use login::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use crate::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use std::env;
 
-pub fn login(
-    url_string: String,
+extern crate mac_address;
+extern crate sys_info;
+
+pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
+    let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
+    req.call_url(&url).unwrap()
+}
+
+pub fn login_with_defaults(
+    first: String,
+    last: String,
+    passwd: String,
+    start: String,
+    agree_to_tos: bool,
+    read_critical: bool,
+    url: String,
+) -> xmlrpc::Value {
+    let login_data =
+        build_struct_with_defaults(first, last, passwd, start, agree_to_tos, read_critical);
+    let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
+    req.call_url(&url).unwrap()
+}
+
+pub fn build_struct_with_defaults(
+    first: String,
+    last: String,
+    passwd: String,
+    start: String,
+    agree_to_tos: bool,
+    read_critical: bool,
+) -> SimulatorLoginProtocol {
+    SimulatorLoginProtocol {
+        first,
+        last,
+        passwd,
+        start,
+        channel: Some(env!("CARGO_PKG_NAME").to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        platform: Some(match env::consts::FAMILY {
+            "mac" => "mac".to_string(),
+            "win" => "win".to_string(),
+            "unix" => "lin".to_string(),
+            _ => "lin".to_string(),
+        }),
+        platform_string: Some(sys_info::os_release().unwrap()),
+        platform_version: Some(sys_info::os_release().unwrap()),
+        mac: Some(mac_address::get_mac_address().unwrap().unwrap().to_string()),
+        agree_to_tos: Some(agree_to_tos),
+        read_critical: Some(read_critical),
+        ..SimulatorLoginProtocol::default()
+    }
+}
+
+pub fn build_login(
     first: String,
     last: String,
     passwd: String,
@@ -46,8 +99,8 @@ pub fn login(
     tutorial_setting: Option<String>,
     ui_config: Option<String>,
     voice_config: Option<String>,
-) -> xmlrpc::Value {
-    let login_data: SimulatorLoginProtocol = SimulatorLoginProtocol {
+) -> SimulatorLoginProtocol {
+    SimulatorLoginProtocol {
         first,
         last,
         passwd,
@@ -67,7 +120,7 @@ pub fn login(
         last_exec_event,
         last_exec_duration,
         skipoptional,
-        options: SimulatorLoginOptions {
+        options: Some(SimulatorLoginOptions {
             adult_compliant,
             advanced_mode,
             avatar_picker_url,
@@ -93,9 +146,7 @@ pub fn login(
             tutorial_setting,
             ui_config,
             voice_config,
-        },
-    };
-
-    let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    req.call_url(&url_string).unwrap()
+        }),
+        ..SimulatorLoginProtocol::default()
+    }
 }
