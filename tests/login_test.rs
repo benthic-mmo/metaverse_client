@@ -13,57 +13,59 @@ use std::time::{Duration, Instant};
 use login::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 
 // port and address for the test server
-const PORT: u16 = 9000;
-const URL: &'static str = "http://127.0.0.1";
+const PYTHON_PORT: u16 = 9000;
+const PYTHON_URL: &'static str = "http://127.0.0.1";
+const OSGRID_PORT: u16 = 80;
+const OSGRID_URL: &'static str = "http://login.osgrid.org";
 
 lazy_static! {
     static ref EXAMPLE_LOGIN: SimulatorLoginProtocol = SimulatorLoginProtocol {
         first: "1".to_string(),
-        last: "2".to_string(),
+        last: "1".to_string(),
         passwd: "1".to_string(),
         start: "1".to_string(),
-        channel: "1".to_string(),
-        version: "1".to_string(),
-        platform: "1".to_string(),
-        platform_string: "1".to_string(),
-        platform_version: "1".to_string(),
-        mac: "1".to_string(),
-        id0: "1".to_string(),
-        agree_to_tos: false,
-        read_critical: false,
-        viewer_digest: "1".to_string(),
-        address_size: "1".to_string(),
-        extended_errors: "1".to_string(),
-        last_exec_event: 1,
-        last_exec_duration: "1".to_string(),
-        skipoptional: false,
-        options: SimulatorLoginOptions {
-            adult_compliant: "1".to_string(),
-            advanced_mode: "1".to_string(),
-            avatar_picker_url: "1".to_string(),
-            buddy_list: "1".to_string(),
-            classified_categories: "1".to_string(),
-            currency: "1".to_string(),
-            destination_guide_url: "1".to_string(),
-            display_names: "1".to_string(),
-            event_categories: "1".to_string(),
-            gestures: "1".to_string(),
-            global_textures: "1".to_string(),
-            inventory_root: "1".to_string(),
-            inventory_skeleton: "1".to_string(),
-            inventory_lib_root: "1".to_string(),
-            inventory_lib_owner: "1".to_string(),
-            inventory_skel_lib: "1".to_string(),
-            login_flags: "1".to_string(),
-            max_agent_groups: "1".to_string(),
-            max_groups: "1".to_string(),
-            map_server_url: "1".to_string(),
-            newuser_config: "1".to_string(),
-            search: "1".to_string(),
-            tutorial_setting: "1".to_string(),
-            ui_config: "1".to_string(),
-            voice_config: "1".to_string()
-        }
+        channel: Some("1".to_string()),
+        version: Some("1".to_string()),
+        platform: Some("1".to_string()),
+        platform_string: Some("1".to_string()),
+        platform_version: Some("1".to_string()),
+        mac: Some("1".to_string()),
+        id0: Some("1".to_string()),
+        agree_to_tos: Some(false),
+        read_critical: Some(false),
+        viewer_digest: Some("1".to_string()),
+        address_size: Some("1".to_string()),
+        extended_errors: Some("1".to_string()),
+        last_exec_event: Some(1),
+        last_exec_duration: Some("1".to_string()),
+        skipoptional: Some(false),
+        options: Some(SimulatorLoginOptions {
+            adult_compliant: Some("1".to_string()),
+            advanced_mode: Some("1".to_string()),
+            avatar_picker_url: Some("1".to_string()),
+            buddy_list: Some("1".to_string()),
+            classified_categories: Some("1".to_string()),
+            currency: Some("1".to_string()),
+            destination_guide_url: Some("1".to_string()),
+            display_names: Some("1".to_string()),
+            event_categories: Some("1".to_string()),
+            gestures: Some("1".to_string()),
+            global_textures: Some("1".to_string()),
+            inventory_root: Some("1".to_string()),
+            inventory_skeleton: Some("1".to_string()),
+            inventory_lib_root: Some("1".to_string()),
+            inventory_lib_owner: Some("1".to_string()),
+            inventory_skel_lib: Some("1".to_string()),
+            login_flags: Some("1".to_string()),
+            max_agent_groups: Some("1".to_string()),
+            max_groups: Some("1".to_string()),
+            map_server_url: Some("1".to_string()),
+            newuser_config: Some("1".to_string()),
+            search: Some("1".to_string()),
+            tutorial_setting: Some("1".to_string()),
+            ui_config: Some("1".to_string()),
+            voice_config: Some("1".to_string())
+        })
     };
 }
 
@@ -89,7 +91,7 @@ fn test_python() {
         }
     }
 
-    let test_server_url = build_test_url(URL, PORT);
+    let test_server_url = build_test_url(PYTHON_URL, PYTHON_PORT);
     let login_response = send_login(EXAMPLE_LOGIN.clone(), test_server_url.clone());
     assert_eq!(login_response["first_name"], xmlrpc::Value::from("None"));
     assert_eq!(login_response["last_name"], xmlrpc::Value::from("None"));
@@ -105,8 +107,8 @@ fn test_python() {
 
 ///Tests connectivity with osgrid, attempts login with invalid credentials
 #[test]
-fn test_grid_osgrid() {
-    let prod_server_url = build_test_url("http://login.osgrid.org", 80);
+fn test_grid_osgrid_invalid_creds() {
+    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
     let login_response = send_login(EXAMPLE_LOGIN.clone(), prod_server_url.clone());
     assert_eq!(login_response["login"], xmlrpc::Value::from("false"));
     assert_eq!(login_response["reason"], xmlrpc::Value::from("key"));
@@ -114,7 +116,7 @@ fn test_grid_osgrid() {
 
 ///Tests login with live credentials. Creds need to be set in the TestSettings.toml file
 ///uses your real username and password so be careful not to commit this file !!
-///TODO: make this an optional test that passes or skips whel creds file is not present
+///TODO: make this an optional test that passes or skips when creds file is not present
 #[test]
 fn test_grid_osgrid_creds() {
     let mut settings = config::Config::default();
@@ -132,51 +134,58 @@ fn test_grid_osgrid_creds() {
         last: creds_lastname.clone(),
         passwd: creds.get("passwd").unwrap().to_string(),
         start: creds.get("start").unwrap().to_string(),
-        channel: creds.get("channel").unwrap().to_string(),
-        version: creds.get("version").unwrap().to_string(),
-        platform: creds.get("platform").unwrap().to_string(),
-        platform_string: creds.get("platform").unwrap().to_string(),
-        platform_version: creds.get("platform_version").unwrap().to_string(),
-        mac: creds.get("mac").unwrap().to_string(),
-        id0: creds.get("id0").unwrap().to_string(),
-        agree_to_tos: true,
-        read_critical: true,
-        viewer_digest: "1".to_string(),
-        address_size: "1".to_string(),
-        extended_errors: "1".to_string(),
-        last_exec_event: 0,
-        last_exec_duration: "1".to_string(),
-        skipoptional: false,
-        options: SimulatorLoginOptions {
-            adult_compliant: "1".to_string(),
-            advanced_mode: "1".to_string(),
-            avatar_picker_url: "1".to_string(),
-            buddy_list: "1".to_string(),
-            classified_categories: "1".to_string(),
-            currency: "1".to_string(),
-            destination_guide_url: "1".to_string(),
-            display_names: "1".to_string(),
-            event_categories: "1".to_string(),
-            gestures: "1".to_string(),
-            global_textures: "1".to_string(),
-            inventory_root: "1".to_string(),
-            inventory_skeleton: "1".to_string(),
-            inventory_lib_root: "1".to_string(),
-            inventory_lib_owner: "1".to_string(),
-            inventory_skel_lib: "1".to_string(),
-            login_flags: "1".to_string(),
-            max_agent_groups: "1".to_string(),
-            max_groups: "1".to_string(),
-            map_server_url: "1".to_string(),
-            newuser_config: "1".to_string(),
-            search: "1".to_string(),
-            tutorial_setting: "1".to_string(),
-            ui_config: "1".to_string(),
-            voice_config: "1".to_string(),
-        },
+        channel: Some(creds.get("channel").unwrap().to_string()),
+        version: Some(creds.get("version").unwrap().to_string()),
+        platform: Some(creds.get("platform").unwrap().to_string()),
+        platform_string: Some(creds.get("platform").unwrap().to_string()),
+        platform_version: Some(creds.get("platform_version").unwrap().to_string()),
+        mac: Some(creds.get("mac").unwrap().to_string()),
+        id0: Some(creds.get("id0").unwrap().to_string()),
+        agree_to_tos: Some(true),
+        read_critical: Some(true),
+        ..SimulatorLoginProtocol::default()
     };
 
-    let prod_server_url = build_test_url("http://login.osgrid.org", 80);
+    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
+    let login_response = send_login(auth_login.clone(), prod_server_url.clone());
+    let verify = panic::catch_unwind(|| {
+        assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
+        assert_eq!(
+            login_response["first_name"],
+            xmlrpc::Value::from(creds_firstname)
+        );
+        assert_eq!(
+            login_response["last_name"],
+            xmlrpc::Value::from(creds_lastname)
+        );
+    });
+    if verify.is_err() {
+        assert_eq!(login_response["reason"], xmlrpc::Value::from("presence"))
+    }
+}
+
+///Tests the smallest possible request that will facilitate a login on osgrid
+#[test]
+fn test_grid_osgrid_creds_minimal() {
+    let mut settings = config::Config::default();
+    settings
+        .merge(config::File::with_name("TestSettings"))
+        .unwrap()
+        .merge(config::Environment::with_prefix("APP"))
+        .unwrap();
+
+    let creds = settings.try_into::<HashMap<String, String>>().unwrap();
+    let creds_firstname = creds.get("first").unwrap().to_string();
+    let creds_lastname = creds.get("last").unwrap().to_string();
+    let auth_login: SimulatorLoginProtocol = SimulatorLoginProtocol {
+        first: creds_firstname.clone(),
+        last: creds_lastname.clone(),
+        passwd: creds.get("passwd").unwrap().to_string(),
+        start: creds.get("start").unwrap().to_string(),
+        ..SimulatorLoginProtocol::default()
+    };
+
+    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
     let login_response = send_login(auth_login.clone(), prod_server_url.clone());
     let verify = panic::catch_unwind(|| {
         assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
@@ -217,7 +226,7 @@ fn setup() -> Result<Reap, String> {
             None => {}
             Some(status) => panic!("python process died {}", status),
         }
-        match TcpStream::connect(("localhost", PORT)) {
+        match TcpStream::connect(("localhost", PYTHON_PORT)) {
             Ok(_) => {
                 println!(
                     "connected to server after {:?} (iteration{})",
