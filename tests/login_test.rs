@@ -120,9 +120,15 @@ fn test_grid_osgrid_invalid_creds() {
 #[test]
 fn test_grid_osgrid_creds() {
     let mut settings = config::Config::default();
+    match settings.merge(config::File::with_name("TestSettings")) {
+        Ok(_file) => _file,
+        Err(..) => {
+            println!("test skipped, no creds file");
+            return;
+        }
+    };
+
     settings
-        .merge(config::File::with_name("TestSettings"))
-        .unwrap()
         .merge(config::Environment::with_prefix("APP"))
         .unwrap();
 
@@ -168,9 +174,14 @@ fn test_grid_osgrid_creds() {
 #[test]
 fn test_grid_osgrid_creds_minimal() {
     let mut settings = config::Config::default();
+    match settings.merge(config::File::with_name("TestSettings")) {
+        Ok(_file) => _file,
+        Err(..) => {
+            println!("test skipped, no creds file");
+            return;
+        }
+    };
     settings
-        .merge(config::File::with_name("TestSettings"))
-        .unwrap()
         .merge(config::Environment::with_prefix("APP"))
         .unwrap();
 
