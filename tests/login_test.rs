@@ -77,8 +77,9 @@ impl Drop for Reap {
 }
 
 ///Tests login struct against a dummy python server
+/// verifies that the xml being sent is valid and can be read by other servers
 #[test]
-fn test_python() {
+fn test_struct_validate_xml() {
     let mut reaper = match setup() {
         Ok(reap) => reap,
         Err(_string) => return,
@@ -107,7 +108,7 @@ fn test_python() {
 
 ///Tests connectivity with osgrid, attempts login with invalid credentials
 #[test]
-fn test_grid_osgrid_invalid_creds() {
+fn test_struct_osgrid_connect() {
     let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
     let login_response = send_login(EXAMPLE_LOGIN.clone(), prod_server_url.clone());
     assert_eq!(login_response["login"], xmlrpc::Value::from("false"));
@@ -116,9 +117,8 @@ fn test_grid_osgrid_invalid_creds() {
 
 ///Tests login with live credentials. Creds need to be set in the TestSettings.toml file
 ///uses your real username and password so be careful not to commit this file !!
-///TODO: make this an optional test that passes or skips when creds file is not present
 #[test]
-fn test_grid_osgrid_creds() {
+fn test_struct_osgrid_login() {
     let mut settings = config::Config::default();
     match settings.merge(config::File::with_name("TestSettings")) {
         Ok(_file) => _file,
@@ -172,7 +172,7 @@ fn test_grid_osgrid_creds() {
 
 ///Tests the smallest possible request that will facilitate a login on osgrid
 #[test]
-fn test_grid_osgrid_creds_minimal() {
+fn test_struct_osgrid_login_minimal() {
     let mut settings = config::Config::default();
     match settings.merge(config::File::with_name("TestSettings")) {
         Ok(_file) => _file,
@@ -214,7 +214,7 @@ fn test_grid_osgrid_creds_minimal() {
     }
 }
 
-// sets up python xmlrpc server for testing
+/// sets up python xmlrpc server for testing
 fn setup() -> Result<Reap, String> {
     // logs when server started
     let start = Instant::now();
@@ -252,6 +252,8 @@ fn setup() -> Result<Reap, String> {
     }
     return Ok(Reap(child));
 }
+
+/// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
     url_string.push_str(url);
@@ -261,6 +263,7 @@ fn build_test_url(url: &str, port: u16) -> String {
     return url_string;
 }
 
+/// sends login for testing struct
 fn send_login(example_login: SimulatorLoginProtocol, url_string: String) -> xmlrpc::Value {
     // Login to test server
     let req = xmlrpc::Request::new("login_to_simulator").arg(example_login);
@@ -272,7 +275,7 @@ fn send_login(example_login: SimulatorLoginProtocol, url_string: String) -> xmlr
     return login;
 }
 
-// prints out xml of request for debugging
+/// prints out xml of request for debugging
 fn debug_request_xml(xml: xmlrpc::Request) {
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
@@ -281,7 +284,7 @@ fn debug_request_xml(xml: xmlrpc::Request) {
     };
 }
 
-// prints out xml of response for debugging
+/// prints out xml of response for debugging
 fn debug_response_xml(xml: xmlrpc::Value) {
     let mut debug: Vec<u8> = vec![];
     match xml.write_as_xml(&mut debug) {
