@@ -4,11 +4,55 @@ use std::env;
 extern crate mac_address;
 extern crate sys_info;
 
+///Logs in using a SimulatorLoginProtocol object and the url string.
+///returns an xmlrpc::Value containing the server's response
+///
+///# Examples
+///
+///this test always fails because there is no xmlrpc server running
+///see tests/login.rs, test_lib_osgrid_connect, test_lib_osgrid_minimal for more information
+///```
+///use metaverse_login::models::simulator_login_protocol::{SimulatorLoginProtocol};
+///use metaverse_login::login::{login};
+///use std::panic;
+///
+///let url = "http://127.0.0.1:80";
+///let login_data: SimulatorLoginProtocol = SimulatorLoginProtocol {
+///     first: "first".to_string(),
+///     last: "last".to_string(),
+///     passwd: "password".to_string(),
+///     start: "home".to_string(),
+///     ..SimulatorLoginProtocol::default()
+///};
+///
+///panic::catch_unwind(|| login(login_data, url.to_string()));
+///```
 pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
     req.call_url(&url).unwrap()
 }
 
+///Logs in using a generated SimulatorLoginProtocol object
+///returns an xmlrpc::Value containing the server's response
+///
+///# Examples
+///
+///this test always fails because there is no xmlrpc server running
+///see tests/login.rs test_lib_build_struct_with_defaults for more information
+///```
+/// use metaverse_login::login::{login_with_defaults};
+/// use std::panic;
+///
+/// let url = "http://127.0.0.1:80";
+/// panic::catch_unwind(||login_with_defaults(
+///                         "first".to_string(),
+///                         "last".to_string(),
+///                         "password".to_string(),
+///                         "home".to_string(),
+///                         true,
+///                         true,
+///                         url.to_string()));
+///```
 pub fn login_with_defaults(
     first: String,
     last: String,
@@ -24,6 +68,21 @@ pub fn login_with_defaults(
     req.call_url(&url).unwrap()
 }
 
+///Generates a SimulatorLoginProtocol based on runtime values
+///returns a SimulatorLoginProtocol
+///```
+///use metaverse_login::login::{build_struct_with_defaults};
+///
+///let login_struct = build_struct_with_defaults(
+///         "first".to_string(),
+///         "last".to_string(),
+///         "passwd".to_string(),
+///         "home".to_string(),
+///         true,
+///         true);
+///assert_eq!(login_struct.first, "first");
+///```
+///
 pub fn build_struct_with_defaults(
     first: String,
     last: String,
@@ -54,6 +113,8 @@ pub fn build_struct_with_defaults(
     }
 }
 
+///Generates a SimulatorLoginProtocol from explicitly defined values
+///returns a SimulatorLoginProtocol
 pub fn build_login(
     first: String,
     last: String,

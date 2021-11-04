@@ -12,8 +12,10 @@ use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use login::login::{build_struct_with_defaults, login, login_with_defaults};
-use login::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use metaverse_login::login::{build_struct_with_defaults, login, login_with_defaults};
+use metaverse_login::models::simulator_login_protocol::{
+    SimulatorLoginOptions, SimulatorLoginProtocol,
+};
 
 // port and address for the test server
 const PYTHON_PORT: u16 = 9000;
@@ -118,7 +120,7 @@ fn test_struct_osgrid_connect() {
     assert_eq!(login_response["reason"], xmlrpc::Value::from("key"));
 }
 
-///Tests login with live credentials. Creds need to be set in the TestSettings.toml file
+///Tests login with live credentials. Creds need to be set in the .creds.toml file
 ///uses your real username and password so be careful not to commit this file !!
 #[test]
 fn test_struct_osgrid_login() {
@@ -311,7 +313,7 @@ fn test_lib_osgrid_login_defaults() {
 
 fn read_creds() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
-    match settings.merge(config::File::with_name("TestSettings")) {
+    match settings.merge(config::File::with_name(".creds")) {
         Ok(_file) => _file,
         Err(..) => {
             return None;

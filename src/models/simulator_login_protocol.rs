@@ -1,5 +1,5 @@
 ///SimulatorLoginProtocol- the struct for creating a login call
-///implemented from the protocol as defined by http://opensimulator.org/wiki/SimulatorLoginProtocol
+///implemented from the protocol as defined by <http://opensimulator.org/wiki/SimulatorLoginProtocol>
 #[derive(Clone, Default)]
 pub struct SimulatorLoginProtocol {
     pub first: String,  //First name of the user
@@ -69,6 +69,7 @@ pub struct SimulatorLoginOptions {
     pub voice_config: Option<String>,     //voice-config in xml
 }
 
+///Creates value type from a SimulatorLoginOption struct
 fn value_from_option(other: Option<SimulatorLoginOptions>) -> xmlrpc::Value {
     match other {
         Some(x) => x.into(),
@@ -76,6 +77,8 @@ fn value_from_option(other: Option<SimulatorLoginOptions>) -> xmlrpc::Value {
     }
 }
 
+///Converts the SimulatorLoginOptions into an xmlrpc::Value
+///automatically removes empty options
 impl Into<xmlrpc::Value> for SimulatorLoginOptions {
     fn into(self) -> xmlrpc::Value {
         let mut options_vec = vec![
@@ -193,6 +196,8 @@ impl Into<xmlrpc::Value> for SimulatorLoginOptions {
     }
 }
 
+///Converts a SimulatorLoginProtocol into an xmlrpc::Value
+///automatically removes empty options
 impl Into<xmlrpc::Value> for SimulatorLoginProtocol {
     fn into(self) -> xmlrpc::Value {
         let mut login_vec = vec![
@@ -258,8 +263,4 @@ impl Into<xmlrpc::Value> for SimulatorLoginProtocol {
         login_vec.retain(|i| i.1 != xmlrpc::Value::Nil);
         xmlrpc::Value::Struct(login_vec.into_iter().collect())
     }
-}
-
-pub fn hello() -> i64 {
-    return 2 + 2;
 }
