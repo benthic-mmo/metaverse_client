@@ -96,8 +96,8 @@ pub fn build_struct_with_defaults(
         last,
         passwd,
         start,
-        channel: Some(env!("CARGO_PKG_NAME").to_string()),
-        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        channel: Some(env!("CARGO_CRATE_NAME").to_string()),
+        version: Some(env!("CARGO_PK_VERSION").to_string()),
         platform: Some(match env::consts::FAMILY {
             "mac" => "mac".to_string(),
             "win" => "win".to_string(),
