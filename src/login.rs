@@ -45,6 +45,7 @@ pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
 ///
 /// let url = "http://127.0.0.1:80";
 /// panic::catch_unwind(||login_with_defaults(
+///                         "login_test".to_string(),
 ///                         "first".to_string(),
 ///                         "last".to_string(),
 ///                         "password".to_string(),
@@ -54,6 +55,7 @@ pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
 ///                         url.to_string()));
 ///```
 pub fn login_with_defaults(
+    channel: String,
     first: String,
     last: String,
     passwd: String,
@@ -62,8 +64,15 @@ pub fn login_with_defaults(
     read_critical: bool,
     url: String,
 ) -> xmlrpc::Value {
-    let login_data =
-        build_struct_with_defaults(first, last, passwd, start, agree_to_tos, read_critical);
+    let login_data = build_struct_with_defaults(
+        channel,
+        first,
+        last,
+        passwd,
+        start,
+        agree_to_tos,
+        read_critical,
+    );
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
     req.call_url(&url).unwrap()
 }
@@ -74,6 +83,7 @@ pub fn login_with_defaults(
 ///use metaverse_login::login::{build_struct_with_defaults};
 ///
 ///let login_struct = build_struct_with_defaults(
+///         "channel".to_string(),
 ///         "first".to_string(),
 ///         "last".to_string(),
 ///         "passwd".to_string(),
@@ -84,6 +94,7 @@ pub fn login_with_defaults(
 ///```
 ///
 pub fn build_struct_with_defaults(
+    channel: String,
     first: String,
     last: String,
     passwd: String,
@@ -96,7 +107,7 @@ pub fn build_struct_with_defaults(
         last,
         passwd,
         start,
-        channel: Some(env!("CARGO_CRATE_NAME").to_string()),
+        channel: Some(channel.to_string()),
         version: Some(env!("CARGO_PKG_VERSION").to_string()),
         platform: Some(match env::consts::FAMILY {
             "mac" => "mac".to_string(),

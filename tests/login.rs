@@ -261,6 +261,7 @@ fn test_lib_osgrid_login_minimal() {
 #[test]
 fn test_lib_build_struct_with_defaults() {
     let default_struct = build_struct_with_defaults(
+        env!("CARGO_CRATE_NAME").to_string(),
         "first".to_string(),
         "last".to_string(),
         "passwd".to_string(),
@@ -300,6 +301,7 @@ fn test_lib_osgrid_login_defaults() {
 
     let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
     let login_response = login_with_defaults(
+        env!("CARGO_CRATE_NAME").to_string(),
         creds_firstname.clone(),
         creds_lastname.clone(),
         creds.get("passwd").unwrap().to_string(),
