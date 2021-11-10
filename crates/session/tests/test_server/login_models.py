@@ -8,39 +8,65 @@ class FriendRights(Enum):
 
 class classifiedCategory(object): 
     def __init__(self,
-            number= "None",
-            label=  "None"):
-        self.number = number, 
-        self.label = label
+            category_id= 1,
+            category_name=  "Shopping"):
+        self.category_id = category_id 
+        self.category_name = category_name
     def asdict(self):
-        return{number, label}
+        return{
+                "category_id": self.category_id,
+                "category_name": self.category_name}
 
 class buddy(object): 
     def __init__(self, 
-            buddy_id, 
-            buddy_rights_given= FriendRights.NONE, 
-            buddy_rights_has=   FriendRights.NONE): 
+            buddy_id = "04c259b7-94bc-4822-b099-745191ffc247", 
+            buddy_rights_given= 1, 
+            buddy_rights_has=   1): 
         self.buddy_id=             buddy_id 
         self.buddy_rights_given=   buddy_rights_given
         self.buddy_rights_has=     buddy_rights_has
+    def asdict(self):
+        return {
+            "buddy_id": self.buddy_id,
+            "buddy_rights_given": self.buddy_rights_given,
+            "buddy_rights_has": self.buddy_rights_has
+            }
 
 class gesture(object): 
     def __init__(self, 
-            item_id,
-            asset_id): 
+            item_id = "004d663b-9980-46ae-8559-bb60e9d67d28" ,
+            asset_id = "004d663b-9980-46ae-8559-bb60e9d67d28"): 
         self.item_id=   item_id 
         self.asset_id=  asset_id
+    def asdict(self): 
+        return{
+            "item_id": self.item_id,
+            "asset_id": self.asset_id,
+            }
+
+class initialOutfit(object): 
+    def __init__(self,
+            folder_name = "Nightclub Female",
+            gender= "female"): 
+        self.folder_name = folder_name
+        self.gender = gender
+    
+    def asdict(self): 
+        return {
+            "folder_name": self.folder_name, 
+            "gender" :self.gender
+                }
+
 
 class globalTexturesParams(object): 
     def __init__(self, 
-            cloud_texture_id=   "None", 
-            sun_texture_id=     "None", 
-            moon_texture_id=    "None"):
+            cloud_texture_id=   "dc4b9f0b-d008-45c6-96a4-01dd947ac621", 
+            sun_texture_id=     "cce0f112-878f-4586-a2e2-a8f104bba271", 
+            moon_texture_id=    "ec4b9f0b-d008-45c6-96a4-01dd947ac621"):
 
         self.cloud_texture_id=  cloud_texture_id
         self.sun_texture_id=    sun_texture_id
         self.moon_texture_id=   moon_texture_id
-
     def asdict(self): 
         return{
             "cloud_texture_id": self.cloud_texture_id,
@@ -50,11 +76,11 @@ class globalTexturesParams(object):
 
 class loginFlagsParams(object): 
     def __init__(self, 
-            stipend_since_login=    "None", 
-            ever_logged_in=         "None", 
-            seconds_since_epoch=   "None", 
-            daylight_savings=       "None", 
-            gendered=               "None"): 
+            stipend_since_login=    "N", 
+            ever_logged_in=         "N", 
+            seconds_since_epoch=    1411075065, 
+            daylight_savings=       "N", 
+            gendered=               "N"): 
         self.stipend_since_login=   stipend_since_login
         self.ever_logged_in=        ever_logged_in
         self.seconds_since_epoch=   seconds_since_epoch
@@ -71,7 +97,7 @@ class loginFlagsParams(object):
 
 class uiConfigParams(object):
     def __init__(self, 
-            allow_first_life= "None"):
+            allow_first_life= "Y"):
         self.allow_first_life = allow_first_life
 
     def asdict(self):
@@ -79,14 +105,14 @@ class uiConfigParams(object):
 
 class homeParams(object): 
     def __init__(self, 
-            x_grid_coord            ="None", 
-            y_grid_coord            ="None", 
-            x_region_coord          ="None", 
-            y_region_coord          ="None",
-            z_region_coord          ="None", 
-            x_coord                 ="None", 
-            y_coord                 ="None", 
-            z_coord                 ="None"): 
+            x_grid_coord            ="0", 
+            y_grid_coord            ="0", 
+            x_region_coord          ="0", 
+            y_region_coord          ="0",
+            z_region_coord          ="0", 
+            x_coord                 ="0", 
+            y_coord                 ="0", 
+            z_coord                 ="0"): 
         self.x_grid_coord=      "r" + x_grid_coord
         self.y_grid_coord=      "r" + y_grid_coord
         self.x_region_coord=    "r" + x_region_coord 
@@ -105,9 +131,9 @@ class homeParams(object):
 
 class lookAtParams(object): 
     def __init__(self, 
-            x = "None", 
-            y = "None",
-            z = "None"):
+            x = "0", 
+            y = "0",
+            z = "0"):
 
         self.x = "r" + x 
         self.y = "r" + y 
@@ -115,13 +141,23 @@ class lookAtParams(object):
     def aslist(self): 
         return[self.x, self.y, self.z]
 
+class inventoryRootParams(object): 
+    def __init__(self, 
+            folder_id= "37c4cfe3-ea39-4ef7-bda3-bee73bd46d95"): 
+        self.folder_id=     folder_id
+    def asdict(self): 
+        return{
+            "folder_id": self.folder_id,
+                }
+
+
 class inventorySkeletonParams(object): 
     def __init__(self, 
-            folder_id       ="None",
-            parent_id       ="None",
-            name            ="None", 
-            type_default    ="None",
-            version         ="None"): 
+            folder_id       ="004d663b-9980-46ae-8559-bb60e9d67d28",
+            parent_id       ="5cb09cb9-5080-4bf4-8ba0-86b6197fcc74",
+            name            ="Camera Test", 
+            type_default    =-1,
+            version         =2): 
         self.folder_id=     folder_id 
         self.parent_id=     parent_id 
         self.name=          name 
@@ -136,44 +172,52 @@ class inventorySkeletonParams(object):
                 "version":      self.version
                 }
 
+class inventoryLibOwner(object): 
+    def __init__(self, 
+            agent_id = "11111111-1111-0000-0000-000100bba000"):
+        self.agent_id = agent_id
+    def asdict(self):
+        return{
+            "agent_id": self.agent_id
+                }
 
 class loginResponse(object): 
     def __init__(self,
             home                    =homeParams().asdict(), 
             look_at                 =lookAtParams().aslist(), 
-            agent_access            ="None", 
-            agent_access_max        ="None",
-            seed_capability         ="None",
-            first_name              ="None", 
-            last_name               ="None",
-            agent_id                ="None",
-            sim_ip                  ="None",
-            sim_port                ="None",
-            http_port               ="None",
-            start_location          ="None",
-            region_x                ="None", 
-            region_y                ="None",
-            region_size_x           ="None",
-            region_size_y           ="None",
-            circuit_code            ="None",
-            session_id              ="None",
-            secure_session_id       ="None",
-            inventory_root          ="None",
-            inventory_skeleton      =inventorySkeletonParams().asdict(),
-            inventory_lib_root      ="None",
-            inventory_skel_lib      ="None", 
-            inventory_lib_owner     ="None", 
-            map_server_url          ="None", 
-            buddy_list              =[],
-            gestures                =[],
-            initial_outfit          ="None",
+            agent_access            ="M", 
+            agent_access_max        ="A",
+            seed_capability         ="http://192.168.1.2:9000",
+            first_name              ="First", 
+            last_name               ="Last",
+            agent_id                ="11111111-1111-0000-0000-000100bba000",
+            sim_ip                  ="192.168.1.2",
+            sim_port                =9000,
+            http_port               =0,
+            start_location          ="last",
+            region_x                =256000, 
+            region_y                =256000,
+            region_size_x           =256,
+            region_size_y           =256,
+            circuit_code            =697482820,
+            session_id              ="6ac2e761-f490-4122-bf6c-7ad8fbb17002",
+            secure_session_id       ="fe210274-9056-467a-aff7-d95f60bacccc",
+            inventory_root          =inventoryRootParams().asdict(),
+            inventory_skeleton      =[inventorySkeletonParams().asdict(), inventorySkeletonParams().asdict()],
+            inventory_lib_root      =inventoryRootParams().asdict(),
+            inventory_skel_lib      =[inventorySkeletonParams().asdict(), inventorySkeletonParams().asdict()], 
+            inventory_lib_owner     =inventoryLibOwner().asdict(), 
+            map_server_url          ="http://192.168.1.2:8002/", 
+            buddy_list              =[buddy().asdict(), buddy().asdict(), buddy().asdict()],
+            gestures                =[gesture().asdict(), gesture().asdict()],
+            initial_outfit          =initialOutfit().asdict(),
             global_textures         =globalTexturesParams().asdict(),
-            login                   ="None", 
+            login                   ="true", 
             login_flags             =loginFlagsParams().asdict(),
-            message                 ="None",
+            message                 ="Welcome, Avatar!",
             ui_config               =uiConfigParams().asdict(),
-            event_categories        ="None",
-            classified_categories   =[]
+            event_categories        =[],
+            classified_categories   =[classifiedCategory().asdict(), classifiedCategory().asdict()]
             ):
         self.home=                  home
         self.look_at=               look_at 
@@ -245,6 +289,6 @@ class loginResponse(object):
                 "message":                  self.message, 
                 "ui-config":                self.ui_config, 
                 "event_categories":         self.event_categories,
-                "classified_categoories":   self.classified_categories 
+                "classified_categories":   self.classified_categories, 
                }
     

@@ -1,4 +1,5 @@
 use metaverse_login::login::{build_struct_with_defaults, login_with_defaults};
+use metaverse_session::models::session_data::AgentAccess;
 use metaverse_session::session::new_session;
 
 use std::collections::HashMap;
@@ -33,7 +34,7 @@ fn test_mock_session() {
         }
     }
 
-    let _login_response = login_with_defaults(
+    let login_response = login_with_defaults(
         env!("CARGO_CRATE_NAME").to_string(),
         "first".to_string(),
         "last".to_string(),
@@ -42,6 +43,106 @@ fn test_mock_session() {
         true,
         true,
         build_test_url(PYTHON_URL, PYTHON_PORT),
+    );
+
+    let session = new_session(login_response).unwrap();
+    assert_eq!(
+        session.home.unwrap().region_handle,
+        ("r0".to_string(), "r0".to_string())
+    );
+    assert_eq!(
+        session.look_at,
+        Some(("r0".to_string(), "r0".to_string(), "r0".to_string()))
+    );
+    assert_eq!(session.agent_access, Some(AgentAccess::Mature));
+    assert_eq!(session.agent_access_max, Some(AgentAccess::Adult));
+    assert_eq!(
+        session.seed_capability,
+        Some("http://192.168.1.2:9000".to_string())
+    );
+    assert_eq!(session.first_name, Some("First".to_string()));
+    assert_eq!(session.last_name, Some("Last".to_string()));
+    assert_eq!(
+        session.agent_id,
+        Some("11111111-1111-0000-0000-000100bba000".to_string())
+    );
+    assert_eq!(session.sim_ip, Some("192.168.1.2".to_string()));
+    assert_eq!(session.sim_port, Some(9000));
+    assert_eq!(session.http_port, Some(0));
+    assert_eq!(session.start_location, Some("last".to_string()));
+    assert_eq!(session.region_x, Some(256000));
+    assert_eq!(session.region_y, Some(256000));
+    assert_eq!(session.circuit_code, Some(697482820));
+    assert_eq!(
+        session.session_id,
+        Some("6ac2e761-f490-4122-bf6c-7ad8fbb17002".to_string())
+    );
+    assert_eq!(
+        session.secure_session_id,
+        Some("fe210274-9056-467a-aff7-d95f60bacccc".to_string())
+    );
+    assert_eq!(
+        session.inventory_root.unwrap().folder_id,
+        "37c4cfe3-ea39-4ef7-bda3-bee73bd46d95".to_string()
+    );
+    let inv_skel = session.inventory_skeleton.unwrap();
+    assert_eq!(inv_skel.len(), 2);
+    assert_eq!(
+        inv_skel[0].folder_id,
+        "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
+    );
+    assert_eq!(
+        session.inventory_lib_root.unwrap().folder_id,
+        "37c4cfe3-ea39-4ef7-bda3-bee73bd46d95".to_string()
+    );
+    let inv_skel_lib = session.inventory_skeleton_lib.unwrap();
+    assert_eq!(inv_skel_lib.len(), 2);
+    assert_eq!(
+        inv_skel_lib[0].folder_id,
+        "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
+    );
+    assert_eq!(
+        session.inventory_lib_owner.unwrap().agent_id,
+        "11111111-1111-0000-0000-000100bba000".to_string()
+    );
+    assert_eq!(
+        session.map_server_url,
+        Some("http://192.168.1.2:8002/".to_string())
+    );
+
+    let buddy_list = session.buddy_list.unwrap();
+    assert_eq!(buddy_list.len(), 3);
+    assert_eq!(
+        buddy_list[0].buddy_id,
+        "04c259b7-94bc-4822-b099-745191ffc247".to_string()
+    );
+    assert_eq!(buddy_list[0].buddy_rights_given.can_see_online, true);
+
+    let gesture_list = session.gestures.unwrap();
+    assert_eq!(gesture_list.len(), 2);
+    assert_eq!(
+        gesture_list[0].item_id,
+        "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
+    );
+    assert_eq!(
+        gesture_list[0].asset_id,
+        "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
+    );
+    assert_eq!(
+        session.initial_outfit.unwrap().folder_name,
+        "Nightclub Female".to_string()
+    );
+    assert_eq!(
+        session.global_textures.unwrap().sun_texture_id,
+        "cce0f112-878f-4586-a2e2-a8f104bba271".to_string()
+    );
+    assert_eq!(session.login.unwrap(), true);
+    assert_eq!(session.login_flags.unwrap().seconds_since_epoch, 1411075065);
+    assert_eq!(session.message.unwrap(), "Welcome, Avatar!".to_string());
+    assert_eq!(session.ui_config.unwrap().allow_first_life, true);
+    assert_eq!(
+        session.classified_categories.unwrap()[0].category_name,
+        "Shopping".to_string()
     );
 
     match reaper.0.try_wait().unwrap() {
@@ -92,11 +193,7 @@ fn test_lib_auth() {
     );
     let verify = panic::catch_unwind(|| {
         let session = new_session(login_response).unwrap();
-        assert_eq!(session.sim_ip, Some("".to_string()));
-        assert_eq!(
-            session.first_name,
-            Some(creds.get("first").unwrap().to_string())
-        );
+        assert_eq!(session.agent_access, Some(AgentAccess::Mature));
     });
     if verify.is_err() {
         assert_eq!(
