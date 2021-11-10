@@ -1,19 +1,11 @@
-[package]
-name = "metaverse_login"
-version = "0.0.1"
-authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
-description = "login utility for accessing the metaverse"
-edition = "2018"
-license = "AGPL-3.0-or-later"
+[workspace]
+members = [
+	"crates/login", 
+	"crates/session",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-xmlrpc = "0.15.1"
-lazy_static = "1.4.0"
-config = "0.11"
-sys-info = "0.9.1"
-mac_address = "1.1.2"
 
 [patch.crates-io]
+# needed in order to accept data from osgrid servers
 xmlrpc = {git = "https://github.com/unnamed-mmo/xml-rpc-rs"}
+
