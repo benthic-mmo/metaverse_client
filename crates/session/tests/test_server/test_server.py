@@ -14,7 +14,7 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
 
 with SimpleXMLRPCServer((HOST, PORT), requestHandler = RequestHandler) as server: 
     def login_to_simulator(xmlData): 
-        response = login_models.loginResponse()
+        response = login_models.loginResponse().asdict()
         return response 
     server.register_function(login_to_simulator)
 
