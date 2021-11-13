@@ -82,7 +82,7 @@ fn test_mock_session() {
         Some("fe210274-9056-467a-aff7-d95f60bacccc".to_string())
     );
     assert_eq!(
-        session.inventory_root.unwrap().folder_id,
+        session.inventory_root.unwrap()[0].folder_id,
         "37c4cfe3-ea39-4ef7-bda3-bee73bd46d95".to_string()
     );
     let inv_skel = session.inventory_skeleton.unwrap();
@@ -92,7 +92,7 @@ fn test_mock_session() {
         "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
     );
     assert_eq!(
-        session.inventory_lib_root.unwrap().folder_id,
+        session.inventory_lib_root.unwrap()[0].folder_id,
         "37c4cfe3-ea39-4ef7-bda3-bee73bd46d95".to_string()
     );
     let inv_skel_lib = session.inventory_skeleton_lib.unwrap();
@@ -102,7 +102,7 @@ fn test_mock_session() {
         "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
     );
     assert_eq!(
-        session.inventory_lib_owner.unwrap().agent_id,
+        session.inventory_lib_owner.unwrap()[0].agent_id,
         "11111111-1111-0000-0000-000100bba000".to_string()
     );
     assert_eq!(
@@ -129,17 +129,20 @@ fn test_mock_session() {
         "004d663b-9980-46ae-8559-bb60e9d67d28".to_string()
     );
     assert_eq!(
-        session.initial_outfit.unwrap().folder_name,
+        session.initial_outfit.unwrap()[0].folder_name,
         "Nightclub Female".to_string()
     );
     assert_eq!(
-        session.global_textures.unwrap().sun_texture_id,
+        session.global_textures.unwrap()[0].sun_texture_id,
         "cce0f112-878f-4586-a2e2-a8f104bba271".to_string()
     );
     assert_eq!(session.login.unwrap(), true);
-    assert_eq!(session.login_flags.unwrap().seconds_since_epoch, 1411075065);
+    assert_eq!(
+        session.login_flags.unwrap()[0].seconds_since_epoch,
+        Some(1411075065)
+    );
     assert_eq!(session.message.unwrap(), "Welcome, Avatar!".to_string());
-    assert_eq!(session.ui_config.unwrap().allow_first_life, true);
+    assert_eq!(session.ui_config.unwrap()[0].allow_first_life, true);
     assert_eq!(
         session.classified_categories.unwrap()[0].category_name,
         "Shopping".to_string()
@@ -193,7 +196,8 @@ fn test_lib_auth() {
     );
     let verify = panic::catch_unwind(|| {
         let session = new_session(login_response).unwrap();
-        assert_eq!(session.agent_access, Some(AgentAccess::Mature));
+
+        assert_eq!(session.login.unwrap(), true);
     });
     if verify.is_err() {
         assert_eq!(

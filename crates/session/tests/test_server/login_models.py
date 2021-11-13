@@ -123,11 +123,7 @@ class homeParams(object):
         self.z_coord=           "r" + z_coord 
 
     def asdict(self): 
-        return{
-                "region_handle" :[self.x_grid_coord, self.y_grid_coord],
-                "position"      :[self.x_region_coord, self.y_region_coord, self.z_region_coord],
-                "look_at"       :[self.x_coord, self.y_coord, self.z_coord]
-                }
+        return "{'region_handle' :[" + self.x_grid_coord + "," + self.y_grid_coord + "], 'position':[" + self.x_region_coord + "," + self.y_region_coord + "," + self.z_region_coord + "], 'look_at' :[" + self.x_coord + "," + self.y_coord+ "," +  self.z_coord + "]}"
 
 class lookAtParams(object): 
     def __init__(self, 
@@ -202,20 +198,20 @@ class loginResponse(object):
             circuit_code            =697482820,
             session_id              ="6ac2e761-f490-4122-bf6c-7ad8fbb17002",
             secure_session_id       ="fe210274-9056-467a-aff7-d95f60bacccc",
-            inventory_root          =inventoryRootParams().asdict(),
+            inventory_root          =[inventoryRootParams().asdict()],
             inventory_skeleton      =[inventorySkeletonParams().asdict(), inventorySkeletonParams().asdict()],
-            inventory_lib_root      =inventoryRootParams().asdict(),
+            inventory_lib_root      =[inventoryRootParams().asdict()],
             inventory_skel_lib      =[inventorySkeletonParams().asdict(), inventorySkeletonParams().asdict()], 
-            inventory_lib_owner     =inventoryLibOwner().asdict(), 
+            inventory_lib_owner     =[inventoryLibOwner().asdict()], 
             map_server_url          ="http://192.168.1.2:8002/", 
             buddy_list              =[buddy().asdict(), buddy().asdict(), buddy().asdict()],
             gestures                =[gesture().asdict(), gesture().asdict()],
-            initial_outfit          =initialOutfit().asdict(),
-            global_textures         =globalTexturesParams().asdict(),
+            initial_outfit          =[initialOutfit().asdict()],
+            global_textures         =[globalTexturesParams().asdict()],
             login                   ="true", 
-            login_flags             =loginFlagsParams().asdict(),
+            login_flags             =[loginFlagsParams().asdict()],
             message                 ="Welcome, Avatar!",
-            ui_config               =uiConfigParams().asdict(),
+            ui_config               =[uiConfigParams().asdict()],
             event_categories        =[],
             classified_categories   =[classifiedCategory().asdict(), classifiedCategory().asdict()]
             ):
