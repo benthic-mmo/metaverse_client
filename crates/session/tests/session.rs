@@ -1,4 +1,5 @@
 use metaverse_login::login::{build_struct_with_defaults, login_with_defaults};
+use metaverse_session::models::errors::Reason;
 use metaverse_session::models::session_data::AgentAccess;
 use metaverse_session::session::new_session;
 
@@ -13,8 +14,8 @@ const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &'static str = "http://127.0.0.1";
 const OSGRID_PORT: u16 = 80;
 const OSGRID_URL: &'static str = "http://login.osgrid.org";
-const METRO_PORT: u16 = 80;
-const METRO_URL: &'static str = "http://login.metro.land";
+const THIRDROCK_PORT: u16 = 8002;
+const THIRDROCK_URL: &'static str = "http://grid.3rdrockgrid.com";
 
 struct Reap(Child);
 impl Drop for Reap {
@@ -177,6 +178,35 @@ fn test_lib_channel() {
 }
 
 #[test]
+fn test_lib_fail_auth_osgrid() {
+    let creds = match read_creds() {
+        Some(x) => x,
+        None => {
+            println!("test skipped, no creds file");
+            return;
+        }
+    };
+
+    let login_response = login_with_defaults(
+        env!("CARGO_CRATE_NAME").to_string(),
+        creds.get("osgridfirst").unwrap().to_string(),
+        creds.get("osgridlast").unwrap().to_string(),
+        "incorrectpass".to_string(),
+        creds.get("osgridstart").unwrap().to_string(),
+        true,
+        true,
+        build_test_url(OSGRID_URL, OSGRID_PORT),
+    );
+    let session = new_session(login_response);
+    match session {
+        Ok(v) => assert_eq!(v.login, Some(true)),
+        Err(e) => {
+            assert_eq!(e.reason, Reason::Key)
+        }
+    }
+}
+
+#[test]
 fn test_lib_auth_osgrid() {
     let creds = match read_creds() {
         Some(x) => x,
@@ -188,30 +218,25 @@ fn test_lib_auth_osgrid() {
 
     let login_response = login_with_defaults(
         env!("CARGO_CRATE_NAME").to_string(),
-        creds.get("first").unwrap().to_string(),
-        creds.get("last").unwrap().to_string(),
-        creds.get("passwd").unwrap().to_string(),
-        creds.get("start").unwrap().to_string(),
+        creds.get("osgridfirst").unwrap().to_string(),
+        creds.get("osgridlast").unwrap().to_string(),
+        creds.get("osgridpasswd").unwrap().to_string(),
+        creds.get("osgridstart").unwrap().to_string(),
         true,
         true,
         build_test_url(OSGRID_URL, OSGRID_PORT),
     );
-    let verify = panic::catch_unwind(|| {
-        let session = new_session(login_response).unwrap();
-
-        assert_eq!(session.login.unwrap(), true);
-    });
-    if verify.is_err() {
-        assert_eq!(
-            "login likely failed due to being already logged in. Wait a bit",
-            ""
-        );
-        // TODO:verify custom error is thrown
+    let session = new_session(login_response);
+    match session {
+        Ok(v) => assert_eq!(v.login, Some(true)),
+        Err(e) => {
+            assert_eq!(e.reason, Reason::Presence)
+        }
     }
 }
 
 #[test]
-fn test_lib_auth_metropolis() {
+fn test_lib_auth_3rdrock() {
     let creds = match read_creds() {
         Some(x) => x,
         None => {
@@ -222,26 +247,20 @@ fn test_lib_auth_metropolis() {
 
     let login_response = login_with_defaults(
         env!("CARGO_CRATE_NAME").to_string(),
-        creds.get("metrofirst").unwrap().to_string(),
-        creds.get("metrolast").unwrap().to_string(),
-        creds.get("metropasswd").unwrap().to_string(),
-        creds.get("metrostart").unwrap().to_string(),
+        creds.get("3rdrockfirst").unwrap().to_string(),
+        creds.get("3rdrocklast").unwrap().to_string(),
+        creds.get("3rdrockpasswd").unwrap().to_string(),
+        creds.get("3rdrockstart").unwrap().to_string(),
         true,
         true,
-        build_test_url(METRO_URL, METRO_PORT),
+        build_test_url(THIRDROCK_URL, THIRDROCK_PORT),
     );
-    println!("{:?}", login_response);
-    let verify = panic::catch_unwind(|| {
-        let session = new_session(login_response).unwrap();
-
-        assert_eq!(session.login.unwrap(), true);
-    });
-    if verify.is_err() {
-        assert_eq!(
-            "login likely failed due to being already logged in. Wait a bit",
-            ""
-        );
-        // TODO:verify custom error is thrown
+    let session = new_session(login_response);
+    match session {
+        Ok(v) => assert_eq!(v.login, Some(true)),
+        Err(e) => {
+            assert_eq!(e.reason, Reason::Presence)
+        }
     }
 }
 fn read_creds() -> Option<HashMap<String, String>> {
