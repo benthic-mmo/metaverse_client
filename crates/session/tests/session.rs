@@ -13,6 +13,8 @@ const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &'static str = "http://127.0.0.1";
 const OSGRID_PORT: u16 = 80;
 const OSGRID_URL: &'static str = "http://login.osgrid.org";
+const METRO_PORT: u16 = 80;
+const METRO_URL: &'static str = "http://login.metro.land";
 
 struct Reap(Child);
 impl Drop for Reap {
@@ -175,7 +177,7 @@ fn test_lib_channel() {
 }
 
 #[test]
-fn test_lib_auth() {
+fn test_lib_auth_osgrid() {
     let creds = match read_creds() {
         Some(x) => x,
         None => {
@@ -208,6 +210,40 @@ fn test_lib_auth() {
     }
 }
 
+#[test]
+fn test_lib_auth_metropolis() {
+    let creds = match read_creds() {
+        Some(x) => x,
+        None => {
+            println!("test skipped, no creds file");
+            return;
+        }
+    };
+
+    let login_response = login_with_defaults(
+        env!("CARGO_CRATE_NAME").to_string(),
+        creds.get("metrofirst").unwrap().to_string(),
+        creds.get("metrolast").unwrap().to_string(),
+        creds.get("metropasswd").unwrap().to_string(),
+        creds.get("metrostart").unwrap().to_string(),
+        true,
+        true,
+        build_test_url(METRO_URL, METRO_PORT),
+    );
+    println!("{:?}", login_response);
+    let verify = panic::catch_unwind(|| {
+        let session = new_session(login_response).unwrap();
+
+        assert_eq!(session.login.unwrap(), true);
+    });
+    if verify.is_err() {
+        assert_eq!(
+            "login likely failed due to being already logged in. Wait a bit",
+            ""
+        );
+        // TODO:verify custom error is thrown
+    }
+}
 fn read_creds() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
     match settings.merge(config::File::with_name(".creds")) {
