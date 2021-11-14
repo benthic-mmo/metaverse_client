@@ -329,6 +329,7 @@ fn read_creds() -> Option<HashMap<String, String>> {
 }
 
 fn validate_grid_response(login_response: xmlrpc::Value, firstname: String, lastname: String) {
+    println!("{:?}", login_response);
     let verify = panic::catch_unwind(|| {
         assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
         assert_eq!(login_response["first_name"], xmlrpc::Value::from(firstname));

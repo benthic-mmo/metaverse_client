@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_login"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "login utility for accessing the metaverse"
 edition = "2018"
@@ -14,4 +14,4 @@ lazy_static = "1.4.0"
 config = "0.11"
 sys-info = "0.9.1"
 mac_address = "1.1.2"
-
+md-5 = "0.9.1"

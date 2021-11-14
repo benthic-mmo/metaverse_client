@@ -1,5 +1,9 @@
 use crate::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use md5;
+use md5::Digest;
 use std::env;
+
+use std::io::Read;
 
 extern crate mac_address;
 extern crate sys_info;
@@ -105,7 +109,7 @@ pub fn build_struct_with_defaults(
     SimulatorLoginProtocol {
         first,
         last,
-        passwd,
+        passwd: hash_passwd(passwd),
         start,
         channel: Some(channel.to_string()),
         version: Some(env!("CARGO_PKG_VERSION").to_string()),
@@ -115,6 +119,7 @@ pub fn build_struct_with_defaults(
             "unix" => "lin".to_string(),
             _ => "lin".to_string(),
         }),
+        viewer_digest: Some(hash_viewer_digest()),
         platform_string: Some(sys_info::os_release().unwrap()),
         platform_version: Some(sys_info::os_release().unwrap()),
         mac: Some(mac_address::get_mac_address().unwrap().unwrap().to_string()),
@@ -122,6 +127,24 @@ pub fn build_struct_with_defaults(
         read_critical: Some(read_critical),
         ..SimulatorLoginProtocol::default()
     }
+}
+
+/// md5 hashes the password
+fn hash_passwd(passwd_raw: String) -> String {
+    let mut hasher = md5::Md5::new();
+    hasher.update(passwd_raw);
+    let data = format!("$1${:x}", hasher.finalize());
+    return data;
+}
+
+/// Creates the viewer digest, a fingerprint of the viewer executable
+fn hash_viewer_digest() -> String {
+    let mut f = std::fs::File::open(&std::env::args().next().unwrap()).unwrap();
+    let mut byt = Vec::new();
+    f.read_to_end(&mut byt).unwrap();
+    let hash = md5::Md5::new().chain(&byt).finalize();
+    let s = format!("{:x}", hash);
+    return s;
 }
 
 ///Generates a SimulatorLoginProtocol from explicitly defined values
