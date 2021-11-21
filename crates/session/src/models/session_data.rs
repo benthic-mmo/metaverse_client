@@ -1,3 +1,5 @@
+use std::net::{SocketAddr, ToSocketAddrs};
+
 #[derive(Clone, Default)]
 pub struct Session {
     pub home: Option<HomeValues>, // the home location of the user
@@ -14,8 +16,9 @@ pub struct Session {
     pub last_name: Option<String>,       // The last name of the user
     pub agent_id: Option<String>,        // The id of the user
     pub sim_ip: Option<String>,          // The ip used to communicate with the recieving simulator
-    pub sim_port: Option<i64>, // The UDP port used to communicate with the receiving simulator
-    pub http_port: Option<i64>, // function unknown. Always set to 0 by OpenSimulator
+    pub sim_port: Option<u16>, // The UDP port used to communicate with the receiving simulator
+    pub sim_socket_address: Option<SocketAddr>,
+    pub http_port: Option<u16>, // function unknown. Always set to 0 by OpenSimulator
     pub start_location: Option<String>, // The location where the user starts on login. "last", "home" or region location
     pub region_x: Option<i64>,          //The x grid coordinate of the start region in meters.
     // so a region at map co-ordinate 1000 will have a grid co-ordinate of 256000.
@@ -67,6 +70,16 @@ macro_rules! i64_val {
         match $val.as_i64() {
             None => None,
             Some(x) => Some(x),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! u16_val {
+    ($val:expr) => {
+        match $val.as_i64() {
+            None => None,
+            Some(x) => Some((x as u16).into()),
         }
     };
 }
@@ -499,6 +512,9 @@ impl Into<HomeValues> for xmlrpc::Value {
 
 impl Into<Session> for xmlrpc::Value {
     fn into(self) -> Session {
+        let sim_port: Option<u16> = u16_val!(self["sim_port"]);
+        let http_port: Option<u16> = u16_val!(self["http_port"]);
+        let sim_ip: Option<String> = str_val!(self["sim_ip"]);
         Session {
             home: Some(self["home"].clone().into()),
             look_at: string_3tuple(self["look_at"].clone()),
@@ -508,9 +524,13 @@ impl Into<Session> for xmlrpc::Value {
             first_name: str_val!(self["first_name"]),
             last_name: str_val!(self["last_name"]),
             agent_id: str_val!(self["agent_id"]),
-            sim_ip: str_val!(self["sim_ip"]),
-            sim_port: i64_val!(self["sim_port"]),
-            http_port: i64_val!(self["http_port"]),
+            sim_ip: sim_ip.clone(),
+            sim_port: sim_port.clone(),
+            http_port: http_port.clone(),
+            sim_socket_address: (sim_ip.unwrap() + ":" + &sim_port.unwrap().to_string())
+                .to_socket_addrs()
+                .unwrap()
+                .next(),
             start_location: str_val!(self["start_location"]),
             region_x: i64_val!(self["region_x"]),
             region_y: i64_val!(self["region_y"]),

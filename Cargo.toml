@@ -8,4 +8,3 @@ members = [
 [patch.crates-io]
 # needed in order to accept data from osgrid servers
 xmlrpc = {git = "https://github.com/unnamed-mmo/xml-rpc-rs"}
-
