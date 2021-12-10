@@ -2,6 +2,7 @@
 members = [
 	"crates/login", 
 	"crates/session",
+	"crates/messages"
 ]
 
 

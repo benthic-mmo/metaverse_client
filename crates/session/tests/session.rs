@@ -1,7 +1,7 @@
 use metaverse_login::login::{build_struct_with_defaults, login_with_defaults};
 use metaverse_session::models::errors::Reason;
 use metaverse_session::models::session_data::AgentAccess;
-use metaverse_session::session::new_session;
+use metaverse_session::session::{connect, new_session};
 
 use std::collections::HashMap;
 use std::net::TcpStream;
@@ -9,6 +9,7 @@ use std::panic;
 use std::process::{Child, Command};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use uuid::Uuid;
 
 const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &'static str = "http://127.0.0.1";
@@ -67,7 +68,7 @@ fn test_mock_session() {
     assert_eq!(session.last_name, Some("Last".to_string()));
     assert_eq!(
         session.agent_id,
-        Some("11111111-1111-0000-0000-000100bba000".to_string())
+        Some(Uuid::parse_str("11111111-1111-0000-0000-000100bba000").unwrap())
     );
     assert_eq!(session.sim_ip, Some("192.168.1.2".to_string()));
     assert_eq!(session.sim_port, Some(9000));
@@ -78,11 +79,11 @@ fn test_mock_session() {
     assert_eq!(session.circuit_code, Some(697482820));
     assert_eq!(
         session.session_id,
-        Some("6ac2e761-f490-4122-bf6c-7ad8fbb17002".to_string())
+        Some(Uuid::parse_str(&"6ac2e761-f490-4122-bf6c-7ad8fbb17002").unwrap())
     );
     assert_eq!(
         session.secure_session_id,
-        Some("fe210274-9056-467a-aff7-d95f60bacccc".to_string())
+        Some(Uuid::parse_str(&"fe210274-9056-467a-aff7-d95f60bacccc".to_string()).unwrap())
     );
     assert_eq!(
         session.inventory_root.unwrap()[0].folder_id,
@@ -106,7 +107,7 @@ fn test_mock_session() {
     );
     assert_eq!(
         session.inventory_lib_owner.unwrap()[0].agent_id,
-        "11111111-1111-0000-0000-000100bba000".to_string()
+        ("11111111-1111-0000-0000-000100bba000").to_string()
     );
     assert_eq!(
         session.map_server_url,
@@ -263,6 +264,31 @@ fn test_lib_auth_3rdrock() {
         }
     }
 }
+
+#[test]
+fn establish_conn() {
+    let creds = match read_creds() {
+        Some(x) => x,
+        None => {
+            println!("test skipped, no creds file");
+            return;
+        }
+    };
+
+    let login_response = login_with_defaults(
+        env!("CARGO_CRATE_NAME").to_string(),
+        creds.get("osgridfirst").unwrap().to_string(),
+        creds.get("osgridlast").unwrap().to_string(),
+        creds.get("osgridpasswd").unwrap().to_string(),
+        creds.get("osgridstart").unwrap().to_string(),
+        true,
+        true,
+        build_test_url(OSGRID_URL, OSGRID_PORT),
+    );
+    let session = new_session(login_response);
+    tokio_test::block_on(connect(session.unwrap())).unwrap();
+}
+
 fn read_creds() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
     match settings.merge(config::File::with_name(".creds")) {
