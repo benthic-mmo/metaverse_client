@@ -1,0 +1,8 @@
+[package]
+name = "metaverse_messages"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+byte = "0.2.6"
+uuid = "0.4"

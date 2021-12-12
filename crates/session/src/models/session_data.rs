@@ -1,4 +1,6 @@
-#[derive(Clone, Default)]
+use uuid::Uuid;
+
+#[derive(Clone, Default, Debug)]
 pub struct Session {
     pub home: Option<HomeValues>, // the home location of the user
     pub look_at: Option<(String, String, String)>, // the direction the avatar should be facing
@@ -12,10 +14,10 @@ pub struct Session {
     pub seed_capability: Option<String>, // The URL that the viewer should use to request further capabilities
     pub first_name: Option<String>,      // The first name of the user
     pub last_name: Option<String>,       // The last name of the user
-    pub agent_id: Option<String>,        // The id of the user
+    pub agent_id: Option<Uuid>,          // The id of the user
     pub sim_ip: Option<String>,          // The ip used to communicate with the recieving simulator
-    pub sim_port: Option<i64>, // The UDP port used to communicate with the receiving simulator
-    pub http_port: Option<i64>, // function unknown. Always set to 0 by OpenSimulator
+    pub sim_port: Option<u16>, // The UDP port used to communicate with the receiving simulator
+    pub http_port: Option<u16>, // function unknown. Always set to 0 by OpenSimulator
     pub start_location: Option<String>, // The location where the user starts on login. "last", "home" or region location
     pub region_x: Option<i64>,          //The x grid coordinate of the start region in meters.
     // so a region at map co-ordinate 1000 will have a grid co-ordinate of 256000.
@@ -24,9 +26,9 @@ pub struct Session {
     // usually will be 236 but with a varregion this can be a multiple
     // of 256
     pub region_size_y: Option<i64>,
-    pub circuit_code: Option<i64>, // Circuit code to use for all UDP connections
-    pub session_id: Option<String>, //UUID of this session
-    pub secure_session_id: Option<String>, //the secure UUID of this session
+    pub circuit_code: Option<u32>, // Circuit code to use for all UDP connections
+    pub session_id: Option<Uuid>,  //UUID of this session
+    pub secure_session_id: Option<Uuid>, //the secure UUID of this session
     pub inventory_root: Option<Vec<InventoryRootValues>>, // the ID of the user's root folder
     pub inventory_skeleton: Option<Vec<InventorySkeletonValues>>, // details about the child folders of the root folder.
     pub inventory_lib_root: Option<Vec<InventoryRootValues>>, // the ID of the library root folder
@@ -52,6 +54,16 @@ pub struct Session {
 }
 
 #[macro_export]
+macro_rules! uuid_val {
+    ($val:expr) => {
+        match $val.as_str() {
+            None => None,
+            Some(x) => Some(Uuid::parse_str(&x.to_string()).unwrap()),
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! str_val {
     ($val:expr) => {
         match $val.as_str() {
@@ -72,6 +84,26 @@ macro_rules! i64_val {
 }
 
 #[macro_export]
+macro_rules! u32_val {
+    ($val:expr) => {
+        match $val.as_i64() {
+            None => None,
+            Some(x) => Some(x.try_into().unwrap()),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! u16_val {
+    ($val:expr) => {
+        match $val.as_i64() {
+            None => None,
+            Some(x) => Some((x as u16).into()),
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! bool_val {
     ($val: expr) => {
         match $val.as_str().unwrap() {
@@ -81,28 +113,29 @@ macro_rules! bool_val {
         }
     };
 }
-#[derive(Clone)]
+
+#[derive(Clone, Debug)]
 pub struct AgentID {
     pub agent_id: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InventoryRootValues {
     pub folder_id: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClassifiedCategoriesValues {
     pub category_id: i32,
     pub category_name: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UiConfig {
     pub allow_first_life: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LoginFlags {
     pub stipend_since_login: String, // stipend money recieved since last login
     pub ever_logged_in: bool,        // if the account has ever logged in
@@ -112,33 +145,33 @@ pub struct LoginFlags {
     pub gendered: bool,         // mysterious!
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GlobalTextures {
     pub cloud_texture_id: String,
     pub sun_texture_id: String,
     pub moon_texture_id: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InitialOutfit {
     pub folder_name: String,
     pub gender: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GesturesValues {
     pub item_id: String,  // the item ID of the gesture in the user's inventory
     pub asset_id: String, // the asset ID of the gesture
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BuddyListValues {
     pub buddy_id: String,                  //the UUID of the friend
     pub buddy_rights_given: FriendsRights, // the rights given to this user.
     pub buddy_rights_has: FriendsRights,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FriendsRights {
     pub can_see_online: bool, // true if friend can see if you are online
     pub can_see_on_map: bool, // true if friend can see where you are on the map
@@ -146,7 +179,7 @@ pub struct FriendsRights {
 }
 
 /// details about the child folders of the root folder
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InventorySkeletonValues {
     pub folder_id: String, // the ID of the folder
     pub parent_id: String, // the ID of the containing folder
@@ -165,7 +198,7 @@ pub enum AgentAccess {
 }
 
 /// Inventory item types
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum InventoryType {
     Unknown,
     Texture,
@@ -192,7 +225,7 @@ pub enum InventoryType {
 ///     'look_at':[r<x-coord>,r<y-coord>,r<z-coord>]} in the XML
 /// For example "{'region_handle':[r256000,r256000], 'position':[r50,r100,r200], 'look_at':[r1,r0,r0]}".
 /// sent back to the client as a string instead of a struct for some reason :(
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HomeValues {
     pub region_handle: (String, String),
     pub position: (String, String, String),
@@ -507,18 +540,18 @@ impl Into<Session> for xmlrpc::Value {
             seed_capability: str_val!(self["seed_capability"]),
             first_name: str_val!(self["first_name"]),
             last_name: str_val!(self["last_name"]),
-            agent_id: str_val!(self["agent_id"]),
+            agent_id: uuid_val!(self["agent_id"]),
             sim_ip: str_val!(self["sim_ip"]),
-            sim_port: i64_val!(self["sim_port"]),
-            http_port: i64_val!(self["http_port"]),
+            sim_port: u16_val!(self["sim_port"]),
+            http_port: u16_val!(self["http_port"]),
             start_location: str_val!(self["start_location"]),
             region_x: i64_val!(self["region_x"]),
             region_y: i64_val!(self["region_y"]),
             region_size_x: i64_val!(self["region_size_x"]),
             region_size_y: i64_val!(self["region_size_y"]),
-            circuit_code: i64_val!(self["circuit_code"]),
-            session_id: str_val!(self["session_id"]),
-            secure_session_id: str_val!(self["secure_session_id"]),
+            circuit_code: u32_val!(self["circuit_code"]),
+            session_id: uuid_val!(self["session_id"]),
+            secure_session_id: uuid_val!(self["secure_session_id"]),
             inventory_root: parse_inventory_root(self.get("inventory-root")),
             inventory_skeleton: parse_inventory_skeleton(self.get("inventory-skeleton")),
             inventory_lib_root: parse_inventory_root(self.get("inventory-lib-root")),

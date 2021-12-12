@@ -1,11 +1,17 @@
 [package]
 name = "metaverse_session"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 config = "0.11"
 metaverse_login = "0.0.2"
+metaverse_messages = {path = "../messages"}
 xmlrpc = "0.15.1"
+actix-web = "3"
+actix-rt = "2.5.0"
+tokio = { version = "1.14.0", features = ["full"] }
+tokio-test = "0.4.2"
+uuid = "0.4"

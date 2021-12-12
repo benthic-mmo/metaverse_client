@@ -21,3 +21,4 @@ with SimpleXMLRPCServer((HOST, PORT), requestHandler = RequestHandler) as server
     # prints where it's serving on for debug
     print("serving on: " + HOST + ":" + str(PORT))
     server.serve_forever()
+
