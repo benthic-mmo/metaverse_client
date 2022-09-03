@@ -12,12 +12,15 @@ HOST = '127.0.0.1'
 class RequestHandler(SimpleXMLRPCRequestHandler): 
     rpc_paths = ('/',) 
 
-with SimpleXMLRPCServer((HOST, PORT), requestHandler = RequestHandler) as server: 
-    def login_to_simulator(xmlData): 
-        response = login_models.loginResponse()
-        return response 
-    server.register_function(login_to_simulator)
+try:
+    with SimpleXMLRPCServer((HOST, PORT), requestHandler = RequestHandler) as server: 
+        def login_to_simulator(xmlData): 
+            response = login_models.loginResponse()
+            return response 
+        server.register_function(login_to_simulator)
 
     # prints where it's serving on for debug
-    print("serving on: " + HOST + ":" + str(PORT))
-    server.serve_forever()
+        print("serving on: " + HOST + ":" + str(PORT))
+        server.serve_forever()
+except OSError: 
+    print ("address already in use. Not starting another.")

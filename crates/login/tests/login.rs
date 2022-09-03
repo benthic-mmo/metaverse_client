@@ -363,7 +363,7 @@ fn setup() -> Result<Reap, String> {
             None => {}
             Some(status) => panic!("python process died {}", status),
         }
-        match TcpStream::connect(("localhost", PYTHON_PORT)) {
+        match TcpStream::connect(("127.0.0.1", PYTHON_PORT)) {
             Ok(_) => {
                 println!(
                     "connected to server after {:?} (iteration{})",
