@@ -81,5 +81,5 @@ fn setup_udp() -> Result<Reap, String> {
         }
         sleep(Duration::from_millis(50));
     }
-    return Ok(Reap(child));
+    Ok(Reap(child))
 }

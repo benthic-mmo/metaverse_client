@@ -40,7 +40,7 @@ pub fn new_session(login_response: xmlrpc::Value) -> Result<Session, LoginError>
 
 pub async fn connect(session: Session) -> io::Result<()> {
     let mut session_addr = session.sim_ip.unwrap().clone();
-    session_addr.push_str(&":".to_string());
+    session_addr.push(':');
     session_addr.push_str(&session.sim_port.unwrap().to_string());
     let sock = UdpSocket::bind("127.0.0.1:0").await?;
     sock.connect(session_addr.clone()).await?;

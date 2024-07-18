@@ -12,11 +12,11 @@ use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 const PYTHON_PORT: u16 = 9000;
-const PYTHON_URL: &'static str = "http://127.0.0.1";
+const PYTHON_URL: &str = "http://127.0.0.1";
 const OSGRID_PORT: u16 = 80;
-const OSGRID_URL: &'static str = "http://login.osgrid.org";
+const OSGRID_URL: &str = "http://login.osgrid.org";
 const THIRDROCK_PORT: u16 = 8002;
-const THIRDROCK_URL: &'static str = "http://grid.3rdrockgrid.com";
+const THIRDROCK_URL: &str = "http://grid.3rdrockgrid.com";
 
 struct Reap(Child);
 impl Drop for Reap {
@@ -79,11 +79,11 @@ fn test_mock_session() {
     assert_eq!(session.circuit_code, Some(697482820));
     assert_eq!(
         session.session_id,
-        Some(Uuid::parse_str(&"6ac2e761-f490-4122-bf6c-7ad8fbb17002").unwrap())
+        Some(Uuid::parse_str("6ac2e761-f490-4122-bf6c-7ad8fbb17002").unwrap())
     );
     assert_eq!(
         session.secure_session_id,
-        Some(Uuid::parse_str(&"fe210274-9056-467a-aff7-d95f60bacccc".to_string()).unwrap())
+        Some(Uuid::parse_str("fe210274-9056-467a-aff7-d95f60bacccc").unwrap())
     );
     assert_eq!(
         session.inventory_root.unwrap()[0].folder_id,
@@ -120,7 +120,7 @@ fn test_mock_session() {
         buddy_list[0].buddy_id,
         "04c259b7-94bc-4822-b099-745191ffc247".to_string()
     );
-    assert_eq!(buddy_list[0].buddy_rights_given.can_see_online, true);
+    assert!(buddy_list[0].buddy_rights_given.can_see_online);
 
     let gesture_list = session.gestures.unwrap();
     assert_eq!(gesture_list.len(), 2);
@@ -140,13 +140,13 @@ fn test_mock_session() {
         session.global_textures.unwrap()[0].sun_texture_id,
         "cce0f112-878f-4586-a2e2-a8f104bba271".to_string()
     );
-    assert_eq!(session.login.unwrap(), true);
+    assert!(session.login.unwrap());
     assert_eq!(
         session.login_flags.unwrap()[0].seconds_since_epoch,
         Some(1411075065)
     );
     assert_eq!(session.message.unwrap(), "Welcome, Avatar!".to_string());
-    assert_eq!(session.ui_config.unwrap()[0].allow_first_life, true);
+    assert!(session.ui_config.unwrap()[0].allow_first_life);
     assert_eq!(
         session.classified_categories.unwrap()[0].category_name,
         "Shopping".to_string()
@@ -308,10 +308,10 @@ fn read_creds() -> Option<HashMap<String, String>> {
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
     url_string.push_str(url);
-    url_string.push_str(":");
+    url_string.push(':');
     url_string.push_str(&port.to_string());
     println!("url string {}", url_string);
-    return url_string;
+    url_string
 }
 
 /// sets up python xmlrpc server for testing
@@ -350,5 +350,5 @@ fn setup() -> Result<Reap, String> {
         }
         sleep(Duration::from_millis(50));
     }
-    return Ok(Reap(child));
+    Ok(Reap(child))
 }
