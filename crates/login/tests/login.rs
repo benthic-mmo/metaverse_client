@@ -1,9 +1,7 @@
 // integration test for login
-
-#[macro_use]
-extern crate lazy_static;
 extern crate sys_info;
 
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::env;
 use std::net::TcpStream;
@@ -19,9 +17,9 @@ use metaverse_login::models::simulator_login_protocol::{
 
 // port and address for the test server
 const PYTHON_PORT: u16 = 9000;
-const PYTHON_URL: &'static str = "http://127.0.0.1";
+const PYTHON_URL: &str = "http://127.0.0.1";
 const OSGRID_PORT: u16 = 80;
-const OSGRID_URL: &'static str = "http://login.osgrid.org";
+const OSGRID_URL: &str = "http://login.osgrid.org";
 
 lazy_static! {
     static ref EXAMPLE_LOGIN: SimulatorLoginProtocol = SimulatorLoginProtocol {
@@ -376,17 +374,17 @@ fn setup() -> Result<Reap, String> {
         }
         sleep(Duration::from_millis(50));
     }
-    return Ok(Reap(child));
+    Ok(Reap(child))
 }
 
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
     url_string.push_str(url);
-    url_string.push_str(":");
+    url_string.push(':');
     url_string.push_str(&port.to_string());
     println!("url string {}", url_string);
-    return url_string;
+    url_string
 }
 
 /// sends login for testing struct
@@ -395,10 +393,10 @@ fn send_login(example_login: SimulatorLoginProtocol, url_string: String) -> xmlr
     let req = xmlrpc::Request::new("login_to_simulator").arg(example_login);
     debug_request_xml(req.clone());
 
-    let login = req.call_url(&url_string).unwrap();
+    let login = req.call_url(url_string).unwrap();
     debug_response_xml(login.clone());
     println!("struct data: {:?}", login);
-    return login;
+    login
 }
 
 /// prints out xml of request for debugging

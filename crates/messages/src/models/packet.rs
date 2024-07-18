@@ -10,7 +10,7 @@ impl Packet {
     pub fn as_bytes(self) -> [u8; 10] {
         let mut bytes: [u8; 10] = [0; 10];
         self.header.try_write(&mut bytes, BE).unwrap();
-        return bytes;
+        bytes
     }
 }
 
@@ -39,16 +39,16 @@ impl TryWrite<Endian> for Header {
 
         let mut flags = 0;
         if self.reliable {
-            flags = flags | HeaderConstants::Reliable.value()
+            flags |= HeaderConstants::Reliable.value()
         };
         if self.resent {
-            flags = flags | HeaderConstants::Resent.value()
+            flags |= HeaderConstants::Resent.value()
         };
         if self.zero_coded {
-            flags = flags | HeaderConstants::ZeroCoded.value()
+            flags |= HeaderConstants::ZeroCoded.value()
         };
         if self.appended_acks {
-            flags = flags | HeaderConstants::AppendedAcks.value()
+            flags |= HeaderConstants::AppendedAcks.value()
         };
 
         bytes.write::<u8>(offset, flags)?;

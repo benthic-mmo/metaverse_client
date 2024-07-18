@@ -233,16 +233,13 @@ pub struct HomeValues {
 }
 
 fn parse_agent_access(agent_access: Option<&xmlrpc::Value>) -> Option<AgentAccess> {
-    match agent_access {
-        None => None,
-        Some(x) => Some(match x.clone().as_str().unwrap() {
-            "M" => AgentAccess::Mature,
-            "A" => AgentAccess::Adult,
-            "PG" => AgentAccess::PG,
-            "G" => AgentAccess::General,
-            _ => AgentAccess::General,
-        }),
-    }
+    agent_access.map(|x| match x.clone().as_str().unwrap() {
+        "M" => AgentAccess::Mature,
+        "A" => AgentAccess::Adult,
+        "PG" => AgentAccess::PG,
+        "G" => AgentAccess::General,
+        _ => AgentAccess::General,
+    })
 }
 
 fn parse_inventory_type(inventory_type: &xmlrpc::Value) -> InventoryType {
@@ -268,14 +265,13 @@ fn parse_inventory_type(inventory_type: &xmlrpc::Value) -> InventoryType {
 }
 
 fn string_3tuple(values: xmlrpc::Value) -> Option<(String, String, String)> {
-    match values.as_array() {
-        None => None,
-        Some(x) => Some((
+    values.as_array().map(|x| {
+        (
             x[0].as_str().unwrap().to_string(),
             x[1].as_str().unwrap().to_string(),
             x[2].as_str().unwrap().to_string(),
-        )),
-    }
+        )
+    })
 }
 
 fn generate_friends_rights(rights: i32) -> FriendsRights {
@@ -318,7 +314,7 @@ fn parse_buddy_list(values: Option<&xmlrpc::Value>) -> Option<Vec<BuddyListValue
             buddy_rights_has: generate_friends_rights(value["buddy_rights_has"].as_i32().unwrap()),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_inventory_skeleton(
@@ -340,7 +336,7 @@ fn parse_inventory_skeleton(
         });
     }
 
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_inventory_root(values: Option<&xmlrpc::Value>) -> Option<Vec<InventoryRootValues>> {
@@ -354,7 +350,7 @@ fn parse_inventory_root(values: Option<&xmlrpc::Value>) -> Option<Vec<InventoryR
             folder_id: value["folder_id"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_inventory_lib_owner(values: Option<&xmlrpc::Value>) -> Option<Vec<AgentID>> {
@@ -368,7 +364,7 @@ fn parse_inventory_lib_owner(values: Option<&xmlrpc::Value>) -> Option<Vec<Agent
             agent_id: value["agent_id"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_gestures(values: Option<&xmlrpc::Value>) -> Option<Vec<GesturesValues>> {
@@ -383,7 +379,7 @@ fn parse_gestures(values: Option<&xmlrpc::Value>) -> Option<Vec<GesturesValues>>
             item_id: value["item_id"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_classified_categories(
@@ -400,7 +396,7 @@ fn parse_classified_categories(
             category_name: value["category_name"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_initial_outfit(values: Option<&xmlrpc::Value>) -> Option<Vec<InitialOutfit>> {
@@ -415,7 +411,7 @@ fn parse_initial_outfit(values: Option<&xmlrpc::Value>) -> Option<Vec<InitialOut
             gender: value["gender"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_global_textures(values: Option<&xmlrpc::Value>) -> Option<Vec<GlobalTextures>> {
@@ -431,7 +427,7 @@ fn parse_global_textures(values: Option<&xmlrpc::Value>) -> Option<Vec<GlobalTex
             moon_texture_id: value["moon_texture_id"].as_str().unwrap().to_string(),
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_login_flags(values: Option<&xmlrpc::Value>) -> Option<Vec<LoginFlags>> {
@@ -461,7 +457,7 @@ fn parse_login_flags(values: Option<&xmlrpc::Value>) -> Option<Vec<LoginFlags>> 
             },
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 fn parse_ui_config(values: Option<&xmlrpc::Value>) -> Option<Vec<UiConfig>> {
@@ -479,30 +475,27 @@ fn parse_ui_config(values: Option<&xmlrpc::Value>) -> Option<Vec<UiConfig>> {
             },
         });
     }
-    return Some(value_vec);
+    Some(value_vec)
 }
 
 // this is literally the worst thing I've ever been forced to do
 // why this is the singular field that is passed as a string is beyond me
 // this is so cursed and I hate it
-impl Into<HomeValues> for xmlrpc::Value {
-    fn into(self) -> HomeValues {
+impl From<xmlrpc::Value> for HomeValues {
+    fn from(val: xmlrpc::Value) -> Self {
         let mut home_values_object: HomeValues = HomeValues {
             region_handle: ("".to_string(), "".to_string()),
             look_at: ("".to_string(), "".to_string(), "".to_string()),
             position: ("".to_string(), "".to_string(), "".to_string()),
         };
 
-        let valuestring = self.as_str().unwrap().to_string();
+        let valuestring = val.as_str().unwrap().to_string();
         let split: Vec<&str> = valuestring.split("],").collect();
         for element in split {
             let splitvalue: Vec<&str> = element.split(":[").collect();
-            let label = splitvalue[0]
-                .replace("{'", "")
-                .replace("'", "")
-                .replace(" ", "");
+            let label = splitvalue[0].replace("{'", "").replace(['\'', ' '], "");
             let values = splitvalue[1].replace("]}", "");
-            let values: Vec<&str> = values.split(",").collect();
+            let values: Vec<&str> = values.split(',').collect();
 
             match label.as_str() {
                 "region_handle" => {
@@ -526,48 +519,48 @@ impl Into<HomeValues> for xmlrpc::Value {
                 _ => continue,
             }
         }
-        return home_values_object;
+        home_values_object
     }
 }
 
-impl Into<Session> for xmlrpc::Value {
-    fn into(self) -> Session {
+impl From<xmlrpc::Value> for Session {
+    fn from(val: xmlrpc::Value) -> Self {
         Session {
-            home: Some(self["home"].clone().into()),
-            look_at: string_3tuple(self["look_at"].clone()),
-            agent_access: parse_agent_access(self.get("agent_access")),
-            agent_access_max: parse_agent_access(self.get("agent_access_max")),
-            seed_capability: str_val!(self["seed_capability"]),
-            first_name: str_val!(self["first_name"]),
-            last_name: str_val!(self["last_name"]),
-            agent_id: uuid_val!(self["agent_id"]),
-            sim_ip: str_val!(self["sim_ip"]),
-            sim_port: u16_val!(self["sim_port"]),
-            http_port: u16_val!(self["http_port"]),
-            start_location: str_val!(self["start_location"]),
-            region_x: i64_val!(self["region_x"]),
-            region_y: i64_val!(self["region_y"]),
-            region_size_x: i64_val!(self["region_size_x"]),
-            region_size_y: i64_val!(self["region_size_y"]),
-            circuit_code: u32_val!(self["circuit_code"]),
-            session_id: uuid_val!(self["session_id"]),
-            secure_session_id: uuid_val!(self["secure_session_id"]),
-            inventory_root: parse_inventory_root(self.get("inventory-root")),
-            inventory_skeleton: parse_inventory_skeleton(self.get("inventory-skeleton")),
-            inventory_lib_root: parse_inventory_root(self.get("inventory-lib-root")),
-            inventory_skeleton_lib: parse_inventory_skeleton(self.get("inventory-skel-lib")),
-            inventory_lib_owner: parse_inventory_lib_owner(self.get("inventory-lib-owner")),
-            map_server_url: str_val!(self["map-server-url"]),
-            buddy_list: parse_buddy_list(self.get("buddy-list")),
-            gestures: parse_gestures(self.get("gestures")),
-            initial_outfit: parse_initial_outfit(self.get("initial-outfit")),
-            global_textures: parse_global_textures(self.get("global-textures")),
-            login: bool_val!(self["login"]),
-            login_flags: parse_login_flags(self.get("login-flags")),
-            message: str_val!(self["message"]),
-            ui_config: parse_ui_config(self.get("ui-config")),
-            event_categories: str_val!(self["event_categories"]),
-            classified_categories: parse_classified_categories(self.get("classified_categories")),
+            home: Some(val["home"].clone().into()),
+            look_at: string_3tuple(val["look_at"].clone()),
+            agent_access: parse_agent_access(val.get("agent_access")),
+            agent_access_max: parse_agent_access(val.get("agent_access_max")),
+            seed_capability: str_val!(val["seed_capability"]),
+            first_name: str_val!(val["first_name"]),
+            last_name: str_val!(val["last_name"]),
+            agent_id: uuid_val!(val["agent_id"]),
+            sim_ip: str_val!(val["sim_ip"]),
+            sim_port: u16_val!(val["sim_port"]),
+            http_port: u16_val!(val["http_port"]),
+            start_location: str_val!(val["start_location"]),
+            region_x: i64_val!(val["region_x"]),
+            region_y: i64_val!(val["region_y"]),
+            region_size_x: i64_val!(val["region_size_x"]),
+            region_size_y: i64_val!(val["region_size_y"]),
+            circuit_code: u32_val!(val["circuit_code"]),
+            session_id: uuid_val!(val["session_id"]),
+            secure_session_id: uuid_val!(val["secure_session_id"]),
+            inventory_root: parse_inventory_root(val.get("inventory-root")),
+            inventory_skeleton: parse_inventory_skeleton(val.get("inventory-skeleton")),
+            inventory_lib_root: parse_inventory_root(val.get("inventory-lib-root")),
+            inventory_skeleton_lib: parse_inventory_skeleton(val.get("inventory-skel-lib")),
+            inventory_lib_owner: parse_inventory_lib_owner(val.get("inventory-lib-owner")),
+            map_server_url: str_val!(val["map-server-url"]),
+            buddy_list: parse_buddy_list(val.get("buddy-list")),
+            gestures: parse_gestures(val.get("gestures")),
+            initial_outfit: parse_initial_outfit(val.get("initial-outfit")),
+            global_textures: parse_global_textures(val.get("global-textures")),
+            login: bool_val!(val["login"]),
+            login_flags: parse_login_flags(val.get("login-flags")),
+            message: str_val!(val["message"]),
+            ui_config: parse_ui_config(val.get("ui-config")),
+            event_categories: str_val!(val["event_categories"]),
+            classified_categories: parse_classified_categories(val.get("classified_categories")),
             ..Session::default()
         }
     }
