@@ -369,6 +369,20 @@ impl UpdatePrioritizationScheme {
     }
 }
 
+pub enum ConsoleOption{
+    Local,
+    Basic
+}
+impl fmt::Display for ConsoleOption{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self{
+            ConsoleOption::Local => {write!(f, "local")}
+            ConsoleOption::Basic => {write!(f, "basic")}
+        }
+    }
+}
+
+
 pub enum Architectures {
     Standalone,
     StandaloneHypergrid,
@@ -517,9 +531,11 @@ impl Default for ConfigConst {
     }
 }
 
-#[derive(Default)]
 pub struct Startup {
     pub console_prompt: Option<String>,
+    pub console: Option<ConsoleOption>,
+    pub inifile: Option<PathBuf>,
+    pub logfile: Option<PathBuf>,
     pub console_history_file_enabled: Option<bool>,
     pub console_history_file: Option<PathBuf>,
     pub console_history_file_lines: Option<i32>,
@@ -569,6 +585,9 @@ impl Startup {
         }
 
         append_line!("ConsolePrompt", &self.console_prompt);
+        append_line!("console", &self.console);
+        append_line!("inifile", &self.inifile.as_ref().map(|p| p.to_string_lossy()));
+        append_line!("logfile", &self.logfile.as_ref().map(|p| p.to_string_lossy()));
         append_line!(
             "ConsoleHistoryFileEnabled",
             &self.console_history_file_enabled
@@ -639,7 +658,52 @@ impl Startup {
         result
     }
 }
+impl Default for Startup{
+    fn default() -> Self {
+        Startup {
+            console_prompt: Default::default(),
+            console: Some(ConsoleOption::Basic), 
+            inifile: Default::default(),
+            logfile: Default::default(),
+            console_history_file_enabled: Default::default(),
+            console_history_file: Default::default(),
+            console_history_file_lines: Default::default(),
+            console_history_time_stamp: Default::default(),
+            save_crashes: Default::default(),
+            crash_dir: Default::default(),
+            pid_file: Default::default(),
+            registry_location: Default::default(),
+            config_directory: Default::default(),
+            region_info_source: Default::default(),
+            region_load_regions_dir: Default::default(),
+            region_load_webserver_url: Default::default(),
+            allow_regionless: Default::default(),
+            non_physical_prim_min: Default::default(),
+            non_physical_prim_max: Default::default(),
+            physical_prim_min: Default::default(),
+            physical_prim_max: Default::default(),
+            clamp_prim_size: Default::default(),
+            link_set_prims: Default::default(),
+            allow_script_crossing: Default::default(),
+            trust_binaries: Default::default(),
+            in_world_restart_shuts_down: Default::default(),
+            minimum_time_before_persistence_considered: Default::default(),
+            maximum_time_before_persistence_considered: Default::default(),
+            physical_prim: Default::default(),
+            meshing: Default::default(),
+            physics: Default::default(),
+            default_script_engine: Default::default(),
+            http_proxy: Default::default(),
+            http_proxy_exceptions: Default::default(),
+            email_module: Default::default(),
+            spawn_point_routing: Default::default(),
+            tele_hub_allow_landmark: Default::default(),
+            no_verify_cert_chain: Default::default(),
+            no_verify_cert_host_name: Default::default(),
 
+        }
+    }
+}
 #[derive(Default)]
 pub struct AccessControl {
     pub allowed_clients: Option<AllowedClientsList>,

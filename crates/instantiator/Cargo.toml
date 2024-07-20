@@ -12,6 +12,7 @@ log = "0.4"
 env_logger = "0.9"
 actix = "0.13.5"
 actix-rt = "2.7"
+regex = "1"
 tokio = { version = "1", features = ["full"] }
 [dependencies.uuid]
 version = "1.10.0"

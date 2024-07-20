@@ -27,6 +27,9 @@ pub fn create_full_config() -> SimulatorConfig {
         },
         startup: Startup {
             console_prompt: Some("Region (\\R)".to_string()),
+            console: Some(ConsoleOption::Basic),
+            inifile: Some(PathBuf::from(".")),
+            logfile: Some(PathBuf::from("log.log")),
             console_history_file_enabled: Some(true),
             console_history_file: Some(PathBuf::from("OpenSimConsoleHistory.txt")),
             console_history_file_lines: Some(100),
