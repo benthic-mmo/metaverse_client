@@ -1,15 +1,9 @@
-use env_logger::Env;
-use log::{error, info, warn};
+use log::{info, warn};
 use reqwest::Url;
 use std::collections::HashMap;
-use std::fs;
 use std::fs::File;
-use std::io::{copy, BufRead, BufReader, Cursor, Read, Write};
+use std::io::{copy, Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::mpsc::{channel, Receiver};
-use std::thread;
-
 
 pub fn read_sim_config() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
