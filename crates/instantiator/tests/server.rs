@@ -1,6 +1,6 @@
+use log::info;
 use std::fs;
 use tokio::sync::mpsc;
-use log::info;
 
 use actix::Actor;
 use env_logger::Env;
@@ -10,10 +10,10 @@ use metaverse_instantiator::config_generator::{
 };
 use metaverse_instantiator::models::server::*;
 use metaverse_instantiator::server::*;
-use std::time::Duration;
-use tokio::time::sleep;
-use tokio::sync::Notify;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Notify;
+use tokio::time::sleep;
 
 #[test]
 fn test_default_config() {
@@ -37,7 +37,7 @@ fn test_default_standalone_config() {
 async fn test_start_server() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
-    
+
     let conf = match read_sim_config() {
         Some(x) => x,
         None => {
@@ -63,6 +63,8 @@ async fn test_start_server() {
         assert!(false);
     }
 
+    let notify = Arc::new(Notify::new());
+
     let sim_server = SimServer {
         state: ServerState::Stopped,
         sim_config: create_default_config(),
@@ -71,30 +73,30 @@ async fn test_start_server() {
         process: None,
         process_stdin_receiver: Some(stdin_receiver),
         process_stdin_sender: Some(stdin_sender),
-        notify: Arc::new(Notify::new()),
-    }.start();
+        notify: Arc::clone(&notify),
+        exec_data: ExecData {
+            base_dir,
+            sim_executable,
+            init_command: "mono".to_string(),
+        },
+    }
+    .start();
 
-    let start_command = StartServer {
-        base_dir,
-        sim_executable,
-        init_command: "mono".to_string(),
-    };
-    
-    sim_server.do_send(start_command);
+    info!("Waiting for the server to start...");
 
-    // I need to figure out how to only run these commands after the server has started
-    //let notify_clone = sim_server.notify.clone();
+    // Wait for the notify signal
+    notify.notified().await;
 
-
+    info!("running server commands");
     sim_server.do_send(CommandMessage{
-        command: "user".to_string()
+        command: "create user default user password email@mail.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
     });
-    sim_server.do_send(CommandMessage{
-        command: "quit".to_string()
-    }); 
-    sleep(Duration::from_secs(1)).await;
-    
-    // sleep for five seconds so the setup can complete
+
+    sim_server.do_send(CommandMessage {
+        command: "quit".to_string(),
+    });
+
+    sleep(Duration::from_secs(10)).await;
 }
 
 #[test]
@@ -112,4 +114,3 @@ fn test_sim_download() {
 
     assert!(download_sim(&url, &sim_archive, &sim_path).is_ok())
 }
-
