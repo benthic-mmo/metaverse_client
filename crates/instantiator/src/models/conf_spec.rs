@@ -369,19 +369,22 @@ impl UpdatePrioritizationScheme {
     }
 }
 
-pub enum ConsoleOption{
+pub enum ConsoleOption {
     Local,
-    Basic
+    Basic,
 }
-impl fmt::Display for ConsoleOption{
+impl fmt::Display for ConsoleOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self{
-            ConsoleOption::Local => {write!(f, "local")}
-            ConsoleOption::Basic => {write!(f, "basic")}
+        match self {
+            ConsoleOption::Local => {
+                write!(f, "local")
+            }
+            ConsoleOption::Basic => {
+                write!(f, "basic")
+            }
         }
     }
 }
-
 
 pub enum Architectures {
     Standalone,
@@ -586,8 +589,14 @@ impl Startup {
 
         append_line!("ConsolePrompt", &self.console_prompt);
         append_line!("console", &self.console);
-        append_line!("inifile", &self.inifile.as_ref().map(|p| p.to_string_lossy()));
-        append_line!("logfile", &self.logfile.as_ref().map(|p| p.to_string_lossy()));
+        append_line!(
+            "inifile",
+            &self.inifile.as_ref().map(|p| p.to_string_lossy())
+        );
+        append_line!(
+            "logfile",
+            &self.logfile.as_ref().map(|p| p.to_string_lossy())
+        );
         append_line!(
             "ConsoleHistoryFileEnabled",
             &self.console_history_file_enabled
@@ -658,11 +667,11 @@ impl Startup {
         result
     }
 }
-impl Default for Startup{
+impl Default for Startup {
     fn default() -> Self {
         Startup {
             console_prompt: Default::default(),
-            console: Some(ConsoleOption::Basic), 
+            console: Some(ConsoleOption::Basic),
             inifile: Default::default(),
             logfile: Default::default(),
             console_history_file_enabled: Default::default(),
@@ -700,7 +709,6 @@ impl Default for Startup{
             tele_hub_allow_landmark: Default::default(),
             no_verify_cert_chain: Default::default(),
             no_verify_cert_host_name: Default::default(),
-
         }
     }
 }
@@ -1081,6 +1089,7 @@ impl ClientStackLindenCaps {
 
         append_line!("Cap_GetTexture", &self.cap_get_texture);
         append_line!("Cap_GetMesh", &self.cap_get_mesh);
+        append_line!("Cap_AvatarPickerSearch", &self.cap_avatar_picker_search);
         append_line!("Cap_GetDisplayNames", &self.cap_get_display_names);
         result
     }
@@ -1222,7 +1231,7 @@ impl BulletSim {
         }
 
         append_line!(
-            "avatarToAvatarCollisionsByDefault",
+            "AvatarToAvatarCollisionsByDefault",
             &self.avatar_to_avatar_collisions_by_default
         );
 

@@ -54,4 +54,3 @@ pub fn download_sim(
 
     Ok(())
 }
-
