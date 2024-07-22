@@ -5,9 +5,9 @@ pub struct Coordinate {
     x: i32,
     y: i32,
 }
-impl Coordinate {
-    pub fn to_string(&self) -> String {
-        format!("{},{}", &self.x, &self.y)
+impl fmt::Display for Coordinate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{},{}", &self.x, &self.y)
     }
 }
 impl Default for Coordinate {
@@ -28,8 +28,8 @@ pub struct Region {
     pub size_x: i32,
     pub size_y: i32,
 }
-impl Region {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         result.push_str(&format!("[{}]", &self.name));
@@ -44,7 +44,7 @@ impl Region {
         result.push_str(&format!("ExternalHostName = {}", &self.external_hostname));
         result.push_str(&format!("SizeX = {}", &self.size_x));
         result.push_str(&format!("SizeY = {}", &self.size_y));
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Region {
@@ -72,7 +72,7 @@ impl fmt::Display for RegionsConfig {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}, ", region.to_string()));
+            output.push_str(&format!("{}, ", region));
         }
         write!(f, "{}", output)
     }

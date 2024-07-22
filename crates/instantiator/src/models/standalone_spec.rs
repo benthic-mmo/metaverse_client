@@ -1,6 +1,7 @@
 use std::fmt;
 use std::path::PathBuf;
 
+
 static DEFAULT_BASE_HOSTNAME: &str = "127.0.0.1";
 static DEFAULT_PUBLIC_PORT: i32 = 9000;
 
@@ -26,8 +27,8 @@ pub struct StandaloneConfig {
     pub entity_transfer: EntityTransfer,
     pub user_profile_service: UserProfileService,
 }
-impl StandaloneConfig {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for StandaloneConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -61,7 +62,7 @@ impl StandaloneConfig {
         append_line!("Messaging", self.messaging.to_string());
         append_line!("EntityTransfer", self.entity_transfer.to_string());
         append_line!("UserProfileService", self.user_profile_service.to_string());
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -85,9 +86,9 @@ pub enum AssetType {
     Gesture,
     Mesh,
 }
-impl AssetType {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for AssetType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             Self::Unknown => "Unknown".to_string(),
             Self::Texture => "Texture".to_string(),
             Self::Sound => "Sound".to_string(),
@@ -106,7 +107,8 @@ impl AssetType {
             Self::Animation => "Animation".to_string(),
             Self::Gesture => "Gesture".to_string(),
             Self::Mesh => "Mesh".to_string(),
-        }
+        };
+    write!(f, "{}", s) 
     }
 }
 
@@ -123,7 +125,7 @@ impl fmt::Display for AssetTypeList {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}, ", region.to_string()));
+            output.push_str(&format!("{}, ", region));
         }
         write!(f, "{}", output)
     }
@@ -162,7 +164,7 @@ impl fmt::Display for RegionProperties {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}\n", region.to_string()));
+            output.push_str(&format!("{}\n", region));
         }
         write!(f, "{}", output)
     }
@@ -172,9 +174,9 @@ pub struct ForeignTripsAllowedLevel {
     pub level: i32,
     pub allow: bool,
 }
-impl ForeignTripsAllowedLevel {
-    pub fn to_string(&self) -> String {
-        format!("ForeignTripsAllowed_Level_{} = {}", self.level, self.allow)
+impl fmt::Display for ForeignTripsAllowedLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ForeignTripsAllowed_Level_{} = {}", self.level, self.allow)
     }
 }
 pub struct ForeignTripsAllowedLevelList(pub Vec<ForeignTripsAllowedLevel>);
@@ -183,7 +185,7 @@ impl fmt::Display for ForeignTripsAllowedLevelList {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}\n", region.to_string()));
+            output.push_str(&format!("{}\n", region));
         }
         write!(f, "{}", output)
     }
@@ -200,12 +202,12 @@ pub struct ForeignTripsDisallowedExceptLevel {
     pub level: i32,
     pub disallowed_urls: UrlList,
 }
-impl ForeignTripsDisallowedExceptLevel {
-    pub fn to_string(&self) -> String {
-        format!(
+impl fmt::Display for ForeignTripsDisallowedExceptLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+       write!(f,
             "DisallowExcept_Level_{} = {}",
-            self.level, self.disallowed_urls
-        )
+            self.level, self.disallowed_urls) 
+
     }
 }
 
@@ -215,7 +217,7 @@ impl fmt::Display for ForeignTripsDisallowedExceptLevelList {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}\n", region.to_string()));
+            output.push_str(&format!("{}\n", region));
         }
         write!(f, "{}", output)
     }
@@ -225,9 +227,9 @@ pub struct ForeignTripsAllowExceptLevel {
     pub level: i32,
     pub allowed_urls: UrlList,
 }
-impl ForeignTripsAllowExceptLevel {
-    pub fn to_string(&self) -> String {
-        format!("AllowExcept_Level_{} = {}", self.level, self.allowed_urls)
+impl fmt::Display for ForeignTripsAllowExceptLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "AllowExcept_Level_{} = {}", self.level, self.allowed_urls)
     }
 }
 
@@ -237,7 +239,7 @@ impl fmt::Display for ForeignTripsAllowExceptLevelList {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}\n", region.to_string()));
+            output.push_str(&format!("{}\n", region));
         }
         write!(f, "{}", output)
     }
@@ -247,9 +249,9 @@ pub struct Region {
     pub name: String,
     pub properties: RegionFlags,
 }
-impl Region {
-    pub fn to_string(&self) -> String {
-        format!("Region_{} = \"{}\"", self.name, self.properties.to_string())
+impl fmt::Display for Region {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Region_{} = \"{}\"", self.name, self.properties)
     }
 }
 
@@ -263,8 +265,8 @@ pub struct RegionFlags {
     pub disallow_foreigners: Option<bool>,
     pub disallow_residents: Option<bool>,
 }
-impl RegionFlags {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for RegionFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -281,7 +283,7 @@ impl RegionFlags {
         append_line!("Persistent", &self.persistent);
         append_line!("DisallowForeigners", &self.disallow_foreigners);
         append_line!("DisallowResidents", &self.disallow_residents);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -295,8 +297,8 @@ pub struct DatabaseConnection {
     pub old_guids: Option<String>,
     pub ssl_mode: Option<String>,
 }
-impl DatabaseConnection {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for DatabaseConnection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -314,7 +316,7 @@ impl DatabaseConnection {
         result.push_str(&format!("Password={};", self.password));
         append_line!("Old Guids", &self.old_guids);
         append_line!("SslMode", &self.ssl_mode);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -324,8 +326,8 @@ pub struct DatabaseService {
     pub connection_string: Option<DatabaseConnection>,
     pub estate_connection_string: Option<DatabaseConnection>,
 }
-impl DatabaseService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for DatabaseService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -345,7 +347,7 @@ impl DatabaseService {
         );
         append_line!("ConnectionString", &self.connection_string);
         append_line!("EstateConnectionString", &self.estate_connection_string);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for DatabaseService {
@@ -359,14 +361,15 @@ impl Default for DatabaseService {
     }
 }
 
+
 pub struct Hypergrid {
     pub gate_keeper_uri: Option<String>,
     pub gate_keeper_uri_alias: Option<String>,
     pub home_uri: Option<String>,
     pub home_uri_alias: Option<String>,
 }
-impl Hypergrid {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Hypergrid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -380,7 +383,7 @@ impl Hypergrid {
         append_line!("GateKeeperURIAlias", &self.gate_keeper_uri_alias);
         append_line!("HomeURI", &self.home_uri);
         append_line!("HomeURIAlias", &self.home_uri_alias);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Hypergrid {
@@ -398,8 +401,8 @@ pub struct Modules {
     pub asset_caching: Option<String>,
     pub include_flotsam_cache: Option<PathBuf>,
 }
-impl Modules {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Modules {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -417,7 +420,7 @@ impl Modules {
                 .as_ref()
                 .map(|p| p.to_string_lossy())
         );
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Modules {
@@ -433,8 +436,8 @@ pub struct AssetService {
     pub default_asset_loader: Option<PathBuf>,
     pub asset_loader_args: Option<PathBuf>,
 }
-impl AssetService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for AssetService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -455,7 +458,7 @@ impl AssetService {
             "AssetLoaderArgs",
             &self.asset_loader_args.as_ref().map(|p| p.to_string_lossy())
         );
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for AssetService {
@@ -475,8 +478,8 @@ pub struct GridService {
     pub region_properties: Option<RegionProperties>,
     pub export_supported: Option<bool>,
 }
-impl GridService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for GridService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -503,7 +506,7 @@ impl GridService {
         );
         append_line!("", &self.region_properties);
         append_line!("ExportSupported", &self.export_supported);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for GridService {
@@ -529,8 +532,8 @@ impl Default for GridService {
 pub struct LibraryModule {
     pub library_name: Option<String>,
 }
-impl LibraryModule {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for LibraryModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -540,7 +543,7 @@ impl LibraryModule {
             };
         }
         append_line!("LibraryName", &self.library_name);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -563,8 +566,8 @@ pub struct LoginService {
     pub dos_max_requests_in_time_frame: Option<i32>,
     pub dos_forgive_client_after_ms: Option<i32>,
 }
-impl LoginService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for LoginService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -599,7 +602,7 @@ impl LoginService {
             &self.dos_max_requests_in_time_frame
         );
         append_line!("DOSForgiveClientAfterMS", &self.dos_forgive_client_after_ms);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for LoginService {
@@ -654,8 +657,8 @@ pub struct FreeSwitchService {
     pub echo_port: Option<i32>,
     pub attempt_stun: Option<bool>,
 }
-impl FreeSwitchService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for FreeSwitchService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -674,7 +677,7 @@ impl FreeSwitchService {
         append_line!("EchoServer", &self.echo_server);
         append_line!("EchoPort", &self.echo_port);
         append_line!("AttemptSTUN", &self.attempt_stun);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -693,8 +696,8 @@ pub struct GridInfoService {
     pub grid_status: Option<String>,
     pub grid_status_rss: Option<String>,
 }
-impl GridInfoService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for GridInfoService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -717,7 +720,7 @@ impl GridInfoService {
         append_line!("GridStatus", &self.grid_status);
         append_line!("GridStatusRSS", &self.grid_status_rss);
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for GridInfoService {
@@ -744,8 +747,8 @@ impl Default for GridInfoService {
 pub struct MapImageService {
     pub tile_storage_path: Option<String>,
 }
-impl MapImageService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for MapImageService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -755,7 +758,7 @@ impl MapImageService {
             };
         }
         append_line!("TileStoragePath", &self.tile_storage_path);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -763,12 +766,14 @@ impl MapImageService {
 pub struct AuthorizationService {
     pub region_properties: Option<RegionProperties>,
 }
-impl AuthorizationService {
-    pub fn to_string(&self) -> String {
-        match &self.region_properties {
+impl fmt::Display for AuthorizationService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match &self.region_properties {
             Some(value) => value.to_string(),
             None => "".to_string(),
-        }
+
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -781,8 +786,8 @@ pub struct GatekeeperService {
     pub allow_except: Option<RemoteGridBanList>,
     pub disallow_except: Option<RemoteGridAcceptList>,
 }
-impl GatekeeperService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for GatekeeperService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -800,7 +805,7 @@ impl GatekeeperService {
         append_line!("ForeignAgentsAllowed", &self.foreign_agents_allowed);
         append_line!("AllowExcept", &self.allow_except);
         append_line!("DisallowExcept", &self.disallow_except);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for GatekeeperService {
@@ -825,8 +830,8 @@ pub struct UserAgentService {
     pub foreign_trips_allowed_except: Option<ForeignTripsAllowedLevelList>,
     pub show_user_details_in_hg_profile: Option<bool>,
 }
-impl UserAgentService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for UserAgentService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -847,7 +852,7 @@ impl UserAgentService {
             "ShowUserDetailsInHGProfile",
             &self.show_user_details_in_hg_profile
         );
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -856,8 +861,8 @@ pub struct HgAssetService {
     pub disallow_export: Option<AssetTypeList>,
     pub disallow_import: Option<AssetTypeList>,
 }
-impl HgAssetService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for HgAssetService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -868,7 +873,7 @@ impl HgAssetService {
         }
         append_line!("DisallowExport", &self.disallow_export);
         append_line!("DisallowImport", &self.disallow_import);
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -877,8 +882,8 @@ pub struct HgInventoryAccessModule {
     pub outbound_permission: Option<bool>,
     pub restrict_inventory_access_abroad: Option<bool>,
 }
-impl HgInventoryAccessModule {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for HgInventoryAccessModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -892,7 +897,7 @@ impl HgInventoryAccessModule {
             "RestrictInventoryAccessAbroad",
             &self.restrict_inventory_access_abroad
         );
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -900,8 +905,8 @@ impl HgInventoryAccessModule {
 pub struct HgFriendsModule {
     pub level_hg_friends: Option<i32>,
 }
-impl HgFriendsModule {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for HgFriendsModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -911,15 +916,15 @@ impl HgFriendsModule {
             };
         }
         append_line!("LevelHgFriends", &self.level_hg_friends);
-        result
+        write!(f, "{}", result)
     }
 }
 
 #[derive(Default)]
 pub struct Messaging {}
-impl Messaging {
-    pub fn to_string(&self) -> String {
-        "".to_string()
+impl fmt::Display for Messaging {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "")
     }
 }
 
@@ -928,8 +933,8 @@ pub struct EntityTransfer {
     pub restrict_appearance_abroad: Option<bool>,
     pub account_for_appearance: Option<UsernameList>,
 }
-impl EntityTransfer {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for EntityTransfer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -941,7 +946,7 @@ impl EntityTransfer {
         append_line!("LevelHGTeleport", &self.level_hg_teleport);
         append_line!("RestrictAppearanceAbroad", &self.restrict_appearance_abroad);
         append_line!("AccountForAppearance", &self.account_for_appearance);
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for EntityTransfer {
@@ -965,8 +970,8 @@ pub struct UserProfileService {
     pub user_account_service: Option<String>,
     pub authentication_service_module: Option<String>,
 }
-impl UserProfileService {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for UserProfileService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
@@ -984,7 +989,7 @@ impl UserProfileService {
             "AuthenticationServiceModule",
             &self.authentication_service_module
         );
-        result
+write!(f, "{}", result)
     }
 }
 impl Default for UserProfileService {

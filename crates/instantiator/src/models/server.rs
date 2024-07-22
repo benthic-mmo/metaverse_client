@@ -24,9 +24,9 @@ use super::standalone_spec::StandaloneConfig;
 pub struct CommandMessage {
     pub command: String,
 }
-impl CommandMessage {
-    pub fn to_string(&self) -> String {
-        self.command.to_string()
+impl fmt::Display for CommandMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.command)
     }
 }
 
@@ -260,7 +260,7 @@ impl SimServer {
                     }
                     // allow for process to subscribe to stdout, and receive message structs
                     if let Some(sender) = &stdout_sender {
-                        if let Err(_) = sender.send(stdout_message.clone()).await {
+                        if (sender.send(stdout_message.clone()).await).is_err() {
                             break;
                         }
                     }
