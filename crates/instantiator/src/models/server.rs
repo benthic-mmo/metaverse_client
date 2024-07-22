@@ -10,7 +10,7 @@ use std::fs::File;
 use std::io::{Error as IOError, Write};
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::{Child, Command};
 use tokio::sync::mpsc;
@@ -61,13 +61,25 @@ impl fmt::Display for ServerComponents {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum ServerState {
     Starting,
     Started,
     Stopping,
     Stopped,
 }
+impl fmt::Display for ServerState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ServerState::Starting => write!(f, "Starting"),
+            ServerState::Started => write!(f, "Started"),
+            ServerState::Stopping => write!(f, "Stopping"),
+            ServerState::Stopped => write!(f, "Stopped"),
+        }
+    }
+}
+ 
+
 struct Started;
 impl Message for Started {
     type Result = ();
@@ -79,6 +91,7 @@ impl Message for Stopped {
 }
 pub struct SimServer {
     pub state: ServerState,
+    pub arc_state: Arc<Mutex<ServerState>>,
     pub sim_config: SimulatorConfig,
     pub standalone_config: StandaloneConfig,
     pub regions_config: RegionsConfig,
@@ -145,6 +158,7 @@ impl Actor for SimServer {
     }
 
     fn stopped(&mut self, _ctx: &mut Self::Context) {
+        self.state = ServerState::Stopped;
         info!("Actor is stopped ")
     }
 }
@@ -181,10 +195,10 @@ impl Handler<StdoutMessage> for SimServer {
                 }
             }
             ServerComponents::Shutdown(_) => {
-                if self.state != ServerState::Stopped {
-                    self.state != ServerState::Stopping;
-                }
+                if self.state != ServerState::Stopped && 
+                    self.state != ServerState::Stopping {
                 self.state = ServerState::Stopping;
+                }
                 if msg.log_content.contains("complete") {
                     self.set_state(ServerState::Stopped, ctx);
                 }
@@ -271,6 +285,12 @@ impl SimServer {
     }
 
     fn set_state(&mut self, new_state: ServerState, ctx: &mut Context<Self>) {
+        let state_clone = Arc::clone(&self.arc_state);
+        {
+            let mut arc_state = state_clone.lock().unwrap();
+            *arc_state = new_state.clone();
+        }
+
         self.state = new_state;
         if let ServerState::Started = self.state {
             self.notify.notify_one();
@@ -280,6 +300,10 @@ impl SimServer {
             self.notify.notify_one();
             ctx.notify(Stopped);
         }
+    }
+    pub fn get_state(&self) -> ServerState {
+        let arc_state = self.arc_state.lock().unwrap();
+        arc_state.clone()
     }
 
     fn write_to_file(path: &String, data: String) -> Result<(), IOError> {
