@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, error};
 use std::fs;
 use tokio::sync::mpsc;
 
@@ -10,7 +10,7 @@ use metaverse_instantiator::config_generator::{
 };
 use metaverse_instantiator::models::server::*;
 use metaverse_instantiator::server::*;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::time::sleep;
@@ -64,9 +64,11 @@ async fn test_start_server() {
     }
 
     let notify = Arc::new(Notify::new());
+    let arc_state = Arc::new(Mutex::new(ServerState:: Stopped));
 
     let sim_server = SimServer {
         state: ServerState::Stopped,
+        arc_state: Arc::clone(&arc_state),
         sim_config: create_default_config(),
         standalone_config: create_default_standalone_config(),
         regions_config: create_default_region_config(),
@@ -87,16 +89,21 @@ async fn test_start_server() {
     // Wait for the notify signal
     notify.notified().await;
 
-    info!("running server commands");
-    sim_server.do_send(CommandMessage{
-        command: "create user default user password email@mail.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
-    });
-
-    sim_server.do_send(CommandMessage {
-        command: "quit".to_string(),
-    });
-
-    sleep(Duration::from_secs(10)).await;
+    if *arc_state.lock().unwrap() == ServerState::Started{
+        info!("Server started. Running test commands");
+        sim_server.do_send(CommandMessage{
+            command: "create user default user password email@mail.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
+        });
+    
+        sim_server.do_send(CommandMessage {
+            command: "quit".to_string(),
+        });
+    }else{
+        assert!(false, "server failed to start")
+    }
+    
+    // wait for the second notify signal to say that the server is done
+    notify.notified().await;
 }
 
 #[test]
