@@ -1,6 +1,7 @@
 use std::fmt;
 use std::path::PathBuf;
 
+
 static DEFAULT_BASE_HOSTNAME: &str = "127.0.0.1";
 static DEFAULT_HOST: &str = "localhost";
 
@@ -44,10 +45,10 @@ pub struct SimulatorConfig {
     pub god_names: GodNames,
     pub architecture: Architecture,
 }
-impl SimulatorConfig {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for SimulatorConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
-
+        
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
                 result.push_str(&format!("[{}]\n{}\n", $key, $value));
@@ -97,7 +98,7 @@ impl SimulatorConfig {
         append_line!("GodNames", self.god_names.to_string());
         append_line!("Architecture", self.architecture.to_string());
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -106,15 +107,17 @@ pub enum Mesher {
     ZeroMesher,
     UbODEMeshmerizer,
 }
-impl Mesher {
-    pub fn to_string(&self) -> String {
-        match self {
-            Mesher::Meshmerizer => "Meshmerizer".to_string(),
-            Mesher::ZeroMesher => "ZeroMesher".to_string(),
-            Mesher::UbODEMeshmerizer => "ubdOEMeshmerizer".to_string(),
-        }
+impl fmt::Display for Mesher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Mesher::Meshmerizer => "Meshmerizer",
+            Mesher::ZeroMesher => "ZeroMesher",
+            Mesher::UbODEMeshmerizer => "UbODEMeshmerizer",
+        };
+        write!(f, "{}", s)
     }
 }
+
 
 pub enum PhysicsEngine {
     BulletSim,
@@ -123,15 +126,16 @@ pub enum PhysicsEngine {
     POS,
     UbODE,
 }
-impl PhysicsEngine {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for PhysicsEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             PhysicsEngine::BulletSim => "BulletSim".to_string(),
             PhysicsEngine::OpenDynamicsEngine => "OpenDynamicsEngine".to_string(),
             PhysicsEngine::BasicPhysics => "basicphysics".to_string(),
             PhysicsEngine::POS => "POS".to_string(),
             PhysicsEngine::UbODE => "ubODE".to_string(),
-        }
+        };
+    write!(f, "{}", s)
     }
 }
 
@@ -139,12 +143,13 @@ pub enum ScriptEngine {
     XEngine,
     YEngine,
 }
-impl ScriptEngine {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for ScriptEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             ScriptEngine::XEngine => "XEngine".to_string(),
             ScriptEngine::YEngine => "YEngine".to_string(),
-        }
+        };
+write!(f, "{}", s)
     }
 }
 
@@ -153,13 +158,14 @@ pub enum SpawnPointRouting {
     Random,
     Sequence,
 }
-impl SpawnPointRouting {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for SpawnPointRouting {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {           
             SpawnPointRouting::Closest => "closest".to_string(),
             SpawnPointRouting::Random => "random".to_string(),
             SpawnPointRouting::Sequence => "sequence".to_string(),
-        }
+        };
+write!(f, "{}", s)
     }
 }
 
@@ -167,12 +173,13 @@ pub enum MapImageModule {
     MapImageModule,
     Warp3DImageModule,
 }
-impl MapImageModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for MapImageModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             MapImageModule::MapImageModule => "MapImageModule".to_string(),
             MapImageModule::Warp3DImageModule => "Warp3DImageModule".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -180,12 +187,13 @@ pub enum PermissionsModule {
     DefaultPermissionsModule,
     PrimLimitsModule,
 }
-impl PermissionsModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for PermissionsModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             PermissionsModule::DefaultPermissionsModule => "DefaultPermissionsModule".to_string(),
             PermissionsModule::PrimLimitsModule => "PrimLimitsModule".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -193,12 +201,13 @@ pub enum XMLRPCRouterModule {
     XMLRpcRouterModule,
     XMLRpcGridRouterModule,
 }
-impl XMLRPCRouterModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for XMLRPCRouterModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             XMLRPCRouterModule::XMLRpcRouterModule => "XmlRpcRouterModule".to_string(),
             XMLRPCRouterModule::XMLRpcGridRouterModule => "XmlRpcGridRouterModule".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -206,12 +215,13 @@ pub enum LandingPointBehavior {
     OpenSimulator,
     SecondLife,
 }
-impl LandingPointBehavior {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for LandingPointBehavior {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             LandingPointBehavior::OpenSimulator => "LandingPointBehavior_OS".to_string(),
             LandingPointBehavior::SecondLife => "LandingPointBehavior_SL".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -219,12 +229,13 @@ pub enum OfflineMessageModule {
     OfflineMessageModule,
     OfflineMessageModuleV2,
 }
-impl OfflineMessageModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for OfflineMessageModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             OfflineMessageModule::OfflineMessageModule => "OfflineMessageModule".to_string(),
             OfflineMessageModule::OfflineMessageModuleV2 => "Offline Message Module V2".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -232,12 +243,13 @@ pub enum DataExposure {
     Minimum,
     All,
 }
-impl DataExposure {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for DataExposure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             DataExposure::Minimum => "minimum".to_string(),
             DataExposure::All => "all".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -245,12 +257,13 @@ pub enum RegionInfoSource {
     Web,
     Filesystem,
 }
-impl RegionInfoSource {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for RegionInfoSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             RegionInfoSource::Web => "web".to_string(),
             RegionInfoSource::Filesystem => "filesystem".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -261,15 +274,16 @@ pub enum XEnginePriority {
     AboveNormal,
     Highest,
 }
-impl XEnginePriority {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for XEnginePriority {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             XEnginePriority::Lowest => "Lowest".to_string(),
             XEnginePriority::BelowNormal => "BelowNormal".to_string(),
             XEnginePriority::Normal => "Normal".to_string(),
             XEnginePriority::AboveNormal => "AboveNormal".to_string(),
             XEnginePriority::Highest => "Highest".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -277,12 +291,13 @@ pub enum ScriptStopStrategy {
     Abort,
     CoOp,
 }
-impl ScriptStopStrategy {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for ScriptStopStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             ScriptStopStrategy::Abort => "abort".to_string(),
             ScriptStopStrategy::CoOp => "co-op".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -290,12 +305,13 @@ pub enum GroupsModule {
     Default,
     GroupsModuleV2,
 }
-impl GroupsModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for GroupsModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             GroupsModule::Default => "Default".to_string(),
             GroupsModule::GroupsModuleV2 => "Groups Module V2".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -305,9 +321,9 @@ pub enum ServicesConnectorModule {
     GroupsRemoteServiceConnector,
     GroupsHGServiceConnector,
 }
-impl ServicesConnectorModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for ServicesConnectorModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             ServicesConnectorModule::XMLRPCGroupsServicesConnector => {
                 "XmlRpcGroupsServicesConnector".to_string()
             }
@@ -320,7 +336,8 @@ impl ServicesConnectorModule {
             ServicesConnectorModule::GroupsHGServiceConnector => {
                 "Groups HG Service Connector".to_string()
             }
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -328,12 +345,13 @@ pub enum LocalService {
     Local,
     Remote,
 }
-impl LocalService {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for LocalService {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             LocalService::Local => "local".to_string(),
             LocalService::Remote => "remote".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -341,14 +359,15 @@ pub enum GroupsMessagingModule {
     GroupsMessagingModule,
     GroupsMessagingModuleV2,
 }
-impl GroupsMessagingModule {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for GroupsMessagingModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             GroupsMessagingModule::GroupsMessagingModule => "GroupsMessagingModule".to_string(),
             GroupsMessagingModule::GroupsMessagingModuleV2 => {
                 "Groups Messaging Module V2".to_string()
             }
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -356,16 +375,17 @@ pub enum UpdatePrioritizationScheme {
     BestAvatarResponsiveness,
     SimpleAngularDistance,
 }
-impl UpdatePrioritizationScheme {
-    pub fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for UpdatePrioritizationScheme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             UpdatePrioritizationScheme::BestAvatarResponsiveness => {
                 "BestAvatarResponsiveness".to_string()
             }
             UpdatePrioritizationScheme::SimpleAngularDistance => {
                 "SimpleAngularDistance".to_string()
             }
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -392,6 +412,11 @@ pub enum Architectures {
     Grid,
     GridHypergrid,
 }
+impl fmt::Display for Architectures {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_pathbuf().to_string_lossy().into_owned())
+    }
+}
 impl Architectures {
     pub fn as_pathbuf(&self) -> PathBuf {
         match self {
@@ -402,9 +427,6 @@ impl Architectures {
             Architectures::Grid => PathBuf::from("config-include/Grid.ini"),
             Architectures::GridHypergrid => PathBuf::from("config-include/GridHypergrid.ini"),
         }
-    }
-    fn to_string(&self) -> String {
-        self.as_pathbuf().to_string_lossy().into_owned()
     }
 }
 
@@ -503,8 +525,8 @@ pub struct ConfigConst {
     pub priv_url: String,
     pub private_port: i32,
 }
-impl ConfigConst {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for ConfigConst {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -518,8 +540,8 @@ impl ConfigConst {
         append_line!("PublicPort", &self.public_port);
         append_line!("PrivURL", &self.priv_url);
         append_line!("PrivatePort", &self.private_port);
-
-        result
+        
+        write!(f, "{}", result)
     }
 }
 impl Default for ConfigConst {
@@ -575,8 +597,8 @@ pub struct Startup {
     pub no_verify_cert_chain: Option<bool>,
     pub no_verify_cert_host_name: Option<bool>,
 }
-impl Startup {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Startup{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -664,7 +686,8 @@ impl Startup {
         append_line!("TeleHubAllowLandmark", &self.tele_hub_allow_landmark);
         append_line!("NoVerifyCertChain", &self.no_verify_cert_chain);
         append_line!("NoVerifyCertHostname", &self.no_verify_cert_host_name);
-        result
+        
+        write!(f, "{}", result)
     }
 }
 impl Default for Startup {
@@ -717,8 +740,8 @@ pub struct AccessControl {
     pub allowed_clients: Option<AllowedClientsList>,
     pub denied_clients: Option<DeniedClientsList>,
 }
-impl AccessControl {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for AccessControl{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -731,8 +754,7 @@ impl AccessControl {
 
         append_line!("AllowedClients", &self.allowed_clients);
         append_line!("DeniedClients", &self.denied_clients);
-
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -753,8 +775,8 @@ pub struct Map {
     pub map_color_3: Option<String>,
     pub map_color_4: Option<String>,
 }
-impl Map {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Map{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -780,7 +802,7 @@ impl Map {
         append_line!("MapColor3", &self.map_color_3);
         append_line!("MapColor4", &self.map_color_4);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -794,8 +816,8 @@ pub struct Permissions {
     pub region_manager_is_god: Option<bool>,
     pub simple_build_permissions: Option<bool>,
 }
-impl Permissions {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Permissions{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -818,7 +840,7 @@ impl Permissions {
         append_line!("region_manager_is_god", &self.region_manager_is_god);
         append_line!("simple_build_permissions", &self.simple_build_permissions);
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Permissions {
@@ -844,8 +866,8 @@ pub struct Estates {
     pub default_estate_owner_email: Option<String>,
     pub default_estate_owner_password: Option<String>,
 }
-impl Estates {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Estates{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -865,7 +887,7 @@ impl Estates {
             &self.default_estate_owner_password
         );
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -891,8 +913,8 @@ pub struct SMTP {
     pub smtp_verify_cert_chain: Option<bool>,
     pub smtp_verify_cert_names: Option<bool>,
 }
-impl SMTP {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for SMTP{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -932,7 +954,7 @@ impl SMTP {
         append_line!("SMTP_VerifyCertChain", &self.smtp_verify_cert_chain);
         append_line!("SMTP_VerifyCertNames", &self.smtp_verify_cert_names);
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -955,8 +977,8 @@ pub struct Network {
     pub http_auth_username: Option<String>,
     pub http_auth_password: Option<String>,
 }
-impl Network {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Network{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -994,7 +1016,7 @@ impl Network {
         append_line!("HttpAuthUsername", &self.http_auth_username);
         append_line!("HttpAuthPassword", &self.http_auth_password);
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Network {
@@ -1027,8 +1049,8 @@ pub struct XMLRPC {
     pub xml_rpc_port: Option<i32>,
     pub xml_rpc_hub_uri: Option<String>,
 }
-impl XMLRPC {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for XMLRPC{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1043,7 +1065,7 @@ impl XMLRPC {
         append_line!("XmlRpcPort", &self.xml_rpc_port);
         append_line!("XmlRpcHubURI", &self.xml_rpc_hub_uri);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1051,8 +1073,8 @@ impl XMLRPC {
 pub struct ClientStackLindenUDP {
     pub disable_face_lights: Option<bool>,
 }
-impl ClientStackLindenUDP {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for ClientStackLindenUDP{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1065,7 +1087,7 @@ impl ClientStackLindenUDP {
 
         append_line!("disableFaceLights", &self.disable_face_lights);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1075,8 +1097,8 @@ pub struct ClientStackLindenCaps {
     pub cap_avatar_picker_search: Option<String>,
     pub cap_get_display_names: Option<String>,
 }
-impl ClientStackLindenCaps {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for ClientStackLindenCaps{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1091,7 +1113,7 @@ impl ClientStackLindenCaps {
         append_line!("Cap_GetMesh", &self.cap_get_mesh);
         append_line!("Cap_AvatarPickerSearch", &self.cap_avatar_picker_search);
         append_line!("Cap_GetDisplayNames", &self.cap_get_display_names);
-        result
+         write!(f, "{}", result)
     }
 }
 impl Default for ClientStackLindenCaps {
@@ -1110,8 +1132,8 @@ pub struct SimulatorFeatures {
     pub search_server_uri: Option<String>,
     pub destination_guide_uri: Option<String>,
 }
-impl SimulatorFeatures {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for SimulatorFeatures{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1125,7 +1147,7 @@ impl SimulatorFeatures {
         append_line!("SearchServerURI", &self.search_server_uri);
         append_line!("DestinationGuideURI", &self.destination_guide_uri);
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1135,8 +1157,8 @@ pub struct Chat {
     pub say_distance: Option<i32>,
     pub shout_distance: Option<i32>,
 }
-impl Chat {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Chat{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1151,7 +1173,7 @@ impl Chat {
         append_line!("say_distance", &self.say_distance);
         append_line!("shout_distance", &self.shout_distance);
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1160,8 +1182,8 @@ pub struct EntityTransfer {
     pub disable_inter_region_teleport_cancellation: Option<bool>,
     pub landing_point_behavior: Option<LandingPointBehavior>,
 }
-impl EntityTransfer {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for EntityTransfer{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1178,7 +1200,7 @@ impl EntityTransfer {
         );
         append_line!("LandingPointBehavior", &self.landing_point_behavior);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1190,8 +1212,8 @@ pub struct Messaging {
     pub mute_list_module: Option<String>,
     pub forward_offline_group_messages: Option<bool>,
 }
-impl Messaging {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Messaging{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1211,15 +1233,15 @@ impl Messaging {
             &self.forward_offline_group_messages
         );
 
-        result
+        write!(f, "{}", result)
     }
 }
 
 pub struct BulletSim {
     pub avatar_to_avatar_collisions_by_default: Option<bool>,
 }
-impl BulletSim {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for BulletSim{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1235,7 +1257,7 @@ impl BulletSim {
             &self.avatar_to_avatar_collisions_by_default
         );
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for BulletSim {
@@ -1250,8 +1272,8 @@ impl Default for BulletSim {
 pub struct ODEPhysicsSettings {
     pub mesh_sculpted_prim: Option<bool>,
 }
-impl ODEPhysicsSettings {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for ODEPhysicsSettings{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1264,7 +1286,7 @@ impl ODEPhysicsSettings {
 
         append_line!("mesh_sculpted_prim", &self.mesh_sculpted_prim);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1282,8 +1304,8 @@ pub struct RemoteAdmin {
     pub copy_folders: Option<bool>,
     pub default_appearance: Option<PathBuf>,
 }
-impl RemoteAdmin {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for RemoteAdmin{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1320,8 +1342,7 @@ impl RemoteAdmin {
                 .as_ref()
                 .map(|p| p.to_string_lossy())
         );
-
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1337,8 +1358,8 @@ pub struct Wind {
     pub rate_change: Option<i32>,
     pub strength: Option<i32>,
 }
-impl Wind {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Wind{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1359,7 +1380,7 @@ impl Wind {
         append_line!("rate_change", &self.rate_change);
         append_line!("strength", &self.strength);
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1368,8 +1389,8 @@ pub struct Materials {
     pub enabled: Option<bool>,
     pub max_materials_per_transaction: Option<i32>,
 }
-impl Materials {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Materials{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1386,7 +1407,7 @@ impl Materials {
             &self.max_materials_per_transaction
         );
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1400,8 +1421,8 @@ pub struct DataSnapshot {
     pub data_services: Option<DataServicesList>,
     pub data_srv_mi_search: Option<DataSrvMiSearchList>,
 }
-impl DataSnapshot {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for DataSnapshot{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1426,7 +1447,7 @@ impl DataSnapshot {
         append_line!("data_services", &self.data_services);
         append_line!("data_srv_mi_search", &self.data_srv_mi_search);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1438,9 +1459,8 @@ pub struct Economy {
     pub price_upload: Option<i32>,
     pub price_group_create: Option<i32>,
 }
-
-impl Economy {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Economy{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1457,7 +1477,7 @@ impl Economy {
         append_line!("PriceUpload", &self.price_upload);
         append_line!("PriceGroupCreate", &self.price_group_create);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1472,8 +1492,8 @@ pub struct YEngine {
     pub sensor_max_results: Option<i32>,
     pub script_engines_path: Option<PathBuf>,
 }
-impl YEngine {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for YEngine{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1505,7 +1525,7 @@ impl YEngine {
                 .map(|p| p.to_string_lossy())
         );
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1533,8 +1553,8 @@ pub struct XEngine {
     pub disable_underground_movement: Option<i32>,
     pub script_engines_path: Option<PathBuf>,
 }
-impl XEngine {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for XEngine{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1586,7 +1606,7 @@ impl XEngine {
                 .map(|p| p.to_string_lossy())
         );
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for XEngine {
@@ -1621,8 +1641,8 @@ impl Default for XEngine {
 pub struct OSSL {
     pub include_ossl_default_enable: Option<PathBuf>,
 }
-impl OSSL {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for OSSL{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1640,7 +1660,7 @@ impl OSSL {
                 .as_ref()
                 .map(|p| p.to_string_lossy())
         );
-        result
+        write!(f, "{}", result) 
     }
 }
 impl Default for OSSL {
@@ -1659,9 +1679,8 @@ pub struct FreeSwitchVoice {
     pub local_service_module: Option<String>,
     pub free_switch_service_url: Option<String>,
 }
-
-impl FreeSwitchVoice {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for FreeSwitchVoice{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1676,7 +1695,7 @@ impl FreeSwitchVoice {
         append_line!("LocalServiceModule", &self.local_service_module);
         append_line!("FreeSwitchServiceURL", &self.free_switch_service_url);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1700,8 +1719,8 @@ pub struct Groups {
     pub xml_rpc_service_read_key: Option<i32>,
     pub xml_rpc_service_write_key: Option<i32>,
 }
-impl Groups {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Groups{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1730,7 +1749,7 @@ impl Groups {
         append_line!("XmlRpcServiceReadKey", &self.xml_rpc_service_read_key);
         append_line!("XmlRpcServiceWriteKey", &self.xml_rpc_service_write_key);
 
-        result
+        write!(f, "{}", result) 
     }
 }
 
@@ -1739,8 +1758,8 @@ pub struct InterestManagement {
     pub update_prioritization_scheme: Option<UpdatePrioritizationScheme>,
     pub objects_culling_by_distance: Option<bool>,
 }
-impl InterestManagement {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for InterestManagement{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1760,7 +1779,7 @@ impl InterestManagement {
             &self.objects_culling_by_distance
         );
 
-        result
+        write!(f, "{}", result) 
     }
 }
 
@@ -1768,8 +1787,8 @@ impl InterestManagement {
 pub struct MediaOnAPrim {
     pub enabled: Option<bool>,
 }
-impl MediaOnAPrim {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for MediaOnAPrim{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1781,7 +1800,7 @@ impl MediaOnAPrim {
         }
 
         append_line!("Enabled", &self.enabled);
-        result
+        write!(f, "{}", result) 
     }
 }
 
@@ -1794,8 +1813,8 @@ pub struct NPC {
     pub allow_clone_other_avatars: Option<bool>,
     pub no_npc_group: Option<bool>,
 }
-impl NPC {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for NPC{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1813,7 +1832,7 @@ impl NPC {
         append_line!("AllowCloneOtherAvatars", &self.allow_clone_other_avatars);
         append_line!("NoNPCGroup", &self.no_npc_group);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1821,8 +1840,8 @@ impl NPC {
 pub struct Terrain {
     pub initial_terrain: Option<String>,
 }
-impl Terrain {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Terrain{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1835,7 +1854,7 @@ impl Terrain {
 
         append_line!("InitialTerrain", &self.initial_terrain);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1843,8 +1862,8 @@ impl Terrain {
 pub struct LandManagement {
     pub show_parcel_bans_lines: Option<String>,
 }
-impl LandManagement {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for LandManagement{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1857,7 +1876,7 @@ impl LandManagement {
 
         append_line!("ShowParcelBansLines", &self.show_parcel_bans_lines);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1866,8 +1885,8 @@ pub struct UserProfiles {
     pub profile_service_url: Option<String>,
     pub allow_user_profile_web_urls: Option<bool>,
 }
-impl UserProfiles {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for UserProfiles{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1881,7 +1900,7 @@ impl UserProfiles {
         append_line!("ProfileServiceURL", &self.profile_service_url);
         append_line!("AllowUserProfileWebURLs", &self.allow_user_profile_web_urls);
 
-        result
+write!(f, "{}", result)
     }
 }
 
@@ -1889,8 +1908,8 @@ impl UserProfiles {
 pub struct XBakes {
     pub url: Option<String>,
 }
-impl XBakes {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for XBakes{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1903,7 +1922,7 @@ impl XBakes {
 
         append_line!("URL", &self.url);
 
-        result
+        write!(f, "{}", result)
     }
 }
 
@@ -1913,8 +1932,8 @@ pub struct GodNames {
     pub full_names: Option<GodFullNamesList>,
     pub surnames: Option<GodSurnamesList>,
 }
-impl GodNames {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for GodNames{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1929,15 +1948,15 @@ impl GodNames {
         append_line!("FullNames", &self.full_names);
         append_line!("Surnames", &self.surnames);
 
-        result
+write!(f, "{}", result)
     }
 }
 
 pub struct Architecture {
     pub include_architecture: Option<Architectures>,
 }
-impl Architecture {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Architecture{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
         macro_rules! append_line {
@@ -1950,7 +1969,7 @@ impl Architecture {
 
         append_line!("Include-Architecture", &self.include_architecture);
 
-        result
+        write!(f, "{}", result)
     }
 }
 impl Default for Architecture {

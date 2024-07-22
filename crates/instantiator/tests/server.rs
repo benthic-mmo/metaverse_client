@@ -17,19 +17,19 @@ use tokio::sync::Notify;
 #[test]
 fn test_default_config() {
     let config = create_default_config();
-    println!("{}", config.to_string());
+    println!("{}", config);
 }
 
 #[test]
 fn test_full_config() {
     let config = create_full_config();
-    println!("{}", config.to_string());
+    println!("{}", config);
 }
 
 #[test]
 fn test_default_standalone_config() {
     let config = create_default_standalone_config();
-    println!("{}", config.to_string());
+    println!("{}", config);
 }
 
 #[actix_rt::test]
@@ -59,7 +59,7 @@ async fn test_start_server() {
             .unwrap()
             .to_string();
     } else {
-        assert!(false);
+        panic!();
     }
 
     let notify = Arc::new(Notify::new());
@@ -164,12 +164,10 @@ async fn test_stdout_capture() {
             Some(msg) => {
                 println!("Received message: {}", msg.log_content);
                 if msg.log_content.contains("Currently selected region is") {
-                    assert!(true, "output read to server ready");
                     break;
                 }
             }
             None => {
-                assert!(false, "Channel closed unexpectedly");
                 break;
             }
         }
