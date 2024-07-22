@@ -13,8 +13,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::{Child, Command};
-use tokio::sync::mpsc;
-use tokio::sync::Notify;
+use tokio::sync::{mpsc, Notify};
 
 use super::conf_spec::SimulatorConfig;
 use super::region::RegionsConfig;
@@ -64,7 +63,7 @@ impl fmt::Display for ServerComponents {
 #[derive(PartialEq, Clone)]
 pub enum ServerState {
     Starting,
-    Started,
+    Running,
     Stopping,
     Stopped,
 }
@@ -72,16 +71,15 @@ impl fmt::Display for ServerState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ServerState::Starting => write!(f, "Starting"),
-            ServerState::Started => write!(f, "Started"),
+            ServerState::Running => write!(f, "Running"),
             ServerState::Stopping => write!(f, "Stopping"),
             ServerState::Stopped => write!(f, "Stopped"),
         }
     }
 }
- 
 
-struct Started;
-impl Message for Started {
+struct Running;
+impl Message for Running {
     type Result = ();
 }
 
@@ -98,6 +96,7 @@ pub struct SimServer {
     pub process: Option<Child>,
     pub process_stdin_receiver: Option<mpsc::Receiver<CommandMessage>>,
     pub process_stdin_sender: Option<mpsc::Sender<CommandMessage>>,
+    pub process_stdout_sender: Option<mpsc::Sender<StdoutMessage>>,
     pub notify: Arc<Notify>,
     pub exec_data: ExecData,
 }
@@ -106,7 +105,6 @@ impl Actor for SimServer {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Server has started");
-        self.state = ServerState::Starting;
         let config_path = format!("{}/bin/OpenSim.ini", self.exec_data.base_dir);
         match SimServer::write_to_file(&config_path, self.sim_config.to_string()) {
             Ok(()) => info!("Wrote {} to file", &config_path),
@@ -140,6 +138,7 @@ impl Actor for SimServer {
         {
             Ok(child) => {
                 self.process = Some(child);
+                self.set_state(ServerState::Starting, ctx);
                 info!(
                     "Started server at {}/bin/{}",
                     self.exec_data.base_dir, self.exec_data.sim_executable
@@ -188,16 +187,15 @@ impl Handler<StdoutMessage> for SimServer {
         }
         match msg.component {
             ServerComponents::Console(_) => {
-                if !(self.state == ServerState::Started)
+                if !(self.state == ServerState::Running)
                     && msg.log_content.contains("Currently selected region is")
                 {
-                    self.set_state(ServerState::Started, ctx);
+                    self.set_state(ServerState::Running, ctx);
                 }
             }
             ServerComponents::Shutdown(_) => {
-                if self.state != ServerState::Stopped && 
-                    self.state != ServerState::Stopping {
-                self.state = ServerState::Stopping;
+                if self.state != ServerState::Stopped && self.state != ServerState::Stopping {
+                    self.state = ServerState::Stopping;
                 }
                 if msg.log_content.contains("complete") {
                     self.set_state(ServerState::Stopped, ctx);
@@ -208,10 +206,10 @@ impl Handler<StdoutMessage> for SimServer {
     }
 }
 
-impl Handler<Started> for SimServer {
+impl Handler<Running> for SimServer {
     type Result = ();
-    fn handle(&mut self, _: Started, _ctx: &mut Context<Self>) -> Self::Result {
-        info!("Server has started");
+    fn handle(&mut self, _: Running, _ctx: &mut Context<Self>) -> Self::Result {
+        info!("Server is running");
     }
 }
 
@@ -226,13 +224,19 @@ impl Handler<Stopped> for SimServer {
 impl SimServer {
     fn handle_stdout(&mut self, addr: Addr<SimServer>) {
         if let Some(stdout) = self.process.as_mut().unwrap().stdout.take() {
+            let state_clone = Arc::clone(&self.arc_state);
+            let stdout_sender = self.process_stdout_sender.clone();
             let get_stdout = async move {
                 info!("running stdout capture");
                 let reader = tokio::io::BufReader::new(stdout);
                 let mut lines = reader.lines();
                 while let Some(line) = lines.next_line().await.unwrap() {
-                    let re = Regex::new(r"^(\d{2}:\d{2}:\d{2}) - \[(.*?)\]: (.*)$").unwrap();
+                    if *state_clone.lock().unwrap() == ServerState::Stopped {
+                        info!("server has stopped, exiting stdout capture");
+                        break;
+                    }
 
+                    let re = Regex::new(r"^(\d{2}:\d{2}:\d{2}) - \[(.*?)\]: (.*)$").unwrap();
                     let stdout_message: StdoutMessage;
                     if let Some(captures) = re.captures(&line) {
                         let timestamp = captures.get(1).map_or("", |m| m.as_str());
@@ -254,6 +258,12 @@ impl SimServer {
                             log_content: line,
                         };
                     }
+                    // allow for process to subscribe to stdout, and receive message structs
+                    if let Some(sender) = &stdout_sender {
+                        if let Err(_) = sender.send(stdout_message.clone()).await {
+                            break;
+                        }
+                    }
                     addr.borrow().clone().do_send(stdout_message);
                 }
             };
@@ -264,10 +274,15 @@ impl SimServer {
     fn handle_stdin(&mut self) {
         if let Some(stdin) = self.process.as_mut().unwrap().stdin.take() {
             let mut stdin_receiver = self.process_stdin_receiver.take().unwrap();
+            let state_clone = Arc::clone(&self.arc_state);
             let write_stdin = async move {
                 info!("running stdin reciever");
                 let mut writer = tokio::io::BufWriter::new(stdin);
                 while let Some(cmd) = stdin_receiver.recv().await {
+                    if *state_clone.lock().unwrap() == ServerState::Stopped {
+                        info!("server has stopped, exiting stdin thread");
+                        break;
+                    }
                     info!("command received: {}", cmd.command);
                     if let Err(e) = writer.write_all(cmd.command.as_bytes()).await {
                         error!("failed to write command {}: {}", cmd.command, e);
@@ -292,9 +307,9 @@ impl SimServer {
         }
 
         self.state = new_state;
-        if let ServerState::Started = self.state {
+        if let ServerState::Running = self.state {
             self.notify.notify_one();
-            ctx.notify(Started);
+            ctx.notify(Running);
         }
         if let ServerState::Stopped = self.state {
             self.notify.notify_one();
