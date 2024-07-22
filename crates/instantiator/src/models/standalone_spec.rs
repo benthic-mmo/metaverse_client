@@ -1,9 +1,10 @@
 use std::fmt;
 use std::path::PathBuf;
 
-
 static DEFAULT_BASE_HOSTNAME: &str = "127.0.0.1";
 static DEFAULT_PUBLIC_PORT: i32 = 9000;
+
+// this contains the full (or almost full) spec of a Standalone.ini file.
 
 #[derive(Default)]
 pub struct StandaloneConfig {

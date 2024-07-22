@@ -1,11 +1,15 @@
 use std::fmt;
 use std::path::PathBuf;
 
-
 static DEFAULT_BASE_HOSTNAME: &str = "127.0.0.1";
 static DEFAULT_HOST: &str = "localhost";
 
-// this is the full definition for a simulator INI, taken from OpenSimulator's INI files.
+
+
+/// This file contains the full (or almost full) spec of an OpenSimulator.ini
+/// full docs on each of these values can be found here 
+/// http://opensimulator.org/wiki/Configuration/files/OpenSim/OpenSim.ini
+
 #[derive(Default)]
 pub struct SimulatorConfig {
     pub config_const: ConfigConst,

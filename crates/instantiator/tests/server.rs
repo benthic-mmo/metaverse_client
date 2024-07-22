@@ -7,7 +7,6 @@ use actix::Actor;
 use env_logger::Env;
 use metaverse_instantiator::config_generator::{
     create_default_config, create_default_region_config, create_default_standalone_config,
-    create_full_config,
 };
 use metaverse_instantiator::models::server::*;
 use metaverse_instantiator::server::*;
@@ -17,12 +16,6 @@ use tokio::sync::Notify;
 #[test]
 fn test_default_config() {
     let config = create_default_config();
-    println!("{}", config);
-}
-
-#[test]
-fn test_full_config() {
-    let config = create_full_config();
     println!("{}", config);
 }
 
@@ -51,7 +44,7 @@ async fn test_start_server() {
 
     assert!(download_sim(&url, &sim_archive, &sim_path).is_ok());
 
-    let mut base_dir = "".to_string();
+    let base_dir: String;
     if let Ok(canonical_path) = fs::canonicalize(sim_path) {
         base_dir = canonical_path
             .into_os_string()
@@ -59,15 +52,14 @@ async fn test_start_server() {
             .unwrap()
             .to_string();
     } else {
-        panic!();
+        panic!("failed to canonicalize base_dir")
     }
 
     let notify = Arc::new(Notify::new());
-    let arc_state = Arc::new(Mutex::new(ServerState::Starting));
+    let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let sim_server = SimServer {
-        state: ServerState::Starting,
-        arc_state: Arc::clone(&arc_state),
+        state: Arc::clone(&state),
         sim_config: create_default_config(),
         standalone_config: create_default_standalone_config(),
         regions_config: create_default_region_config(),
@@ -88,7 +80,7 @@ async fn test_start_server() {
     // Wait for the notify signal
     notify.notified().await;
 
-    if *arc_state.lock().unwrap() == ServerState::Running {
+    if *state.lock().unwrap() == ServerState::Running {
         info!("Server started. Running test commands");
         sim_server.do_send(CommandMessage{
             command: "create user default user password email@mail.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
@@ -98,7 +90,7 @@ async fn test_start_server() {
             command: "quit".to_string(),
         });
     } else {
-        assert!(false, "server failed to start")
+        panic!("server failed to start")
     }
 
     // wait for the second notify signal to say that the server is done
@@ -124,7 +116,7 @@ async fn test_stdout_capture() {
 
     assert!(download_sim(&url, &sim_archive, &sim_path).is_ok());
 
-    let mut base_dir = "".to_string();
+    let base_dir: String;
     if let Ok(canonical_path) = fs::canonicalize(sim_path) {
         base_dir = canonical_path
             .into_os_string()
@@ -132,15 +124,14 @@ async fn test_stdout_capture() {
             .unwrap()
             .to_string();
     } else {
-        assert!(false);
+        panic!("failed to create base_dir");
     }
 
     let notify = Arc::new(Notify::new());
-    let arc_state = Arc::new(Mutex::new(ServerState::Starting));
+    let state = Arc::new(Mutex::new(ServerState::Starting));
 
     SimServer {
-        state: ServerState::Starting,
-        arc_state: Arc::clone(&arc_state),
+        state: Arc::clone(&state),
         sim_config: create_default_config(),
         standalone_config: create_default_standalone_config(),
         regions_config: create_default_region_config(),

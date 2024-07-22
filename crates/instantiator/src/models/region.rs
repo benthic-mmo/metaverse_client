@@ -1,6 +1,11 @@
 use std::fmt;
 use uuid::Uuid;
 
+// this file contains the pec for a Regions.ini file. 
+// full docs can be found here 
+// http://opensimulator.org/wiki/Configuring_Regions 
+
+
 pub struct Coordinate {
     x: i32,
     y: i32,
