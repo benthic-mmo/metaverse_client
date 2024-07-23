@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_instantiator"
-version = "0.0.2"
+version = "0.0.4"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "open metaverse simulator instantiator"
 edition = "2021"
