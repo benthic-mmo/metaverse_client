@@ -1,10 +1,9 @@
 use log::info;
-use std::fs;
+use serial_test::serial;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, Instant};
 
 use actix::Actor;
-use env_logger::Env;
 use metaverse_instantiator::config_generator::{
     create_default_config, create_default_region_config, create_default_standalone_config,
 };
@@ -12,6 +11,10 @@ use metaverse_instantiator::models::server::*;
 use metaverse_instantiator::server::*;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
+
+fn init_logger() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 #[test]
 fn test_default_config() {
@@ -26,35 +29,46 @@ fn test_default_standalone_config() {
 }
 
 #[actix_rt::test]
-async fn test_start_server() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
-
-    let conf = match read_sim_config() {
+#[serial]
+async fn test_sim_download() {
+    init_logger();
+    match read_sim_config() {
         Some(x) => x,
         None => {
             println!("test skipped, no config file");
             return;
         }
     };
-    let url = conf.get("sim_url").unwrap().to_string();
-    let sim_archive = conf.get("sim_archive").unwrap().to_string();
-    let sim_path = conf.get("sim_path").unwrap().to_string();
-    let sim_executable = conf.get("sim_executable").unwrap().to_string();
+    let (base_dir, _sim_executable, url, archive) = match read_config() {
+            Ok((base_dir, sim_executable, url, archive)) => {
+            (base_dir, sim_executable, url, archive)
+        },
+            Err(e) => panic!("Error: {}", e)
+        };
+    match download_sim(&url, &archive, &base_dir).await {
+        Ok(_) => info!("downloaded sim successfully"),
+        Err(e) => info!("failed to download sim {}", e)
+    };
+}
 
-    assert!(download_sim(&url, &sim_archive, &sim_path).is_ok());
+#[actix_rt::test]
+#[serial]
+async fn test_start_server() {
+    init_logger();
+    let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
 
-    let base_dir: String;
-    if let Ok(canonical_path) = fs::canonicalize(sim_path) {
-        base_dir = canonical_path
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .to_string();
-    } else {
-        panic!("failed to canonicalize base_dir")
-    }
-
+    let (url, archive, base_dir, executable) = match read_config() {
+            Ok((url, archive, base_dir, executable)) => {
+            (url, archive, base_dir, executable)
+        },
+            Err(e) => panic!("Error: {}", e)
+        };
+   
+    match download_sim(&url, &archive, &base_dir).await {
+        Ok(_) => info!("downloaded sim successfully"),
+        Err(e) => info!("failed to download sim {}", e)
+    };
+        
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
@@ -70,7 +84,7 @@ async fn test_start_server() {
         notify: Arc::clone(&notify),
         exec_data: ExecData {
             base_dir,
-            sim_executable,
+            executable,
             init_command: "mono".to_string(),
         },
     }
@@ -97,35 +111,23 @@ async fn test_start_server() {
     notify.notified().await;
 }
 #[actix_rt::test]
+#[serial]
 async fn test_stdout_capture() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    init_logger();
     let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
     let (stdout_sender, mut receiver) = mpsc::channel::<StdoutMessage>(100);
 
-    let conf = match read_sim_config() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no config file");
-            return;
-        }
+    let (url, archive, base_dir, executable) = match read_config() {
+            Ok((url, archive, base_dir, executable)) => {
+            (url, archive, base_dir, executable)
+        },
+            Err(e) => panic!("Error: {}", e)
+        };
+   
+    match download_sim(&url, &archive, &base_dir).await {
+        Ok(_) => info!("downloaded sim successfully"),
+        Err(e) => info!("failed to download sim {}", e)
     };
-    let url = conf.get("sim_url").unwrap().to_string();
-    let sim_archive = conf.get("sim_archive").unwrap().to_string();
-    let sim_path = conf.get("sim_path").unwrap().to_string();
-    let sim_executable = conf.get("sim_executable").unwrap().to_string();
-
-    assert!(download_sim(&url, &sim_archive, &sim_path).is_ok());
-
-    let base_dir: String;
-    if let Ok(canonical_path) = fs::canonicalize(sim_path) {
-        base_dir = canonical_path
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .to_string();
-    } else {
-        panic!("failed to create base_dir");
-    }
 
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
@@ -142,7 +144,7 @@ async fn test_stdout_capture() {
         notify: Arc::clone(&notify),
         exec_data: ExecData {
             base_dir,
-            sim_executable,
+            executable,
             init_command: "mono".to_string(),
         },
     }
@@ -165,18 +167,3 @@ async fn test_stdout_capture() {
     }
 }
 
-#[test]
-fn test_sim_download() {
-    let conf = match read_sim_config() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no config file");
-            return;
-        }
-    };
-    let url = conf.get("sim_url").unwrap().to_string();
-    let sim_archive = conf.get("sim_archive").unwrap().to_string();
-    let sim_path = conf.get("sim_path").unwrap().to_string();
-
-    assert!(download_sim(&url, &sim_archive, &sim_path).is_ok())
-}

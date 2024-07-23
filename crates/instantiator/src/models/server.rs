@@ -25,7 +25,7 @@ impl fmt::Display for CommandMessage {
 
 pub struct ExecData {
     pub base_dir: String,
-    pub sim_executable: String,
+    pub executable: String,
     pub init_command: String,
 }
 
