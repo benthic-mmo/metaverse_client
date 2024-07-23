@@ -1,15 +1,18 @@
 use log::{info, warn, error};
+use std::fs;
+use std::error::Error;
 use reqwest::Url;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{copy, Cursor, Read};
+use tokio::fs::File as tokioFile;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use actix::prelude::*;
 use regex::Regex;
 use std::io::{Error as IOError, Write};
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, AsyncReadExt};
 use tokio::process::Command;
 use std::borrow::Borrow;
 use crate::models::server::*;
@@ -67,7 +70,7 @@ impl Actor for SimServer {
     ///     notify: Arc::clone(&notify), 
     ///     exec_data: ExecData{
     ///         base_dir,
-    ///         sim_executable,
+    ///         executable,
     ///         init_command: "mono".to_string(),
     ///     },
     ///}.start();
@@ -124,7 +127,7 @@ impl Actor for SimServer {
         match Command::new(self.exec_data.init_command.clone())
             .arg(format!(
                 "{}/bin/{}",
-                self.exec_data.base_dir, self.exec_data.sim_executable
+                self.exec_data.base_dir, self.exec_data.executable
             ))
             .current_dir(format!("{}/bin", self.exec_data.base_dir))
             .stdout(Stdio::piped())
@@ -139,13 +142,13 @@ impl Actor for SimServer {
                 self.set_state(ServerState::Starting, ctx);
                 info!(
                     "Started server at {}/bin/{}",
-                    self.exec_data.base_dir, self.exec_data.sim_executable
+                    self.exec_data.base_dir, self.exec_data.executable
                 );
             }
             Err(e) => {
                 error!(
                     "Failed to start server at {}/bin/{} : {}",
-                    self.exec_data.base_dir, self.exec_data.sim_executable, e
+                    self.exec_data.base_dir, self.exec_data.executable, e
                 );
                 return;
             }
@@ -372,8 +375,6 @@ impl SimServer {
     }
 }
 
-// read the config that contains some sim config. 
-//
 // will probably remove later 
 pub fn read_sim_config() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
@@ -391,7 +392,7 @@ pub fn read_sim_config() -> Option<HashMap<String, String>> {
 }
 
 // handle downloading sim
-pub fn download_sim(
+pub async fn download_sim(
     url: &str,
     sim_archive: &str,
     sim_path: &str,
@@ -402,19 +403,19 @@ pub fn download_sim(
 
         info!("downloading sim {:?}", url);
         let url = Url::parse(url)?;
-        let client = reqwest::blocking::Client::new();
-        let mut response = client.get(url).send()?;
-        let mut dest = File::create(sim_archive)?;
-        copy(&mut response, &mut dest)?;
+        let response = reqwest::get(url).await?;
+        let mut dest = tokioFile::create(sim_archive).await?;
+        let content = response.bytes().await?;
+        dest.write_all(&content).await?;
         info!("sim downloaded and saved to {}", sim_path);
     } else {
         warn!("archive already exists at {}", sim_archive);
     }
 
     if !Path::new(sim_path).exists() {
-        let mut file = File::open(sim_archive)?;
+        let mut file = tokioFile::open(sim_archive).await?;
         let mut archive = Vec::new();
-        file.read_to_end(&mut archive)?;
+        file.read_to_end(&mut archive).await?;
 
         let target_dir = PathBuf::from(sim_path);
 
@@ -424,4 +425,44 @@ pub fn download_sim(
     }
 
     Ok(())
+}
+
+// handle reading and creating dirs from config 
+pub fn read_config() -> Result<(String, String, String, String), Box<dyn Error>>{
+    let conf = match read_sim_config() {
+        Some(x) => x,
+        None => {
+            println!("test skipped, no config file");
+            return Err("failed to read sim config".into()) 
+        }
+    };
+    let url = conf.get("url").unwrap().to_string();
+    let archive = conf.get("archive").unwrap().to_string();
+    let path = conf.get("path").unwrap().to_string();
+    let executable = conf.get("executable").unwrap().to_string();
+    let name = conf.get("name").unwrap().to_string();
+
+    let output_dir = Path::new(&path);
+    if !Path::new(&path).exists() {
+        fs::create_dir_all(output_dir)?;
+    }
+
+    let sim_dir: String;
+
+    match fs::canonicalize(output_dir){
+       Ok(canonical_path) => {
+            sim_dir = canonical_path
+            .into_os_string()
+            .into_string()
+            .unwrap()
+            .to_string();
+        },
+        Err(e) => {
+            panic!("failed to canonicalize sim_dir: {}", e)
+        } 
+    }
+    let base_dir = Path::new(&sim_dir).join(name).into_os_string().into_string().unwrap().to_string();
+    let sim_archive = Path::new(&path).join(archive).into_os_string().into_string().unwrap().to_string();
+
+    Ok((url, sim_archive, base_dir, executable))
 }
