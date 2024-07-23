@@ -19,3 +19,5 @@ Cargo.lock
 
 .creds.toml
 crates/instantiator/sims/
+
+crates/login/sims/

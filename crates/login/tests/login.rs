@@ -1,74 +1,83 @@
 // integration test for login
 extern crate sys_info;
 
-use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::env;
+use log::info;
+use metaverse_login::login::*;
+use metaverse_login::models::simulator_login_protocol::*;
+use std::error::Error;
 use std::net::TcpStream;
 use std::panic;
 use std::process::{Child, Command};
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
+use tokio::time::Instant;
 
-use metaverse_login::login::{build_struct_with_defaults, login, login_with_defaults};
-use metaverse_login::models::simulator_login_protocol::{
-    SimulatorLoginOptions, SimulatorLoginProtocol,
-};
+use actix::Actor;
+use lazy_static::lazy_static;
+use metaverse_instantiator::config_generator::*;
+use metaverse_instantiator::models::server::*;
+use metaverse_instantiator::server::*;
+use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
+
+fn init_logger() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
 
 // port and address for the test server
 const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &str = "http://127.0.0.1";
-const OSGRID_PORT: u16 = 80;
-const OSGRID_URL: &str = "http://login.osgrid.org";
 
 lazy_static! {
     static ref EXAMPLE_LOGIN: SimulatorLoginProtocol = SimulatorLoginProtocol {
-        first: "1".to_string(),
-        last: "1".to_string(),
-        passwd: "1".to_string(),
-        start: "1".to_string(),
-        channel: Some("1".to_string()),
-        version: Some("1".to_string()),
-        platform: Some("1".to_string()),
-        platform_string: Some("1".to_string()),
-        platform_version: Some("1".to_string()),
-        mac: Some("1".to_string()),
-        id0: Some("1".to_string()),
-        agree_to_tos: Some(false),
-        read_critical: Some(false),
-        viewer_digest: Some("1".to_string()),
-        address_size: Some("1".to_string()),
-        extended_errors: Some("1".to_string()),
-        last_exec_event: Some(1),
-        last_exec_duration: Some("1".to_string()),
-        skipoptional: Some(false),
-        options: Some(SimulatorLoginOptions {
-            adult_compliant: Some("1".to_string()),
-            advanced_mode: Some("1".to_string()),
-            avatar_picker_url: Some("1".to_string()),
-            buddy_list: Some("1".to_string()),
-            classified_categories: Some("1".to_string()),
-            currency: Some("1".to_string()),
-            destination_guide_url: Some("1".to_string()),
-            display_names: Some("1".to_string()),
-            event_categories: Some("1".to_string()),
-            gestures: Some("1".to_string()),
-            global_textures: Some("1".to_string()),
-            inventory_root: Some("1".to_string()),
-            inventory_skeleton: Some("1".to_string()),
-            inventory_lib_root: Some("1".to_string()),
-            inventory_lib_owner: Some("1".to_string()),
-            inventory_skel_lib: Some("1".to_string()),
-            login_flags: Some("1".to_string()),
-            max_agent_groups: Some("1".to_string()),
-            max_groups: Some("1".to_string()),
-            map_server_url: Some("1".to_string()),
-            newuser_config: Some("1".to_string()),
-            search: Some("1".to_string()),
-            tutorial_setting: Some("1".to_string()),
-            ui_config: Some("1".to_string()),
-            voice_config: Some("1".to_string())
-        })
+        address_size: 64,
+        agree_to_tos: false,
+        channel: "benthic".to_string(),
+        extended_errors: true,
+        host_id: "".to_string(),
+        id0: "86eb9930e48f487de8ae3e84dac73339".to_string(),
+        last_exec_duration: 0,
+        last_exec_event: Some(0),
+        mac: "00000000000000000000000000000000".to_string(),
+        mfa_hash: "".to_string(),
+        passwd: "$1$5f4dcc3b5aa765d61d8327deb882cf99".to_string(),
+        platform: "lnx".to_string(),
+        platform_string: "Linux 6.9".to_string(),
+        platform_version: "2.39.0".to_string(),
+        read_critical: false,
+        token: "".to_string(),
+        version: "7.1.9.74745".to_string(),
+        first: "default".to_string(),
+        last: "user".to_string(),
+        start: "home".to_string(),
+        viewer_digest: None,
+        skipoptional: None,
+        options: SimulatorLoginOptions {
+            inventory_root: Some(true),
+            inventory_skeleton: Some(true),
+            inventory_lib_root: Some(true),
+            inventory_lib_owner: Some(true),
+            inventory_skel_lib: Some(true),
+            gestures: Some(true),
+            display_names: Some(true),
+            event_categories: Some(true),
+            classified_categories: Some(true),
+            adult_compliant: Some(true),
+            buddy_list: Some(true),
+            newuser_config: Some(true),
+            ui_config: Some(true),
+            advanced_mode: Some(true),
+            max_agent_groups: Some(true),
+            map_server_url: Some(true),
+            voice_config: Some(true),
+            tutorial_setting: Some(true),
+            login_flags: Some(true),
+            global_textures: Some(true),
+            currency: Some(true),
+            max_groups: Some(true),
+            search: Some(true),
+            destination_guide_url: Some(true),
+            avatar_picker_url: Some(true),
+        }
     };
 }
 
@@ -97,9 +106,14 @@ fn test_struct_python_validate_xml() {
 
     let test_server_url = build_test_url(PYTHON_URL, PYTHON_PORT);
     let login_response = send_login(EXAMPLE_LOGIN.clone(), test_server_url.clone());
-    assert_eq!(login_response["first_name"], xmlrpc::Value::from("None"));
-    assert_eq!(login_response["last_name"], xmlrpc::Value::from("None"));
-    assert_eq!(login_response["login"], xmlrpc::Value::from("None"));
+    let response = match login_response {
+        Ok(response) => response,
+        Err(e) => panic!("login failed with {}", e),
+    };
+
+    assert_eq!(response["first_name"], xmlrpc::Value::from("None"));
+    assert_eq!(response["last_name"], xmlrpc::Value::from("None"));
+    assert_eq!(response["login"], xmlrpc::Value::from("None"));
 
     match reaper.0.try_wait().unwrap() {
         None => {}
@@ -109,233 +123,94 @@ fn test_struct_python_validate_xml() {
     }
 }
 
-///Tests connectivity with osgrid, attempts login with invalid credentials
-#[test]
-fn test_struct_osgrid_connect() {
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = send_login(EXAMPLE_LOGIN.clone(), prod_server_url.clone());
-    assert_eq!(login_response["login"], xmlrpc::Value::from("false"));
-    assert_eq!(login_response["reason"], xmlrpc::Value::from("key"));
-}
+#[actix_rt::test]
+async fn test_against_local() {
+    init_logger();
+    let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
+    let (stdout_sender, mut receiver) = mpsc::channel::<StdoutMessage>(100);
 
-///Tests login with live credentials. Creds need to be set in the .creds.toml file
-///uses your real username and password so be careful not to commit this file !!
-#[test]
-fn test_struct_osgrid_login() {
-    let creds = match read_creds() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no creds file");
-            return;
-        }
+    let (url, archive, base_dir, executable) = match read_config() {
+        Ok((url, archive, base_dir, executable)) => (url, archive, base_dir, executable),
+        Err(e) => panic!("Error: {}", e),
     };
-    let creds_firstname = creds.get("first").unwrap().to_string();
-    let creds_lastname = creds.get("last").unwrap().to_string();
-
-    let auth_login: SimulatorLoginProtocol = SimulatorLoginProtocol {
-        first: creds_firstname.clone(),
-        last: creds_lastname.clone(),
-        passwd: creds.get("passwd").unwrap().to_string(),
-        start: creds.get("start").unwrap().to_string(),
-        channel: Some(creds.get("channel").unwrap().to_string()),
-        version: Some(creds.get("version").unwrap().to_string()),
-        platform: Some(creds.get("platform").unwrap().to_string()),
-        platform_string: Some(creds.get("platform").unwrap().to_string()),
-        platform_version: Some(creds.get("platform_version").unwrap().to_string()),
-        mac: Some(creds.get("mac").unwrap().to_string()),
-        id0: Some(creds.get("id0").unwrap().to_string()),
-        agree_to_tos: Some(true),
-        read_critical: Some(true),
-        ..SimulatorLoginProtocol::default()
+    info!("downloading server");
+    match download_sim(&url, &archive, &base_dir).await {
+        Ok(_) => info!("downloaded sim successfully"),
+        Err(e) => info!("failed to download sim {}", e),
     };
 
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = send_login(auth_login.clone(), prod_server_url.clone());
+    let notify = Arc::new(Notify::new());
+    let state = Arc::new(Mutex::new(ServerState::Starting));
 
-    validate_grid_response(login_response, creds_firstname, creds_lastname)
-}
-
-///Tests the smallest possible request that will facilitate a login on osgrid
-#[test]
-fn test_struct_osgrid_login_minimal() {
-    let creds = match read_creds() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no creds file");
-            return;
-        }
-    };
-    let creds_firstname = creds.get("first").unwrap().to_string();
-    let creds_lastname = creds.get("last").unwrap().to_string();
-
-    let auth_login: SimulatorLoginProtocol = SimulatorLoginProtocol {
-        first: creds_firstname.clone(),
-        last: creds_lastname.clone(),
-        passwd: creds.get("passwd").unwrap().to_string(),
-        start: creds.get("start").unwrap().to_string(),
-        ..SimulatorLoginProtocol::default()
-    };
-
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = send_login(auth_login.clone(), prod_server_url.clone());
-
-    validate_grid_response(login_response, creds_firstname, creds_lastname)
-}
-
-///Tests the library login function against python server
-#[test]
-fn test_lib_login_python() {
-    let mut reaper = match setup() {
-        Ok(reap) => reap,
-        Err(_string) => return,
-    };
-
-    match reaper.0.try_wait().unwrap() {
-        None => {}
-        Some(status) => {
-            panic!("python process unexpectedly exited: {}", status);
-        }
+    let sim_server = SimServer {
+        state: Arc::clone(&state),
+        sim_config: create_default_config(),
+        standalone_config: create_default_standalone_config(),
+        regions_config: create_default_region_config(),
+        process: None,
+        process_stdout_sender: Some(stdout_sender),
+        process_stdin_receiver: Some(stdin_receiver),
+        process_stdin_sender: Some(stdin_sender),
+        notify: Arc::clone(&notify),
+        exec_data: ExecData {
+            base_dir,
+            executable,
+            init_command: "mono".to_string(),
+        },
     }
+    .start();
+    info!("Waiting for the server to start...");
 
-    let test_server_url = build_test_url(PYTHON_URL, PYTHON_PORT);
-    let test_login: SimulatorLoginProtocol = SimulatorLoginProtocol {
-        first: "first".to_string(),
-        last: "last".to_string(),
-        passwd: "passwd".to_string(),
-        start: "last".to_string(),
-        ..SimulatorLoginProtocol::default()
-    };
-
-    let login_response = login(test_login, test_server_url);
-
-    assert_eq!(login_response["first_name"], xmlrpc::Value::from("None"));
-    assert_eq!(login_response["last_name"], xmlrpc::Value::from("None"));
-    assert_eq!(login_response["login"], xmlrpc::Value::from("None"));
-
-    match reaper.0.try_wait().unwrap() {
-        None => {}
-        Some(status) => {
-            panic!("python process unexpectedly exited: {}", status);
+    tokio::spawn(async move {
+        loop {
+            if let Some(msg) = receiver.recv().await {
+                println!("Received message: {}", msg.log_content);
+                if msg.log_content.contains("Currently selected region is") {}
+            }
+            if let Some(msg) = receiver.recv().await {
+                println!("Received message: {}", msg.log_content);
+                if msg.log_content.contains("Currently selected region is") {}
+            }
         }
-    }
-}
-
-///Tests connectivity with osgrid, attempts login with invalid credentials using library
-#[test]
-fn test_lib_osgrid_connect() {
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = login(EXAMPLE_LOGIN.clone(), prod_server_url);
-    assert_eq!(login_response["login"], xmlrpc::Value::from("false"));
-    assert_eq!(login_response["reason"], xmlrpc::Value::from("key"));
-}
-
-///Tests the smallest possible request that will facilitate a login on osgrid
-#[test]
-fn test_lib_osgrid_login_minimal() {
-    let creds = match read_creds() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no creds file");
-            return;
-        }
-    };
-    let creds_firstname = creds.get("first").unwrap().to_string();
-    let creds_lastname = creds.get("last").unwrap().to_string();
-
-    let auth_login: SimulatorLoginProtocol = SimulatorLoginProtocol {
-        first: creds_firstname.clone(),
-        last: creds_lastname.clone(),
-        passwd: creds.get("passwd").unwrap().to_string(),
-        start: creds.get("start").unwrap().to_string(),
-        ..SimulatorLoginProtocol::default()
-    };
-
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = login(auth_login.clone(), prod_server_url.clone());
-
-    validate_grid_response(login_response, creds_firstname, creds_lastname)
-}
-
-#[test]
-fn test_lib_build_struct_with_defaults() {
-    let default_struct = build_struct_with_defaults(
-        env!("CARGO_CRATE_NAME").to_string(),
-        "first".to_string(),
-        "last".to_string(),
-        "passwd".to_string(),
-        "home".to_string(),
-        true,
-        true,
-    );
-
-    assert_eq!(
-        default_struct.platform_string.unwrap(),
-        sys_info::os_release().unwrap()
-    );
-    assert_eq!(
-        default_struct.platform.unwrap(),
-        match env::consts::FAMILY {
-            "mac" => "mac".to_string(),
-            "win" => "win".to_string(),
-            "unix" => "lin".to_string(),
-            _ => "lin".to_string(),
-        }
-    );
-}
-
-///Tests the default login builder
-#[test]
-fn test_lib_osgrid_login_defaults() {
-    let creds = match read_creds() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no creds file");
-            return;
-        }
-    };
-
-    let creds_firstname = creds.get("first").unwrap().to_string();
-    let creds_lastname = creds.get("last").unwrap().to_string();
-
-    let prod_server_url = build_test_url(OSGRID_URL, OSGRID_PORT);
-    let login_response = login_with_defaults(
-        env!("CARGO_CRATE_NAME").to_string(),
-        creds_firstname.clone(),
-        creds_lastname.clone(),
-        creds.get("passwd").unwrap().to_string(),
-        creds.get("start").unwrap().to_string(),
-        true,
-        true,
-        prod_server_url,
-    );
-    validate_grid_response(login_response, creds_firstname, creds_lastname)
-}
-
-fn read_creds() -> Option<HashMap<String, String>> {
-    let mut settings = config::Config::default();
-    match settings.merge(config::File::with_name(".creds")) {
-        Ok(_file) => _file,
-        Err(..) => {
-            return None;
-        }
-    };
-    settings
-        .merge(config::Environment::with_prefix("APP"))
-        .unwrap();
-
-    Some(settings.try_into::<HashMap<String, String>>().unwrap())
-}
-
-fn validate_grid_response(login_response: xmlrpc::Value, firstname: String, lastname: String) {
-    println!("{:?}", login_response);
-    let verify = panic::catch_unwind(|| {
-        assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
-        assert_eq!(login_response["first_name"], xmlrpc::Value::from(firstname));
-        assert_eq!(login_response["last_name"], xmlrpc::Value::from(lastname));
     });
-    if verify.is_err() {
-        assert_eq!(login_response["reason"], xmlrpc::Value::from("presence"))
+    sim_server.do_send(CommandMessage {
+        command: "default".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "user".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "password".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "email@email.com".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "9dc18bb1-044f-4c68-906b-2cb608b2e197".to_string(),
+    });
+
+    notify.notified().await;
+    if *state.lock().unwrap() == ServerState::Running {
+        info!("Server started. Running test commands");
+        sim_server.do_send(CommandMessage{
+            command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
+        });
+
+        let local_server_url = build_test_url("http://127.0.0.1", 9000);
+
+        let login_response = login(EXAMPLE_LOGIN.clone(), local_server_url.clone())
+            .await
+            .expect("faulre");
+        println!("{}", login_response);
+        sim_server.do_send(CommandMessage {
+            command: "quit".to_string(),
+        });
+    } else {
+        panic!("server failed to start")
     }
+
+    notify.notified().await;
+    // wait for the second notify signal to say that the server is done
 }
 
 /// sets up python xmlrpc server for testing
@@ -361,20 +236,32 @@ fn setup() -> Result<Reap, String> {
             None => {}
             Some(status) => panic!("python process died {}", status),
         }
-        match TcpStream::connect(("127.0.0.1", PYTHON_PORT)) {
-            Ok(_) => {
-                println!(
-                    "connected to server after {:?} (iteration{})",
-                    Instant::now() - start,
-                    iteration
-                );
-                return Ok(Reap(child));
-            }
-            Err(_) => {}
+
+        if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
+            println!(
+                "connected to server after {:?} (iteration{})",
+                Instant::now() - start,
+                iteration
+            );
+            return Ok(Reap(child));
         }
-        sleep(Duration::from_millis(50));
+        if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
+            println!(
+                "connected to server after {:?} (iteration{})",
+                Instant::now() - start,
+                iteration
+            );
+            return Ok(Reap(child));
+        }
     }
     Ok(Reap(child))
+}
+
+#[test]
+fn test_xml_generation() {
+    let req = xmlrpc::Request::new("login_to_simulator").arg(EXAMPLE_LOGIN.clone());
+    let cleaned = clean_xml(req).expect("Failed to clean XML");
+    print!("{}", cleaned);
 }
 
 /// helper function for building URL. May be unnescecary
@@ -388,7 +275,10 @@ fn build_test_url(url: &str, port: u16) -> String {
 }
 
 /// sends login for testing struct
-fn send_login(example_login: SimulatorLoginProtocol, url_string: String) -> xmlrpc::Value {
+fn send_login(
+    example_login: SimulatorLoginProtocol,
+    url_string: String,
+) -> Result<xmlrpc::Value, Box<dyn Error>> {
     // Login to test server
     let req = xmlrpc::Request::new("login_to_simulator").arg(example_login);
     debug_request_xml(req.clone());
@@ -396,7 +286,7 @@ fn send_login(example_login: SimulatorLoginProtocol, url_string: String) -> xmlr
     let login = req.call_url(url_string).unwrap();
     debug_response_xml(login.clone());
     println!("struct data: {:?}", login);
-    login
+    Ok(login)
 }
 
 /// prints out xml of request for debugging

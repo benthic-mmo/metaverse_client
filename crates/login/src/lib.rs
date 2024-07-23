@@ -5,5 +5,4 @@
 
 ///login functions for logging into metaverse servers
 pub mod login;
-///login models
 pub mod models;
