@@ -37,18 +37,18 @@ impl fmt::Display for Region {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
-        result.push_str(&format!("[{}]", &self.name));
-        result.push_str(&format!("RegionUUID = {}", &self.region_uuid));
-        result.push_str(&format!("Location = {}", &self.location.to_string()));
-        result.push_str(&format!("InternalAddress = {}", &self.internal_address));
-        result.push_str(&format!("InternalPort = {}", &self.internal_port));
+        result.push_str(&format!("[{}]\n", &self.name));
+        result.push_str(&format!("RegionUUID = {}\n", &self.region_uuid));
+        result.push_str(&format!("Location = {}\n", &self.location.to_string()));
+        result.push_str(&format!("InternalAddress = {} \n", &self.internal_address));
+        result.push_str(&format!("InternalPort = {} \n", &self.internal_port));
         result.push_str(&format!(
-            "AllowAlternatePorts = {}",
+            "AllowAlternatePorts = {} \n",
             &self.allow_alternate_ports
         ));
-        result.push_str(&format!("ExternalHostName = {}", &self.external_hostname));
-        result.push_str(&format!("SizeX = {}", &self.size_x));
-        result.push_str(&format!("SizeY = {}", &self.size_y));
+        result.push_str(&format!("ExternalHostName = {} \n", &self.external_hostname));
+        result.push_str(&format!("SizeX = {} \n", &self.size_x));
+        result.push_str(&format!("SizeY = {} \n", &self.size_y));
         write!(f, "{}", result)
     }
 }
@@ -70,15 +70,19 @@ impl Default for Region {
     }
 }
 
-#[derive(Default)]
 pub struct RegionsConfig(pub Vec<Region>);
 impl fmt::Display for RegionsConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut output = String::new();
 
         for region in &self.0 {
-            output.push_str(&format!("{}, ", region));
+            output.push_str(&format!("{}\n", region));
         }
         write!(f, "{}", output)
+    }
+}
+impl Default for RegionsConfig {
+    fn default() -> Self {
+        RegionsConfig(vec![Region::default()])
     }
 }
