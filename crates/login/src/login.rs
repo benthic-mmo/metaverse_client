@@ -1,11 +1,15 @@
 use crate::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use hyper::header::CONTENT_TYPE;
+use hyper::{Body, Client, Request};
 use md5;
 use md5::Digest;
+use regex::Regex;
 use std::env;
+use std::error::Error;
 
+use mac_address::get_mac_address;
 use std::io::Read;
 
-extern crate mac_address;
 extern crate sys_info;
 
 ///Logs in using a SimulatorLoginProtocol object and the url string.
@@ -31,9 +35,51 @@ extern crate sys_info;
 ///
 ///panic::catch_unwind(|| login(login_data, url.to_string()));
 ///```
-pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
+pub async fn login(
+    login_data: SimulatorLoginProtocol,
+    url: String,
+) -> Result<String, Box<dyn Error>> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    req.call_url(&url).unwrap()
+    let xml = match clean_xml(req) {
+        Ok(xml) => xml,
+        Err(e) => return Err(format!("failed to log in: {}", e).into()),
+    };
+
+    let client = Client::new();
+
+    // Create the HTTP request
+    let req = Request::builder()
+        .method(hyper::Method::POST)
+        .uri(url)
+        .header(CONTENT_TYPE, "text/xml")
+        .body(Body::from(xml))
+        .expect("Failed to build request");
+
+    // Send the request
+    let res = client.request(req).await?;
+
+    let status_code = res.status().as_u16().to_string();
+
+    Ok(status_code)
+}
+
+pub fn clean_xml(xml: xmlrpc::Request) -> Result<String, Box<dyn Error>> {
+    let mut output: Vec<u8> = vec![];
+    xml.write_as_xml(&mut output)?;
+    let request_string = String::from_utf8(output).map_err(|e| Box::new(e) as Box<dyn Error>)?;
+
+    let re_i4 = Regex::new(r"<i4>").unwrap();
+    let re_close_i4 = Regex::new(r"</i4>").unwrap();
+    let re_i8 = Regex::new(r"<i8>").unwrap();
+    let re_close_i8 = Regex::new(r"</i4>").unwrap();
+
+    // Replace i4 and i8 with int
+    let i4_open = re_i4.replace_all(&request_string, "<int>");
+    let i4_closed = re_close_i4.replace_all(&i4_open, "</int>");
+    let i8_open = re_i8.replace_all(&i4_closed, "<int>");
+    let final_string = re_close_i8.replace_all(&i8_open, "</int>").into_owned();
+
+    Ok(final_string)
 }
 
 ///Logs in using a generated SimulatorLoginProtocol object
@@ -67,7 +113,7 @@ pub fn login_with_defaults(
     agree_to_tos: bool,
     read_critical: bool,
     url: String,
-) -> xmlrpc::Value {
+) -> Result<xmlrpc::Value, Box<dyn Error>> {
     let login_data = build_struct_with_defaults(
         channel,
         first,
@@ -78,7 +124,10 @@ pub fn login_with_defaults(
         read_critical,
     );
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    req.call_url(&url).unwrap()
+    match req.call_url(url) {
+        Ok(value) => Ok(value),
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
 ///Generates a SimulatorLoginProtocol based on runtime values
@@ -97,6 +146,8 @@ pub fn login_with_defaults(
 ///assert_eq!(login_struct.first, "first");
 ///```
 ///
+///
+///
 pub fn build_struct_with_defaults(
     channel: String,
     first: String,
@@ -111,21 +162,33 @@ pub fn build_struct_with_defaults(
         last,
         passwd: hash_passwd(passwd),
         start,
-        channel: Some(channel.to_string()),
-        version: Some(env!("CARGO_PKG_VERSION").to_string()),
-        platform: Some(match env::consts::FAMILY {
+        channel,
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        platform: match env::consts::FAMILY {
             "mac" => "mac".to_string(),
             "win" => "win".to_string(),
             "unix" => "lin".to_string(),
             _ => "lin".to_string(),
-        }),
-        viewer_digest: Some(hash_viewer_digest()),
-        platform_string: Some(sys_info::os_release().unwrap()),
-        platform_version: Some(sys_info::os_release().unwrap()),
-        mac: Some(mac_address::get_mac_address().unwrap().unwrap().to_string()),
-        agree_to_tos: Some(agree_to_tos),
-        read_critical: Some(read_critical),
-        ..SimulatorLoginProtocol::default()
+        },
+        platform_string: sys_info::os_release().unwrap_or_default(),
+        platform_version: sys_info::os_release().unwrap_or_default(),
+        mac: match get_mac_address() {
+            Ok(Some(mac)) => format!("{}", mac),
+            _ => format!("{}", 00000000000000000000000000000000),
+        },
+        id0: "default_id0".to_string(), // Provide a default value for id0
+        agree_to_tos,
+        read_critical,
+        viewer_digest: Some(hash_viewer_digest()), // Assuming hash_viewer_digest() returns a String
+        address_size: 64,                          // Set a default value if needed
+        extended_errors: true,                     // Set a default value if needed
+        last_exec_event: None,                     // Default to None
+        last_exec_duration: 0,                     // Set a default value if needed
+        skipoptional: None,                        // Default to None
+        host_id: "".to_string(),                   // Set a default value if needed
+        mfa_hash: "".to_string(),                  // Set a default value if needed
+        token: "".to_string(),                     // Set a default value if needed
+        options: SimulatorLoginOptions::default(), // Use default options
     }
 }
 
@@ -134,114 +197,15 @@ fn hash_passwd(passwd_raw: String) -> String {
     let mut hasher = md5::Md5::new();
     hasher.update(passwd_raw);
     let data = format!("$1${:x}", hasher.finalize());
-    return data;
+    data
 }
 
 /// Creates the viewer digest, a fingerprint of the viewer executable
 fn hash_viewer_digest() -> String {
-    let mut f = std::fs::File::open(&std::env::args().next().unwrap()).unwrap();
+    let mut f = std::fs::File::open(std::env::args().next().unwrap()).unwrap();
     let mut byt = Vec::new();
     f.read_to_end(&mut byt).unwrap();
     let hash = md5::Md5::new().chain(&byt).finalize();
     let s = format!("{:x}", hash);
-    return s;
-}
-
-///Generates a SimulatorLoginProtocol from explicitly defined values
-///returns a SimulatorLoginProtocol
-pub fn build_login(
-    first: String,
-    last: String,
-    passwd: String,
-    start: String,
-    channel: Option<String>,
-    version: Option<String>,
-    platform: Option<String>,
-    platform_string: Option<String>,
-    platform_version: Option<String>,
-    mac: Option<String>,
-    id0: Option<String>,
-    agree_to_tos: Option<bool>,
-    read_critical: Option<bool>,
-    viewer_digest: Option<String>,
-    address_size: Option<String>,
-    extended_errors: Option<String>,
-    last_exec_event: Option<i64>,
-    last_exec_duration: Option<String>,
-    skipoptional: Option<bool>,
-    adult_compliant: Option<String>,
-    advanced_mode: Option<String>,
-    avatar_picker_url: Option<String>,
-    buddy_list: Option<String>,
-    classified_categories: Option<String>,
-    currency: Option<String>,
-    destination_guide_url: Option<String>,
-    display_names: Option<String>,
-    event_categories: Option<String>,
-    gestures: Option<String>,
-    global_textures: Option<String>,
-    inventory_root: Option<String>,
-    inventory_skeleton: Option<String>,
-    inventory_lib_root: Option<String>,
-    inventory_lib_owner: Option<String>,
-    inventory_skel_lib: Option<String>,
-    login_flags: Option<String>,
-    max_agent_groups: Option<String>,
-    max_groups: Option<String>,
-    map_server_url: Option<String>,
-    newuser_config: Option<String>,
-    search: Option<String>,
-    tutorial_setting: Option<String>,
-    ui_config: Option<String>,
-    voice_config: Option<String>,
-) -> SimulatorLoginProtocol {
-    SimulatorLoginProtocol {
-        first,
-        last,
-        passwd,
-        start,
-        channel,
-        version,
-        platform,
-        platform_string,
-        platform_version,
-        mac,
-        id0,
-        agree_to_tos,
-        read_critical,
-        viewer_digest,
-        address_size,
-        extended_errors,
-        last_exec_event,
-        last_exec_duration,
-        skipoptional,
-        options: Some(SimulatorLoginOptions {
-            adult_compliant,
-            advanced_mode,
-            avatar_picker_url,
-            buddy_list,
-            classified_categories,
-            currency,
-            destination_guide_url,
-            display_names,
-            event_categories,
-            gestures,
-            global_textures,
-            inventory_root,
-            inventory_skeleton,
-            inventory_lib_root,
-            inventory_lib_owner,
-            inventory_skel_lib,
-            login_flags,
-            max_agent_groups,
-            max_groups,
-            map_server_url,
-            newuser_config,
-            search,
-            tutorial_setting,
-            ui_config,
-            voice_config,
-        }),
-        ..SimulatorLoginProtocol::default()
-    }
+    s
 }
