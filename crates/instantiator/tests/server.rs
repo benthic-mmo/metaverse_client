@@ -28,6 +28,12 @@ fn test_default_standalone_config() {
     println!("{}", config);
 }
 
+#[test]
+fn test_default_region_config(){
+    let config = create_default_region_config();
+    println!("{}", config);
+}
+
 #[actix_rt::test]
 #[serial]
 async fn test_sim_download() {
