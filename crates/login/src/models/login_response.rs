@@ -1,7 +1,8 @@
+use std::fmt;
 use uuid::Uuid;
 
 #[derive(Clone, Default, Debug)]
-pub struct Session {
+pub struct LoginResponse {
     pub home: Option<HomeValues>, // the home location of the user
     pub look_at: Option<(String, String, String)>, // the direction the avatar should be facing
     // This is a unit vector so
@@ -51,6 +52,145 @@ pub struct Session {
     pub event_notifications: Option<String>,   //TODO: NOT DOCUMENTED!!
     pub max_agent_groups: Option<i64>,         //TODO: NOT DOCUMENTED!!
     pub seconds_since_epoch: Option<i64>,      //TODO: NOT DOCUMENTED!!
+}
+impl fmt::Display for LoginResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut output = String::new();
+
+        if let Some(home) = &self.home {
+            output.push_str(&format!("home: {:?}\n", home));
+        }
+        if let Some(look_at) = &self.look_at {
+            output.push_str(&format!("look_at: {:?}\n", look_at));
+        }
+        if let Some(agent_access) = &self.agent_access {
+            output.push_str(&format!("agent_access: {:?}\n", agent_access));
+        }
+        if let Some(agent_access_max) = &self.agent_access_max {
+            output.push_str(&format!("agent_access_max: {:?}\n", agent_access_max));
+        }
+        if let Some(seed_capability) = &self.seed_capability {
+            output.push_str(&format!("seed_capability: {}\n", seed_capability));
+        }
+        if let Some(first_name) = &self.first_name {
+            output.push_str(&format!("first_name: {}\n", first_name));
+        }
+        if let Some(last_name) = &self.last_name {
+            output.push_str(&format!("last_name: {}\n", last_name));
+        }
+        if let Some(agent_id) = &self.agent_id {
+            output.push_str(&format!("agent_id: {}\n", agent_id));
+        }
+        if let Some(sim_ip) = &self.sim_ip {
+            output.push_str(&format!("sim_ip: {}\n", sim_ip));
+        }
+        if let Some(sim_port) = &self.sim_port {
+            output.push_str(&format!("sim_port: {}\n", sim_port));
+        }
+        if let Some(http_port) = &self.http_port {
+            output.push_str(&format!("http_port: {}\n", http_port));
+        }
+        if let Some(start_location) = &self.start_location {
+            output.push_str(&format!("start_location: {}\n", start_location));
+        }
+        if let Some(region_x) = &self.region_x {
+            output.push_str(&format!("region_x: {}\n", region_x));
+        }
+        if let Some(region_y) = &self.region_y {
+            output.push_str(&format!("region_y: {}\n", region_y));
+        }
+        if let Some(region_size_x) = &self.region_size_x {
+            output.push_str(&format!("region_size_x: {}\n", region_size_x));
+        }
+        if let Some(region_size_y) = &self.region_size_y {
+            output.push_str(&format!("region_size_y: {}\n", region_size_y));
+        }
+        if let Some(circuit_code) = &self.circuit_code {
+            output.push_str(&format!("circuit_code: {}\n", circuit_code));
+        }
+        if let Some(session_id) = &self.session_id {
+            output.push_str(&format!("session_id: {}\n", session_id));
+        }
+        if let Some(secure_session_id) = &self.secure_session_id {
+            output.push_str(&format!("secure_session_id: {}\n", secure_session_id));
+        }
+        if let Some(inventory_root) = &self.inventory_root {
+            output.push_str(&format!("inventory_root: {:?}\n", inventory_root));
+        }
+        if let Some(inventory_skeleton) = &self.inventory_skeleton {
+            output.push_str(&format!("inventory_skeleton: {:?}\n", inventory_skeleton));
+        }
+        if let Some(inventory_lib_root) = &self.inventory_lib_root {
+            output.push_str(&format!("inventory_lib_root: {:?}\n", inventory_lib_root));
+        }
+        if let Some(inventory_skeleton_lib) = &self.inventory_skeleton_lib {
+            output.push_str(&format!(
+                "inventory_skeleton_lib: {:?}\n",
+                inventory_skeleton_lib
+            ));
+        }
+        if let Some(inventory_lib_owner) = &self.inventory_lib_owner {
+            output.push_str(&format!("inventory_lib_owner: {:?}\n", inventory_lib_owner));
+        }
+        if let Some(map_server_url) = &self.map_server_url {
+            output.push_str(&format!("map_server_url: {}\n", map_server_url));
+        }
+        if let Some(buddy_list) = &self.buddy_list {
+            output.push_str(&format!("buddy_list: {:?}\n", buddy_list));
+        }
+        if let Some(gestures) = &self.gestures {
+            output.push_str(&format!("gestures: {:?}\n", gestures));
+        }
+        if let Some(initial_outfit) = &self.initial_outfit {
+            output.push_str(&format!("initial_outfit: {:?}\n", initial_outfit));
+        }
+        if let Some(global_textures) = &self.global_textures {
+            output.push_str(&format!("global_textures: {:?}\n", global_textures));
+        }
+        if let Some(login) = &self.login {
+            output.push_str(&format!("login: {}\n", login));
+        }
+        if let Some(login_flags) = &self.login_flags {
+            output.push_str(&format!("login_flags: {:?}\n", login_flags));
+        }
+        if let Some(message) = &self.message {
+            output.push_str(&format!("message: {}\n", message));
+        }
+        if let Some(ui_config) = &self.ui_config {
+            output.push_str(&format!("ui_config: {:?}\n", ui_config));
+        }
+        if let Some(event_categories) = &self.event_categories {
+            output.push_str(&format!("event_categories: {}\n", event_categories));
+        }
+        if let Some(classified_categories) = &self.classified_categories {
+            output.push_str(&format!(
+                "classified_categories: {:?}\n",
+                classified_categories
+            ));
+        }
+        if let Some(real_id) = &self.real_id {
+            output.push_str(&format!("real_id: {}\n", real_id));
+        }
+        if let Some(search) = &self.search {
+            output.push_str(&format!("search: {}\n", search));
+        }
+        if let Some(destination_guide_url) = &self.destination_guide_url {
+            output.push_str(&format!(
+                "destination_guide_url: {}\n",
+                destination_guide_url
+            ));
+        }
+        if let Some(event_notifications) = &self.event_notifications {
+            output.push_str(&format!("event_notifications: {}\n", event_notifications));
+        }
+        if let Some(max_agent_groups) = &self.max_agent_groups {
+            output.push_str(&format!("max_agent_groups: {}\n", max_agent_groups));
+        }
+        if let Some(seconds_since_epoch) = &self.seconds_since_epoch {
+            output.push_str(&format!("seconds_since_epoch: {}\n", seconds_since_epoch));
+        }
+        write!(f, "{}", output)
+    }
 }
 
 #[macro_export]
@@ -523,9 +663,9 @@ impl From<xmlrpc::Value> for HomeValues {
     }
 }
 
-impl From<xmlrpc::Value> for Session {
+impl From<xmlrpc::Value> for LoginResponse {
     fn from(val: xmlrpc::Value) -> Self {
-        Session {
+        LoginResponse {
             home: Some(val["home"].clone().into()),
             look_at: string_3tuple(val["look_at"].clone()),
             agent_access: parse_agent_access(val.get("agent_access")),
@@ -561,7 +701,7 @@ impl From<xmlrpc::Value> for Session {
             ui_config: parse_ui_config(val.get("ui-config")),
             event_categories: str_val!(val["event_categories"]),
             classified_categories: parse_classified_categories(val.get("classified_categories")),
-            ..Session::default()
+            ..LoginResponse::default()
         }
     }
 }

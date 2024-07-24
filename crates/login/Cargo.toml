@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_login"
-version = "0.0.2"
+version = "0.1.0"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "login utility for accessing the metaverse"
 edition = "2021"

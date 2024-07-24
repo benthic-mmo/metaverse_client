@@ -1,7 +1,7 @@
 // integration test for login
 extern crate sys_info;
 
-use log::info;
+use log::{info, LevelFilter};
 use metaverse_login::login::*;
 use metaverse_login::models::simulator_login_protocol::*;
 use std::error::Error;
@@ -9,7 +9,7 @@ use std::net::TcpStream;
 use std::panic;
 use std::process::{Child, Command};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
+use tokio::time::{sleep, Duration, Instant};
 
 use actix::Actor;
 use lazy_static::lazy_static;
@@ -20,7 +20,10 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
 fn init_logger() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = env_logger::builder()
+        .filter(None, LevelFilter::Info)
+        .is_test(true)
+        .try_init();
 }
 
 // port and address for the test server
@@ -92,6 +95,7 @@ impl Drop for Reap {
 /// verifies that the xml being sent is valid and can be read by other servers
 #[test]
 fn test_struct_python_validate_xml() {
+    init_logger();
     let mut reaper = match setup() {
         Ok(reap) => reap,
         Err(_string) => return,
@@ -123,9 +127,115 @@ fn test_struct_python_validate_xml() {
     }
 }
 
+// using metaverse_instantiator, launches a local sim server, and tests login against that.
 #[actix_rt::test]
 async fn test_against_local() {
     init_logger();
+
+    let notify = Arc::new(Notify::new());
+    let state = Arc::new(Mutex::new(ServerState::Starting));
+
+    // start the sim server, and initialize logging
+    let sim_server = setup_server(Arc::clone(&notify), Arc::clone(&state)).await;
+    send_setup_commands(&sim_server);
+
+    notify.notified().await;
+    if *state.lock().unwrap() == ServerState::Running {
+        info!("Server started. Running test commands");
+        sim_server.do_send(CommandMessage{
+            command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
+        });
+
+        tokio::task::spawn_blocking(|| {
+            let login_response = login(
+                EXAMPLE_LOGIN.clone(),
+                build_test_url("http://127.0.0.1", 9000),
+            );
+            validate_grid_response(login_response, "default".to_string(), "user".to_string());
+        });
+        sleep(Duration::from_secs(5)).await;
+        sim_server.do_send(CommandMessage {
+            command: "quit".to_string(),
+        });
+    } else {
+        panic!("server failed to start")
+    }
+
+    notify.notified().await;
+    // wait for the second notify signal to say that the server is done
+}
+
+// uses the build_login function to login with only the required user data
+#[actix_rt::test]
+async fn test_build_login() {
+    init_logger();
+
+    let notify = Arc::new(Notify::new());
+    let state = Arc::new(Mutex::new(ServerState::Starting));
+
+    // start the sim server, and initialize logging
+    let sim_server = setup_server(Arc::clone(&notify), Arc::clone(&state)).await;
+    send_setup_commands(&sim_server);
+
+    notify.notified().await;
+    if *state.lock().unwrap() == ServerState::Running {
+        info!("Server started. Running test commands");
+        sim_server.do_send(CommandMessage{
+            command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
+        });
+
+        let login_data = build_login(Login {
+            first: "default".to_string(),
+            last: "user".to_string(),
+            passwd: "password".to_string(),
+            start: "home".to_string(),
+            channel: "benthic".to_string(),
+            agree_to_tos: true,
+            read_critical: true,
+        });
+
+        tokio::task::spawn_blocking(|| {
+            let login_response = login(login_data, build_test_url("http://127.0.0.1", 9000));
+            validate_grid_response(login_response, "default".to_string(), "user".to_string());
+        });
+
+        sleep(Duration::from_secs(5)).await;
+        sim_server.do_send(CommandMessage {
+            command: "quit".to_string(),
+        });
+    } else {
+        panic!("server failed to start")
+    }
+
+    notify.notified().await;
+    // wait for the second notify signal to say that the server is done
+}
+
+fn send_setup_commands(sim_server: &actix::Addr<SimServer>) {
+    // This is required for first time startup. This assigns the default user as the region owner.
+    // TODO: make this into a sql query that automatically adds this to the default region on
+    // startup
+    sim_server.do_send(CommandMessage {
+        command: "default".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "user".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "password".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "email@email.com".to_string(),
+    });
+    sim_server.do_send(CommandMessage {
+        command: "9dc18bb1-044f-4c68-906b-2cb608b2e197".to_string(),
+    });
+}
+
+async fn setup_server(
+    notify: Arc<Notify>,
+    state: Arc<Mutex<ServerState>>,
+) -> actix::Addr<SimServer> {
     let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
     let (stdout_sender, mut receiver) = mpsc::channel::<StdoutMessage>(100);
 
@@ -133,14 +243,12 @@ async fn test_against_local() {
         Ok((url, archive, base_dir, executable)) => (url, archive, base_dir, executable),
         Err(e) => panic!("Error: {}", e),
     };
-    info!("downloading server");
+
+    info!("downloading server. On first run, this may take a while");
     match download_sim(&url, &archive, &base_dir).await {
         Ok(_) => info!("downloaded sim successfully"),
         Err(e) => info!("failed to download sim {}", e),
     };
-
-    let notify = Arc::new(Notify::new());
-    let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let sim_server = SimServer {
         state: Arc::clone(&state),
@@ -164,53 +272,12 @@ async fn test_against_local() {
     tokio::spawn(async move {
         loop {
             if let Some(msg) = receiver.recv().await {
-                println!("Received message: {}", msg.log_content);
-                if msg.log_content.contains("Currently selected region is") {}
-            }
-            if let Some(msg) = receiver.recv().await {
-                println!("Received message: {}", msg.log_content);
+                info!("Received message: {}", msg.log_content);
                 if msg.log_content.contains("Currently selected region is") {}
             }
         }
     });
-    sim_server.do_send(CommandMessage {
-        command: "default".to_string(),
-    });
-    sim_server.do_send(CommandMessage {
-        command: "user".to_string(),
-    });
-    sim_server.do_send(CommandMessage {
-        command: "password".to_string(),
-    });
-    sim_server.do_send(CommandMessage {
-        command: "email@email.com".to_string(),
-    });
-    sim_server.do_send(CommandMessage {
-        command: "9dc18bb1-044f-4c68-906b-2cb608b2e197".to_string(),
-    });
-
-    notify.notified().await;
-    if *state.lock().unwrap() == ServerState::Running {
-        info!("Server started. Running test commands");
-        sim_server.do_send(CommandMessage{
-            command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
-        });
-
-        let local_server_url = build_test_url("http://127.0.0.1", 9000);
-
-        let login_response = login(EXAMPLE_LOGIN.clone(), local_server_url.clone())
-            .await
-            .expect("faulre");
-        println!("{}", login_response);
-        sim_server.do_send(CommandMessage {
-            command: "quit".to_string(),
-        });
-    } else {
-        panic!("server failed to start")
-    }
-
-    notify.notified().await;
-    // wait for the second notify signal to say that the server is done
+    sim_server
 }
 
 /// sets up python xmlrpc server for testing
@@ -238,7 +305,7 @@ fn setup() -> Result<Reap, String> {
         }
 
         if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
-            println!(
+            info!(
                 "connected to server after {:?} (iteration{})",
                 Instant::now() - start,
                 iteration
@@ -246,7 +313,7 @@ fn setup() -> Result<Reap, String> {
             return Ok(Reap(child));
         }
         if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
-            println!(
+            info!(
                 "connected to server after {:?} (iteration{})",
                 Instant::now() - start,
                 iteration
@@ -260,17 +327,27 @@ fn setup() -> Result<Reap, String> {
 #[test]
 fn test_xml_generation() {
     let req = xmlrpc::Request::new("login_to_simulator").arg(EXAMPLE_LOGIN.clone());
-    let cleaned = clean_xml(req).expect("Failed to clean XML");
-    print!("{}", cleaned);
+    debug_request_xml(req)
 }
 
+fn validate_grid_response(login_response: xmlrpc::Value, firstname: String, lastname: String) {
+    println!("{:?}", login_response);
+    let verify = panic::catch_unwind(|| {
+        assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
+        assert_eq!(login_response["first_name"], xmlrpc::Value::from(firstname));
+        assert_eq!(login_response["last_name"], xmlrpc::Value::from(lastname));
+    });
+    if verify.is_err() {
+        assert_eq!(login_response["reason"], xmlrpc::Value::from("presence"))
+    }
+}
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
     url_string.push_str(url);
     url_string.push(':');
     url_string.push_str(&port.to_string());
-    println!("url string {}", url_string);
+    info!("url string {}", url_string);
     url_string
 }
 
@@ -285,7 +362,7 @@ fn send_login(
 
     let login = req.call_url(url_string).unwrap();
     debug_response_xml(login.clone());
-    println!("struct data: {:?}", login);
+    info!("struct data: {:?}", login);
     Ok(login)
 }
 
