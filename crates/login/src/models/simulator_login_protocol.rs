@@ -40,7 +40,6 @@ pub struct SimulatorLoginProtocol {
     pub token: String,
     pub options: SimulatorLoginOptions,
 }
-
 /// SimulatorLoginOptions - the contents of the options field in the SimulatorLoginProtocol
 /// none of these are documented :(
 /// parameters seem to randomly swap between using _ and - to break up words.
@@ -309,4 +308,15 @@ impl From<SimulatorLoginProtocol> for xmlrpc::Value {
         login_vec.retain(|i| i.1 != xmlrpc::Value::Nil);
         xmlrpc::Value::Struct(login_vec.into_iter().collect())
     }
+}
+
+// this struct contains the information for a login using only the user-supplied information
+pub struct Login {
+    pub channel: String,
+    pub first: String,
+    pub last: String,
+    pub passwd: String,
+    pub start: String,
+    pub agree_to_tos: bool,
+    pub read_critical: bool,
 }
