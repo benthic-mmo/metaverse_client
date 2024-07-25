@@ -4,39 +4,60 @@
 ///
 #[derive(Clone, Default)]
 pub struct SimulatorLoginProtocol {
-    pub first: String,  // First name of the user
-    pub last: String,   // Last name of the user
-    pub passwd: String, // MD5 hash of the user's password with the string "$1$" prepended
-    pub start: String,  // The region in which the user should start upon login. This can be one of
-    // "home" - start in the user's home location
-    // "last" - start in the location where the user last logged out
-    // a specific location - in the format
-    // uri:<region-name>&<x-coord>&<y-coord>&<z-coord>
-    // for example, the string "uri:test&128&128&0" says the user
-    // should log in to the center of the region named test, and
-    // the avatar should be placed on the ground if the
-    // z-coordinate is below the terrain.
-    pub channel: String,  // Name of the viewer/client connecting
-    pub version: String,  // Version of the viewer/client connecting
-    pub platform: String, // Platform the viewer/client is connecting from. Can be one of
-    // lin - linux
-    // mac - mac
-    // win - windows
-    pub platform_string: String, // The operating system description and version (e.g. "Linux 5.8", "Fedora 32")
-    pub platform_version: String, // Operating system version
-    pub mac: String,             // The MAC address of the network card used by the client/viewer
-    pub id0: String, // A hardware hash based on the serial number of the user's first hard drive
-    // used to uniquely identify computers and track users
-    pub agree_to_tos: bool, // Has user agreed to the terms of service. Boolean true/false
-    pub read_critical: bool, // Has user read terms of service or other docs. Boolean true/false
-    pub viewer_digest: Option<String>, // MD5 hash of the viewer executable
-    pub address_size: i32,  // TODO: figure out what this means
-    pub extended_errors: bool, // TODO: figure out what this means
-    pub last_exec_event: Option<i32>, // TODO: figure out what this means
-    pub last_exec_duration: i32, // TODO: figure out what this means
-    pub skipoptional: Option<bool>, // TODO: figure out what this means :/
-    pub host_id: String,    // TODO: undocumented also
-    pub mfa_hash: String,   // TODO: Undocumented
+    /// First name of the user
+    pub first: String,
+    /// Last name of the user
+    pub last: String,
+    /// MD5 hash of the user's password with the string "$1$" prepended
+    pub passwd: String,
+    /// The region in which the user should start upon login. This can be one of
+    /// "home" - start in the user's home location
+    /// "last" - start in the location where the user last logged out
+    /// a specific location - in the format
+    /// uri:<region-name>&<x-coord>&<y-coord>&<z-coord>
+    /// for example, the string "uri:test&128&128&0" says the user
+    /// should log in to the center of the region named test, and
+    /// the avatar should be placed on the ground if the
+    /// z-coordinate is below the terrain.
+    pub start: String,
+    /// Name of the viewer/client connecting
+    pub channel: String,
+    /// Version of the viewer/client connecting
+    pub version: String,
+    /// Platform the viewer/client is connecting from. Can be one of
+    /// lin - linux
+    /// mac - mac
+    /// win - windows
+    pub platform: String,
+    /// The operating system description and version (e.g. "Linux 5.8", "Fedora 32")
+    pub platform_string: String,
+    /// Operating system version
+    pub platform_version: String,
+    /// The MAC address of the network card used by the client/viewer
+    pub mac: String,
+    /// A hardware hash based on the serial number of the user's first hard drive
+    /// Used to uniquely identify computers and track users
+    pub id0: String,
+    /// Has user agreed to the terms of service. Boolean true/false
+    pub agree_to_tos: bool,
+    /// Has user read terms of service or other docs. Boolean true/false
+    pub read_critical: bool,
+    /// MD5 hash of the viewer executable
+    pub viewer_digest: Option<String>,
+    /// TODO: Figure out what this means
+    pub address_size: i32,
+    /// TODO: Figure out what this means
+    pub extended_errors: bool,
+    /// TODO: Figure out what this means
+    pub last_exec_event: Option<i32>,
+    /// TODO: Figure out what this means
+    pub last_exec_duration: i32,
+    /// TODO: Figure out what this means :/
+    pub skipoptional: Option<bool>,
+    /// TODO: Undocumented also
+    pub host_id: String,
+    /// TODO: Undocumented
+    pub mfa_hash: String,
     pub token: String,
     pub options: SimulatorLoginOptions,
 }
@@ -50,28 +71,42 @@ pub struct SimulatorLoginOptions {
     pub adult_compliant: Option<bool>,
     pub advanced_mode: Option<bool>,
     pub avatar_picker_url: Option<bool>,
-    pub buddy_list: Option<bool>, // buddy-list in xml
+    /// Buddy-list in XML
+    pub buddy_list: Option<bool>,
     pub classified_categories: Option<bool>,
     pub currency: Option<bool>,
     pub destination_guide_url: Option<bool>,
     pub display_names: Option<bool>,
     pub event_categories: Option<bool>,
     pub gestures: Option<bool>,
-    pub global_textures: Option<bool>,     // global-textures in xml
-    pub inventory_root: Option<bool>,      // inventory-root in xml
-    pub inventory_skeleton: Option<bool>,  // inventory-skeleton in xml
-    pub inventory_lib_root: Option<bool>,  // inventory-lib-root in xml
-    pub inventory_lib_owner: Option<bool>, // inventory-lib-owner in xml
-    pub inventory_skel_lib: Option<bool>,  // inventory-skel-lib in xml
-    pub login_flags: Option<bool>,         // login-flags in xml
-    pub max_agent_groups: Option<bool>,    // max-agent-groups in xml
+    /// Global-textures in XML
+    pub global_textures: Option<bool>,
+    /// Inventory-root in XML
+    pub inventory_root: Option<bool>,
+    /// Inventory-skeleton in XML
+    pub inventory_skeleton: Option<bool>,
+    /// Inventory-lib-root in XML
+    pub inventory_lib_root: Option<bool>,
+    /// Inventory-lib-owner in XML
+    pub inventory_lib_owner: Option<bool>,
+    /// Inventory-skel-lib in XML
+    pub inventory_skel_lib: Option<bool>,
+    /// Login-flags in XML
+    pub login_flags: Option<bool>,
+    /// Max-agent-groups in XML
+    pub max_agent_groups: Option<bool>,
     pub max_groups: Option<bool>,
-    pub map_server_url: Option<bool>, // map-server-url in xml
-    pub newuser_config: Option<bool>, // newuser-config in xml
+    /// Map-server-url in XML
+    pub map_server_url: Option<bool>,
+    /// Newuser-config in XML
+    pub newuser_config: Option<bool>,
     pub search: Option<bool>,
-    pub tutorial_setting: Option<bool>, // tutorial-setting in xml
-    pub ui_config: Option<bool>,        // ui-config in xml
-    pub voice_config: Option<bool>,     // voice-config in xml
+    /// Tutorial-setting in XML
+    pub tutorial_setting: Option<bool>,
+    /// UI-config in XML
+    pub ui_config: Option<bool>,
+    /// Voice-config in XML
+    pub voice_config: Option<bool>,
 }
 
 ///Creates value type from a SimulatorLoginOption struct
@@ -243,6 +278,7 @@ impl From<SimulatorLoginOptions> for xmlrpc::Value {
     }
 }
 
+/// converts an xmlrpc boolean to a real int
 fn bool_to_int(value: bool) -> xmlrpc::Value {
     if value {
         xmlrpc::Value::Int(1)
@@ -310,13 +346,28 @@ impl From<SimulatorLoginProtocol> for xmlrpc::Value {
     }
 }
 
-// this struct contains the information for a login using only the user-supplied information
+/// this struct contains the information for a login using only the user-supplied information
 pub struct Login {
+    /// Name of the viewer/client connecting
     pub channel: String,
+    /// first name of the user
     pub first: String,
+    /// last name of the user 
     pub last: String,
+    /// MD5 hash of the user's password with the string "$1$" prepended
     pub passwd: String,
+    /// The region in which the user should start upon login. This can be one of
+    /// "home" - start in the user's home location
+    /// "last" - start in the location where the user last logged out
+    /// a specific location - in the format
+    /// uri:<region-name>&<x-coord>&<y-coord>&<z-coord>
+    /// for example, the string "uri:test&128&128&0" says the user
+    /// should log in to the center of the region named test, and
+    /// the avatar should be placed on the ground if the
+    /// z-coordinate is below the terrain.
     pub start: String,
+    /// Has user agreed to the terms of service. Boolean true/false
     pub agree_to_tos: bool,
+    /// Has user read other important doc. Boolean true/false
     pub read_critical: bool,
 }

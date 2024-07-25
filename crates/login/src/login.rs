@@ -1,7 +1,7 @@
+use crate::models::login_response::{LoginFailure, LoginResponse, LoginResult};
 use crate::models::simulator_login_protocol::{
     Login, SimulatorLoginOptions, SimulatorLoginProtocol,
 };
-use crate::models::login_response::{LoginFailure, LoginResponse, LoginResult};
 use md5;
 use std::env;
 use std::error::Error;
@@ -14,24 +14,55 @@ use std::io::Read;
 extern crate sys_info;
 
 ///Logs in using a SimulatorLoginProtocol object and the url string.
-// returns a LoginResult, or an error. 
-// If the login response xml can successfully be converted into a LoginResponse struct, do that and
-// return the struct.
-// If it can't, try to convert it to a LoginFailure. 
-// If it isn't of that format either (which would be very bad), return an error
-pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginResult, Box<dyn Error>> {
+/// returns a LoginResult, or an error.
+/// If the login response xml can successfully be converted into a LoginResponse struct, do that and
+/// return the struct.
+/// If it can't, try to convert it to a LoginFailure.
+/// If it isn't of that format either (which would be very bad), return an error
+///
+///```
+///let login_data = build_login(Login {
+///    first: "default".to_string(),
+///    last: "user".to_string(),
+///    passwd: "password".to_string(),
+///    start: "home".to_string(),
+///    channel: "benthic".to_string(),
+///    agree_to_tos: true,
+///    read_critical: true,
+///});
+///tokio::task::spawn_blocking(|| {
+///    let login_response = login(
+///        login_data,
+///        build_test_url("http://127.0.0.1", 9000),
+///    );
+///    match login_response {
+///        Ok(LoginResult::Success(response)) => {
+///            assert!(response.first_name == *"default");
+///            assert!(response.last_name == *"user");
+///        }
+///        Ok(LoginResult::Failure(failure)) => {
+///            println!("Login failed: {}", failure.message);
+///        }
+///        Err(e) => panic!("Login failed: {:?}", e),
+///    }
+/// });
+/// ```
+pub fn login(
+    login_data: SimulatorLoginProtocol,
+    url: String,
+) -> Result<LoginResult, Box<dyn Error>> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
     let request = req.call_url(url)?;
-    
+
     if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
         return Ok(LoginResult::Success(login_response));
     }
 
     // If it fails, try converting to LoginFailure
     if let Ok(login_failure) = LoginFailure::try_from(request) {
-        return Ok(LoginResult::Failure(login_failure));
+        Ok(LoginResult::Failure(login_failure))
     } else {
-        return Err(format!("Login failed").into());
+        Err("Login failed".to_string().into())
     }
 }
 
@@ -69,7 +100,7 @@ pub fn build_login(login: Login) -> SimulatorLoginProtocol {
             Ok(Some(mac)) => format!("{}", mac),
             _ => format!("{}", 00000000000000000000000000000000),
         },
-        id0: "unused".to_string(), // Provide a default value for id0
+        id0: "unused".to_string(), // Provide a default value for id0. This is unused by default
         agree_to_tos: login.agree_to_tos,
         read_critical: login.read_critical,
         viewer_digest: match hash_viewer_digest() {
