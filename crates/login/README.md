@@ -1,4 +1,4 @@
-Rust implementation of OpenSimulator's [login protocol](http://opensimulator.org/wiki/SimulatorLoginProtocol) 
+Rust implementation of OpenSimulator's [login protocol](http://opensimulator.org/wiki/SimulatorLoginProtocol)
 
 # Getting Started 
 ## Using Library 
@@ -6,15 +6,7 @@ Rust implementation of OpenSimulator's [login protocol](http://opensimulator.org
 ### [crate](https://crates.io/crates/metaverse_login)
 
 add 
-```
-metaverse_login = "0.0.0"
-```
-to your cargo.toml 
+```metaverse_login = "0.1.1"
 
-## Running Tests 
-to run the tests simply run cargo test 
-To run tests against live osgrid credentials, 
 ```
-cp .creds.example .creds.toml 
-```
-edit .creds.toml to include your username, password and login location.
+to your cargo.toml
