@@ -148,20 +148,19 @@ async fn test_against_local() {
         });
 
         tokio::task::spawn_blocking(|| {
-
             let login_response = login(
                 EXAMPLE_LOGIN.clone(),
                 build_test_url("http://127.0.0.1", 9000),
             );
-        match login_response {
-            Ok(LoginResult::Success(response)) => {
-                assert!(response.first_name == "default".to_string());
-                assert!(response.last_name == "user".to_string());
-            },
-            Ok(LoginResult::Failure(failure)) => {
-                println!("Login failed: {}", failure.message);
-            },
-            Err(e) => panic!("Login failed: {:?}", e),
+            match login_response {
+                Ok(LoginResult::Success(response)) => {
+                    assert!(response.first_name == *"default");
+                    assert!(response.last_name == *"user");
+                }
+                Ok(LoginResult::Failure(failure)) => {
+                    println!("Login failed: {}", failure.message);
+                }
+                Err(e) => panic!("Login failed: {:?}", e),
             }
         });
         sleep(Duration::from_secs(5)).await;
@@ -208,16 +207,15 @@ async fn test_build_login() {
         tokio::task::spawn_blocking(|| {
             let login_response = login(login_data, build_test_url("http://127.0.0.1", 9000));
             match login_response {
-            Ok(LoginResult::Success(response)) => {
-                assert!(response.first_name == "default".to_string());
-                assert!(response.last_name == "user".to_string());
-            },
-            Ok(LoginResult::Failure(failure)) => {
-                info!("Login failed with: {}",  failure.message);
-            },
-            Err(e) => panic!("Login failed: {:?}", e),
+                Ok(LoginResult::Success(response)) => {
+                    assert!(response.first_name == *"default");
+                    assert!(response.last_name == *"user");
+                }
+                Ok(LoginResult::Failure(failure)) => {
+                    info!("Login failed with: {}", failure.message);
+                }
+                Err(e) => panic!("Login failed: {:?}", e),
             }
-
         });
 
         sleep(Duration::from_secs(5)).await;
@@ -350,7 +348,6 @@ fn test_xml_generation() {
     let req = xmlrpc::Request::new("login_to_simulator").arg(EXAMPLE_LOGIN.clone());
     debug_request_xml(req)
 }
-
 
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
