@@ -2,15 +2,25 @@ use crate::models::constants::*;
 
 use byte::ctx::*;
 use byte::*;
+use std::fmt;
 
+#[derive(Debug, Clone)]
 pub struct Packet {
     pub header: Header,
 }
 impl Packet {
-    pub fn as_bytes(self) -> [u8; 10] {
+    pub fn as_bytes(&self) -> [u8; 10] {
         let mut bytes: [u8; 10] = [0; 10];
-        self.header.try_write(&mut bytes, BE).unwrap();
+        self.header.clone().try_write(&mut bytes, BE).unwrap();
         bytes
+    }
+}
+impl fmt::Display for Packet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let header_str = format!("{}", self.header);
+        let bytes = self.as_bytes();
+
+        write!(f, "Packet: {{ header: {}, bytes: {:?} }}", header_str, bytes)
     }
 }
 
@@ -25,6 +35,39 @@ pub struct Header {
     pub packet_frequency: Frequency,
     pub ack_list: Vec<u8>,
     pub offset: usize,
+}
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Header {{ reliable: {}, resent: {}, zero_coded: {}, appended_acks: {}, sequence: {}, id: {}, packet_frequency: {}, ack_list: {:?}, offset: {} }}",
+            self.reliable,
+            self.resent,
+            self.zero_coded,
+            self.appended_acks,
+            self.sequence,
+            self.id,
+            self.packet_frequency,
+            self.ack_list,
+            self.offset
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Frequency {
+    Low,
+    Medium,
+    High,
+}
+impl fmt::Display for Frequency {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Frequency::Low => write!(f, "Low"),
+            Frequency::Medium => write!(f, "Medium"),
+            Frequency::High => write!(f, "High"),
+        }
+    }
 }
 
 /// Header layout
@@ -73,9 +116,4 @@ impl TryWrite<Endian> for Header {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum Frequency {
-    Low,
-    Medium,
-    High,
-}
+

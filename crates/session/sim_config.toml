@@ -1,0 +1,7 @@
+
+#this is the default config for an opensimulator server for testing
+url = "http://opensimulator.org/dist/OpenSim-LastAutoBuild.zip"
+name = "opensim"
+archive = "sim.zip"
+path = "sims"
+executable = "OpenSim.exe"
