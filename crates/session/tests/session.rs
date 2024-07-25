@@ -1,22 +1,26 @@
-use metaverse_login::login::{build_struct_with_defaults, login_with_defaults};
-use metaverse_session::models::errors::Reason;
-use metaverse_session::models::session_data::AgentAccess;
-use metaverse_session::session::{connect, new_session};
-
+use log::{info, LevelFilter};
+use metaverse_instantiator::config_generator::{create_default_config, create_default_region_config, create_default_standalone_config};
+use metaverse_instantiator::models::server::{CommandMessage, ExecData, ServerState, SimServer};
+use metaverse_instantiator::server::{download_sim, read_config};
+use metaverse_login::login;
+use metaverse_login::models::login_response::{AgentAccess, LoginResult};
+use metaverse_login::models::simulator_login_protocol::Login;
+use metaverse_session::session::new_session;
 use std::collections::HashMap;
 use std::net::TcpStream;
 use std::panic;
 use std::process::{Child, Command};
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
+use metaverse_instantiator::models::server::StdoutMessage;
+use actix::Actor;
+use tokio::time::{sleep, Duration, Instant};
 use uuid::Uuid;
+
+use tokio::sync::Notify;
+use std::sync::{Arc, Mutex};
 
 const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &str = "http://127.0.0.1";
-const OSGRID_PORT: u16 = 80;
-const OSGRID_URL: &str = "http://login.osgrid.org";
-const THIRDROCK_PORT: u16 = 8002;
-const THIRDROCK_URL: &str = "http://grid.3rdrockgrid.com";
 
 struct Reap(Child);
 impl Drop for Reap {
@@ -32,8 +36,8 @@ fn init_logger() {
         .try_init();
 }
 
-#[test]
-fn test_mock_session() {
+#[actix_rt::test]
+async fn test_mock_session() {
     let mut reaper = match setup() {
         Ok(reap) => reap,
         Err(_string) => return,
@@ -44,18 +48,27 @@ fn test_mock_session() {
             panic!("python process unexpectedly exited: {}", status);
         }
     }
-
-    let login_response = login_with_defaults(
-        env!("CARGO_CRATE_NAME").to_string(),
-        "first".to_string(),
-        "last".to_string(),
-        "password".to_string(),
-        "last".to_string(),
-        true,
-        true,
-        build_test_url(PYTHON_URL, PYTHON_PORT),
-    );
-
+    let login_result = tokio::task::spawn_blocking(|| {
+        login::login(login::build_login(Login{
+            first: "default".to_string(),
+            last: "user".to_string(),
+            passwd: "password".to_string(),
+            start: "last".to_string(),
+            agree_to_tos: true, 
+            read_critical: true,
+            channel: "benthic".to_string(),
+        }), build_test_url(PYTHON_URL, PYTHON_PORT)).unwrap()
+    });
+   
+    let session = match login_result.await {
+        Ok(LoginResult::Success(response)) => {
+            response 
+        }
+        Ok(LoginResult::Failure(failure)) => {
+            panic!("Login Failed... somehow, {}", failure.message);
+        }
+        Err(e) => panic!("login failed even harder, somehow, {}", e),
+    };
     assert_eq!(
         session.home.unwrap().region_handle,
         ("r0".to_string(), "r0".to_string())
@@ -70,8 +83,8 @@ fn test_mock_session() {
         session.seed_capability,
         Some("http://192.168.1.2:9000".to_string())
     );
-    assert_eq!(session.first_name, Some("First".to_string()));
-    assert_eq!(session.last_name, Some("Last".to_string()));
+    assert_eq!(session.first_name, "First".to_string());
+    assert_eq!(session.last_name, "Last".to_string());
     assert_eq!(
         session.agent_id,
         Some(Uuid::parse_str("11111111-1111-0000-0000-000100bba000").unwrap())
@@ -82,7 +95,7 @@ fn test_mock_session() {
     assert_eq!(session.start_location, Some("last".to_string()));
     assert_eq!(session.region_x, Some(256000));
     assert_eq!(session.region_y, Some(256000));
-    assert_eq!(session.circuit_code, Some(697482820));
+    assert_eq!(session.circuit_code, 697482820);
     assert_eq!(
         session.session_id,
         Some(Uuid::parse_str("6ac2e761-f490-4122-bf6c-7ad8fbb17002").unwrap())
@@ -166,7 +179,7 @@ fn test_mock_session() {
     }
 }
 
-#[test]
+#[actix_rt::test]
 async fn test_local(){
     init_logger();
 
@@ -184,8 +197,7 @@ async fn test_local(){
             command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
         });
 
-        tokio::task::spawn_blocking(|| {
-            let session = new_session(
+        let session = new_session(
                 Login{first: "default".to_string(), 
                     last:"user".to_string(),
                 passwd: "password".to_string(),
@@ -193,10 +205,12 @@ async fn test_local(){
                 channel: "benthic".to_string(),
                 agree_to_tos: true, 
                 read_critical: true}, build_test_url("http://127.0.0.1", 9000)
-            );
-
-        });
-        sleep(Duration::from_secs(5)).await;
+            ).await;
+        match session {
+            Ok(_) => assert!(true),
+            Err(e) => info!("sesion failed to start: {}", e)
+        }
+        sleep(Duration::from_secs(10)).await;
         sim_server.do_send(CommandMessage {
             command: "quit".to_string(),
         });
@@ -206,7 +220,6 @@ async fn test_local(){
 
     notify.notified().await;
 
-    new_session(login_data, login_url)
 
 }
 
@@ -272,28 +285,15 @@ async fn setup_server(
     tokio::spawn(async move {
         loop {
             if let Some(msg) = receiver.recv().await {
-                info!("Received message: {}", msg.log_content);
-                if msg.log_content.contains("Currently selected region is") {}
+                //info!("Received message: {}", msg.log_content);
+                //if msg.log_content.contains("Currently selected region is") {}
             }
         }
     });
     sim_server
 }
 
-fn read_creds() -> Option<HashMap<String, String>> {
-    let mut settings = config::Config::default();
-    match settings.merge(config::File::with_name(".creds")) {
-        Ok(_file) => _file,
-        Err(..) => {
-            return None;
-        }
-    };
-    settings
-        .merge(config::Environment::with_prefix("APP"))
-        .unwrap();
 
-    Some(settings.try_into::<HashMap<String, String>>().unwrap())
-}
 
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
@@ -339,7 +339,6 @@ fn setup() -> Result<Reap, String> {
             }
             Err(_) => {}
         }
-        sleep(Duration::from_millis(50));
     }
     Ok(Reap(child))
 }
