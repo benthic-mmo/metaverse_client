@@ -7,11 +7,20 @@ edition = "2021"
 
 [dependencies]
 config = "0.11"
-metaverse_login = "0.0.2"
+metaverse_login = "0.1.1"
+metaverse_instantiator = "0.0.4"
 metaverse_messages = {path = "../messages"}
 xmlrpc = "0.15.1"
 actix-web = "3"
 actix-rt = "2.5.0"
 tokio = { version = "1.14.0", features = ["full"] }
 tokio-test = "0.4.2"
-uuid = "0.4"
+env_logger = "0.9"
+log = "0.4"
+[dependencies.uuid]
+version = "1.10.0"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
