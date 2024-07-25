@@ -1,6 +1,7 @@
 use crate::models::simulator_login_protocol::{
     Login, SimulatorLoginOptions, SimulatorLoginProtocol,
 };
+use crate::models::login_response::{LoginFailure, LoginResponse, LoginResult};
 use md5;
 use std::env;
 use std::error::Error;
@@ -13,10 +14,25 @@ use std::io::Read;
 extern crate sys_info;
 
 ///Logs in using a SimulatorLoginProtocol object and the url string.
-///returns a String containing the server's status code
-pub fn login(login_data: SimulatorLoginProtocol, url: String) -> xmlrpc::Value {
+// returns a LoginResult, or an error. 
+// If the login response xml can successfully be converted into a LoginResponse struct, do that and
+// return the struct.
+// If it can't, try to convert it to a LoginFailure. 
+// If it isn't of that format either (which would be very bad), return an error
+pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginResult, Box<dyn Error>> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    req.call_url(url).unwrap()
+    let request = req.call_url(url)?;
+    
+    if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
+        return Ok(LoginResult::Success(login_response));
+    }
+
+    // If it fails, try converting to LoginFailure
+    if let Ok(login_failure) = LoginFailure::try_from(request) {
+        return Ok(LoginResult::Failure(login_failure));
+    } else {
+        return Err(format!("Login failed").into());
+    }
 }
 
 ///Generates a SimulatorLoginProtocol based on user supplied values
@@ -79,6 +95,7 @@ fn hash_passwd(passwd_raw: String) -> String {
 }
 
 /// Creates the viewer digest, a fingerprint of the viewer executable
+/// this isn't used by opensimulator, but it's fun to have
 fn hash_viewer_digest() -> Result<String, Box<dyn Error>> {
     let path = env::args().next().ok_or("No argument found")?;
     let mut f = File::open(path)?;

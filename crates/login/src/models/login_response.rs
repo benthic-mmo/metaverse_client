@@ -1,5 +1,18 @@
 use std::fmt;
 use uuid::Uuid;
+use std::error::Error;
+
+pub enum LoginResult{
+    Success(LoginResponse),
+    Failure(LoginFailure),
+}
+
+pub struct LoginFailure {
+    pub login: String,
+    pub message: String,
+    pub reason: String,
+}
+
 
 #[derive(Clone, Default, Debug)]
 pub struct LoginResponse {
@@ -13,8 +26,8 @@ pub struct LoginResponse {
     pub agent_access: Option<AgentAccess>, // The current maturity access level of the user
     pub agent_access_max: Option<AgentAccess>, // THe maximum level of region the user can access
     pub seed_capability: Option<String>, // The URL that the viewer should use to request further capabilities
-    pub first_name: Option<String>,      // The first name of the user
-    pub last_name: Option<String>,       // The last name of the user
+    pub first_name: String,      // The first name of the user
+    pub last_name: String,       // The last name of the user
     pub agent_id: Option<Uuid>,          // The id of the user
     pub sim_ip: Option<String>,          // The ip used to communicate with the recieving simulator
     pub sim_port: Option<u16>, // The UDP port used to communicate with the receiving simulator
@@ -27,7 +40,7 @@ pub struct LoginResponse {
     // usually will be 236 but with a varregion this can be a multiple
     // of 256
     pub region_size_y: Option<i64>,
-    pub circuit_code: Option<u32>, // Circuit code to use for all UDP connections
+    pub circuit_code: u32, // Circuit code to use for all UDP connections
     pub session_id: Option<Uuid>,  //UUID of this session
     pub secure_session_id: Option<Uuid>, //the secure UUID of this session
     pub inventory_root: Option<Vec<InventoryRootValues>>, // the ID of the user's root folder
@@ -72,12 +85,9 @@ impl fmt::Display for LoginResponse {
         if let Some(seed_capability) = &self.seed_capability {
             output.push_str(&format!("seed_capability: {}\n", seed_capability));
         }
-        if let Some(first_name) = &self.first_name {
-            output.push_str(&format!("first_name: {}\n", first_name));
-        }
-        if let Some(last_name) = &self.last_name {
-            output.push_str(&format!("last_name: {}\n", last_name));
-        }
+            output.push_str(&format!("first_name: {}\n", self.first_name));
+            output.push_str(&format!("last_name: {}\n", self.last_name));
+       
         if let Some(agent_id) = &self.agent_id {
             output.push_str(&format!("agent_id: {}\n", agent_id));
         }
@@ -105,9 +115,8 @@ impl fmt::Display for LoginResponse {
         if let Some(region_size_y) = &self.region_size_y {
             output.push_str(&format!("region_size_y: {}\n", region_size_y));
         }
-        if let Some(circuit_code) = &self.circuit_code {
-            output.push_str(&format!("circuit_code: {}\n", circuit_code));
-        }
+            output.push_str(&format!("circuit_code: {}\n", self.circuit_code));
+
         if let Some(session_id) = &self.session_id {
             output.push_str(&format!("session_id: {}\n", session_id));
         }
@@ -192,7 +201,25 @@ impl fmt::Display for LoginResponse {
         write!(f, "{}", output)
     }
 }
+#[macro_export]
+macro_rules! nonoptional_u32_val {
+    ($val:expr) => {
 
+        match $val.as_i64() {
+            Some(s) => Ok(s.try_into().unwrap()),
+            None => Err(ConversionError(concat!("Missing or invalid u32 for field: ", stringify!($val)))),
+        }
+    };
+}
+#[macro_export]
+macro_rules! nonoptional_str_val {
+    ($val:expr) => {
+        match $val.as_str() {
+            Some(s) => Ok(s.to_string()),
+            None => Err(ConversionError(concat!("Missing or invalid string for field: ", stringify!($val)))),
+        }
+    };
+}
 #[macro_export]
 macro_rules! uuid_val {
     ($val:expr) => {
@@ -621,58 +648,112 @@ fn parse_ui_config(values: Option<&xmlrpc::Value>) -> Option<Vec<UiConfig>> {
 // this is literally the worst thing I've ever been forced to do
 // why this is the singular field that is passed as a string is beyond me
 // this is so cursed and I hate it
+//
 impl From<xmlrpc::Value> for HomeValues {
     fn from(val: xmlrpc::Value) -> Self {
-        let mut home_values_object: HomeValues = HomeValues {
+        let mut home_values_object = HomeValues {
             region_handle: ("".to_string(), "".to_string()),
             look_at: ("".to_string(), "".to_string(), "".to_string()),
             position: ("".to_string(), "".to_string(), "".to_string()),
         };
 
-        let valuestring = val.as_str().unwrap().to_string();
+        // Convert xmlrpc::Value to string
+        let valuestring = match val.as_str() {
+            Some(s) => s.to_string(),
+            None => return HomeValues {
+                region_handle: ("Error".to_string(), "Invalid value".to_string()),
+                look_at: ("Error".to_string(), "Invalid value".to_string(), "Invalid value".to_string()),
+                position: ("Error".to_string(), "Invalid value".to_string(), "Invalid value".to_string()),
+            },
+        };
+
+        // Split the string by "],"
         let split: Vec<&str> = valuestring.split("],").collect();
+
         for element in split {
+            // Split by ":[" to separate labels from values
             let splitvalue: Vec<&str> = element.split(":[").collect();
+            if splitvalue.len() != 2 {
+                continue; // or handle the error as needed
+            }
+
             let label = splitvalue[0].replace("{'", "").replace(['\'', ' '], "");
             let values = splitvalue[1].replace("]}", "");
             let values: Vec<&str> = values.split(',').collect();
 
             match label.as_str() {
                 "region_handle" => {
-                    home_values_object.region_handle =
-                        (values[0].to_string(), values[1].to_string())
+                    if values.len() == 2 {
+                        home_values_object.region_handle = (values[0].to_string(), values[1].to_string());
+                    } else {
+                        return HomeValues {
+                            region_handle: ("Error".to_string(), "Invalid number of values".to_string()),
+                            look_at: home_values_object.look_at,
+                            position: home_values_object.position,
+                        };
+                    }
                 }
                 "look_at" => {
-                    home_values_object.look_at = (
-                        values[0].to_string(),
-                        values[1].to_string(),
-                        values[2].to_string(),
-                    )
+                    if values.len() == 3 {
+                        home_values_object.look_at = (
+                            values[0].to_string(),
+                            values[1].to_string(),
+                            values[2].to_string(),
+                        );
+                    } else {
+                        return HomeValues {
+                            region_handle: home_values_object.region_handle,
+                            look_at: ("Error".to_string(), "Invalid number of values".to_string(), "Invalid value".to_string()),
+                            position: home_values_object.position,
+                        };
+                    }
                 }
                 "position" => {
-                    home_values_object.position = (
-                        values[0].to_string(),
-                        values[1].to_string(),
-                        values[2].to_string(),
-                    )
+                    if values.len() == 3 {
+                        home_values_object.position = (
+                            values[0].to_string(),
+                            values[1].to_string(),
+                            values[2].to_string(),
+                        );
+                    } else {
+                        return HomeValues {
+                            region_handle: home_values_object.region_handle,
+                            look_at: home_values_object.look_at,
+                            position: ("Error".to_string(), "Invalid number of values".to_string(), "Invalid value".to_string()),
+                        };
+                    }
                 }
                 _ => continue,
             }
         }
+
         home_values_object
     }
 }
 
-impl From<xmlrpc::Value> for LoginResponse {
-    fn from(val: xmlrpc::Value) -> Self {
-        LoginResponse {
+
+#[derive(Debug)]
+struct ConversionError(&'static str);
+
+impl fmt::Display for ConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Error for ConversionError {}
+
+impl TryFrom<xmlrpc::Value> for LoginResponse {
+    type Error = Box<dyn Error>;
+    fn try_from(val: xmlrpc::Value) ->  Result<Self, Self::Error>  {
+        Ok(LoginResponse {
             home: Some(val["home"].clone().into()),
             look_at: string_3tuple(val["look_at"].clone()),
             agent_access: parse_agent_access(val.get("agent_access")),
             agent_access_max: parse_agent_access(val.get("agent_access_max")),
             seed_capability: str_val!(val["seed_capability"]),
-            first_name: str_val!(val["first_name"]),
-            last_name: str_val!(val["last_name"]),
+            first_name: nonoptional_str_val!(val["first_name"])?,
+            last_name: nonoptional_str_val!(val["last_name"])?,
             agent_id: uuid_val!(val["agent_id"]),
             sim_ip: str_val!(val["sim_ip"]),
             sim_port: u16_val!(val["sim_port"]),
@@ -682,7 +763,7 @@ impl From<xmlrpc::Value> for LoginResponse {
             region_y: i64_val!(val["region_y"]),
             region_size_x: i64_val!(val["region_size_x"]),
             region_size_y: i64_val!(val["region_size_y"]),
-            circuit_code: u32_val!(val["circuit_code"]),
+            circuit_code: nonoptional_u32_val!(val["circuit_code"])?,
             session_id: uuid_val!(val["session_id"]),
             secure_session_id: uuid_val!(val["secure_session_id"]),
             inventory_root: parse_inventory_root(val.get("inventory-root")),
@@ -702,6 +783,17 @@ impl From<xmlrpc::Value> for LoginResponse {
             event_categories: str_val!(val["event_categories"]),
             classified_categories: parse_classified_categories(val.get("classified_categories")),
             ..LoginResponse::default()
+        })
+    }
+}
+impl TryFrom<xmlrpc::Value> for LoginFailure {
+    type Error = Box<dyn Error>;
+    fn try_from(val: xmlrpc::Value) ->  Result<Self, Self::Error>  {
+        Ok(LoginFailure {
+            login: str_val!(val["login"]).ok_or(ConversionError("Missing login"))?,
+            message: str_val!(val["message"]).ok_or(ConversionError("Missing message"))?,
+            reason: str_val!(val["reason"]).ok_or(ConversionError("Missing reason"))?
         }
+        )
     }
 }

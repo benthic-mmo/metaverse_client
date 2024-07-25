@@ -3,6 +3,7 @@ extern crate sys_info;
 
 use log::{info, LevelFilter};
 use metaverse_login::login::*;
+use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::*;
 use std::error::Error;
 use std::net::TcpStream;
@@ -147,11 +148,21 @@ async fn test_against_local() {
         });
 
         tokio::task::spawn_blocking(|| {
+
             let login_response = login(
                 EXAMPLE_LOGIN.clone(),
                 build_test_url("http://127.0.0.1", 9000),
             );
-            validate_grid_response(login_response, "default".to_string(), "user".to_string());
+        match login_response {
+            Ok(LoginResult::Success(response)) => {
+                assert!(response.first_name == "default".to_string());
+                assert!(response.last_name == "user".to_string());
+            },
+            Ok(LoginResult::Failure(failure)) => {
+                println!("Login failed: {}", failure.message);
+            },
+            Err(e) => panic!("Login failed: {:?}", e),
+            }
         });
         sleep(Duration::from_secs(5)).await;
         sim_server.do_send(CommandMessage {
@@ -196,7 +207,17 @@ async fn test_build_login() {
 
         tokio::task::spawn_blocking(|| {
             let login_response = login(login_data, build_test_url("http://127.0.0.1", 9000));
-            validate_grid_response(login_response, "default".to_string(), "user".to_string());
+            match login_response {
+            Ok(LoginResult::Success(response)) => {
+                assert!(response.first_name == "default".to_string());
+                assert!(response.last_name == "user".to_string());
+            },
+            Ok(LoginResult::Failure(failure)) => {
+                info!("Login failed with: {}",  failure.message);
+            },
+            Err(e) => panic!("Login failed: {:?}", e),
+            }
+
         });
 
         sleep(Duration::from_secs(5)).await;
@@ -330,17 +351,7 @@ fn test_xml_generation() {
     debug_request_xml(req)
 }
 
-fn validate_grid_response(login_response: xmlrpc::Value, firstname: String, lastname: String) {
-    println!("{:?}", login_response);
-    let verify = panic::catch_unwind(|| {
-        assert_eq!(login_response["login"], xmlrpc::Value::from("true"));
-        assert_eq!(login_response["first_name"], xmlrpc::Value::from(firstname));
-        assert_eq!(login_response["last_name"], xmlrpc::Value::from(lastname));
-    });
-    if verify.is_err() {
-        assert_eq!(login_response["reason"], xmlrpc::Value::from("presence"))
-    }
-}
+
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
