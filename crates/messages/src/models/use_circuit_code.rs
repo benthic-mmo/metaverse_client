@@ -1,104 +1,145 @@
-use crate::models::constants::PacketType;
-use crate::models::packet::{Frequency, Header};
+use std::io;
 
-use byte::ctx::*;
-use byte::*;
 use uuid::Uuid;
 
 const HEADER_LENGTH: usize = 10;
 const CIRCUIT_CODE_LENGTH: usize = 36;
 // const USE_CIRCUIT_CODE_LENGTH: usize = HEADER_LENGTH + CIRCUIT_CODE_LENGTH;
 
-#[derive(Clone, Debug)]
-pub struct UseCircuitCode {
-    pub has_variable_blocks: bool,
-    pub packet_type: PacketType,
-    pub header: Header,
-    pub circuit_code: CircuitCode,
+#[derive(Debug)]
+pub struct UseCircuitCodePacket{
+    header: Header,
+    circuit_code: CircuitCodeBlock,
 }
+impl UseCircuitCodePacket{
+    pub fn new(code: u32, session_id: Uuid, id: Uuid) -> Self {
+        Self {
+            header: Header::new(),
+            circuit_code: CircuitCodeBlock::new(code, session_id, id),
+        }
+    }
+    pub async fn from_bytes(mut bytes: &[u8]) -> io::Result<Self> {
+        let header = Header::from_bytes(&mut bytes).await?;
+        let circuit_code = CircuitCodeBlock::from_bytes(bytes)?;
+        Ok(Self { header, circuit_code })
+    }
 
-/// Attempts to write the UseCircuitCode to bytes
-/// returns how many bytes were written
-impl TryWrite<Endian> for UseCircuitCode {
-    fn try_write(mut self, bytes: &mut [u8], endian: Endian) -> Result<usize> {
-        let _offset = &mut 0;
-        // write the header to the packet
-        self.header.try_write(bytes, BE).unwrap();
-
-        // add the circuit code after the header
-        self.circuit_code.offset = HEADER_LENGTH;
-        self.circuit_code.try_write(bytes, endian).unwrap();
-
-        Ok(*_offset)
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend(self.header.to_bytes());
+        bytes.extend(self.circuit_code.to_bytes());
+        bytes
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct CircuitCode {
+#[derive(Debug)]
+pub struct CircuitCodeBlock{
     code: u32,
-    id: Uuid,
     session_id: Uuid,
-    offset: usize,
+    id: Uuid
 }
 
-impl TryWrite<Endian> for CircuitCode {
-    fn try_write(mut self, bytes: &mut [u8], endian: Endian) -> Result<usize> {
-        let offset = &mut self.offset;
-        bytes.write_with::<u32>(offset, self.code, endian)?;
-
-        //TODO: figure out why bytes.write won't let me use the array??
-        for byte in self.id.as_bytes() {
-            bytes.write::<u8>(offset, *byte)?;
+impl CircuitCodeBlock {
+    pub fn new(code: u32, session_id: Uuid, id: Uuid) -> Self {
+        Self { code, session_id, id }
+    }
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self>{
+        if bytes.len() < 36 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Not enough bytes"));
         }
-        for byte in self.session_id.as_bytes() {
-            bytes.write::<u8>(offset, *byte)?;
-        }
-        Ok(*offset)
+        let code = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        let session_id = match Uuid::from_slice(&bytes[4..20]) {
+            Ok(session_id) => session_id,
+            Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid UUID for session_id")),
+        };
+        
+        let id = match Uuid::from_slice(&bytes[20..36]) {
+            Ok(id) => id,
+            Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid UUID for id")),
+        };
+        Ok(Self { code, session_id, id })
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(36);
+        bytes.extend(&self.code.to_le_bytes());
+        bytes.extend(self.session_id.as_bytes());
+        bytes.extend(self.id.as_bytes());
+        bytes
     }
 }
 
-/// creates a "use circuit code" object with header and default circuitcode values
-/// used in the packet queue to append acks and other relevant header information before the packet
-/// is written
-pub fn create_use_circuit_code(code: u32, session_id: Uuid, id: Uuid) -> UseCircuitCode {
-    UseCircuitCode {
-        has_variable_blocks: false,
-        packet_type: PacketType::UseCircuitCode,
-        header: Header {
-            reliable: true,
-            resent: false,
-            zero_coded: false,
-            appended_acks: false,
-            sequence: 0,
+
+#[derive(Debug)]
+pub struct Header {
+    id: u8,
+    frequency: PacketFrequency,
+    reliable: bool,
+}
+
+impl Header {
+    pub fn new() -> Self {
+        Self {
             id: 3,
-            packet_frequency: Frequency::Low,
-            ack_list: Vec::new(),
-            offset: 0,
-        },
-        circuit_code: CircuitCode {
-            code,
-            session_id,
-            id,
-            // a placeholder
-            offset: 0,
-        },
+            frequency: PacketFrequency::Low,
+            reliable: true,
+        }
     }
+    pub async fn from_bytes(bytes: &mut &[u8]) -> io::Result<Self> {
+        if bytes.len() < 1 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Not enough bytes"));
+        }
+        let id = bytes[0];
+        // Skipping frequency and reliable for simplicity
+        Ok(Self {
+            id,
+            frequency: PacketFrequency::Low,
+            reliable: true,
+        })
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {        
+        let mut bytes = Vec::with_capacity(10);
+        bytes.push(self.id);
+        bytes.extend(self.frequency.to_bytes(&self));
+        bytes.push(if self.reliable { 1u8 } else { 0u8 });
+        bytes
+     }
 }
 
-/// creates the "use circuit code" packet.
-pub fn create_use_circuit_code_packet(use_circuit_code: UseCircuitCode) -> Result<Vec<u8>> {
-    // the size of the packet without appended acks is the size of the header length + the circuit
-    // code length
-    let mut length: usize = HEADER_LENGTH + CIRCUIT_CODE_LENGTH;
-    // calculate the packet size with the acks
-    let ack_list_len = use_circuit_code.header.ack_list.len();
-    if ack_list_len > 0 {
-        length += ack_list_len * 4 + 1
-    }
-    // create a vector of the proper size
-    let mut bytes = vec![0; length];
-    use_circuit_code.try_write(&mut bytes, BE)?;
+// Utility function to convert a u16 to a big-endian byte array
+fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
+    [(value >> 8) as u8, (value & 0xFF) as u8]
+}
 
-    // return the written packet
-    Ok(bytes)
+#[derive(Debug)]
+pub enum PacketFrequency {
+    High, 
+    Medium,
+    Low,
+}
+impl PacketFrequency{
+    pub fn to_bytes(&self, header: &Header) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        match self {
+        PacketFrequency::High => {
+            // 1 byte ID
+            bytes.push(header.id as u8);
+        }
+        PacketFrequency::Medium => {
+            // 2 byte ID
+            bytes.push(0xFF);
+            bytes.push(header.id as u8);
+        }
+        PacketFrequency::Low => {
+            // 4 byte ID
+            bytes.push(0xFF);
+            bytes.push(0xFF);
+            let id_bytes = uint16_to_bytes_big(header.id as u16);
+            bytes.extend_from_slice(&id_bytes);
+        }
+        };
+
+        bytes
+
+    }
 }

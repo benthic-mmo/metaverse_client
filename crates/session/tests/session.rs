@@ -1,23 +1,24 @@
+use actix::Actor;
 use log::{info, LevelFilter};
-use metaverse_instantiator::config_generator::{create_default_config, create_default_region_config, create_default_standalone_config};
+use metaverse_instantiator::config_generator::{
+    create_default_config, create_default_region_config, create_default_standalone_config,
+};
+use metaverse_instantiator::models::server::StdoutMessage;
 use metaverse_instantiator::models::server::{CommandMessage, ExecData, ServerState, SimServer};
 use metaverse_instantiator::server::{download_sim, read_config};
 use metaverse_login::login;
 use metaverse_login::models::login_response::{AgentAccess, LoginResult};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_session::session::new_session;
-use std::collections::HashMap;
 use std::net::TcpStream;
 use std::panic;
 use std::process::{Child, Command};
 use tokio::sync::mpsc;
-use metaverse_instantiator::models::server::StdoutMessage;
-use actix::Actor;
 use tokio::time::{sleep, Duration, Instant};
 use uuid::Uuid;
 
-use tokio::sync::Notify;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
 
 const PYTHON_PORT: u16 = 9000;
 const PYTHON_URL: &str = "http://127.0.0.1";
@@ -49,21 +50,23 @@ async fn test_mock_session() {
         }
     }
     let login_result = tokio::task::spawn_blocking(|| {
-        login::login(login::build_login(Login{
-            first: "default".to_string(),
-            last: "user".to_string(),
-            passwd: "password".to_string(),
-            start: "last".to_string(),
-            agree_to_tos: true, 
-            read_critical: true,
-            channel: "benthic".to_string(),
-        }), build_test_url(PYTHON_URL, PYTHON_PORT)).unwrap()
+        login::login(
+            login::build_login(Login {
+                first: "default".to_string(),
+                last: "user".to_string(),
+                passwd: "password".to_string(),
+                start: "last".to_string(),
+                agree_to_tos: true,
+                read_critical: true,
+                channel: "benthic".to_string(),
+            }),
+            build_test_url(PYTHON_URL, PYTHON_PORT),
+        )
+        .unwrap()
     });
-   
+
     let session = match login_result.await {
-        Ok(LoginResult::Success(response)) => {
-            response 
-        }
+        Ok(LoginResult::Success(response)) => response,
         Ok(LoginResult::Failure(failure)) => {
             panic!("Login Failed... somehow, {}", failure.message);
         }
@@ -180,7 +183,7 @@ async fn test_mock_session() {
 }
 
 #[actix_rt::test]
-async fn test_local(){
+async fn test_local() {
     init_logger();
 
     let notify = Arc::new(Notify::new());
@@ -198,31 +201,30 @@ async fn test_local(){
         });
 
         let session = new_session(
-                Login{first: "default".to_string(), 
-                    last:"user".to_string(),
+            Login {
+                first: "default".to_string(),
+                last: "user".to_string(),
                 passwd: "password".to_string(),
                 start: "home".to_string(),
                 channel: "benthic".to_string(),
-                agree_to_tos: true, 
-                read_critical: true}, build_test_url("http://127.0.0.1", 9000)
-            ).await;
+                agree_to_tos: true,
+                read_critical: true,
+            },
+            build_test_url("http://127.0.0.1", 9000),
+        )
+        .await;
         match session {
-            Ok(_) => assert!(true),
-            Err(e) => info!("sesion failed to start: {}", e)
+            Ok(_) => sleep(Duration::from_secs(10)).await,
+            Err(e) => info!("sesion failed to start: {}", e),
         }
-        sleep(Duration::from_secs(10)).await;
         sim_server.do_send(CommandMessage {
             command: "quit".to_string(),
         });
     } else {
         panic!("server failed to start")
     }
-
     notify.notified().await;
-
-
 }
-
 
 fn send_setup_commands(sim_server: &actix::Addr<SimServer>) {
     // This is required for first time startup. This assigns the default user as the region owner.
@@ -292,8 +294,6 @@ async fn setup_server(
     });
     sim_server
 }
-
-
 
 /// helper function for building URL. May be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
