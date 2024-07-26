@@ -2,6 +2,7 @@ use actix::Actor;
 use metaverse_login::login::{self};
 use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::Login;
+use metaverse_messages::models::header::*;
 use metaverse_messages::models::use_circuit_code::*;
 
 use std::error::Error;
@@ -27,19 +28,29 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         socket: None,
         url: login_response.sim_ip.unwrap(),
         server_socket: login_response.sim_port.unwrap(),
-        client_socket: 41518,
-    }.start();
+        client_socket: 41518, //TODO: Make this configurable
+    }
+    .start();
 
     let mut attempts = 0;
 
-    let packet = UseCircuitCodePacket::new(
-        login_response.circuit_code,
-        login_response.session_id.unwrap(),
-        login_response.agent_id.unwrap(),
-    );
-    let bytes = packet.to_bytes();
-    let new_packet = UseCircuitCodePacket::from_bytes(&bytes).await?;
-    println!("{:?}", new_packet);
+    let packet = UseCircuitCodePacket {
+        header: Header {
+            id: 3,
+            frequency: PacketFrequency::Low,
+            reliable: false,
+            sequence_number: 0,
+            appended_acks: false,
+            zerocoded: false,
+            resent: false,
+            ack_list: None,
+        },
+        circuit_code: CircuitCodeBlock {
+            code: login_response.circuit_code,
+            session_id: login_response.session_id.unwrap(),
+            id: login_response.agent_id.unwrap(),
+        },
+    };
 
     sleep(Duration::from_secs(2)).await;
 

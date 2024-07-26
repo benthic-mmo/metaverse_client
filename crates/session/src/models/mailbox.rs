@@ -1,10 +1,7 @@
 use actix::prelude::*;
-use log::{error, info, warn};
-use std::io::Bytes;
+use log::{error, info};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
-use tokio::sync::Mutex;
-use tokio::task;
 
 pub struct Mailbox {
     pub socket: Option<Arc<UdpSocket>>,
@@ -20,7 +17,7 @@ impl Mailbox {
             info!("udp read is running");
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
-                    println!("Received {} bytes from {:?}", size, addr);
+                    info!("Received {} bytes from {:?}", size, addr);
                     // Handle received data here
                 }
                 Err(e) => {
@@ -75,7 +72,6 @@ impl Handler<Packet> for Mailbox {
 
     fn handle(&mut self, msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref sock) = self.socket {
-            info!("Actix received packet: {:?} sending to server", msg.data);
             let addr = format!("{}:{}", self.url, self.server_socket);
             let data = msg.data.clone(); // Clone the data to move into async block
 
