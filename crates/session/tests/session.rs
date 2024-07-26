@@ -1,5 +1,7 @@
 use actix::Actor;
+use hex::FromHex;
 use log::{info, LevelFilter};
+
 use metaverse_instantiator::config_generator::{
     create_default_config, create_default_region_config, create_default_standalone_config,
 };
@@ -9,6 +11,8 @@ use metaverse_instantiator::server::{download_sim, read_config};
 use metaverse_login::login;
 use metaverse_login::models::login_response::{AgentAccess, LoginResult};
 use metaverse_login::models::simulator_login_protocol::Login;
+use metaverse_messages::models::header::*;
+use metaverse_messages::models::use_circuit_code::{CircuitCodeBlock, UseCircuitCodePacket};
 use metaverse_session::session::new_session;
 use std::net::TcpStream;
 use std::panic;
@@ -182,6 +186,50 @@ async fn test_mock_session() {
     }
 }
 
+// this should be in messages
+#[test]
+fn circuit_code_from_bytes() {
+    let bytes = match Vec::from_hex("400000000100ffff00031c11a016d5ad91798747424eac72eedb695918bd9dc18bb1044f4c68906b2cb608b2e197") {
+        Ok(bytes) => {
+            bytes
+        }
+        Err(_) => {
+            panic!("didn't work");
+        }
+    };
+    match UseCircuitCodePacket::from_bytes(&bytes) {
+        Ok(packet) => {
+            let correct_packet = UseCircuitCodePacket {
+                header: Header {
+                    id: 0,
+                    frequency: PacketFrequency::Low,
+                    reliable: true,
+                    sequence_number: 0,
+                    appended_acks: false,
+                    zerocoded: false,
+                    resent: false,
+                    ack_list: None,
+                },
+                circuit_code: CircuitCodeBlock {
+                    code: 808464436,
+                    id: Uuid::new_v4(),
+                    session_id: Uuid::new_v4(),
+                },
+            };
+
+            let serialized = packet.to_bytes();
+            let serialized_packet_2 = correct_packet.to_bytes();
+            println!("original packet _______________: {:?}", bytes);
+            println!("Serialized UseCircuitCodePacket: {:?}", serialized);
+            println!("unserialized correct packet____: {:?}", serialized_packet_2);
+            assert!(bytes == serialized);
+        }
+        Err(e) => {
+            eprintln!("Error deserializing UseCircuitCodePacket: {}", e);
+        }
+    }
+}
+
 #[actix_rt::test]
 async fn test_local() {
     init_logger();
@@ -214,9 +262,10 @@ async fn test_local() {
         )
         .await;
         match session {
-            Ok(_) => sleep(Duration::from_secs(10)).await,
+            Ok(_) => sleep(Duration::from_secs(3)).await,
             Err(e) => info!("sesion failed to start: {}", e),
         }
+
         sim_server.do_send(CommandMessage {
             command: "quit".to_string(),
         });
