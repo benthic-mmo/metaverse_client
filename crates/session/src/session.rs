@@ -2,8 +2,8 @@ use actix::Actor;
 use metaverse_login::login::{self};
 use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::Login;
-use metaverse_messages::models::header::*;
-use metaverse_messages::models::use_circuit_code::*;
+use metaverse_messages::models::packet::Packet;
+use metaverse_messages::models::use_circuit_code::CircuitCodeData;
 
 use std::error::Error;
 use tokio::time::{sleep, Duration};
@@ -34,23 +34,11 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
 
     let mut attempts = 0;
 
-    let packet = UseCircuitCodePacket {
-        header: Header {
-            id: 3,
-            frequency: PacketFrequency::Low,
-            reliable: false,
-            sequence_number: 0,
-            appended_acks: false,
-            zerocoded: false,
-            resent: false,
-            ack_list: None,
-        },
-        circuit_code: CircuitCodeBlock {
-            code: login_response.circuit_code,
-            session_id: login_response.session_id.unwrap(),
-            id: login_response.agent_id.unwrap(),
-        },
-    };
+    let packet = Packet::new_circuit_code(CircuitCodeData{
+        code: login_response.circuit_code,
+        session_id: login_response.session_id.unwrap(),
+        id: login_response.agent_id.unwrap()
+    });
 
     sleep(Duration::from_secs(2)).await;
 

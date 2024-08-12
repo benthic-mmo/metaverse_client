@@ -12,7 +12,7 @@ use metaverse_login::login;
 use metaverse_login::models::login_response::{AgentAccess, LoginResult};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::header::*;
-use metaverse_messages::models::use_circuit_code::{CircuitCodeBlock, UseCircuitCodePacket};
+use metaverse_messages::models::packet::Packet;
 use metaverse_session::session::new_session;
 use std::net::TcpStream;
 use std::panic;
@@ -20,6 +20,7 @@ use std::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
 use uuid::Uuid;
+use metaverse_messages::models::use_circuit_code::CircuitCodeData;
 
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
@@ -189,7 +190,8 @@ async fn test_mock_session() {
 // this should be in messages
 #[test]
 fn circuit_code_from_bytes() {
-    let bytes = match Vec::from_hex("400000000100ffff00031c11a016d5ad91798747424eac72eedb695918bd9dc18bb1044f4c68906b2cb608b2e197") {
+
+    let bytes = match Vec::from_hex("000003040006000000000000000008004500004a07d94000401134c87f0000017f000001a22e23280036fe49000000000000ffff0003a78a4d2f983bd7bd87d9447e87074205ee2a74869dc18bb1044f4c68906b2cb608b2e197") {
         Ok(bytes) => {
             bytes
         }
@@ -197,20 +199,21 @@ fn circuit_code_from_bytes() {
             panic!("didn't work");
         }
     };
-    match UseCircuitCodePacket::from_bytes(&bytes) {
+    match Packet::<CircuitCodeData>::from_bytes(&bytes) {
         Ok(packet) => {
-            let correct_packet = UseCircuitCodePacket {
+            println!("packet's id, header {:?}, {:?}", packet.header, packet.body );
+            let correct_packet = Packet {
                 header: Header {
-                    id: 0,
+                    id: 3,
                     frequency: PacketFrequency::Low,
-                    reliable: true,
+                    reliable: false,
                     sequence_number: 0,
                     appended_acks: false,
                     zerocoded: false,
                     resent: false,
                     ack_list: None,
                 },
-                circuit_code: CircuitCodeBlock {
+                body: CircuitCodeData {
                     code: 808464436,
                     id: Uuid::new_v4(),
                     session_id: Uuid::new_v4(),
