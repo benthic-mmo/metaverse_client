@@ -49,6 +49,5 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         attempts += 1;
         sleep(Duration::from_millis(500)).await;
     }
-
     Ok(())
 }

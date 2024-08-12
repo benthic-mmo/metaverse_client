@@ -2,6 +2,7 @@ use actix::prelude::*;
 use log::{error, info};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
+use metaverse_messages::models::header::*;
 
 pub struct Mailbox {
     pub socket: Option<Arc<UdpSocket>>,
@@ -18,14 +19,9 @@ impl Mailbox {
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
                     info!("Received {} bytes from {:?}", size, addr);
-                    match std::str::from_utf8(&buf[..size]) {
-                        Ok(data) => {
-                            info!("Received data: {}", data);
-                        }
-                        Err(_) => {
-                            error!("Received non-UTF-8 data");
-                        }
-                    }
+                    let header = Header::try_from_bytes(&buf[..size]).unwrap();
+                    info!("Header Received: {:?}", header);
+
                     // Handle received data here
                 }
                 Err(e) => {

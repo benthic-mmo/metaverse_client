@@ -170,6 +170,8 @@ impl PacketFrequency {
         let frequency;
         let size;
 
+        // TODO: THIS WILL BREAK WHEN ACKS ARE APPENDED 
+        // IF YOU ARE HAVING PROBLEMS PARSING HEADERS THIS IS WHY
         // if there are more than 2 bytes received,
         if bytes.len() >= 2 {
             if bytes[0] == 0xFF && bytes[1] == 0xFF {
@@ -188,7 +190,7 @@ impl PacketFrequency {
                 size = 2;
             }
         }
-        // if there was only one byte received
+        // if there was only one byte received, we know for sure it is high
         else {
             frequency = PacketFrequency::High;
             id = bytes[0] as u16;
