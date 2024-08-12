@@ -17,6 +17,7 @@ impl<T: PacketData> Packet<T> {
     pub fn from_bytes(mut bytes: &[u8]) -> io::Result<Self> {
         let header = Header::try_from_bytes(&mut bytes)?;
         let body = T::from_bytes(bytes)?;
+
         Ok(Self { header, body })
     }
 
@@ -25,5 +26,18 @@ impl<T: PacketData> Packet<T> {
         bytes.extend(self.header.to_bytes());
         bytes.extend(self.body.to_bytes());
         bytes
+    }
+}
+
+pub struct GenericData{
+    pub bytes: Vec<u8>
+}
+
+impl PacketData for GenericData{
+    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(Self{bytes: bytes.to_vec()})
+    }
+    fn to_bytes(&self) -> Vec<u8> {
+        self.bytes.clone()
     }
 }
