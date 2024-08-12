@@ -1,41 +1,40 @@
-use log::{info, warn, error};
-use std::fs;
-use std::error::Error;
-use reqwest::Url;
-use std::collections::HashMap;
-use std::fs::File;
-use tokio::fs::File as tokioFile;
-use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use crate::models::server::*;
 use actix::prelude::*;
+use log::{error, info, warn};
 use regex::Regex;
+use reqwest::Url;
+use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::error::Error;
+use std::fs;
+use std::fs::File;
+use std::io::Cursor;
 use std::io::{Error as IOError, Write};
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, AsyncReadExt};
+use tokio::fs::File as tokioFile;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
-use std::borrow::Borrow;
-use crate::models::server::*;
 
-
-// This is the Actor for the SimServer. 
-// this contains all information for 
+// This is the Actor for the SimServer.
+// this contains all information for
 // - starting the sim server
-// - reading its stdout 
-// - writing to stdin 
+// - reading its stdout
+// - writing to stdin
 // - setting server state
 
 impl Actor for SimServer {
     type Context = Context<Self>;
-    
+
     /// Started is called when the Actix Server has started.
     ///
     /// this functions as the main thread where all other processes are spawned.
     ///
-    /// this won't run properly, as it needs imports, and to be run within an actix runtime. 
-    /// However, this is the gits of what you need to do in order to run 
+    /// this won't run properly, as it needs imports, and to be run within an actix runtime.
+    /// However, this is the gits of what you need to do in order to run
     ///
-    ///# Examples 
+    ///# Examples
     ///```
     ///let url = "http://opensimulator.org/dist/OpenSim-LastAutoBuild.zip";
     ///let sim_archive = "sims/sim.zip";
@@ -45,7 +44,7 @@ impl Actor for SimServer {
     ///let notify = Arc::new(Notify::new());
     ///let state = Arc::new(Mutex::new(ServerState::Starting))
     ///let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
-    /// 
+    ///
     ///let base_dir: String;
     ///
     ///if let Ok(canonical_path) = fs::canonicalize(sim_path) {
@@ -57,17 +56,17 @@ impl Actor for SimServer {
     ///} else {
     ///     return()
     ///}
-    /// 
+    ///
     ///
     ///SimServer{
     ///     state: Arc::clone(&state)
-    ///     standalone_config: create_default_standalone_config(), 
+    ///     standalone_config: create_default_standalone_config(),
     ///     regions_config: create_default_regions_config(),
-    ///     process: None, 
+    ///     process: None,
     ///     process_stdout_sender: None, //this is for subscribing to stdout from process
     ///     process_stdin_sender:Some(stdin_sender),
     ///     process_stdin_receiver:Some(stdin_sender)
-    ///     notify: Arc::clone(&notify), 
+    ///     notify: Arc::clone(&notify),
     ///     exec_data: ExecData{
     ///         base_dir,
     ///         executable,
@@ -102,10 +101,10 @@ impl Actor for SimServer {
             Err(e) => error!("Failed to write {}: {}", &config_path, e),
         }
 
-        // write the StandaloneCommon.ini to the corect file 
+        // write the StandaloneCommon.ini to the corect file
         // this is the configuration for standalone grids.
-        // currently the crate only supports standalone grids. 
-        // TODO: make this generic 
+        // currently the crate only supports standalone grids.
+        // TODO: make this generic
         let config_path = format!(
             "{}/bin/config-include/StandaloneCommon.ini",
             self.exec_data.base_dir
@@ -115,8 +114,8 @@ impl Actor for SimServer {
             Err(e) => error!("Failed to write {}: {}", &config_path, e),
         }
 
-        // write the Regions.ini to the correct file 
-        // this is the regions configuration, where the region information is kept. 
+        // write the Regions.ini to the correct file
+        // this is the regions configuration, where the region information is kept.
         let config_path = format!("{}/bin/Regions/Regions.ini", self.exec_data.base_dir);
         match SimServer::write_to_file(&config_path, self.regions_config.to_string()) {
             Ok(()) => info!("Wrote {} to file", &config_path),
@@ -137,8 +136,8 @@ impl Actor for SimServer {
             Ok(child) => {
                 // store the process in the actor's struct
                 self.process = Some(child);
-                
-                // set state to starting 
+
+                // set state to starting
                 self.set_state(ServerState::Starting, ctx);
                 info!(
                     "Started server at {}/bin/{}",
@@ -156,7 +155,7 @@ impl Actor for SimServer {
         // spawn a thread to read stdout of the mono process
         self.handle_stdout(ctx.address());
 
-        // spawn a thread to attach to the stdin of the mono process 
+        // spawn a thread to attach to the stdin of the mono process
         self.handle_stdin();
     }
 
@@ -165,13 +164,18 @@ impl Actor for SimServer {
         self.set_state(ServerState::Stopped, ctx);
         let process_stdin_sender = self.process_stdin_sender.clone().unwrap();
         actix::spawn(async move {
-            process_stdin_sender.send(CommandMessage { command: "quit".to_string() }).await.unwrap();
+            process_stdin_sender
+                .send(CommandMessage {
+                    command: "quit".to_string(),
+                })
+                .await
+                .unwrap();
         });
         info!("Actor is stopped ")
     }
 }
 
-// This is the handler for CommandMessage for the SimServer. 
+// This is the handler for CommandMessage for the SimServer.
 // when it receives messages, it sends the CommandMessage to stdin
 impl Handler<CommandMessage> for SimServer {
     type Result = ();
@@ -187,7 +191,7 @@ impl Handler<CommandMessage> for SimServer {
 
 // this is the handler for receiving stdout messages
 // every captured stdout message get sent as a message back to the actor
-// and processed in this function. 
+// and processed in this function.
 impl Handler<StdoutMessage> for SimServer {
     type Result = ();
 
@@ -200,26 +204,26 @@ impl Handler<StdoutMessage> for SimServer {
         if msg.log_content.contains("Fatal error") {
             self.set_state(ServerState::Stopped, ctx);
         }
-        
-        // each message has a component type, which can be set and used to respond to events 
+
+        // each message has a component type, which can be set and used to respond to events
         // TODO: use full list of components
         //
         let server_state = self.get_state();
         match msg.component {
             // set the server state to Running once the stdout contains "Currently selected
             // region is"
-            // this is the output that the server gives once fully initialized. 
+            // this is the output that the server gives once fully initialized.
             // TODO: make this generic
             ServerComponents::Console(_) => {
-                               if !(server_state == ServerState::Running)
+                if !(server_state == ServerState::Running)
                     && msg.log_content.contains("Currently selected region is")
                 {
                     self.set_state(ServerState::Running, ctx);
                 }
             }
-            // if the server sends a Shutdown message, set the state to stopping, 
+            // if the server sends a Shutdown message, set the state to stopping,
             // and if that shutdown message contains the word complete, then the server has
-            // stoppped.  
+            // stoppped.
             ServerComponents::Shutdown(_) => {
                 if server_state != ServerState::Stopped && server_state != ServerState::Stopping {
                     self.set_state(ServerState::Stopping, ctx);
@@ -234,14 +238,14 @@ impl Handler<StdoutMessage> for SimServer {
 }
 
 impl SimServer {
-    // this is the function for handling the stdout. 
-    // it creates an async thread that runs  until the server's state is set to Stopped. 
+    // this is the function for handling the stdout.
+    // it creates an async thread that runs  until the server's state is set to Stopped.
     fn handle_stdout(&mut self, addr: Addr<SimServer>) {
         if let Some(stdout) = self.process.as_mut().unwrap().stdout.take() {
             let state_clone = Arc::clone(&self.state);
             // stdout_sener is optional. it allows for proceses to subscribe to the stdout
             let stdout_sender = self.process_stdout_sender.clone();
-            
+
             // this is the thread logic
             let get_stdout = async move {
                 info!("running stdout capture");
@@ -249,15 +253,15 @@ impl SimServer {
                 let mut lines = reader.lines();
                 while let Some(line) = lines.next_line().await.unwrap() {
                     // if the state of the server is stopped, break the loop, which exits the
-                    // thread 
+                    // thread
                     if *state_clone.lock().unwrap() == ServerState::Stopped {
                         info!("server has stopped, exiting stdout capture");
                         break;
                     }
 
-                    // this regex takes data in the format output by the opensim server 
+                    // this regex takes data in the format output by the opensim server
                     // for example, this could be one of the output logs by the mono process
-                    // 12:34:56 - [SCENE]: Initializing script instances in default 
+                    // 12:34:56 - [SCENE]: Initializing script instances in default
                     // the regex splits, and adds each part to the component type for use in other
                     // places.
                     // TODO: make this regex more generic
@@ -268,10 +272,10 @@ impl SimServer {
                         let component = captures.get(2).map_or("", |m| m.as_str());
                         let log_content = captures.get(3).map_or("", |m| m.as_str());
                         // this is where the component gets assigned to its type enum. this makes
-                        // it easy to identify where the log is coming from within the process. 
+                        // it easy to identify where the log is coming from within the process.
                         // currently the only types it can be are Shutdown, Console and Else. All
-                        // messages not from shutdown or console are stored in else. 
-                        // TODO: create exhaustive list of enums 
+                        // messages not from shutdown or console are stored in else.
+                        // TODO: create exhaustive list of enums
                         let component_enum = match component {
                             "SHUTDOWN" => ServerComponents::Shutdown("SHUTDOWN".to_string()),
                             _ => ServerComponents::Else(component.to_string()),
@@ -289,7 +293,7 @@ impl SimServer {
                         };
                     }
                     // allow for process to subscribe to stdout, and receive message structs
-                    // since sender is optional, this does nothing if process_stdout_sender isn't set 
+                    // since sender is optional, this does nothing if process_stdout_sender isn't set
                     if let Some(sender) = &stdout_sender {
                         if (sender.send(stdout_message.clone()).await).is_err() {
                             break;
@@ -305,9 +309,9 @@ impl SimServer {
         }
     }
 
-    // this functions handles the stdin for the server. 
+    // this functions handles the stdin for the server.
     // when the server receives messages, it sends them to the stdin_sender, which passes them to
-    // the stdin_receiver in this thread. 
+    // the stdin_receiver in this thread.
     fn handle_stdin(&mut self) {
         if let Some(stdin) = self.process.as_mut().unwrap().stdin.take() {
             let mut stdin_receiver = self.process_stdin_receiver.take().unwrap();
@@ -316,13 +320,13 @@ impl SimServer {
                 info!("running stdin reciever");
                 let mut writer = tokio::io::BufWriter::new(stdin);
                 while let Some(mut cmd) = stdin_receiver.recv().await {
-                    // if the server's state is stopped, break the loop and exit the thread 
+                    // if the server's state is stopped, break the loop and exit the thread
                     if *state_clone.lock().unwrap() == ServerState::Stopped {
                         info!("server has stopped, exiting stdin thread");
                         break;
                     }
                     info!("command received: {}", cmd.command);
-                    // append a newline to the command so it goes through 
+                    // append a newline to the command so it goes through
                     cmd.command.push('\n');
                     if let Err(e) = writer.write_all(cmd.command.as_bytes()).await {
                         error!("failed to write command {}: {}", cmd.command, e);
@@ -333,7 +337,7 @@ impl SimServer {
                     };
                 }
             };
-            //spawn the thread 
+            //spawn the thread
             Arbiter::current().spawn(write_stdin);
         }
     }
@@ -345,13 +349,13 @@ impl SimServer {
             let mut state = state_clone.lock().unwrap();
             *state = new_state.clone();
         }
-        // notify on start and stop 
-        if new_state == ServerState::Running || new_state == ServerState::Stopped{
+        // notify on start and stop
+        if new_state == ServerState::Running || new_state == ServerState::Stopped {
             self.notify.notify_one();
         }
     }
 
-    // get state of the server 
+    // get state of the server
     pub fn get_state(&self) -> ServerState {
         let state = self.state.lock().unwrap();
         state.clone()
@@ -375,7 +379,7 @@ impl SimServer {
     }
 }
 
-// will probably remove later 
+// will probably remove later
 pub fn read_sim_config() -> Option<HashMap<String, String>> {
     let mut settings = config::Config::default();
     match settings.merge(config::File::with_name("sim_config")) {
@@ -427,13 +431,13 @@ pub async fn download_sim(
     Ok(())
 }
 
-// handle reading and creating dirs from config 
-pub fn read_config() -> Result<(String, String, String, String), Box<dyn Error>>{
+// handle reading and creating dirs from config
+pub fn read_config() -> Result<(String, String, String, String), Box<dyn Error>> {
     let conf = match read_sim_config() {
         Some(x) => x,
         None => {
             println!("test skipped, no config file");
-            return Err("failed to read sim config".into()) 
+            return Err("failed to read sim config".into());
         }
     };
     let url = conf.get("url").unwrap().to_string();
@@ -449,20 +453,30 @@ pub fn read_config() -> Result<(String, String, String, String), Box<dyn Error>>
 
     let sim_dir: String;
 
-    match fs::canonicalize(output_dir){
-       Ok(canonical_path) => {
+    match fs::canonicalize(output_dir) {
+        Ok(canonical_path) => {
             sim_dir = canonical_path
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .to_string();
-        },
+                .into_os_string()
+                .into_string()
+                .unwrap()
+                .to_string();
+        }
         Err(e) => {
             panic!("failed to canonicalize sim_dir: {}", e)
-        } 
+        }
     }
-    let base_dir = Path::new(&sim_dir).join(name).into_os_string().into_string().unwrap().to_string();
-    let sim_archive = Path::new(&path).join(archive).into_os_string().into_string().unwrap().to_string();
+    let base_dir = Path::new(&sim_dir)
+        .join(name)
+        .into_os_string()
+        .into_string()
+        .unwrap()
+        .to_string();
+    let sim_archive = Path::new(&path)
+        .join(archive)
+        .into_os_string()
+        .into_string()
+        .unwrap()
+        .to_string();
 
     Ok((url, sim_archive, base_dir, executable))
 }

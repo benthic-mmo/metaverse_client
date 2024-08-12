@@ -13,6 +13,7 @@ use metaverse_login::models::login_response::{AgentAccess, LoginResult};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::header::*;
 use metaverse_messages::models::packet::Packet;
+use metaverse_messages::models::use_circuit_code::CircuitCodeData;
 use metaverse_session::session::new_session;
 use std::net::TcpStream;
 use std::panic;
@@ -20,7 +21,6 @@ use std::process::{Child, Command};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration, Instant};
 use uuid::Uuid;
-use metaverse_messages::models::use_circuit_code::CircuitCodeData;
 
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
@@ -190,7 +190,6 @@ async fn test_mock_session() {
 // this should be in messages
 #[test]
 fn circuit_code_from_bytes() {
-
     let bytes = match Vec::from_hex("000003040006000000000000000008004500004a07d94000401134c87f0000017f000001a22e23280036fe49000000000000ffff0003a78a4d2f983bd7bd87d9447e87074205ee2a74869dc18bb1044f4c68906b2cb608b2e197") {
         Ok(bytes) => {
             bytes
@@ -201,7 +200,7 @@ fn circuit_code_from_bytes() {
     };
     match Packet::<CircuitCodeData>::from_bytes(&bytes) {
         Ok(packet) => {
-            println!("packet's id, header {:?}, {:?}", packet.header, packet.body );
+            println!("packet's id, header {:?}, {:?}", packet.header, packet.body);
             let correct_packet = Packet {
                 header: Header {
                     id: 3,

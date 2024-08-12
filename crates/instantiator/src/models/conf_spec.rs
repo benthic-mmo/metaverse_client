@@ -4,10 +4,8 @@ use std::path::PathBuf;
 static DEFAULT_BASE_HOSTNAME: &str = "127.0.0.1";
 static DEFAULT_HOST: &str = "localhost";
 
-
-
 /// This file contains the full (or almost full) spec of an OpenSimulator.ini
-/// full docs on each of these values can be found here 
+/// full docs on each of these values can be found here
 /// http://opensimulator.org/wiki/Configuration/files/OpenSim/OpenSim.ini
 
 #[derive(Default)]
@@ -52,7 +50,7 @@ pub struct SimulatorConfig {
 impl fmt::Display for SimulatorConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
-        
+
         macro_rules! append_line {
             ($key:expr, $value:expr) => {
                 result.push_str(&format!("[{}]\n{}\n", $key, $value));
@@ -122,7 +120,6 @@ impl fmt::Display for Mesher {
     }
 }
 
-
 pub enum PhysicsEngine {
     BulletSim,
     OpenDynamicsEngine,
@@ -139,7 +136,7 @@ impl fmt::Display for PhysicsEngine {
             PhysicsEngine::POS => "POS".to_string(),
             PhysicsEngine::UbODE => "ubODE".to_string(),
         };
-    write!(f, "{}", s)
+        write!(f, "{}", s)
     }
 }
 
@@ -153,7 +150,7 @@ impl fmt::Display for ScriptEngine {
             ScriptEngine::XEngine => "XEngine".to_string(),
             ScriptEngine::YEngine => "YEngine".to_string(),
         };
-write!(f, "{}", s)
+        write!(f, "{}", s)
     }
 }
 
@@ -164,12 +161,12 @@ pub enum SpawnPointRouting {
 }
 impl fmt::Display for SpawnPointRouting {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {           
+        let s = match self {
             SpawnPointRouting::Closest => "closest".to_string(),
             SpawnPointRouting::Random => "random".to_string(),
             SpawnPointRouting::Sequence => "sequence".to_string(),
         };
-write!(f, "{}", s)
+        write!(f, "{}", s)
     }
 }
 
@@ -544,7 +541,7 @@ impl fmt::Display for ConfigConst {
         append_line!("PublicPort", &self.public_port);
         append_line!("PrivURL", &self.priv_url);
         append_line!("PrivatePort", &self.private_port);
-        
+
         write!(f, "{}", result)
     }
 }
@@ -601,7 +598,7 @@ pub struct Startup {
     pub no_verify_cert_chain: Option<bool>,
     pub no_verify_cert_host_name: Option<bool>,
 }
-impl fmt::Display for Startup{
+impl fmt::Display for Startup {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -690,7 +687,7 @@ impl fmt::Display for Startup{
         append_line!("TeleHubAllowLandmark", &self.tele_hub_allow_landmark);
         append_line!("NoVerifyCertChain", &self.no_verify_cert_chain);
         append_line!("NoVerifyCertHostname", &self.no_verify_cert_host_name);
-        
+
         write!(f, "{}", result)
     }
 }
@@ -744,7 +741,7 @@ pub struct AccessControl {
     pub allowed_clients: Option<AllowedClientsList>,
     pub denied_clients: Option<DeniedClientsList>,
 }
-impl fmt::Display for AccessControl{
+impl fmt::Display for AccessControl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -779,7 +776,7 @@ pub struct Map {
     pub map_color_3: Option<String>,
     pub map_color_4: Option<String>,
 }
-impl fmt::Display for Map{
+impl fmt::Display for Map {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -820,7 +817,7 @@ pub struct Permissions {
     pub region_manager_is_god: Option<bool>,
     pub simple_build_permissions: Option<bool>,
 }
-impl fmt::Display for Permissions{
+impl fmt::Display for Permissions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -870,7 +867,7 @@ pub struct Estates {
     pub default_estate_owner_email: Option<String>,
     pub default_estate_owner_password: Option<String>,
 }
-impl fmt::Display for Estates{
+impl fmt::Display for Estates {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -917,7 +914,7 @@ pub struct SMTP {
     pub smtp_verify_cert_chain: Option<bool>,
     pub smtp_verify_cert_names: Option<bool>,
 }
-impl fmt::Display for SMTP{
+impl fmt::Display for SMTP {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -958,7 +955,7 @@ impl fmt::Display for SMTP{
         append_line!("SMTP_VerifyCertChain", &self.smtp_verify_cert_chain);
         append_line!("SMTP_VerifyCertNames", &self.smtp_verify_cert_names);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -981,7 +978,7 @@ pub struct Network {
     pub http_auth_username: Option<String>,
     pub http_auth_password: Option<String>,
 }
-impl fmt::Display for Network{
+impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1053,7 +1050,7 @@ pub struct XMLRPC {
     pub xml_rpc_port: Option<i32>,
     pub xml_rpc_hub_uri: Option<String>,
 }
-impl fmt::Display for XMLRPC{
+impl fmt::Display for XMLRPC {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1077,7 +1074,7 @@ impl fmt::Display for XMLRPC{
 pub struct ClientStackLindenUDP {
     pub disable_face_lights: Option<bool>,
 }
-impl fmt::Display for ClientStackLindenUDP{
+impl fmt::Display for ClientStackLindenUDP {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1101,7 +1098,7 @@ pub struct ClientStackLindenCaps {
     pub cap_avatar_picker_search: Option<String>,
     pub cap_get_display_names: Option<String>,
 }
-impl fmt::Display for ClientStackLindenCaps{
+impl fmt::Display for ClientStackLindenCaps {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1117,7 +1114,7 @@ impl fmt::Display for ClientStackLindenCaps{
         append_line!("Cap_GetMesh", &self.cap_get_mesh);
         append_line!("Cap_AvatarPickerSearch", &self.cap_avatar_picker_search);
         append_line!("Cap_GetDisplayNames", &self.cap_get_display_names);
-         write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 impl Default for ClientStackLindenCaps {
@@ -1136,7 +1133,7 @@ pub struct SimulatorFeatures {
     pub search_server_uri: Option<String>,
     pub destination_guide_uri: Option<String>,
 }
-impl fmt::Display for SimulatorFeatures{
+impl fmt::Display for SimulatorFeatures {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1151,7 +1148,7 @@ impl fmt::Display for SimulatorFeatures{
         append_line!("SearchServerURI", &self.search_server_uri);
         append_line!("DestinationGuideURI", &self.destination_guide_uri);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1161,7 +1158,7 @@ pub struct Chat {
     pub say_distance: Option<i32>,
     pub shout_distance: Option<i32>,
 }
-impl fmt::Display for Chat{
+impl fmt::Display for Chat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1177,7 +1174,7 @@ impl fmt::Display for Chat{
         append_line!("say_distance", &self.say_distance);
         append_line!("shout_distance", &self.shout_distance);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1186,7 +1183,7 @@ pub struct EntityTransfer {
     pub disable_inter_region_teleport_cancellation: Option<bool>,
     pub landing_point_behavior: Option<LandingPointBehavior>,
 }
-impl fmt::Display for EntityTransfer{
+impl fmt::Display for EntityTransfer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1216,7 +1213,7 @@ pub struct Messaging {
     pub mute_list_module: Option<String>,
     pub forward_offline_group_messages: Option<bool>,
 }
-impl fmt::Display for Messaging{
+impl fmt::Display for Messaging {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1244,7 +1241,7 @@ impl fmt::Display for Messaging{
 pub struct BulletSim {
     pub avatar_to_avatar_collisions_by_default: Option<bool>,
 }
-impl fmt::Display for BulletSim{
+impl fmt::Display for BulletSim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1276,7 +1273,7 @@ impl Default for BulletSim {
 pub struct ODEPhysicsSettings {
     pub mesh_sculpted_prim: Option<bool>,
 }
-impl fmt::Display for ODEPhysicsSettings{
+impl fmt::Display for ODEPhysicsSettings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1308,7 +1305,7 @@ pub struct RemoteAdmin {
     pub copy_folders: Option<bool>,
     pub default_appearance: Option<PathBuf>,
 }
-impl fmt::Display for RemoteAdmin{
+impl fmt::Display for RemoteAdmin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1346,7 +1343,7 @@ impl fmt::Display for RemoteAdmin{
                 .as_ref()
                 .map(|p| p.to_string_lossy())
         );
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1362,7 +1359,7 @@ pub struct Wind {
     pub rate_change: Option<i32>,
     pub strength: Option<i32>,
 }
-impl fmt::Display for Wind{
+impl fmt::Display for Wind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1384,7 +1381,7 @@ impl fmt::Display for Wind{
         append_line!("rate_change", &self.rate_change);
         append_line!("strength", &self.strength);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1393,7 +1390,7 @@ pub struct Materials {
     pub enabled: Option<bool>,
     pub max_materials_per_transaction: Option<i32>,
 }
-impl fmt::Display for Materials{
+impl fmt::Display for Materials {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1411,7 +1408,7 @@ impl fmt::Display for Materials{
             &self.max_materials_per_transaction
         );
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1425,7 +1422,7 @@ pub struct DataSnapshot {
     pub data_services: Option<DataServicesList>,
     pub data_srv_mi_search: Option<DataSrvMiSearchList>,
 }
-impl fmt::Display for DataSnapshot{
+impl fmt::Display for DataSnapshot {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1463,7 +1460,7 @@ pub struct Economy {
     pub price_upload: Option<i32>,
     pub price_group_create: Option<i32>,
 }
-impl fmt::Display for Economy{
+impl fmt::Display for Economy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1496,7 +1493,7 @@ pub struct YEngine {
     pub sensor_max_results: Option<i32>,
     pub script_engines_path: Option<PathBuf>,
 }
-impl fmt::Display for YEngine{
+impl fmt::Display for YEngine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1557,7 +1554,7 @@ pub struct XEngine {
     pub disable_underground_movement: Option<i32>,
     pub script_engines_path: Option<PathBuf>,
 }
-impl fmt::Display for XEngine{
+impl fmt::Display for XEngine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1645,7 +1642,7 @@ impl Default for XEngine {
 pub struct OSSL {
     pub include_ossl_default_enable: Option<PathBuf>,
 }
-impl fmt::Display for OSSL{
+impl fmt::Display for OSSL {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1664,7 +1661,7 @@ impl fmt::Display for OSSL{
                 .as_ref()
                 .map(|p| p.to_string_lossy())
         );
-        write!(f, "{}", result) 
+        write!(f, "{}", result)
     }
 }
 impl Default for OSSL {
@@ -1683,7 +1680,7 @@ pub struct FreeSwitchVoice {
     pub local_service_module: Option<String>,
     pub free_switch_service_url: Option<String>,
 }
-impl fmt::Display for FreeSwitchVoice{
+impl fmt::Display for FreeSwitchVoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1723,7 +1720,7 @@ pub struct Groups {
     pub xml_rpc_service_read_key: Option<i32>,
     pub xml_rpc_service_write_key: Option<i32>,
 }
-impl fmt::Display for Groups{
+impl fmt::Display for Groups {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1753,7 +1750,7 @@ impl fmt::Display for Groups{
         append_line!("XmlRpcServiceReadKey", &self.xml_rpc_service_read_key);
         append_line!("XmlRpcServiceWriteKey", &self.xml_rpc_service_write_key);
 
-        write!(f, "{}", result) 
+        write!(f, "{}", result)
     }
 }
 
@@ -1762,7 +1759,7 @@ pub struct InterestManagement {
     pub update_prioritization_scheme: Option<UpdatePrioritizationScheme>,
     pub objects_culling_by_distance: Option<bool>,
 }
-impl fmt::Display for InterestManagement{
+impl fmt::Display for InterestManagement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1783,7 +1780,7 @@ impl fmt::Display for InterestManagement{
             &self.objects_culling_by_distance
         );
 
-        write!(f, "{}", result) 
+        write!(f, "{}", result)
     }
 }
 
@@ -1791,7 +1788,7 @@ impl fmt::Display for InterestManagement{
 pub struct MediaOnAPrim {
     pub enabled: Option<bool>,
 }
-impl fmt::Display for MediaOnAPrim{
+impl fmt::Display for MediaOnAPrim {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1804,7 +1801,7 @@ impl fmt::Display for MediaOnAPrim{
         }
 
         append_line!("Enabled", &self.enabled);
-        write!(f, "{}", result) 
+        write!(f, "{}", result)
     }
 }
 
@@ -1817,7 +1814,7 @@ pub struct NPC {
     pub allow_clone_other_avatars: Option<bool>,
     pub no_npc_group: Option<bool>,
 }
-impl fmt::Display for NPC{
+impl fmt::Display for NPC {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1844,7 +1841,7 @@ impl fmt::Display for NPC{
 pub struct Terrain {
     pub initial_terrain: Option<String>,
 }
-impl fmt::Display for Terrain{
+impl fmt::Display for Terrain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1866,7 +1863,7 @@ impl fmt::Display for Terrain{
 pub struct LandManagement {
     pub show_parcel_bans_lines: Option<String>,
 }
-impl fmt::Display for LandManagement{
+impl fmt::Display for LandManagement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1889,7 +1886,7 @@ pub struct UserProfiles {
     pub profile_service_url: Option<String>,
     pub allow_user_profile_web_urls: Option<bool>,
 }
-impl fmt::Display for UserProfiles{
+impl fmt::Display for UserProfiles {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1904,7 +1901,7 @@ impl fmt::Display for UserProfiles{
         append_line!("ProfileServiceURL", &self.profile_service_url);
         append_line!("AllowUserProfileWebURLs", &self.allow_user_profile_web_urls);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
@@ -1912,7 +1909,7 @@ write!(f, "{}", result)
 pub struct XBakes {
     pub url: Option<String>,
 }
-impl fmt::Display for XBakes{
+impl fmt::Display for XBakes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1936,7 +1933,7 @@ pub struct GodNames {
     pub full_names: Option<GodFullNamesList>,
     pub surnames: Option<GodSurnamesList>,
 }
-impl fmt::Display for GodNames{
+impl fmt::Display for GodNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 
@@ -1952,14 +1949,14 @@ impl fmt::Display for GodNames{
         append_line!("FullNames", &self.full_names);
         append_line!("Surnames", &self.surnames);
 
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 
 pub struct Architecture {
     pub include_architecture: Option<Architectures>,
 }
-impl fmt::Display for Architecture{
+impl fmt::Display for Architecture {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = String::new();
 

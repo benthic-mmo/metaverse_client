@@ -1,10 +1,9 @@
 use std::fmt;
 use uuid::Uuid;
 
-// this file contains the pec for a Regions.ini file. 
-// full docs can be found here 
-// http://opensimulator.org/wiki/Configuring_Regions 
-
+// this file contains the pec for a Regions.ini file.
+// full docs can be found here
+// http://opensimulator.org/wiki/Configuring_Regions
 
 pub struct Coordinate {
     x: i32,
@@ -46,7 +45,10 @@ impl fmt::Display for Region {
             "AllowAlternatePorts = {} \n",
             &self.allow_alternate_ports
         ));
-        result.push_str(&format!("ExternalHostName = {} \n", &self.external_hostname));
+        result.push_str(&format!(
+            "ExternalHostName = {} \n",
+            &self.external_hostname
+        ));
         result.push_str(&format!("SizeX = {} \n", &self.size_x));
         result.push_str(&format!("SizeY = {} \n", &self.size_y));
         write!(f, "{}", result)

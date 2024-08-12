@@ -29,7 +29,7 @@ fn test_default_standalone_config() {
 }
 
 #[test]
-fn test_default_region_config(){
+fn test_default_region_config() {
     let config = create_default_region_config();
     println!("{}", config);
 }
@@ -46,14 +46,12 @@ async fn test_sim_download() {
         }
     };
     let (base_dir, _sim_executable, url, archive) = match read_config() {
-            Ok((base_dir, sim_executable, url, archive)) => {
-            (base_dir, sim_executable, url, archive)
-        },
-            Err(e) => panic!("Error: {}", e)
-        };
+        Ok((base_dir, sim_executable, url, archive)) => (base_dir, sim_executable, url, archive),
+        Err(e) => panic!("Error: {}", e),
+    };
     match download_sim(&url, &archive, &base_dir).await {
         Ok(_) => info!("downloaded sim successfully"),
-        Err(e) => info!("failed to download sim {}", e)
+        Err(e) => info!("failed to download sim {}", e),
     };
 }
 
@@ -64,17 +62,15 @@ async fn test_start_server() {
     let (stdin_sender, stdin_receiver) = mpsc::channel::<CommandMessage>(100);
 
     let (url, archive, base_dir, executable) = match read_config() {
-            Ok((url, archive, base_dir, executable)) => {
-            (url, archive, base_dir, executable)
-        },
-            Err(e) => panic!("Error: {}", e)
-        };
-   
+        Ok((url, archive, base_dir, executable)) => (url, archive, base_dir, executable),
+        Err(e) => panic!("Error: {}", e),
+    };
+
     match download_sim(&url, &archive, &base_dir).await {
         Ok(_) => info!("downloaded sim successfully"),
-        Err(e) => info!("failed to download sim {}", e)
+        Err(e) => info!("failed to download sim {}", e),
     };
-        
+
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
@@ -124,15 +120,13 @@ async fn test_stdout_capture() {
     let (stdout_sender, mut receiver) = mpsc::channel::<StdoutMessage>(100);
 
     let (url, archive, base_dir, executable) = match read_config() {
-            Ok((url, archive, base_dir, executable)) => {
-            (url, archive, base_dir, executable)
-        },
-            Err(e) => panic!("Error: {}", e)
-        };
-   
+        Ok((url, archive, base_dir, executable)) => (url, archive, base_dir, executable),
+        Err(e) => panic!("Error: {}", e),
+    };
+
     match download_sim(&url, &archive, &base_dir).await {
         Ok(_) => info!("downloaded sim successfully"),
-        Err(e) => info!("failed to download sim {}", e)
+        Err(e) => info!("failed to download sim {}", e),
     };
 
     let notify = Arc::new(Notify::new());
@@ -172,4 +166,3 @@ async fn test_stdout_capture() {
         }
     }
 }
-

@@ -34,10 +34,10 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
 
     let mut attempts = 0;
 
-    let packet = Packet::new_circuit_code(CircuitCodeData{
+    let packet = Packet::new_circuit_code(CircuitCodeData {
         code: login_response.circuit_code,
         session_id: login_response.session_id.unwrap(),
-        id: login_response.agent_id.unwrap()
+        id: login_response.agent_id.unwrap(),
     });
 
     sleep(Duration::from_secs(2)).await;

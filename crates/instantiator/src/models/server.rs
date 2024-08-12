@@ -9,8 +9,7 @@ use super::region::RegionsConfig;
 use super::standalone_spec::StandaloneConfig;
 
 // this is the object definition for the sim server itself
-// this contains the spec for the server object, and all of its message structs and related enums. 
-
+// this contains the spec for the server object, and all of its message structs and related enums.
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -83,4 +82,3 @@ pub struct SimServer {
     pub notify: Arc<Notify>,
     pub exec_data: ExecData,
 }
-
