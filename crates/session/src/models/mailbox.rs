@@ -18,6 +18,14 @@ impl Mailbox {
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
                     info!("Received {} bytes from {:?}", size, addr);
+                    match std::str::from_utf8(&buf[..size]) {
+                        Ok(data) => {
+                            info!("Received data: {}", data);
+                        }
+                        Err(_) => {
+                            error!("Received non-UTF-8 data");
+                        }
+                    }
                     // Handle received data here
                 }
                 Err(e) => {
@@ -42,7 +50,6 @@ impl Actor for Mailbox {
                 Ok(sock) => {
                     println!("Successfully bound to {}", &addr_clone);
 
-                    // Wrap socket in Arc for thread safety
                     let sock = Arc::new(sock);
 
                     // Spawn a new Tokio task for reading from the socket
