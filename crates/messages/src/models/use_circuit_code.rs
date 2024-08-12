@@ -1,10 +1,10 @@
-use std::io;
 use crate::models::header::{Header, PacketFrequency};
 use crate::models::packet::{Packet, PacketData};
+use std::io;
 use uuid::Uuid;
 
-impl Packet<CircuitCodeData>{
-    pub fn new_circuit_code(circuit_code_block: CircuitCodeData) -> Self{
+impl Packet<CircuitCodeData> {
+    pub fn new_circuit_code(circuit_code_block: CircuitCodeData) -> Self {
         Packet {
             header: Header {
                 id: 3,
@@ -16,20 +16,20 @@ impl Packet<CircuitCodeData>{
                 resent: false,
                 ack_list: None,
             },
-            body: circuit_code_block
+            body: circuit_code_block,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct CircuitCodeData{
+pub struct CircuitCodeData {
     pub code: u32,
     pub session_id: Uuid,
-    pub id: Uuid
+    pub id: Uuid,
 }
 
 impl PacketData for CircuitCodeData {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>{
+    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         let code = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
         let session_id = Uuid::from_slice(&bytes[4..20]).unwrap();
         let id = Uuid::from_slice(&bytes[20..36]).unwrap();
@@ -48,4 +48,3 @@ impl PacketData for CircuitCodeData {
         bytes
     }
 }
-

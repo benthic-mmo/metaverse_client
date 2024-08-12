@@ -352,7 +352,7 @@ pub struct Login {
     pub channel: String,
     /// first name of the user
     pub first: String,
-    /// last name of the user 
+    /// last name of the user
     pub last: String,
     /// MD5 hash of the user's password with the string "$1$" prepended
     pub passwd: String,

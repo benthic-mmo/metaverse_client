@@ -109,7 +109,7 @@ impl fmt::Display for AssetType {
             Self::Gesture => "Gesture".to_string(),
             Self::Mesh => "Mesh".to_string(),
         };
-    write!(f, "{}", s) 
+        write!(f, "{}", s)
     }
 }
 
@@ -177,7 +177,11 @@ pub struct ForeignTripsAllowedLevel {
 }
 impl fmt::Display for ForeignTripsAllowedLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ForeignTripsAllowed_Level_{} = {}", self.level, self.allow)
+        write!(
+            f,
+            "ForeignTripsAllowed_Level_{} = {}",
+            self.level, self.allow
+        )
     }
 }
 pub struct ForeignTripsAllowedLevelList(pub Vec<ForeignTripsAllowedLevel>);
@@ -205,10 +209,11 @@ pub struct ForeignTripsDisallowedExceptLevel {
 }
 impl fmt::Display for ForeignTripsDisallowedExceptLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-       write!(f,
+        write!(
+            f,
             "DisallowExcept_Level_{} = {}",
-            self.level, self.disallowed_urls) 
-
+            self.level, self.disallowed_urls
+        )
     }
 }
 
@@ -230,7 +235,11 @@ pub struct ForeignTripsAllowExceptLevel {
 }
 impl fmt::Display for ForeignTripsAllowExceptLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AllowExcept_Level_{} = {}", self.level, self.allowed_urls)
+        write!(
+            f,
+            "AllowExcept_Level_{} = {}",
+            self.level, self.allowed_urls
+        )
     }
 }
 
@@ -361,7 +370,6 @@ impl Default for DatabaseService {
         }
     }
 }
-
 
 pub struct Hypergrid {
     pub gate_keeper_uri: Option<String>,
@@ -772,7 +780,6 @@ impl fmt::Display for AuthorizationService {
         let s = match &self.region_properties {
             Some(value) => value.to_string(),
             None => "".to_string(),
-
         };
         write!(f, "{}", s)
     }
@@ -990,7 +997,7 @@ impl fmt::Display for UserProfileService {
             "AuthenticationServiceModule",
             &self.authentication_service_module
         );
-write!(f, "{}", result)
+        write!(f, "{}", result)
     }
 }
 impl Default for UserProfileService {
