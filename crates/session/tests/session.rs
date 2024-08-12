@@ -211,6 +211,7 @@ fn circuit_code_from_bytes() {
                     zerocoded: false,
                     resent: false,
                     ack_list: None,
+                    size: None,
                 },
                 body: CircuitCodeData {
                     code: 808464436,

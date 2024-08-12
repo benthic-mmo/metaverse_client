@@ -1,8 +1,8 @@
 use actix::prelude::*;
-use log::{error, info};
+use log::{error, info, warn};
+use metaverse_messages::models::{header::*, packet_types::PacketType};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
-use metaverse_messages::models::header::*;
 
 pub struct Mailbox {
     pub socket: Option<Arc<UdpSocket>>,
@@ -19,9 +19,26 @@ impl Mailbox {
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
                     info!("Received {} bytes from {:?}", size, addr);
-                    let header = Header::try_from_bytes(&buf[..size]).unwrap();
+
+                    let header = match Header::try_from_bytes(&buf[..size]) {
+                        Ok(header) => header,
+                        Err(e) => {
+                            warn!("Error parsing header: {:?}", e);
+                            continue; // Skip to the next loop iteration
+                        }
+                    };
                     info!("Header Received: {:?}", header);
 
+                    // read the body of the packet from the end of the header
+                    let body_bytes = &buf[header.size.unwrap_or(0)..];
+                    let body = match PacketType::from_id(header.id, body_bytes) {
+                        Ok(body) => body,
+                        Err(e) => {
+                            warn!("Error parsing packet body: {:?}", e);
+                            continue; // Skip to the next loop iteration
+                        }
+                    };
+                    info!("Body Received: {:?}", body);
                     // Handle received data here
                 }
                 Err(e) => {
