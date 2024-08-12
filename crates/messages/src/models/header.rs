@@ -16,6 +16,7 @@ pub struct Header {
     pub id: u16,
     pub frequency: PacketFrequency,
     pub ack_list: Option<Vec<u32>>,
+    pub size: Option<usize>,
 }
 impl Header {
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Header, std::io::Error> {
@@ -36,12 +37,13 @@ impl Header {
         // Skip the extra byte
         pos += 1;
 
-
         let available_bytes = bytes.len() - pos;
-        // take at least four bytes from the header 
+        // take at least four bytes from the header
         let slice_length = available_bytes.min(4);
-        
-        let (frequency, id, frequency_size) = PacketFrequency::from_bytes(&bytes[pos..pos + slice_length], zerocoded).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        let (frequency, id, frequency_size) =
+            PacketFrequency::from_bytes(&bytes[pos..pos + slice_length], zerocoded)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         pos += frequency_size;
 
@@ -77,6 +79,7 @@ impl Header {
             frequency,
             id,
             ack_list,
+            size: Some(pos),
         };
 
         Ok(header)
@@ -170,7 +173,7 @@ impl PacketFrequency {
         let frequency;
         let size;
 
-        // TODO: THIS WILL BREAK WHEN ACKS ARE APPENDED 
+        // TODO: THIS WILL BREAK WHEN ACKS ARE APPENDED
         // IF YOU ARE HAVING PROBLEMS PARSING HEADERS THIS IS WHY
         // if there are more than 2 bytes received,
         if bytes.len() >= 2 {

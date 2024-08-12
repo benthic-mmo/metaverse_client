@@ -28,16 +28,3 @@ impl<T: PacketData> Packet<T> {
         bytes
     }
 }
-
-pub struct GenericData{
-    pub bytes: Vec<u8>
-}
-
-impl PacketData for GenericData{
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
-        Ok(Self{bytes: bytes.to_vec()})
-    }
-    fn to_bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
-    }
-}

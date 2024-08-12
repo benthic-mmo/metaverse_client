@@ -15,6 +15,7 @@ impl Packet<CircuitCodeData> {
                 zerocoded: false,
                 resent: false,
                 ack_list: None,
+                size: None,
             },
             body: circuit_code_block,
         }
