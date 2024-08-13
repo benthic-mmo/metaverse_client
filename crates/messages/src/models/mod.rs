@@ -1,3 +1,4 @@
+pub mod coarse_location_update;
 pub mod disable_simulator;
 pub mod header;
 pub mod packet;
