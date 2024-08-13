@@ -1,6 +1,6 @@
 use actix::prelude::*;
-use log::{error, info, warn};
-use metaverse_messages::models::{header::*, packet_types::PacketType};
+use log::{error, info};
+use metaverse_messages::models::packet::Packet;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
@@ -19,27 +19,14 @@ impl Mailbox {
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
                     info!("Received {} bytes from {:?}", size, addr);
-
-                    let header = match Header::try_from_bytes(&buf[..size]) {
-                        Ok(header) => header,
+                    let packet = match Packet::from_bytes(&buf[..size]) {
+                        Ok(packet) => packet,
                         Err(e) => {
-                            warn!("Error parsing header: {:?}", e);
-                            continue; // Skip to the next loop iteration
+                            error!("failed to parse packet: {:?}", e);
+                            continue;
                         }
                     };
-                    info!("Header Received: {:?}", header);
-
-                    // read the body of the packet from the end of the header
-                    let body_bytes = &buf[header.size.unwrap_or(0)..];
-                    let body = match PacketType::from_id(header.id, body_bytes) {
-                        Ok(body) => body,
-                        Err(e) => {
-                            warn!("Error parsing packet body: {:?}", e);
-                            continue; // Skip to the next loop iteration
-                        }
-                    };
-                    info!("Body Received: {:?}", body);
-                    // Handle received data here
+                    info!("packet received: {:?}", packet);
                 }
                 Err(e) => {
                     eprintln!("Failed to receive data: {}", e);
@@ -87,14 +74,13 @@ impl Actor for Mailbox {
         }));
     }
 }
+
 impl Handler<Packet> for Mailbox {
     type Result = ();
-
     fn handle(&mut self, msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref sock) = self.socket {
             let addr = format!("{}:{}", self.url, self.server_socket);
-            let data = msg.data.clone(); // Clone the data to move into async block
-
+            let data = msg.to_bytes().clone();
             let socket_clone = sock.clone();
             let fut = async move {
                 if let Err(e) = socket_clone.send_to(&data, &addr).await {
@@ -105,9 +91,4 @@ impl Handler<Packet> for Mailbox {
             ctx.spawn(fut.into_actor(self));
         }
     }
-}
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct Packet {
-    pub data: Vec<u8>,
 }

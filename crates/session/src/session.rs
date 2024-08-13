@@ -2,8 +2,8 @@ use actix::Actor;
 use metaverse_login::login::{self};
 use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::Login;
+use metaverse_messages::models::circuit_code::CircuitCodeData;
 use metaverse_messages::models::packet::Packet;
-use metaverse_messages::models::use_circuit_code::CircuitCodeData;
 
 use std::error::Error;
 use tokio::time::{sleep, Duration};
@@ -34,18 +34,14 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
 
     let mut attempts = 0;
 
-    let packet = Packet::new_circuit_code(CircuitCodeData {
-        code: login_response.circuit_code,
-        session_id: login_response.session_id.unwrap(),
-        id: login_response.agent_id.unwrap(),
-    });
-
     sleep(Duration::from_secs(2)).await;
 
     while attempts < 3 {
-        mailbox.do_send(crate::models::mailbox::Packet {
-            data: packet.to_bytes(),
-        });
+        mailbox.do_send(Packet::new_circuit_code(CircuitCodeData {
+            code: login_response.circuit_code,
+            session_id: login_response.session_id.unwrap(),
+            id: login_response.agent_id.unwrap(),
+        }));
         attempts += 1;
         sleep(Duration::from_millis(500)).await;
     }
