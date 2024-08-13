@@ -1,6 +1,9 @@
-use super::packet::PacketData;
+use super::packet::{MessageType, PacketData};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Write};
+
+/// ID: 6
+/// Frequency: Medium
 
 #[derive(Debug)]
 pub struct MinimapEntities {
@@ -73,5 +76,16 @@ impl PacketData for CoarseLocationUpdate {
 
         bytes
     }
+    fn on_receive(
+        &self,
+        _: std::sync::Arc<
+            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
+        >,
+    ) {
+        // add to a queue
+        // implement later
+    }
+    fn message_type(&self) -> MessageType {
+        MessageType::Event
+    }
 }
-

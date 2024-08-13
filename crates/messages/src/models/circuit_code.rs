@@ -3,6 +3,8 @@ use crate::models::packet::{Packet, PacketData};
 use std::io;
 use uuid::Uuid;
 
+use super::packet::MessageType;
+
 impl Packet {
     pub fn new_circuit_code(circuit_code_block: CircuitCodeData) -> Self {
         Packet {
@@ -41,12 +43,22 @@ impl PacketData for CircuitCodeData {
             id,
         })
     }
-
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(36);
         bytes.extend_from_slice(&self.code.to_le_bytes());
         bytes.extend(self.session_id.as_bytes());
         bytes.extend(self.id.as_bytes());
         bytes
+    }
+    fn on_receive(
+        &self,
+        _: std::sync::Arc<
+            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
+        >,
+    ) {
+        // this will never be received, only sent
+    }
+    fn message_type(&self) -> MessageType {
+        MessageType::Outgoing
     }
 }

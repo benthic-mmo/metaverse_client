@@ -1,5 +1,5 @@
-use std::io;
 use core::fmt;
+use std::io;
 
 // TODO: change the flags to bitflags
 pub const MSG_RELIABLE: u8 = 0x01;
@@ -139,12 +139,12 @@ pub enum PacketFrequency {
     Medium,
     Low,
 }
-impl fmt::Display for PacketFrequency{
+impl fmt::Display for PacketFrequency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PacketFrequency::High => write!(f, "High"),
             PacketFrequency::Medium => write!(f, "Medium"),
-            PacketFrequency::Low => write!(f, "Low")
+            PacketFrequency::Low => write!(f, "Low"),
         }
     }
 }
