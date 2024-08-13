@@ -1,6 +1,10 @@
 use crate::models::header::Header;
 use actix::prelude::*;
+use std::collections::HashMap;
 use std::io;
+use std::sync::Arc;
+use tokio::sync::oneshot;
+use tokio::sync::Mutex;
 
 use super::packet_types::PacketType;
 
@@ -11,17 +15,29 @@ pub struct Packet {
     pub body: Box<dyn PacketData>,
 }
 
+pub enum MessageType {
+    Acknowledgment,
+    Request,
+    Event,
+    Command,
+    Error,
+    Data,
+    Outgoing,
+}
+
 // this is the trait that allows for serializing and deserializing the packet's data
 pub trait PacketData: std::fmt::Debug + Send + Sync + 'static {
     fn from_bytes(bytes: &[u8]) -> io::Result<Self>
     where
         Self: Sized;
     fn to_bytes(&self) -> Vec<u8>;
+    fn on_receive(&self, queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>);
+    fn message_type(&self) -> MessageType;
 }
 
 impl Packet {
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
-        let header = Header::try_from_bytes(&bytes).unwrap();
+        let header = Header::try_from_bytes(bytes).unwrap();
         // if the packet has a body, add the body to the packet
         let body_bytes = if header.size.unwrap_or(0) < bytes.len() {
             &bytes[header.size.unwrap_or(0)..]

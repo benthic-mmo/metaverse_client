@@ -24,7 +24,6 @@ fn init_logger() {
         .try_init();
 }
 
-
 lazy_static! {
     static ref EXAMPLE_LOGIN: SimulatorLoginProtocol = SimulatorLoginProtocol {
         address_size: 64,
@@ -250,7 +249,6 @@ async fn setup_server(
     sim_server
 }
 
-
 #[test]
 fn test_xml_generation() {
     let req = xmlrpc::Request::new("login_to_simulator").arg(EXAMPLE_LOGIN.clone());
@@ -275,4 +273,3 @@ fn debug_request_xml(xml: xmlrpc::Request) {
         Err(e) => println!("failed to debug request xml {}", e),
     };
 }
-

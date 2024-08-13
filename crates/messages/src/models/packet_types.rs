@@ -16,8 +16,14 @@ pub enum PacketType {
 
 impl PacketType {
     pub fn from_id(id: u16, frequency: PacketFrequency, bytes: &[u8]) -> io::Result<Self> {
-        // the packets are organized by frquency. 
-        // I really don't like it, but there's nothing I can do about it 
+        // the packets are organized by frquency.
+        // I really don't like it, but there's nothing I can do about it
+        // I will eventually organize these by type
+        // Acknowledgements,
+        // Requests,
+        // Commands,
+        // Errors,
+        // Data.
         match frequency {
             PacketFrequency::High => match id {
                 id => Err(io::Error::new(
