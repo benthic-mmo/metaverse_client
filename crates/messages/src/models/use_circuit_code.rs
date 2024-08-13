@@ -10,7 +10,7 @@ impl Packet<CircuitCodeData> {
                 id: 3,
                 frequency: PacketFrequency::Low,
                 reliable: false,
-                sequence_number: 0,
+                sequence_number: 1,
                 appended_acks: false,
                 zerocoded: false,
                 resent: false,

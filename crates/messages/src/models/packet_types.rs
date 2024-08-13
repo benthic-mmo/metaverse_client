@@ -1,6 +1,6 @@
 use super::{
-    disable_simulator::DisableSimulator, packet::PacketData, packet_ack::PacketAck,
-    use_circuit_code::CircuitCodeData,
+    coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator,
+    packet::PacketData, packet_ack::PacketAck, use_circuit_code::CircuitCodeData,
 };
 use std::io;
 
@@ -9,15 +9,15 @@ pub enum PacketType {
     CircuitCode(CircuitCodeData),
     DisableSimulator(DisableSimulator),
     PacketAck(PacketAck),
+    CoarseLocationUpdate(CoarseLocationUpdate),
 }
 
 impl PacketType {
     pub fn from_id(id: u16, bytes: &[u8]) -> io::Result<Self> {
         match id {
             3 => Ok(PacketType::CircuitCode(CircuitCodeData::from_bytes(bytes)?)),
-            152 => Ok(PacketType::DisableSimulator(DisableSimulator::from_bytes(
-                bytes,
-            )?)),
+            6 => Ok(PacketType::CoarseLocationUpdate(CoarseLocationUpdate::from_bytes(bytes)?)),
+            152 => Ok(PacketType::DisableSimulator(DisableSimulator::from_bytes(bytes)?)),
             65531 => Ok(PacketType::PacketAck(PacketAck::from_bytes(bytes)?)),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
