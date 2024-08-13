@@ -1,4 +1,5 @@
 use std::io;
+use core::fmt;
 
 // TODO: change the flags to bitflags
 pub const MSG_RELIABLE: u8 = 0x01;
@@ -132,12 +133,22 @@ fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
     [(value >> 8) as u8, (value & 0xFF) as u8]
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum PacketFrequency {
     High,
     Medium,
     Low,
 }
+impl fmt::Display for PacketFrequency{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PacketFrequency::High => write!(f, "High"),
+            PacketFrequency::Medium => write!(f, "Medium"),
+            PacketFrequency::Low => write!(f, "Low")
+        }
+    }
+}
+
 impl PacketFrequency {
     pub fn to_bytes(&self, header: &Header) -> Vec<u8> {
         let mut bytes = Vec::new();

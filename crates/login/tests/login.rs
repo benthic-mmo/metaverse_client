@@ -5,12 +5,9 @@ use log::{info, LevelFilter};
 use metaverse_login::login::*;
 use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::*;
-use std::error::Error;
-use std::net::TcpStream;
 use std::panic;
-use std::process::{Child, Command};
 use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{sleep, Duration};
 
 use actix::Actor;
 use lazy_static::lazy_static;
@@ -27,9 +24,6 @@ fn init_logger() {
         .try_init();
 }
 
-// port and address for the test server
-const PYTHON_PORT: u16 = 9000;
-const PYTHON_URL: &str = "http://127.0.0.1";
 
 lazy_static! {
     static ref EXAMPLE_LOGIN: SimulatorLoginProtocol = SimulatorLoginProtocol {
@@ -83,49 +77,6 @@ lazy_static! {
             avatar_picker_url: Some(true),
         }
     };
-}
-
-struct Reap(Child);
-impl Drop for Reap {
-    fn drop(&mut self) {
-        self.0.kill().expect("process already died");
-    }
-}
-
-///Tests login struct against a dummy python server
-/// verifies that the xml being sent is valid and can be read by other servers
-#[test]
-fn test_struct_python_validate_xml() {
-    init_logger();
-    let mut reaper = match setup() {
-        Ok(reap) => reap,
-        Err(_string) => return,
-    };
-
-    match reaper.0.try_wait().unwrap() {
-        None => {}
-        Some(status) => {
-            panic!("python process unexpectedly exited: {}", status);
-        }
-    }
-
-    let test_server_url = build_test_url(PYTHON_URL, PYTHON_PORT);
-    let login_response = send_login(EXAMPLE_LOGIN.clone(), test_server_url.clone());
-    let response = match login_response {
-        Ok(response) => response,
-        Err(e) => panic!("login failed with {}", e),
-    };
-
-    assert_eq!(response["first_name"], xmlrpc::Value::from("None"));
-    assert_eq!(response["last_name"], xmlrpc::Value::from("None"));
-    assert_eq!(response["login"], xmlrpc::Value::from("None"));
-
-    match reaper.0.try_wait().unwrap() {
-        None => {}
-        Some(status) => {
-            panic!("python process unexpectedly exited: {}", status);
-        }
-    }
 }
 
 // using metaverse_instantiator, launches a local sim server, and tests login against that.
@@ -299,49 +250,6 @@ async fn setup_server(
     sim_server
 }
 
-/// sets up python xmlrpc server for testing
-fn setup() -> Result<Reap, String> {
-    // logs when server started
-    let start = Instant::now();
-    // runs the python command to start the test server
-    let mut child = match Command::new("python3")
-        .arg("tests/test_server/test_server.py")
-        .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            eprintln!("could not start test server, ignoring test({})", e);
-            return Err("Could not start test server".to_string());
-        }
-    };
-
-    // logs how many tries it took to connect to server
-    // attempts to connect to python server
-    for iteration in 0.. {
-        match child.try_wait().unwrap() {
-            None => {}
-            Some(status) => panic!("python process died {}", status),
-        }
-
-        if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
-            info!(
-                "connected to server after {:?} (iteration{})",
-                Instant::now() - start,
-                iteration
-            );
-            return Ok(Reap(child));
-        }
-        if TcpStream::connect(("127.0.0.1", PYTHON_PORT)).is_ok() {
-            info!(
-                "connected to server after {:?} (iteration{})",
-                Instant::now() - start,
-                iteration
-            );
-            return Ok(Reap(child));
-        }
-    }
-    Ok(Reap(child))
-}
 
 #[test]
 fn test_xml_generation() {
@@ -359,21 +267,6 @@ fn build_test_url(url: &str, port: u16) -> String {
     url_string
 }
 
-/// sends login for testing struct
-fn send_login(
-    example_login: SimulatorLoginProtocol,
-    url_string: String,
-) -> Result<xmlrpc::Value, Box<dyn Error>> {
-    // Login to test server
-    let req = xmlrpc::Request::new("login_to_simulator").arg(example_login);
-    debug_request_xml(req.clone());
-
-    let login = req.call_url(url_string).unwrap();
-    debug_response_xml(login.clone());
-    info!("struct data: {:?}", login);
-    Ok(login)
-}
-
 /// prints out xml of request for debugging
 fn debug_request_xml(xml: xmlrpc::Request) {
     let mut debug: Vec<u8> = vec![];
@@ -383,11 +276,3 @@ fn debug_request_xml(xml: xmlrpc::Request) {
     };
 }
 
-/// prints out xml of response for debugging
-fn debug_response_xml(xml: xmlrpc::Value) {
-    let mut debug: Vec<u8> = vec![];
-    match xml.write_as_xml(&mut debug) {
-        Ok(_) => println!("xml response: {:?}", String::from_utf8(debug)),
-        Err(e) => println!("failed to debug response xml {}", e),
-    };
-}

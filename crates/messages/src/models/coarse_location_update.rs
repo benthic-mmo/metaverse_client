@@ -1,6 +1,6 @@
 use super::packet::PacketData;
-use std::io::{self, Cursor, Write};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{self, Cursor, Write};
 
 #[derive(Debug)]
 pub struct MinimapEntities {
@@ -49,8 +49,11 @@ impl PacketData for CoarseLocationUpdate {
         let you = cursor.read_i16::<LittleEndian>()?;
         let prey = cursor.read_i16::<LittleEndian>()?;
 
-        Ok(CoarseLocationUpdate { locations, you, prey })
-        
+        Ok(CoarseLocationUpdate {
+            locations,
+            you,
+            prey,
+        })
     }
 
     fn to_bytes(&self) -> Vec<u8> {
@@ -69,8 +72,6 @@ impl PacketData for CoarseLocationUpdate {
         bytes.write_i16::<LittleEndian>(self.prey).unwrap();
 
         bytes
-        
     }
 }
-
 

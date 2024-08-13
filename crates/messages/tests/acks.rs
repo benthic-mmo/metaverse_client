@@ -20,7 +20,7 @@ fn test_acks_parse() {
         println!("Index out of bounds for slicing");
     }
     let body_bytes = &test_packet[test_header.size.unwrap_or(0)..];
-    let body = match PacketType::from_id(test_header.id, body_bytes) {
+    let body = match PacketType::from_id(test_header.id, test_header.frequency, body_bytes) {
         Ok(body) => body,
         Err(e) => {
             println!("Error parsing packet body: {:?}", e);
@@ -46,7 +46,7 @@ fn test_acks_firestorm_parse() {
         println!("Index out of bounds for slicing");
     }
     let body_bytes = &test_packet[test_header.size.unwrap_or(0)..];
-    let body = match PacketType::from_id(test_header.id, body_bytes) {
+    let body = match PacketType::from_id(test_header.id, test_header.frequency, body_bytes) {
         Ok(body) => body,
         Err(e) => {
             println!("Error parsing packet body: {:?}", e);

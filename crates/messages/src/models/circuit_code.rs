@@ -3,7 +3,7 @@ use crate::models::packet::{Packet, PacketData};
 use std::io;
 use uuid::Uuid;
 
-impl Packet<CircuitCodeData> {
+impl Packet {
     pub fn new_circuit_code(circuit_code_block: CircuitCodeData) -> Self {
         Packet {
             header: Header {
@@ -17,7 +17,7 @@ impl Packet<CircuitCodeData> {
                 ack_list: None,
                 size: None,
             },
-            body: circuit_code_block,
+            body: Box::new(circuit_code_block),
         }
     }
 }
@@ -41,6 +41,7 @@ impl PacketData for CircuitCodeData {
             id,
         })
     }
+
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(36);
         bytes.extend_from_slice(&self.code.to_le_bytes());
