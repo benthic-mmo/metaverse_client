@@ -4,6 +4,7 @@ use metaverse_login::login::{self};
 use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::circuit_code::CircuitCodeData;
+use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -66,5 +67,26 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
             return Err(format!("Failed to create connection {}", e).into())
         },
     };
+
+    match mailbox
+        .send_with_ack(
+            Packet::new_complete_agent_movement(CompleteAgentMovementData {
+                circuit_code: login_response.circuit_code,
+                session_id: login_response.session_id.unwrap(),
+                agent_id: login_response.agent_id.unwrap(),
+            }),
+            Duration::from_millis(500),
+            3,
+        )
+        .await
+    {
+        Ok(_) => info!("complete agent movement sent and ack received"),
+        Err(e) => {
+            return Err(format!("Failed to complete agent movement: {}", e).into())
+        },
+    };
+
+
+
     Ok(())
 }

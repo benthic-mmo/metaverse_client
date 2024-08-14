@@ -1,3 +1,4 @@
+use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
@@ -13,6 +14,7 @@ pub enum PacketType {
     DisableSimulator(Box<dyn PacketData>),
     PacketAck(Box<dyn PacketData>),
     CoarseLocationUpdate(Box<dyn PacketData>),
+    CompleteAgentMovementData(Box<dyn PacketData>),
 }
 
 impl PacketType {
@@ -47,6 +49,9 @@ impl PacketType {
                 ))),
                 152 => Ok(PacketType::DisableSimulator(Box::new(
                     DisableSimulator::from_bytes(bytes)?,
+                ))),
+                249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
+                    CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),
                 65531 => Ok(PacketType::PacketAck(Box::new(PacketAck::from_bytes(
                     bytes,
