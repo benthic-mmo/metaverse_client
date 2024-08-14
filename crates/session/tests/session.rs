@@ -52,7 +52,7 @@ fn circuit_code_from_bytes() {
                     ack_list: None,
                     size: None,
                 },
-                body: Box::new(CircuitCodeData {
+                body: Arc::new(CircuitCodeData {
                     code: 808464436,
                     id: Uuid::new_v4(),
                     session_id: Uuid::new_v4(),

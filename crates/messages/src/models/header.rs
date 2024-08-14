@@ -7,7 +7,7 @@ pub const MSG_RESENT: u8 = 0x02;
 pub const MSG_ZEROCODED: u8 = 0x04;
 pub const MSG_APPENDED_ACKS: u8 = 0x08;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Header {
     pub reliable: bool,
     pub resent: bool,

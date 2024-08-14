@@ -1,5 +1,6 @@
 use crate::models::header::Header;
 use actix::prelude::*;
+use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
@@ -8,11 +9,11 @@ use tokio::sync::Mutex;
 
 use super::packet_types::PacketType;
 
-#[derive(Debug, Message)]
+#[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct Packet {
     pub header: Header,
-    pub body: Box<dyn PacketData>,
+    pub body: Arc<dyn PacketData>,
 }
 
 pub enum MessageType {
@@ -31,7 +32,10 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static {
     where
         Self: Sized;
     fn to_bytes(&self) -> Vec<u8>;
-    fn on_receive(&self, queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>);
+    fn on_receive(
+        &self,
+        queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+    ) -> BoxFuture<'static, ()>;
     fn message_type(&self) -> MessageType;
 }
 
@@ -45,7 +49,7 @@ impl Packet {
             &[]
         };
 
-        let body = PacketType::from_id(header.id, header.frequency, body_bytes)?.into_boxed();
+        let body = PacketType::from_id(header.id, header.frequency, body_bytes)?.into_arc();
         Ok(Self { header, body })
     }
 
