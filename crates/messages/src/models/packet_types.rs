@@ -3,10 +3,11 @@ use super::{
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
     packet_ack::PacketAck,
 };
-use metaverse_utils::IntoBoxed;
+use metaverse_utils::IntoArc;
 use std::io;
+use std::sync::Arc;
 
-#[derive(Debug, IntoBoxed)]
+#[derive(Debug, IntoArc)]
 pub enum PacketType {
     CircuitCode(Box<dyn PacketData>),
     DisableSimulator(Box<dyn PacketData>),

@@ -1,5 +1,6 @@
 use super::packet::{MessageType, PacketData};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use futures::future::BoxFuture;
 use std::io::{self, Cursor, Write};
 
 /// ID: 6
@@ -81,9 +82,12 @@ impl PacketData for CoarseLocationUpdate {
         _: std::sync::Arc<
             tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
         >,
-    ) {
-        // add to a queue
-        // implement later
+    ) -> BoxFuture<'static, ()> {
+        // Dummy implementation for boilerplate
+        Box::pin(async move {
+            // Implement the actual logic here later
+            println!("on_receive is not yet implemented.");
+        })
     }
     fn message_type(&self) -> MessageType {
         MessageType::Event

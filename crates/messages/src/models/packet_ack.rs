@@ -1,5 +1,6 @@
 use super::packet::{MessageType, PacketData};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use futures::future::BoxFuture;
 use std::io::{self, Cursor};
 
 // ID: 65531
@@ -42,15 +43,19 @@ impl PacketData for PacketAck {
         ack_queue: std::sync::Arc<
             tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
         >,
-    ) {
-        let mut queue = futures::executor::block_on(ack_queue.lock());
-        for id in &self.packet_ids {
-            if let Some(sender) = queue.remove(&id) {
-                let _ = sender.send(());
-            } else {
-                println!("No pending ack found for request ID: {}", id);
+    ) -> BoxFuture<'static, ()> {
+        let packet_ids = self.packet_ids.clone();
+
+        Box::pin(async move {
+            let mut queue = ack_queue.lock().await;
+            for id in packet_ids {
+                if let Some(sender) = queue.remove(&id) {
+                    let _ = sender.send(());
+                } else {
+                    println!("No pending ack found for request ID: {}", id);
+                }
             }
-        }
+        })
     }
 
     fn message_type(&self) -> MessageType {

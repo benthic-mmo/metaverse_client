@@ -1,4 +1,5 @@
 use super::packet::{MessageType, PacketData};
+use futures::future::BoxFuture;
 use std::io;
 
 // ID: 152
@@ -19,8 +20,11 @@ impl PacketData for DisableSimulator {
         _: std::sync::Arc<
             tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
         >,
-    ) {
-        // implement later
+    ) -> BoxFuture<'static, ()> {
+        Box::pin(async move {
+            // Implement the actual logic here later
+            println!("on_receive is not yet implemented.");
+        })
     }
     fn message_type(&self) -> MessageType {
         MessageType::Event

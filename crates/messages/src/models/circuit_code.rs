@@ -1,6 +1,8 @@
 use crate::models::header::{Header, PacketFrequency};
 use crate::models::packet::{Packet, PacketData};
+use futures::future::BoxFuture;
 use std::io;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::packet::MessageType;
@@ -19,7 +21,7 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Box::new(circuit_code_block),
+            body: Arc::new(circuit_code_block),
         }
     }
 }
@@ -55,8 +57,11 @@ impl PacketData for CircuitCodeData {
         _: std::sync::Arc<
             tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
         >,
-    ) {
-        // this will never be received, only sent
+    ) -> BoxFuture<'static, ()> {
+        Box::pin(async move {
+            // Implement the actual logic here later
+            println!("on_receive is not yet implemented.");
+        })
     }
     fn message_type(&self) -> MessageType {
         MessageType::Outgoing

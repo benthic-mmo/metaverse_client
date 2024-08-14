@@ -19,6 +19,7 @@ log = "0.4"
 actix = "0.13.5"
 hex = "0.4"
 rand = "0.8"
+futures = "0.3.30"
 
 actix-rt = "2.7"
 [dependencies.uuid]
