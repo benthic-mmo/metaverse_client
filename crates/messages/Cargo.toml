@@ -12,6 +12,7 @@ metaverse_utils = { path = "../utils" }
 actix = "0.13.5"
 tokio = { version = "1.14.0", features = ["full"] }
 futures = "0.3"
+nalgebra = "0.30"
 [dependencies.uuid]
 version = "1.10.0"
 features = [

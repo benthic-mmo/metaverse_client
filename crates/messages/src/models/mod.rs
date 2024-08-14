@@ -6,3 +6,4 @@ pub mod packet;
 pub mod packet_ack;
 pub mod packet_types;
 pub mod complete_agent_movement;
+pub mod agent_update;
