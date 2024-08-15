@@ -56,7 +56,7 @@ impl PacketData for CompleteAgentMovementData {
     }
     fn on_receive(
         &self,
-        queue: Arc<
+        _: Arc<
             tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
         >,
     ) -> futures::future::BoxFuture<'static, ()> {
