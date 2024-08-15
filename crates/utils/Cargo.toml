@@ -1,7 +1,10 @@
 [package]
 name = "metaverse_utils"
-version = "0.1.0"
+version = "0.0.0"
+authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
+description = "simple macro utilities for metaverse clients"
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [lib]
 proc-macro = true
