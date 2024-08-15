@@ -37,10 +37,10 @@ impl Mailbox {
     ) {
         let mut buf = [0; 1024];
         loop {
-            info!("udp read is running");
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
                     info!("Received {} bytes from {:?}", size, addr);
+
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(e) => {

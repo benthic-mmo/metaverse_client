@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Data, DataEnum};
+use syn::{parse_macro_input, Data, DataEnum, DeriveInput};
 
 #[proc_macro_derive(IntoArc)]
 pub fn derive_into_arc(input: TokenStream) -> TokenStream {
@@ -34,4 +34,3 @@ pub fn derive_into_arc(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-

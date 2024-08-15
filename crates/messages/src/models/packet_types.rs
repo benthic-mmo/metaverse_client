@@ -1,3 +1,4 @@
+use super::agent_update::AgentUpdate;
 use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
@@ -8,6 +9,10 @@ use metaverse_utils::IntoArc;
 use std::io;
 use std::sync::Arc;
 
+// IntoArc provides a macro that allows all of these to be contained within arcs
+// this is reqired for PacketData to be object safe
+// I'm doing it this way because writing them all out is tedious,
+// and I want to have as few packet definitions as possible in this project
 #[derive(Debug, IntoArc)]
 pub enum PacketType {
     CircuitCode(Box<dyn PacketData>),
@@ -15,6 +20,7 @@ pub enum PacketType {
     PacketAck(Box<dyn PacketData>),
     CoarseLocationUpdate(Box<dyn PacketData>),
     CompleteAgentMovementData(Box<dyn PacketData>),
+    AgentUpdate(Box<dyn PacketData>),
 }
 
 impl PacketType {
@@ -29,6 +35,9 @@ impl PacketType {
         // Data.
         match frequency {
             PacketFrequency::High => match id {
+                4 => Ok(PacketType::AgentUpdate(Box::new(AgentUpdate::from_bytes(
+                    bytes,
+                )?))),
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),
@@ -53,9 +62,16 @@ impl PacketType {
                 249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
                     CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),
-                65531 => Ok(PacketType::PacketAck(Box::new(PacketAck::from_bytes(
+                id => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Unknown packet ID: {}, frequency: {}", id, frequency),
+                )),
+            },
+            PacketFrequency::Fixed => match id {
+                251 => Ok(PacketType::PacketAck(Box::new(PacketAck::from_bytes(
                     bytes,
                 )?))),
+
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),
