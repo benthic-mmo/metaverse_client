@@ -2,8 +2,9 @@
 members = [
 	"crates/login", 
 	"crates/session",
-	"crates/messages"
-, "crates/instantiator", "crates/utils"]
+	"crates/messages",
+  "crates/instantiator", 
+  "crates/utils"]
 
 
 [patch.crates-io]
