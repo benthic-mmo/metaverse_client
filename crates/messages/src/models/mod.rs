@@ -1,9 +1,9 @@
+pub mod agent_update;
 pub mod circuit_code;
 pub mod coarse_location_update;
+pub mod complete_agent_movement;
 pub mod disable_simulator;
 pub mod header;
 pub mod packet;
 pub mod packet_ack;
 pub mod packet_types;
-pub mod complete_agent_movement;
-pub mod agent_update;

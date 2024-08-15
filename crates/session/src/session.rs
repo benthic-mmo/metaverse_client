@@ -63,9 +63,7 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         .await
     {
         Ok(_) => info!("circuit code sent and ack received"),
-        Err(e) => {
-            return Err(format!("Failed to create connection {}", e).into())
-        },
+        Err(e) => return Err(format!("Failed to create connection {}", e).into()),
     };
 
     match mailbox
@@ -81,12 +79,7 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         .await
     {
         Ok(_) => info!("complete agent movement sent and ack received"),
-        Err(e) => {
-            return Err(format!("Failed to complete agent movement: {}", e).into())
-        },
+        Err(e) => return Err(format!("Failed to complete agent movement: {}", e).into()),
     };
-
-
-
     Ok(())
 }

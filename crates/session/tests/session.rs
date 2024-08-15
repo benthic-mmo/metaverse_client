@@ -107,7 +107,7 @@ async fn test_local() {
             Ok(_) => sleep(Duration::from_secs(3)).await,
             Err(e) => info!("sesion failed to start: {}", e),
         }
-
+        sleep(Duration::from_secs(10)).await;
         sim_server.do_send(CommandMessage {
             command: "quit".to_string(),
         });

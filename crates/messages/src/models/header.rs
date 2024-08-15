@@ -2,10 +2,10 @@ use core::fmt;
 use std::io;
 
 // TODO: change the flags to bitflags
-pub const MSG_RELIABLE: u8 = 0x01;
-pub const MSG_RESENT: u8 = 0x02;
-pub const MSG_ZEROCODED: u8 = 0x04;
-pub const MSG_APPENDED_ACKS: u8 = 0x08;
+pub const MSG_RELIABLE: u8 = 0x40;
+pub const MSG_RESENT: u8 = 0x20;
+pub const MSG_ZEROCODED: u8 = 0x80;
+pub const MSG_APPENDED_ACKS: u8 = 0x10;
 
 #[derive(Debug, Clone)]
 pub struct Header {
@@ -29,18 +29,17 @@ impl Header {
         let resent = (flags & MSG_RESENT) != 0;
         let zerocoded = (flags & MSG_ZEROCODED) != 0;
 
+        // the flags live in one byte
         pos += 1;
         let sequence_number =
             u32::from_be_bytes([bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]]);
-
+        // the sequence number lives in 4 bytes
         pos += 4;
 
-        // Skip the extra byte
-        pos += 1;
-
         let available_bytes = bytes.len() - pos;
-        // take at least four bytes from the header
-        let slice_length = available_bytes.min(4);
+        // take at least six bytes from the header
+        // there should be a pos += 1 here but it's fine
+        let slice_length = available_bytes.min(6);
 
         let (frequency, id, frequency_size) =
             PacketFrequency::from_bytes(&bytes[pos..pos + slice_length], zerocoded)
@@ -82,7 +81,6 @@ impl Header {
             ack_list,
             size: Some(pos),
         };
-
         Ok(header)
     }
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -138,6 +136,7 @@ pub enum PacketFrequency {
     High,
     Medium,
     Low,
+    Fixed,
 }
 impl fmt::Display for PacketFrequency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -145,6 +144,7 @@ impl fmt::Display for PacketFrequency {
             PacketFrequency::High => write!(f, "High"),
             PacketFrequency::Medium => write!(f, "Medium"),
             PacketFrequency::Low => write!(f, "Low"),
+            PacketFrequency::Fixed => write!(f, "Fixed"),
         }
     }
 }
@@ -169,6 +169,12 @@ impl PacketFrequency {
                 let id_bytes = uint16_to_bytes_big(header.id as u16);
                 bytes.extend_from_slice(&id_bytes);
             }
+            PacketFrequency::Fixed => {
+                bytes.push(0xFF);
+                bytes.push(0xFF);
+                bytes.push(0xFF);
+                bytes.push(header.id as u8); // THIS IS PROBABLY INCORRECT
+            }
         };
         bytes
     }
@@ -184,31 +190,50 @@ impl PacketFrequency {
         let frequency;
         let size;
 
-        // TODO: THIS WILL BREAK WHEN ACKS ARE APPENDED
-        // IF YOU ARE HAVING PROBLEMS PARSING HEADERS THIS IS WHY
-        // if there are more than 2 bytes received,
-        if bytes.len() >= 2 {
-            if bytes[0] == 0xFF && bytes[1] == 0xFF {
-                // if the first two bytes are 0xFF
-                frequency = PacketFrequency::Low;
-                if zerocoded && bytes[2] == 0 {
-                    id = bytes[3] as u16
-                } else {
-                    id = u16::from_be_bytes([bytes[2], bytes[3]])
-                };
-                size = 4;
-                // if they aren't,
-            } else {
-                frequency = PacketFrequency::Medium;
-                id = bytes[1] as u16;
-                size = 2;
+        // this match against variable sizes is dangerous and doesn't really give that many
+        // benefits
+        // this should probably be rewritten so it accepts a fixed size to the end zeroed out, and
+        // then does operations on that.
+        match bytes.len() {
+            2 => {
+                frequency = PacketFrequency::High;
+                id = bytes[0] as u16;
+                size = 1;
             }
-        }
-        // if there was only one byte received, we know for sure it is high
-        else {
-            frequency = PacketFrequency::High;
-            id = bytes[0] as u16;
-            size = 1
+            3 => {
+                frequency = PacketFrequency::Medium;
+                id = bytes[2] as u16;
+                size = 3;
+            }
+            5 | 6 => {
+                if bytes[1] == 0xFF && bytes[2] == 0xFF && bytes[3] == 0xFF {
+                    frequency = PacketFrequency::Fixed;
+                    id = bytes[4] as u16;
+                    size = 5;
+                } else if bytes[1] == 0xFF && bytes[2] == 0xFF {
+                    frequency = PacketFrequency::Low;
+                    id = if zerocoded && bytes[3] == 0 {
+                        bytes[5] as u16
+                    } else {
+                        u16::from_be_bytes([bytes[3], bytes[4]])
+                    };
+                    size = 5;
+                } else if bytes[1] == 0xFF {
+                    frequency = PacketFrequency::Medium;
+                    id = bytes[2] as u16;
+                    size = 3; // First 2 bytes considered for Medium frequency
+                } else {
+                    frequency = PacketFrequency::High;
+                    id = bytes[1] as u16;
+                    size = 2; // First byte considered for High frequency
+                }
+            }
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Unsupported packet length",
+                ));
+            }
         }
         Ok((frequency, id, size))
     }
