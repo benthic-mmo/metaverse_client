@@ -1,7 +1,10 @@
 [package]
 name = "metaverse_session"
-version = "0.1.0"
+version = "0.0.0"
+authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
+description = "metaverse session handler"
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,7 +12,7 @@ edition = "2021"
 config = "0.11"
 metaverse_login = "0.1.1"
 metaverse_instantiator = "0.0.4"
-metaverse_messages = {path = "../messages"}
+metaverse_messages = "0.0.0"
 xmlrpc = "0.15.1"
 actix-web = "3"
 tokio = { version = "1.14.0", features = ["full"] }
