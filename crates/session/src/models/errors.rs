@@ -9,7 +9,6 @@ pub enum SessionError {
     // Add other error types here
 }
 
-
 impl SessionError {
     pub fn new_login_error(login_error: LoginError) -> Self {
         SessionError::Login(login_error)
