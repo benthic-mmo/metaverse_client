@@ -1,8 +1,10 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::{oneshot::Sender, Mutex};
 
 use uuid::Uuid;
 
 use super::{
+    client_update_data::ClientUpdateData,
     header::{Header, PacketFrequency},
     packet::{MessageType, Packet, PacketData},
 };
@@ -56,9 +58,8 @@ impl PacketData for CompleteAgentMovementData {
     }
     fn on_receive(
         &self,
-        _: Arc<
-            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
-        >,
+        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
+        _: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> futures::future::BoxFuture<'static, ()> {
         Box::pin(async move {
             // Implement the actual logic here later

@@ -1,6 +1,11 @@
-use super::packet::{MessageType, PacketData};
+use super::{
+    client_update_data::ClientUpdateData,
+    packet::{MessageType, PacketData},
+};
 use futures::future::BoxFuture;
-use std::io;
+use std::{collections::HashMap, io, sync::Arc};
+use tokio::sync::oneshot::Sender;
+use tokio::sync::Mutex;
 
 // ID: 152
 // Frequency: Low
@@ -17,9 +22,8 @@ impl PacketData for DisableSimulator {
     }
     fn on_receive(
         &self,
-        _: std::sync::Arc<
-            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
-        >,
+        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
+        _: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()> {
         Box::pin(async move {
             // Implement the actual logic here later

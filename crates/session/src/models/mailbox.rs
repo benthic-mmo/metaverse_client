@@ -1,6 +1,7 @@
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use log::{error, info};
+use metaverse_messages::models::client_update_data::{ClientUpdateContent, ClientUpdateData, DataContent};
 use metaverse_messages::models::packet::{MessageType, Packet};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -22,6 +23,8 @@ pub struct Mailbox {
     pub command_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
     pub error_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
     pub data_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+
+    pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
 }
 
 impl Mailbox {
@@ -33,6 +36,7 @@ impl Mailbox {
         request_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
         error_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
         outgoing_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
         sock: Arc<UdpSocket>,
     ) {
         let mut buf = [0; 1024];
@@ -50,25 +54,25 @@ impl Mailbox {
                     };
                     match packet.body.message_type() {
                         MessageType::Acknowledgment => {
-                            packet.body.on_receive(ack_queue.clone()).await;
+                            packet.body.on_receive(ack_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Command => {
-                            packet.body.on_receive(command_queue.clone()).await;
+                            packet.body.on_receive(command_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Data => {
-                            packet.body.on_receive(data_queue.clone()).await;
+                            packet.body.on_receive(data_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Event => {
-                            packet.body.on_receive(event_queue.clone()).await;
+                            packet.body.on_receive(event_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Request => {
-                            packet.body.on_receive(request_queue.clone()).await;
+                            packet.body.on_receive(request_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Error => {
-                            packet.body.on_receive(error_queue.clone()).await;
+                            packet.body.on_receive(error_queue.clone(), update_stream.clone()).await;
                         }
                         MessageType::Outgoing => {
-                            packet.body.on_receive(outgoing_queue.clone()).await;
+                            packet.body.on_receive(outgoing_queue.clone(), update_stream.clone()).await;
                         }
                     };
                     info!("packet received: {:?}", packet);
@@ -97,6 +101,7 @@ impl Actor for Mailbox {
         let request_queue_clone = self.ack_queue.clone();
         let error_queue_clone = self.ack_queue.clone();
         let outgoing_queue_clone = self.ack_queue.clone();
+        let update_stream_clone = self.update_stream.clone();
         let fut = async move {
             match UdpSocket::bind(&addr).await {
                 Ok(sock) => {
@@ -113,6 +118,7 @@ impl Actor for Mailbox {
                         request_queue_clone,
                         error_queue_clone,
                         outgoing_queue_clone,
+                        update_stream_clone,
                         sock.clone(),
                     ));
 
@@ -160,6 +166,7 @@ pub trait AllowAcks {
         packet: Packet,
         timeout: Duration,
         max_attempts: i8,
+        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>
     ) -> BoxFuture<'static, Result<(), String>>;
 }
 
@@ -169,6 +176,7 @@ impl AllowAcks for Addr<Mailbox> {
         packet: Packet,
         timeout: Duration,
         max_attempts: i8,
+        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, Result<(), String>> {
         let addr = self.clone();
         Box::pin(async move {
@@ -211,6 +219,12 @@ impl AllowAcks for Addr<Mailbox> {
                 }
             }
             if received_ack {
+                let mut client = update_stream.lock().await;
+                client.push(ClientUpdateData {
+                        content: ClientUpdateContent::Data(DataContent {
+                            content: "hello world".to_string(),
+                        }),
+                });
                 Ok(())
             } else {
                 Err("Failed to receive acknowledgment".into())
