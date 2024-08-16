@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_messages"
-version = "0.0.0"
+version = "0.0.1"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "packet definitions for the open metaverse"
 edition = "2021"
