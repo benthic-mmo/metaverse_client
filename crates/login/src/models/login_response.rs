@@ -3,21 +3,6 @@ use std::error::Error;
 use std::fmt;
 use uuid::Uuid;
 
-/// This is the enum that the login function returns.
-/// This contains the response from the login request.
-/// can either be a LoginResponse, which is the successful login response,
-/// or it can be a LoginFailure, which is the a failure login response.
-pub enum LoginResult {
-    Success(LoginResponse),
-    Failure(LoginFailure),
-}
-
-/// This contains the information that the server returns upon a failed login request.
-pub struct LoginFailure {
-    pub login: String,
-    pub message: String,
-    pub reason: String,
-}
 
 /// This is the full response struct of a successful opensimulator login.
 /// you can find more information about it at http://opensimulator.org/wiki/SimulatorLoginProtocol
@@ -876,16 +861,6 @@ impl TryFrom<xmlrpc::Value> for LoginResponse {
             event_categories: str_val!(val["event_categories"]),
             classified_categories: parse_classified_categories(val.get("classified_categories")),
             ..LoginResponse::default()
-        })
-    }
-}
-impl TryFrom<xmlrpc::Value> for LoginFailure {
-    type Error = Box<dyn Error>;
-    fn try_from(val: xmlrpc::Value) -> Result<Self, Self::Error> {
-        Ok(LoginFailure {
-            login: str_val!(val["login"]).ok_or(ConversionError("Missing login"))?,
-            message: str_val!(val["message"]).ok_or(ConversionError("Missing message"))?,
-            reason: str_val!(val["reason"]).ok_or(ConversionError("Missing reason"))?,
         })
     }
 }

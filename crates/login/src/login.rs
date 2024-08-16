@@ -1,4 +1,5 @@
-use crate::models::login_response::{LoginFailure, LoginResponse, LoginResult};
+use crate::models::errors::{create_login_error_from_message, LoginError};
+use crate::models::login_response::LoginResponse;
 use crate::models::simulator_login_protocol::{
     Login, SimulatorLoginOptions, SimulatorLoginProtocol,
 };
@@ -50,20 +51,18 @@ extern crate sys_info;
 pub fn login(
     login_data: SimulatorLoginProtocol,
     url: String,
-) -> Result<LoginResult, Box<dyn Error>> {
+) -> Result<LoginResponse, LoginError> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    let request = req.call_url(url)?;
+    let request = match req.call_url(url) {
+        Ok(request) => request,
+        Err(e) => return Err(LoginError::new(crate::models::errors::Reason::Connection, &e.to_string())),
+    };
 
     if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
-        return Ok(LoginResult::Success(login_response));
+        return Ok(login_response)
     }
 
-    // If it fails, try converting to LoginFailure
-    if let Ok(login_failure) = LoginFailure::try_from(request) {
-        Ok(LoginResult::Failure(login_failure))
-    } else {
-        Err("Login failed".to_string().into())
-    }
+    return Err(create_login_error_from_message(request));
 }
 
 ///Generates a SimulatorLoginProtocol based on user supplied values
@@ -80,8 +79,10 @@ pub fn login(
 ///                         read_critical: true
 ///                         });
 ///assert_eq!(login_struct.first, "first");
-pub fn build_login(login: Login) -> SimulatorLoginProtocol {
-    SimulatorLoginProtocol {
+
+impl SimulatorLoginProtocol {
+    pub fn new (login: Login) -> Self {
+        SimulatorLoginProtocol {
         first: login.first,
         last: login.last,
         passwd: hash_passwd(login.passwd),
@@ -118,6 +119,8 @@ pub fn build_login(login: Login) -> SimulatorLoginProtocol {
         options: SimulatorLoginOptions::default(), // Use default options
     }
 }
+}
+
 /// md5 hashes the password
 fn hash_passwd(passwd_raw: String) -> String {
     let mut hasher = md5::Md5::new();

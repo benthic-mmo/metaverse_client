@@ -2,7 +2,7 @@
 ///implemented from the protocol as defined by <http://opensimulator.org/wiki/SimulatorLoginProtocol>
 ///
 ///
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct SimulatorLoginProtocol {
     /// First name of the user
     pub first: String,
@@ -66,7 +66,7 @@ pub struct SimulatorLoginProtocol {
 /// parameters seem to randomly swap between using _ and - to break up words.
 /// I've documented these fields in the struct and the Value impl
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct SimulatorLoginOptions {
     pub adult_compliant: Option<bool>,
     pub advanced_mode: Option<bool>,
