@@ -64,8 +64,8 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
                 session_id: login_response.session_id.unwrap(),
                 id: login_response.agent_id.unwrap(),
             }),
-            Duration::from_millis(500),
-            3,
+            Duration::from_secs(1),
+            10,
         )
         .await
     {
@@ -85,8 +85,8 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
                 session_id: login_response.session_id.unwrap(),
                 agent_id: login_response.agent_id.unwrap(),
             }),
-            Duration::from_millis(500),
-            3,
+            Duration::from_secs(1),
+            10,
         )
         .await
     {
