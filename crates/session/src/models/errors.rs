@@ -1,13 +1,14 @@
 use metaverse_login::models::errors::LoginError;
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SessionError {
     CircuitCode(CircuitCodeError),
     CompleteAgentMovement(CompleteAgentMovementError),
     Login(LoginError),
     // Add other error types here
 }
+
 
 impl SessionError {
     pub fn new_login_error(login_error: LoginError) -> Self {
@@ -29,7 +30,7 @@ impl fmt::Display for SessionError {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SendFailReason {
     Timeout,
     Unknown,
@@ -44,7 +45,7 @@ impl fmt::Display for SendFailReason {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CircuitCodeError {
     pub reason: SendFailReason,
     pub message: String,
@@ -61,7 +62,7 @@ impl CircuitCodeError {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CompleteAgentMovementError {
     pub reason: SendFailReason,
     pub message: String,
