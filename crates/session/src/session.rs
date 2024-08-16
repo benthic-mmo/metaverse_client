@@ -1,8 +1,8 @@
 use actix::Actor;
 use log::info;
 use metaverse_login::login::{self};
-use metaverse_login::models::login_response::LoginResult;
-use metaverse_login::models::simulator_login_protocol::Login;
+use metaverse_login::models::errors::{LoginError, Reason};
+use metaverse_login::models::simulator_login_protocol::{Login, SimulatorLoginProtocol};
 use metaverse_messages::models::circuit_code::CircuitCodeData;
 use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
@@ -10,24 +10,31 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use std::error::Error;
 use tokio::time::Duration;
 
+use crate::models::errors::{
+    CircuitCodeError, CompleteAgentMovementError, SendFailReason, SessionError,
+};
 use crate::models::mailbox::{AllowAcks, Mailbox};
 
-pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box<dyn Error>> {
+pub async fn new_session(login_data: Login, login_url: String) -> Result<(), SessionError> {
     let login_url_clone = login_url.clone();
 
     let login_result = tokio::task::spawn_blocking(|| {
-        login::login(login::build_login(login_data), login_url_clone).unwrap()
+        login::login(SimulatorLoginProtocol::new(login_data), login_url_clone)
     });
+
     let login_response = match login_result.await {
-        Ok(LoginResult::Success(response)) => response,
-        Ok(LoginResult::Failure(failure)) => {
-            return Err(format!("Login failed with: {}", failure.message).into());
+        Ok(Ok(response)) => response,
+        Ok(Err(e)) => return Err(SessionError::new_login_error(e)),
+        Err(e) => {
+            return Err(SessionError::new_login_error(LoginError::new(
+                Reason::Unknown,
+                &format!("join error: {}", e),
+            )))
         }
-        Err(e) => return Err(format!("Login failed with unknown error, {}", e).into()),
     };
+
     let ack_queue = Arc::new(Mutex::new(HashMap::new()));
     let command_queue = Arc::new(Mutex::new(HashMap::new()));
     let data_queue = Arc::new(Mutex::new(HashMap::new()));
@@ -63,7 +70,12 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         .await
     {
         Ok(_) => info!("circuit code sent and ack received"),
-        Err(e) => return Err(format!("Failed to create connection {}", e).into()),
+        Err(e) => {
+            return Err(SessionError::CircuitCode(CircuitCodeError::new(
+                SendFailReason::Timeout,
+                format!("{}", e),
+            )))
+        }
     };
 
     match mailbox
@@ -79,7 +91,12 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Box
         .await
     {
         Ok(_) => info!("complete agent movement sent and ack received"),
-        Err(e) => return Err(format!("Failed to complete agent movement: {}", e).into()),
+
+        Err(e) => {
+            return Err(SessionError::CompleteAgentMovement(
+                CompleteAgentMovementError::new(SendFailReason::Timeout, format!("{}", e)),
+            ))
+        }
     };
     Ok(())
 }

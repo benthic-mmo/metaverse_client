@@ -3,7 +3,6 @@ extern crate sys_info;
 
 use log::{info, LevelFilter};
 use metaverse_login::login::*;
-use metaverse_login::models::login_response::LoginResult;
 use metaverse_login::models::simulator_login_protocol::*;
 use std::panic;
 use tokio::sync::mpsc;
@@ -103,12 +102,9 @@ async fn test_against_local() {
                 build_test_url("http://127.0.0.1", 9000),
             );
             match login_response {
-                Ok(LoginResult::Success(response)) => {
+                Ok(response) => {
                     assert!(response.first_name == *"default");
                     assert!(response.last_name == *"user");
-                }
-                Ok(LoginResult::Failure(failure)) => {
-                    println!("Login failed: {}", failure.message);
                 }
                 Err(e) => panic!("Login failed: {:?}", e),
             }
@@ -144,7 +140,7 @@ async fn test_build_login() {
             command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
         });
 
-        let login_data = build_login(Login {
+        let login_data = SimulatorLoginProtocol::new(Login {
             first: "default".to_string(),
             last: "user".to_string(),
             passwd: "password".to_string(),
@@ -155,14 +151,12 @@ async fn test_build_login() {
         });
 
         tokio::task::spawn_blocking(|| {
+            println!("LOGIN_DATA: {:?}", login_data);
             let login_response = login(login_data, build_test_url("http://127.0.0.1", 9000));
             match login_response {
-                Ok(LoginResult::Success(response)) => {
+                Ok(response) => {
                     assert!(response.first_name == *"default");
                     assert!(response.last_name == *"user");
-                }
-                Ok(LoginResult::Failure(failure)) => {
-                    info!("Login failed with: {}", failure.message);
                 }
                 Err(e) => panic!("Login failed: {:?}", e),
             }
