@@ -103,8 +103,7 @@ async fn test_local() {
                 read_critical: true,
             },
             build_test_url("http://127.0.0.1", 9000),
-            update_stream
- 
+            update_stream,
         )
         .await;
         match session {
