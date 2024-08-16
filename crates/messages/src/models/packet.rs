@@ -4,9 +4,10 @@ use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use tokio::sync::oneshot;
+use tokio::sync::oneshot::Sender;
 use tokio::sync::Mutex;
 
+use super::client_update_data::ClientUpdateData;
 use super::packet_types::PacketType;
 
 #[derive(Debug, Message, Clone)]
@@ -34,7 +35,8 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static {
     fn to_bytes(&self) -> Vec<u8>;
     fn on_receive(
         &self,
-        queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+        queue: Arc<Mutex<HashMap<u32, Sender<()>>>>,
+        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()>;
     fn message_type(&self) -> MessageType;
 }

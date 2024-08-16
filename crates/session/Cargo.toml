@@ -10,7 +10,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 config = "0.11"
-metaverse_messages = "0.0.0"
+metaverse_messages = {path="../messages/"}
 metaverse_login = "0.1.2"
 metaverse_instantiator = "0.0.4"
 xmlrpc = "0.15.1"

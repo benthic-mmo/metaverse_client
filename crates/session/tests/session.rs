@@ -11,8 +11,9 @@ use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::circuit_code::CircuitCodeData;
 use metaverse_messages::models::header::*;
 use metaverse_messages::models::packet::Packet;
-use metaverse_session::session::new_session;
+use metaverse_session::session::Session;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex as tokioMutex;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -90,7 +91,8 @@ async fn test_local() {
             command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
         });
 
-        let session = new_session(
+        let update_stream = Arc::new(tokioMutex::new(Vec::new()));
+        let session = Session::new(
             Login {
                 first: "default".to_string(),
                 last: "user".to_string(),
@@ -101,6 +103,8 @@ async fn test_local() {
                 read_critical: true,
             },
             build_test_url("http://127.0.0.1", 9000),
+            update_stream
+ 
         )
         .await;
         match session {

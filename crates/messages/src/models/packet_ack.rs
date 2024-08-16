@@ -1,7 +1,13 @@
-use super::packet::{MessageType, PacketData};
+use super::{
+    client_update_data::ClientUpdateData,
+    packet::{MessageType, PacketData},
+};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::io::{self, Cursor};
+use std::{
+    collections::HashMap, io::{self, Cursor}, sync::Arc
+};
+use tokio::sync::{oneshot::Sender, Mutex};
 
 // ID: 65531
 // Frequency: Low
@@ -40,9 +46,9 @@ impl PacketData for PacketAck {
 
     fn on_receive(
         &self,
-        ack_queue: std::sync::Arc<
-            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
+        ack_queue: Arc<Mutex<HashMap<u32, Sender<()>>>,
         >,
+        _: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()> {
         let packet_ids = self.packet_ids.clone();
 

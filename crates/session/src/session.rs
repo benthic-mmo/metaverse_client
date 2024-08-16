@@ -1,9 +1,10 @@
-use actix::Actor;
+use actix::{Actor, Addr};
 use log::info;
 use metaverse_login::login::{self};
 use metaverse_login::models::errors::{LoginError, Reason};
 use metaverse_login::models::simulator_login_protocol::{Login, SimulatorLoginProtocol};
 use metaverse_messages::models::circuit_code::CircuitCodeData;
+use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
 use std::collections::HashMap;
@@ -17,7 +18,13 @@ use crate::models::errors::{
 };
 use crate::models::mailbox::{AllowAcks, Mailbox};
 
-pub async fn new_session(login_data: Login, login_url: String) -> Result<(), SessionError> {
+pub struct Session{
+    mailbox: Addr<Mailbox>, 
+    update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
+}
+
+impl Session{
+    pub async fn new(login_data: Login, login_url: String, update_stream: Arc<Mutex<Vec<ClientUpdateData>>>) -> Result<Self, SessionError> {
     let login_url_clone = login_url.clone();
 
     let login_result = tokio::task::spawn_blocking(|| {
@@ -41,18 +48,18 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
     let error_queue = Arc::new(Mutex::new(HashMap::new()));
     let request_queue = Arc::new(Mutex::new(HashMap::new()));
     let event_queue = Arc::new(Mutex::new(HashMap::new()));
-    let clone = ack_queue.clone();
     let mailbox = Mailbox {
         socket: None,
         url: login_response.sim_ip.unwrap(),
         server_socket: login_response.sim_port.unwrap(),
         client_socket: 41518, //TODO: Make this configurable
-        ack_queue: clone,
+        ack_queue,
         command_queue,
         data_queue,
         error_queue,
         request_queue,
         event_queue,
+        update_stream: update_stream.clone(),
     }
     .start();
 
@@ -66,6 +73,7 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
             }),
             Duration::from_secs(1),
             10,
+            update_stream.clone()
         )
         .await
     {
@@ -87,6 +95,7 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
             }),
             Duration::from_secs(1),
             10,
+            update_stream.clone()
         )
         .await
     {
@@ -98,5 +107,12 @@ pub async fn new_session(login_data: Login, login_url: String) -> Result<(), Ses
             ))
         }
     };
-    Ok(())
+        Ok(Session{
+            mailbox, 
+            update_stream
+        })
+
+
+    }
 }
+

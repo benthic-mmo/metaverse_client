@@ -1,10 +1,14 @@
 use crate::models::header::{Header, PacketFrequency};
 use crate::models::packet::{Packet, PacketData};
 use futures::future::BoxFuture;
+use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
+use tokio::sync::oneshot::Sender;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use super::client_update_data::ClientUpdateData;
 use super::packet::MessageType;
 
 impl Packet {
@@ -54,9 +58,8 @@ impl PacketData for CircuitCodeData {
     }
     fn on_receive(
         &self,
-        _: std::sync::Arc<
-            tokio::sync::Mutex<std::collections::HashMap<u32, tokio::sync::oneshot::Sender<()>>>,
-        >,
+        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
+        _: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()> {
         Box::pin(async move {
             // Implement the actual logic here later
