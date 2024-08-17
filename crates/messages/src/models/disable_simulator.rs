@@ -5,7 +5,7 @@ use super::{
 use futures::future::BoxFuture;
 use std::{collections::HashMap, io, sync::Arc};
 use tokio::sync::oneshot::Sender;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 // ID: 152
 // Frequency: Low

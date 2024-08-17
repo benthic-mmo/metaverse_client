@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot::Sender;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 use nalgebra::Quaternion;
 use uuid::Uuid;

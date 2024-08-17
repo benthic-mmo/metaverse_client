@@ -1,5 +1,5 @@
 use metaverse_login::models::errors::LoginError;
-use std::fmt;
+use std::{error::Error, fmt};
 
 #[derive(Clone, Debug)]
 pub enum SessionError {
@@ -29,6 +29,28 @@ impl fmt::Display for SessionError {
     }
 }
 
+impl Error for SessionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SessionError::CircuitCode(err) => Some(err),
+            SessionError::Login(err) => Some(err),
+            SessionError::CompleteAgentMovement(err) => Some(err),
+        }
+    }
+}
+
+impl SessionError {
+    pub fn as_boxed_error(&self) -> Box<dyn Error + Send + Sync> {
+        match self {
+            SessionError::CircuitCode(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
+            SessionError::Login(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
+            SessionError::CompleteAgentMovement(err) => {
+                Box::new(err.clone()) as Box<dyn Error + Send + Sync>
+            } // Add other error types here
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum SendFailReason {
     Timeout,
@@ -54,6 +76,11 @@ impl fmt::Display for CircuitCodeError {
         write!(f, "{}", self.reason)
     }
 }
+impl Error for CircuitCodeError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
 
 impl CircuitCodeError {
     pub fn new(reason: SendFailReason, message: String) -> Self {
@@ -75,5 +102,10 @@ impl CompleteAgentMovementError {
 impl fmt::Display for CompleteAgentMovementError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reason)
+    }
+}
+impl Error for CompleteAgentMovementError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }

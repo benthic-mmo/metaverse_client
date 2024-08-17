@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 use tokio::sync::oneshot::Sender;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 use super::client_update_data::ClientUpdateData;
 use super::packet_types::PacketType;

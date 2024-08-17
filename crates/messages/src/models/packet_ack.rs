@@ -9,7 +9,8 @@ use std::{
     io::{self, Cursor},
     sync::Arc,
 };
-use tokio::sync::{oneshot::Sender, Mutex};
+use tokio::sync::oneshot::Sender;
+use std::sync::Mutex;
 
 // ID: 65531
 // Frequency: Low
@@ -54,7 +55,7 @@ impl PacketData for PacketAck {
         let packet_ids = self.packet_ids.clone();
 
         Box::pin(async move {
-            let mut queue = ack_queue.lock().await;
+            let mut queue = ack_queue.lock().unwrap();
             for id in packet_ids {
                 if let Some(sender) = queue.remove(&id) {
                     let _ = sender.send(());
