@@ -9,12 +9,11 @@ use metaverse_instantiator::models::server::{CommandMessage, ExecData, ServerSta
 use metaverse_instantiator::server::{download_sim, read_config};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::circuit_code::CircuitCodeData;
-use metaverse_messages::models::client_update_data::ClientUpdateContent;
+use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::header::*;
 use metaverse_messages::models::packet::Packet;
 use metaverse_session::session::Session;
 use tokio::sync::mpsc;
-use tokio::sync::Mutex as tokioMutex;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
@@ -92,7 +91,7 @@ async fn test_local() {
             command: "create user default user password email@email.com 9dc18bb1-044f-4c68-906b-2cb608b2e197 default".to_string()
         });
 
-        let update_stream = Arc::new(tokioMutex::new(Vec::new()));
+        let update_stream = Arc::new(Mutex::new(Vec::new()));
         let session = Session::new(
             Login {
                 first: "default".to_string(),
@@ -107,25 +106,32 @@ async fn test_local() {
             update_stream.clone(),
         )
         .await;
-            
-                let mut stream_lock = update_stream.lock().await;
-                let stream = stream_lock.drain(..).collect::<Vec<_>>();
 
-            if !stream.is_empty() {
-                for update in stream {
-                    match update.content {
-                        ClientUpdateContent::Data(data) => {
-                            println!("Data received !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: {}", data.content);
-                        }
-                        ClientUpdateContent::Packet(packet) => {
-                            println!("Packet received !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: {:?}", packet);
-                        }
+        let mut stream_lock = update_stream.lock().unwrap();
+        let stream = stream_lock.drain(..).collect::<Vec<_>>();
+
+        if !stream.is_empty() {
+            for update in stream {
+                match update {
+                    ClientUpdateData::Packet(packet) => {
+                        println!(
+                            "Packet received: {:?}", packet
+                        );
+                    },
+                    ClientUpdateData::String(string) => {
+                        println!("String received: {:?}", string)
+                    },
+                    ClientUpdateData::Error(error) => {
+                        println!("Error received: {:?}", error);
+                    },
+                    ClientUpdateData::LoginProgress(_) => {
+                        println!("Login Progress received")
                     }
                 }
-            } else {
+            }
+        } else {
             println!("EMPTY STREAM")
         }
-
 
         match session {
             Ok(_) => sleep(Duration::from_secs(3)).await,

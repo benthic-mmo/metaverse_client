@@ -1,16 +1,14 @@
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use log::{error, info};
-use metaverse_messages::models::client_update_data::{
-    ClientUpdateContent, ClientUpdateData, DataContent,
-};
+use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::{MessageType, Packet};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::sync::oneshot;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use tokio::time::sleep;
 
 pub struct Mailbox {
@@ -217,7 +215,7 @@ impl AllowAcks for Addr<Mailbox> {
 
                 // these brackets make a new scope so the queue is opened and closed inside them
                 {
-                    let mut queue = ack_queue.lock().await;
+                    let mut queue = ack_queue.lock().unwrap();
                     queue.insert(packet_id, tx);
                 }
                 // Send the packet
@@ -231,7 +229,7 @@ impl AllowAcks for Addr<Mailbox> {
                         println!("Attempt {} failed to receive acknowledgment", attempts);
                         if !received_ack {
                             {
-                                let mut queue = ack_queue.lock().await;
+                                let mut queue = ack_queue.lock().unwrap();
                                 queue.remove(&1);
                             }
                         }

@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::oneshot::Sender;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 
 /// ID: 6
 /// Frequency: Medium

@@ -44,7 +44,11 @@ impl fmt::Display for LoginError {
         write!(f, "{}", err_msg)
     }
 }
-
+impl Error for LoginError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
 impl fmt::Debug for LoginError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
