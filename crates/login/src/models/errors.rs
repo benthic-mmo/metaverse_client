@@ -1,7 +1,7 @@
+use crate::str_val;
 use std::error::Error;
 /// the type for the conversionerror, thrown when failing to convert a login response to a struct
 use std::fmt;
-use crate::str_val;
 
 use xmlrpc::Value;
 
@@ -39,7 +39,7 @@ impl fmt::Display for LoginError {
             }
             Reason::Key => "Username or password incorrect",
             Reason::Unknown => "Unknown error occured.",
-            Reason::Connection => "Failed to connect to the server"
+            Reason::Connection => "Failed to connect to the server",
         };
         write!(f, "{}", err_msg)
     }
@@ -73,17 +73,15 @@ impl fmt::Display for Reason {
     }
 }
 
-
 pub fn create_login_error_from_message(message: Value) -> LoginError {
     let xml_reason = str_val!(message["reason"]);
     let reason = match xml_reason {
-        Some(reason) => 
-            match reason.as_str() {
-                "presence" => Reason::Presence,
-                "key" => Reason::Key, 
-                _ => Reason::Unknown
-            }, 
-        None => Reason::Unknown 
+        Some(reason) => match reason.as_str() {
+            "presence" => Reason::Presence,
+            "key" => Reason::Key,
+            _ => Reason::Unknown,
+        },
+        None => Reason::Unknown,
     };
     let content = str_val!(message["message"]).expect("Unknown Message");
 

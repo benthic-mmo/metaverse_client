@@ -1,7 +1,9 @@
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use log::{error, info};
-use metaverse_messages::models::client_update_data::ClientUpdateData;
+use metaverse_messages::models::client_update_data::{
+    ClientUpdateContent, ClientUpdateData, DataContent,
+};
 use metaverse_messages::models::packet::{MessageType, Packet};
 use std::collections::HashMap;
 use std::sync::Arc;

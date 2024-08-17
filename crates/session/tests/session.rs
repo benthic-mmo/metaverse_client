@@ -9,6 +9,7 @@ use metaverse_instantiator::models::server::{CommandMessage, ExecData, ServerSta
 use metaverse_instantiator::server::{download_sim, read_config};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::circuit_code::CircuitCodeData;
+use metaverse_messages::models::client_update_data::ClientUpdateContent;
 use metaverse_messages::models::header::*;
 use metaverse_messages::models::packet::Packet;
 use metaverse_session::session::Session;
@@ -103,13 +104,34 @@ async fn test_local() {
                 read_critical: true,
             },
             build_test_url("http://127.0.0.1", 9000),
-            update_stream,
+            update_stream.clone(),
         )
         .await;
+            
+                let mut stream_lock = update_stream.lock().await;
+                let stream = stream_lock.drain(..).collect::<Vec<_>>();
+
+            if !stream.is_empty() {
+                for update in stream {
+                    match update.content {
+                        ClientUpdateContent::Data(data) => {
+                            println!("Data received !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: {}", data.content);
+                        }
+                        ClientUpdateContent::Packet(packet) => {
+                            println!("Packet received !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!: {:?}", packet);
+                        }
+                    }
+                }
+            } else {
+            println!("EMPTY STREAM")
+        }
+
+
         match session {
             Ok(_) => sleep(Duration::from_secs(3)).await,
             Err(e) => info!("sesion failed to start: {}", e),
         }
+
         sleep(Duration::from_secs(10)).await;
         sim_server.do_send(CommandMessage {
             command: "quit".to_string(),

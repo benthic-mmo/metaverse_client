@@ -32,7 +32,6 @@ impl Session {
         update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> Result<Self, SessionError> {
         let login_url_clone = login_url.clone();
-
         let login_result = tokio::task::spawn_blocking(|| {
             login::login(SimulatorLoginProtocol::new(login_data), login_url_clone)
         });
@@ -47,29 +46,35 @@ impl Session {
                 )))
             }
         };
-
         let ack_queue = Arc::new(Mutex::new(HashMap::new()));
         let command_queue = Arc::new(Mutex::new(HashMap::new()));
         let data_queue = Arc::new(Mutex::new(HashMap::new()));
         let error_queue = Arc::new(Mutex::new(HashMap::new()));
         let request_queue = Arc::new(Mutex::new(HashMap::new()));
         let event_queue = Arc::new(Mutex::new(HashMap::new()));
+        let command_queue_clone = command_queue.clone();
+        let data_queue_clone = data_queue.clone();
+        let error_queue_clone = error_queue.clone();
+        let request_queue_clone = request_queue.clone();
+        let event_queue_clone = event_queue.clone();
+        let ack_queue_clone = ack_queue.clone();
+        let update_stream_clone = update_stream.clone();
+        
         let mailbox = Mailbox {
             socket: None,
             url: login_response.sim_ip.unwrap(),
             server_socket: login_response.sim_port.unwrap(),
             client_socket: 41518, //TODO: Make this configurable
-            ack_queue,
-            command_queue,
-            data_queue,
-            error_queue,
-            request_queue,
-            event_queue,
-            update_stream: update_stream.clone(),
+            ack_queue: ack_queue_clone,
+            command_queue: command_queue_clone,
+            data_queue: data_queue_clone,
+            error_queue: error_queue_clone,
+            request_queue: request_queue_clone,
+            event_queue: event_queue_clone,
+            update_stream: update_stream_clone,
         }
         .start();
-
-        // send circuit code and await its ack
+        
         match mailbox
             .send_with_ack(
                 Packet::new_circuit_code(CircuitCodeData {
@@ -90,20 +95,17 @@ impl Session {
                 )))
             }
         };
-
         match mailbox
-            .send_with_ack(
+            .send(
                 Packet::new_complete_agent_movement(CompleteAgentMovementData {
                     circuit_code: login_response.circuit_code,
                     session_id: login_response.session_id.unwrap(),
                     agent_id: login_response.agent_id.unwrap(),
                 }),
-                Duration::from_secs(1),
-                10,
             )
             .await
         {
-            Ok(_) => info!("complete agent movement sent and ack received"),
+            Ok(_) => info!("complete agent movement sent"),
             Err(e) => {
                 return Err(SessionError::CompleteAgentMovement(
                     CompleteAgentMovementError::new(SendFailReason::Timeout, format!("{}", e)),

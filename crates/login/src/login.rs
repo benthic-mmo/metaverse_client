@@ -48,18 +48,20 @@ extern crate sys_info;
 ///    }
 /// });
 /// ```
-pub fn login(
-    login_data: SimulatorLoginProtocol,
-    url: String,
-) -> Result<LoginResponse, LoginError> {
+pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginResponse, LoginError> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
     let request = match req.call_url(url) {
         Ok(request) => request,
-        Err(e) => return Err(LoginError::new(crate::models::errors::Reason::Connection, &e.to_string())),
+        Err(e) => {
+            return Err(LoginError::new(
+                crate::models::errors::Reason::Connection,
+                &e.to_string(),
+            ))
+        }
     };
 
     if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
-        return Ok(login_response)
+        return Ok(login_response);
     }
 
     return Err(create_login_error_from_message(request));
@@ -81,44 +83,44 @@ pub fn login(
 ///assert_eq!(login_struct.first, "first");
 
 impl SimulatorLoginProtocol {
-    pub fn new (login: Login) -> Self {
+    pub fn new(login: Login) -> Self {
         SimulatorLoginProtocol {
-        first: login.first,
-        last: login.last,
-        passwd: hash_passwd(login.passwd),
-        start: login.start,
-        channel: login.channel,
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        platform: match env::consts::FAMILY {
-            "mac" => "mac".to_string(),
-            "win" => "win".to_string(),
-            "unix" => "lin".to_string(),
-            _ => "lin".to_string(),
-        },
-        platform_string: sys_info::os_release().unwrap_or_default(),
-        platform_version: sys_info::os_release().unwrap_or_default(),
-        mac: match get_mac_address() {
-            Ok(Some(mac)) => format!("{}", mac),
-            _ => format!("{}", 00000000000000000000000000000000),
-        },
-        id0: "unused".to_string(), // Provide a default value for id0. This is unused by default
-        agree_to_tos: login.agree_to_tos,
-        read_critical: login.read_critical,
-        viewer_digest: match hash_viewer_digest() {
-            Ok(viewer_digest) => Some(viewer_digest),
-            Err(_) => Some("unused".to_string()),
-        },
-        address_size: 64,                          // Set a default value if needed
-        extended_errors: true,                     // Set a default value if needed
-        last_exec_event: None,                     // Default to None
-        last_exec_duration: 0,                     // Set a default value if needed
-        skipoptional: None,                        // Default to None
-        host_id: "".to_string(),                   // Set a default value if needed
-        mfa_hash: "".to_string(),                  // Set a default value if needed
-        token: "".to_string(),                     // Set a default value if needed
-        options: SimulatorLoginOptions::default(), // Use default options
+            first: login.first,
+            last: login.last,
+            passwd: hash_passwd(login.passwd),
+            start: login.start,
+            channel: login.channel,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            platform: match env::consts::FAMILY {
+                "mac" => "mac".to_string(),
+                "win" => "win".to_string(),
+                "unix" => "lin".to_string(),
+                _ => "lin".to_string(),
+            },
+            platform_string: sys_info::os_release().unwrap_or_default(),
+            platform_version: sys_info::os_release().unwrap_or_default(),
+            mac: match get_mac_address() {
+                Ok(Some(mac)) => format!("{}", mac),
+                _ => format!("{}", 00000000000000000000000000000000),
+            },
+            id0: "unused".to_string(), // Provide a default value for id0. This is unused by default
+            agree_to_tos: login.agree_to_tos,
+            read_critical: login.read_critical,
+            viewer_digest: match hash_viewer_digest() {
+                Ok(viewer_digest) => Some(viewer_digest),
+                Err(_) => Some("unused".to_string()),
+            },
+            address_size: 64,         // Set a default value if needed
+            extended_errors: true,    // Set a default value if needed
+            last_exec_event: None,    // Default to None
+            last_exec_duration: 0,    // Set a default value if needed
+            skipoptional: None,       // Default to None
+            host_id: "".to_string(),  // Set a default value if needed
+            mfa_hash: "".to_string(), // Set a default value if needed
+            token: "".to_string(),    // Set a default value if needed
+            options: SimulatorLoginOptions::default(), // Use default options
+        }
     }
-}
 }
 
 /// md5 hashes the password
