@@ -3,7 +3,6 @@ use std::error::Error;
 use std::fmt;
 use uuid::Uuid;
 
-
 /// This is the full response struct of a successful opensimulator login.
 /// you can find more information about it at http://opensimulator.org/wiki/SimulatorLoginProtocol
 /// these types should be considered unstable until a 1.0.0 release of the login, due to the fact

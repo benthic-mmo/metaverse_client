@@ -5,7 +5,9 @@ use super::{
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
 use std::{
-    collections::HashMap, io::{self, Cursor}, sync::Arc
+    collections::HashMap,
+    io::{self, Cursor},
+    sync::Arc,
 };
 use tokio::sync::{oneshot::Sender, Mutex};
 
@@ -46,8 +48,7 @@ impl PacketData for PacketAck {
 
     fn on_receive(
         &self,
-        ack_queue: Arc<Mutex<HashMap<u32, Sender<()>>>,
-        >,
+        ack_queue: Arc<Mutex<HashMap<u32, Sender<()>>>>,
         _: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()> {
         let packet_ids = self.packet_ids.clone();
