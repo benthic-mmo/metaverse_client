@@ -1,6 +1,6 @@
+use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot::Sender;
-use std::sync::Mutex;
 
 use nalgebra::Quaternion;
 use uuid::Uuid;
@@ -69,7 +69,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Vector3 {
     pub x: f32,
     pub y: f32,

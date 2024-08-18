@@ -4,13 +4,13 @@ use super::{
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
+use std::sync::Mutex;
 use std::{
     collections::HashMap,
     io::{self, Cursor},
     sync::Arc,
 };
 use tokio::sync::oneshot::Sender;
-use std::sync::Mutex;
 
 // ID: 65531
 // Frequency: Low

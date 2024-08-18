@@ -11,6 +11,7 @@ use metaverse_messages::models::packet::Packet;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread; 
 
 use tokio::time::Duration;
 
@@ -204,16 +205,16 @@ impl Session {
                 return Err(error);
             }
         };
-                send_message_to_client(
-                    update_stream.clone(),
-                    LoginProgress {
-                        message: "Login complete!".to_string(),
-                        percent: 100,
-                    }
-                    .into(),
-                )
-                .await;
- 
+        send_message_to_client(
+            update_stream.clone(),
+            LoginProgress {
+                message: "Login complete!".to_string(),
+                percent: 100,
+            }
+            .into(),
+        )
+        .await;
+
         Ok(Session {
             mailbox,
             update_stream,

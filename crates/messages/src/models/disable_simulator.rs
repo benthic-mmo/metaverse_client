@@ -3,9 +3,9 @@ use super::{
     packet::{MessageType, PacketData},
 };
 use futures::future::BoxFuture;
+use std::sync::Mutex;
 use std::{collections::HashMap, io, sync::Arc};
 use tokio::sync::oneshot::Sender;
-use std::sync::Mutex;
 
 // ID: 152
 // Frequency: Low
