@@ -92,6 +92,10 @@ async fn test_local() {
         });
 
         let update_stream = Arc::new(Mutex::new(Vec::new()));
+        let update_stream_clone = update_stream.clone();
+        tokio::spawn(async move {
+            check_for_updates(update_stream_clone).await;
+        });
         let session = Session::new(
             Login {
                 first: "default".to_string(),
@@ -107,32 +111,6 @@ async fn test_local() {
         )
         .await;
 
-        let mut stream_lock = update_stream.lock().unwrap();
-        let stream = stream_lock.drain(..).collect::<Vec<_>>();
-
-        if !stream.is_empty() {
-            for update in stream {
-                match update {
-                    ClientUpdateData::Packet(packet) => {
-                        println!(
-                            "Packet received: {:?}", packet
-                        );
-                    },
-                    ClientUpdateData::String(string) => {
-                        println!("String received: {:?}", string)
-                    },
-                    ClientUpdateData::Error(error) => {
-                        println!("Error received: {:?}", error);
-                    },
-                    ClientUpdateData::LoginProgress(_) => {
-                        println!("Login Progress received")
-                    }
-                }
-            }
-        } else {
-            println!("EMPTY STREAM")
-        }
-
         match session {
             Ok(_) => sleep(Duration::from_secs(3)).await,
             Err(e) => info!("sesion failed to start: {}", e),
@@ -146,6 +124,68 @@ async fn test_local() {
         panic!("server failed to start")
     }
     notify.notified().await;
+}
+
+async fn check_for_updates(stream: Arc<Mutex<Vec<ClientUpdateData>>>) {
+    loop {
+        // Wait for 500ms
+        sleep(Duration::from_millis(500)).await;
+
+        let mut stream = stream.lock().unwrap();
+        if !stream.is_empty() {
+            for update in stream.drain(..) {
+                match update {
+                    ClientUpdateData::Packet(packet) => {
+                        println!("Packet received: {:?}", packet);
+                    }
+                    ClientUpdateData::String(string) => {
+                        println!("String received: {:?}", string)
+                    }
+                    ClientUpdateData::Error(error) => {
+                        println!("Error received: {:?}", error);
+                    }
+                    ClientUpdateData::LoginProgress(_) => {
+                        println!("Login Progress received")
+                    }
+                    ClientUpdateData::ChatFromSimulator(chat) => {
+                        println!("Chat received {:?}", chat)
+                    }
+                }
+            }
+        } else {
+            println!("EMPTY");
+        }
+    }
+}
+
+
+
+#[actix_rt::test]
+async fn test_chat() {
+    info!("Server started. Running test commands");
+    let update_stream = Arc::new(Mutex::new(Vec::new()));
+    let update_stream_clone = update_stream.clone();
+        tokio::spawn(async move {
+            check_for_updates(update_stream_clone).await;
+    });
+    let session = Session::new(
+        Login {
+            first: "default".to_string(),
+            last: "user".to_string(),
+            passwd: "password".to_string(),
+            start: "home".to_string(),
+            channel: "benthic".to_string(),
+            agree_to_tos: true,
+            read_critical: true,
+        },
+        build_test_url("http://127.0.0.1", 9000),
+        update_stream.clone(),
+    )
+    .await;
+    match session {
+        Ok(_) => sleep(Duration::from_secs(10)).await,
+        Err(e) => info!("sesion failed to start: {}", e),
+    }
 }
 
 fn send_setup_commands(sim_server: &actix::Addr<SimServer>) {

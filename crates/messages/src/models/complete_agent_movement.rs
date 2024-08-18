@@ -1,6 +1,6 @@
+use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot::Sender;
-use std::sync::Mutex;
 use uuid::Uuid;
 
 use super::{

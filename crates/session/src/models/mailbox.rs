@@ -1,14 +1,14 @@
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use log::{error, info};
-use metaverse_messages::models::client_update_data::ClientUpdateData;
+use metaverse_messages::models::client_update_data::{send_message_to_client, ClientUpdateData};
 use metaverse_messages::models::packet::{MessageType, Packet};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::sync::oneshot;
-use std::sync::Mutex;
 use tokio::time::sleep;
 
 pub struct Mailbox {
@@ -142,7 +142,6 @@ impl Actor for Mailbox {
                         update_stream_clone,
                         sock.clone(),
                     ));
-
                     Ok(sock) // Return the socket wrapped in Arc
                 }
                 Err(e) => {

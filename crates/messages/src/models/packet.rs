@@ -4,8 +4,8 @@ use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use tokio::sync::oneshot::Sender;
 use std::sync::Mutex;
+use tokio::sync::oneshot::Sender;
 
 use super::client_update_data::ClientUpdateData;
 use super::packet_types::PacketType;
