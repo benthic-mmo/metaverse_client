@@ -1,14 +1,12 @@
 use actix::System;
-use log::info;
 use metaverse_login::models::simulator_login_protocol::Login;
-use metaverse_messages::models::chat_from_simulator::ChatType;
 use metaverse_messages::models::chat_from_viewer::{ChatFromViewer, ClientChatType};
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::Packet;
+use metaverse_session::models::mailbox::AllowAcks;
 use metaverse_session::session::Session;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
-use tokio::sync::Mutex as tokioMutex;
 use tokio::time::{sleep, Duration};
 
 fn get_user_login() -> (String, String, String, String) {
@@ -60,7 +58,6 @@ fn main() {
 
     runtime.block_on(async {
         tokio::spawn(async move { check_for_updates(update_stream_clone_2).await });
-
         let session;
         loop {
             let (first_name, last_name, password, grid) = get_user_login();
@@ -111,8 +108,6 @@ fn main() {
             if input == "quit" {
                 println!("Goodbye!");
                 break; // Exit the loop if the user types "quit"
-            } else {
-                println!("You entered: {}", input);
             }
             match session
                 .mailbox
@@ -122,9 +117,12 @@ fn main() {
                     message: input.to_string(),
                     message_type: ClientChatType::Normal,
                     channel: 0,
-                })).await {
+                })) 
+                    //, Duration::from_secs(3), 3)
+                .await
+            {
                 Ok(_) => println!("chat sent: {:?}", input),
-                Err(_) => print!("chat failed to send")
+                Err(_) => print!("chat failed to send"),
             };
         }
     });
@@ -141,7 +139,7 @@ fn build_url(url: &str, port: u16) -> String {
 
 async fn check_for_updates(stream: Arc<Mutex<Vec<ClientUpdateData>>>) {
     loop {
-        sleep(Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(10)).await;
         let mut stream = stream.lock().unwrap();
         if !stream.is_empty() {
             for update in stream.drain(..) {
@@ -163,8 +161,6 @@ async fn check_for_updates(stream: Arc<Mutex<Vec<ClientUpdateData>>>) {
                     }
                 }
             }
-        } else {
-            println!("EMPTY");
         }
     }
 }

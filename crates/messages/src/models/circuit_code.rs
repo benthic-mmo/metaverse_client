@@ -18,7 +18,7 @@ impl Packet {
                 id: 3,
                 frequency: PacketFrequency::Low,
                 reliable: false,
-                sequence_number: 1,
+                sequence_number: 0,
                 appended_acks: false,
                 zerocoded: false,
                 resent: false,

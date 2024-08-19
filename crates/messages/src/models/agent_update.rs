@@ -339,6 +339,8 @@ impl ToFromBytes for Quaternion<f32> {
 
 impl PacketData for AgentUpdate {
     fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        // THIS DOES NOT WORK AT ALL
+        // THIS WILL CRASH AND BREAK YOUR SHIT
         let agent_id = Uuid::from_slice(&bytes[0..16]).unwrap();
         let session_id = Uuid::from_slice(&bytes[16..32]).unwrap();
         let body_rotation = Quaternion::from_bytes(&bytes[32..48]);
@@ -429,7 +431,7 @@ impl PacketData for AgentUpdate {
     ) -> futures::future::BoxFuture<'static, ()> {
         Box::pin(async move {
             // Implement the actual logic here later
-            println!("on_receive is not yet implemented.");
+            println!("agent_update on_receive is not yet implemented.");
         })
     }
 
