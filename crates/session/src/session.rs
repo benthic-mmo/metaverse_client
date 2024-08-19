@@ -8,10 +8,10 @@ use metaverse_messages::models::client_update_data::send_message_to_client;
 use metaverse_messages::models::client_update_data::{ClientUpdateData, LoginProgress};
 use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
-use uuid::Uuid;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use uuid::Uuid;
 
 use tokio::time::Duration;
 
@@ -23,8 +23,8 @@ use crate::models::mailbox::{AllowAcks, Mailbox};
 pub struct Session {
     pub mailbox: Addr<Mailbox>,
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
-    pub agent_id: Uuid, 
-    pub session_id: Uuid, 
+    pub agent_id: Uuid,
+    pub session_id: Uuid,
 }
 
 impl Session {
@@ -33,6 +33,8 @@ impl Session {
         login_url: String,
         update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> Result<Self, SessionError> {
+        let packet_sequence_number = Arc::new(Mutex::new(0u32));
+
         send_message_to_client(
             update_stream.clone(),
             LoginProgress {
@@ -90,6 +92,7 @@ impl Session {
         let event_queue_clone = event_queue.clone();
         let ack_queue_clone = ack_queue.clone();
         let update_stream_clone = update_stream.clone();
+        let packet_sequence_number_clone = packet_sequence_number.clone();
 
         send_message_to_client(
             update_stream.clone(),
@@ -112,6 +115,7 @@ impl Session {
             request_queue: request_queue_clone,
             event_queue: event_queue_clone,
             update_stream: update_stream_clone,
+            packet_sequence_number: packet_sequence_number_clone,
         }
         .start();
 
@@ -133,39 +137,43 @@ impl Session {
             .into(),
         )
         .await;
-        match mailbox
-            .send_with_ack(
-                Packet::new_circuit_code(CircuitCodeData {
-                    code: login_response.circuit_code,
-                    session_id: login_response.session_id.unwrap(),
-                    id: login_response.agent_id.unwrap(),
-                }),
-                Duration::from_secs(1),
-                10,
-            )
-            .await
-        {
-            Ok(_) => {
-                send_message_to_client(
-                    update_stream.clone(),
-                    LoginProgress {
-                        message: "Circuit code sent and server ack received".to_string(),
-                        percent: 60,
-                    }
-                    .into(),
+
+            match mailbox
+                .send_with_ack(
+                    Packet::new_circuit_code(
+                        CircuitCodeData {
+                            code: login_response.circuit_code,
+                            session_id: login_response.session_id.unwrap(),
+                            id: login_response.agent_id.unwrap(),
+                        },
+                    ),
+                    Duration::from_secs(1),
+                    10,
                 )
-                .await;
-                info!("circuit code sent and ack received");
-            }
-            Err(e) => {
-                let error = SessionError::CircuitCode(CircuitCodeError::new(
-                    SendFailReason::Timeout,
-                    format!("{}", e),
-                ));
-                send_message_to_client(update_stream, error.as_boxed_error().into()).await;
-                return Err(error);
-            }
-        };
+                .await
+            {
+                Ok(_) => {
+                    send_message_to_client(
+                        update_stream.clone(),
+                        LoginProgress {
+                            message: "Circuit code sent and server ack received".to_string(),
+                            percent: 60,
+                        }
+                        .into(),
+                    )
+                    .await;
+                    info!("circuit code sent and ack received");
+                }
+                Err(e) => {
+                    let error = SessionError::CircuitCode(CircuitCodeError::new(
+                        SendFailReason::Timeout,
+                        format!("{}", e),
+                    ));
+                    send_message_to_client(update_stream, error.as_boxed_error().into()).await;
+                    return Err(error);
+                }
+            };
+
         send_message_to_client(
             update_stream.clone(),
             LoginProgress {
@@ -176,37 +184,36 @@ impl Session {
         )
         .await;
 
-        match mailbox
-            .send(Packet::new_complete_agent_movement(
-                CompleteAgentMovementData {
-                    circuit_code: login_response.circuit_code,
-                    session_id: login_response.session_id.unwrap(),
-                    agent_id: login_response.agent_id.unwrap(),
-                },
-            ))
-            .await
-        {
-            Ok(_) => {
-                send_message_to_client(
-                    update_stream.clone(),
-                    LoginProgress {
-                        message: "Complete agent movement sent".to_string(),
-                        percent: 90,
-                    }
-                    .into(),
-                )
-                .await;
-                info!("Complete agent movement sent");
-            }
-            Err(e) => {
-                let error = SessionError::CompleteAgentMovement(CompleteAgentMovementError::new(
-                    SendFailReason::Timeout,
-                    format!("{}", e),
-                ));
-                send_message_to_client(update_stream, error.as_boxed_error().into()).await;
-                return Err(error);
-            }
-        };
+            match mailbox
+                .send(Packet::new_complete_agent_movement(
+                    CompleteAgentMovementData {
+                        circuit_code: login_response.circuit_code,
+                        session_id: login_response.session_id.unwrap(),
+                        agent_id: login_response.agent_id.unwrap(),
+                    },
+                ))
+                .await
+            {
+                Ok(_) => {
+                    send_message_to_client(
+                        update_stream.clone(),
+                        LoginProgress {
+                            message: "Complete agent movement sent".to_string(),
+                            percent: 90,
+                        }
+                        .into(),
+                    )
+                    .await;
+                    info!("Complete agent movement sent");
+                }
+                Err(e) => {
+                    let error = SessionError::CompleteAgentMovement(
+                        CompleteAgentMovementError::new(SendFailReason::Timeout, format!("{}", e)),
+                    );
+                    send_message_to_client(update_stream, error.as_boxed_error().into()).await;
+                    return Err(error);
+                }
+            };
         send_message_to_client(
             update_stream.clone(),
             LoginProgress {

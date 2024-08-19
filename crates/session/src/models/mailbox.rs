@@ -26,6 +26,7 @@ pub struct Mailbox {
     pub data_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
 
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
+    pub packet_sequence_number: Arc<Mutex<u32>>,
 }
 
 impl Mailbox {
@@ -39,7 +40,7 @@ impl Mailbox {
         outgoing_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
         update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
         sock: Arc<UdpSocket>,
-        mailbox_address: Addr<Mailbox> ,
+        mailbox_address: Addr<Mailbox>,
     ) {
         let mut buf = [0; 1024];
         loop {
@@ -55,11 +56,16 @@ impl Mailbox {
                         }
                     };
                     if packet.header.reliable {
-                        match mailbox_address.send(Packet::new_packet_ack(PacketAck {
-                        packet_ids: vec![packet.header.sequence_number],
-                        }, packet.header.sequence_number)).await {
+                        match mailbox_address
+                            .send(Packet::new_packet_ack(
+                                PacketAck {
+                                    packet_ids: vec![packet.header.sequence_number],
+                                },
+                            ))
+                            .await
+                        {
                             Ok(_) => println!("ack sent"),
-                            Err(_) => println!("ack failed to send")
+                            Err(_) => println!("ack failed to send"),
                         };
                     }
                     match packet.body.message_type() {
@@ -152,7 +158,7 @@ impl Actor for Mailbox {
                         outgoing_queue_clone,
                         update_stream_clone,
                         sock.clone(),
-                        mailbox_addr
+                        mailbox_addr,
                     ));
                     Ok(sock) // Return the socket wrapped in Arc
                 }
@@ -176,9 +182,17 @@ impl Actor for Mailbox {
 
 impl Handler<Packet> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: Packet, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref sock) = self.socket {
             let addr = format!("{}:{}", self.url, self.server_socket);
+            
+            {
+                let mut sequence_number = self.packet_sequence_number.lock().unwrap();
+                msg.header.sequence_number = *sequence_number;
+                println!("SEQUENCE NUMBER IS: {:?}", *sequence_number);
+                *sequence_number += 1;
+            }
+
             let data = msg.to_bytes().clone();
             let socket_clone = sock.clone();
             let fut = async move {
@@ -228,6 +242,7 @@ impl AllowAcks for Addr<Mailbox> {
                 {
                     let mut queue = ack_queue.lock().unwrap();
                     queue.insert(packet_id, tx);
+                    println!("{:?}", queue);
                 }
                 // Send the packet
                 addr.do_send(packet_clone);

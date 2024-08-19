@@ -1,5 +1,7 @@
 use super::{
-    client_update_data::ClientUpdateData, header::{Header, PacketFrequency}, packet::{MessageType, Packet, PacketData}
+    client_update_data::ClientUpdateData,
+    header::{Header, PacketFrequency},
+    packet::{MessageType, Packet, PacketData},
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
@@ -12,20 +14,20 @@ use std::{
 use tokio::sync::oneshot::Sender;
 
 impl Packet {
-    pub fn new_packet_ack(packet_ack: PacketAck, sequence_number: u32 ) -> Self {
+    pub fn new_packet_ack(packet_ack: PacketAck) -> Self {
         Packet {
-            header: Header{
+            header: Header {
                 id: 251,
-                reliable: false, 
-                resent: false, 
-                zerocoded: false, 
+                reliable: false,
+                resent: false,
+                zerocoded: false,
                 appended_acks: false,
-                sequence_number: sequence_number + 1,
-                frequency: PacketFrequency::Fixed, 
-                ack_list: Some(vec![sequence_number]),
+                sequence_number: 0,
+                frequency: PacketFrequency::Fixed,
+                ack_list: None,
                 size: None,
-            }, 
-            body: Arc::new(packet_ack)
+            },
+            body: Arc::new(packet_ack),
         }
     }
 }
@@ -71,6 +73,7 @@ impl PacketData for PacketAck {
 
         Box::pin(async move {
             let mut queue = ack_queue.lock().unwrap();
+            println!("request ID: {:?}", queue);
             for id in packet_ids {
                 if let Some(sender) = queue.remove(&id) {
                     let _ = sender.send(());
