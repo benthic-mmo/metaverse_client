@@ -1,8 +1,9 @@
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use log::{error, info};
-use metaverse_messages::models::client_update_data::{send_message_to_client, ClientUpdateData};
+use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::{MessageType, Packet};
+use metaverse_messages::models::packet_ack::PacketAck;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -38,6 +39,7 @@ impl Mailbox {
         outgoing_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
         update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
         sock: Arc<UdpSocket>,
+        mailbox_address: Addr<Mailbox> ,
     ) {
         let mut buf = [0; 1024];
         loop {
@@ -52,6 +54,14 @@ impl Mailbox {
                             continue;
                         }
                     };
+                    if packet.header.reliable {
+                        match mailbox_address.send(Packet::new_packet_ack(PacketAck {
+                        packet_ids: vec![packet.header.sequence_number],
+                        }, packet.header.sequence_number)).await {
+                            Ok(_) => println!("ack sent"),
+                            Err(_) => println!("ack failed to send")
+                        };
+                    }
                     match packet.body.message_type() {
                         MessageType::Acknowledgment => {
                             packet
@@ -123,6 +133,7 @@ impl Actor for Mailbox {
         let error_queue_clone = self.ack_queue.clone();
         let outgoing_queue_clone = self.ack_queue.clone();
         let update_stream_clone = self.update_stream.clone();
+        let mailbox_addr = ctx.address();
         let fut = async move {
             match UdpSocket::bind(&addr).await {
                 Ok(sock) => {
@@ -141,6 +152,7 @@ impl Actor for Mailbox {
                         outgoing_queue_clone,
                         update_stream_clone,
                         sock.clone(),
+                        mailbox_addr
                     ));
                     Ok(sock) // Return the socket wrapped in Arc
                 }

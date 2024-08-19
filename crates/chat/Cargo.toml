@@ -1,0 +1,13 @@
+[package]
+name = "chat"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+actix = "0.13.5"
+tokio = { version = "1.14.0", features = ["full"] }
+
+metaverse_messages = {path = "../messages/"}
+metaverse_login = {path = "../login/"}
+metaverse_session = {path = "../session/"}

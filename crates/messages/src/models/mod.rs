@@ -1,5 +1,6 @@
 pub mod agent_update;
 pub mod chat_from_simulator;
+pub mod chat_from_viewer;
 pub mod circuit_code;
 pub mod client_update_data;
 pub mod coarse_location_update;

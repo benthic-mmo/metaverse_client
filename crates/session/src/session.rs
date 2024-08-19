@@ -8,10 +8,10 @@ use metaverse_messages::models::client_update_data::send_message_to_client;
 use metaverse_messages::models::client_update_data::{ClientUpdateData, LoginProgress};
 use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
+use uuid::Uuid;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread; 
 
 use tokio::time::Duration;
 
@@ -23,6 +23,8 @@ use crate::models::mailbox::{AllowAcks, Mailbox};
 pub struct Session {
     pub mailbox: Addr<Mailbox>,
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
+    pub agent_id: Uuid, 
+    pub session_id: Uuid, 
 }
 
 impl Session {
@@ -218,6 +220,8 @@ impl Session {
         Ok(Session {
             mailbox,
             update_stream,
+            agent_id: login_response.agent_id.unwrap(),
+            session_id: login_response.session_id.unwrap(),
         })
     }
 }
