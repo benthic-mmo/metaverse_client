@@ -1,6 +1,5 @@
 use super::{
-    client_update_data::ClientUpdateData,
-    packet::{MessageType, PacketData},
+    client_update_data::ClientUpdateData, header::{Header, PacketFrequency}, packet::{MessageType, Packet, PacketData}
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
@@ -12,8 +11,24 @@ use std::{
 };
 use tokio::sync::oneshot::Sender;
 
-// ID: 65531
-// Frequency: Low
+impl Packet {
+    pub fn new_packet_ack(packet_ack: PacketAck, sequence_number: u32 ) -> Self {
+        Packet {
+            header: Header{
+                id: 251,
+                reliable: false, 
+                resent: false, 
+                zerocoded: false, 
+                appended_acks: false,
+                sequence_number: sequence_number + 1,
+                frequency: PacketFrequency::Fixed, 
+                ack_list: Some(vec![sequence_number]),
+                size: None,
+            }, 
+            body: Arc::new(packet_ack)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct PacketAck {

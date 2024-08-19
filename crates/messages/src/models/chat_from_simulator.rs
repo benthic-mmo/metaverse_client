@@ -13,8 +13,6 @@ use std::{
 };
 use std::{io::Read, sync::Mutex};
 use tokio::sync::oneshot::Sender;
-use tokio::task;
-use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
 // ID: 139
@@ -116,7 +114,7 @@ pub enum ChatType {
     Unknown,
 }
 impl ChatType {
-    fn from_bytes(bytes: u8) -> Self {
+    pub fn from_bytes(bytes: u8) -> Self {
         match bytes {
             0 => ChatType::Whisper,
             1 => ChatType::Normal,
@@ -129,7 +127,7 @@ impl ChatType {
             _ => ChatType::Unknown,
         }
     }
-    fn to_bytes(&self) -> u8 {
+    pub fn to_bytes(&self) -> u8 {
         match self {
             ChatType::Whisper => 0,
             ChatType::Normal => 1,
@@ -243,12 +241,10 @@ impl PacketData for ChatFromSimulator {
     ) -> BoxFuture<'static, ()> {
         let chat_data: ClientUpdateData = ClientUpdateData::ChatFromSimulator(self.clone());
 
-        Box::pin(async move {
-            send_message_to_client(client_update.clone(), chat_data).await
-        })
+        Box::pin(async move { send_message_to_client(client_update.clone(), chat_data).await })
     }
 
     fn message_type(&self) -> MessageType {
-        MessageType::Event
+        MessageType::Outgoing
     }
 }

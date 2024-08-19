@@ -1,5 +1,6 @@
 use super::agent_update::AgentUpdate;
 use super::chat_from_simulator::ChatFromSimulator;
+use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
@@ -23,6 +24,7 @@ pub enum PacketType {
     CompleteAgentMovementData(Box<dyn PacketData>),
     AgentUpdate(Box<dyn PacketData>),
     ChatFromSimulator(Box<dyn PacketData>),
+    ChatFromViewer(Box<dyn PacketData>),
 }
 
 impl PacketType {
@@ -66,6 +68,9 @@ impl PacketType {
                 ))),
                 139 => Ok(PacketType::ChatFromSimulator(Box::new(
                     ChatFromSimulator::from_bytes(bytes)?,
+                ))),
+                80 => Ok(PacketType::ChatFromViewer(Box::new(
+                    ChatFromViewer::from_bytes(bytes)?,
                 ))),
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,

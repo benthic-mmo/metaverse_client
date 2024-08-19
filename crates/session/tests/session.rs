@@ -158,15 +158,13 @@ async fn check_for_updates(stream: Arc<Mutex<Vec<ClientUpdateData>>>) {
     }
 }
 
-
-
 #[actix_rt::test]
 async fn test_chat() {
     info!("Server started. Running test commands");
     let update_stream = Arc::new(Mutex::new(Vec::new()));
     let update_stream_clone = update_stream.clone();
-        tokio::spawn(async move {
-            check_for_updates(update_stream_clone).await;
+    tokio::spawn(async move {
+        check_for_updates(update_stream_clone).await;
     });
     let session = Session::new(
         Login {
