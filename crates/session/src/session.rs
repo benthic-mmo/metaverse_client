@@ -79,7 +79,7 @@ impl Session {
             socket: None,
             url: login_response.sim_ip.unwrap(),
             server_socket: login_response.sim_port.unwrap(),
-            client_socket: 41518, //TODO: Make this configurable
+            client_socket: 41519, //TODO: Make this configurable
             ack_queue: ack_queue_clone,
             command_queue: command_queue_clone,
             data_queue: data_queue_clone,
