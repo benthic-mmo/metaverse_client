@@ -108,16 +108,16 @@ fn main() {
                 println!("Goodbye!");
                 break; // Exit the loop if the user types "quit"
             }
+            sleep(Duration::from_secs(1)).await;
             match session
                 .mailbox
-                .send(
-                    Packet::new_chat_from_viewer(ChatFromViewer {
-                        agent_id: session.agent_id,
-                        session_id: session.session_id,
-                        message: input.to_string(),
-                        message_type: ClientChatType::Normal,
-                        channel: 0,
-                    }))
+                .send(Packet::new_chat_from_viewer(ChatFromViewer {
+                    agent_id: session.agent_id,
+                    session_id: session.session_id,
+                    message: input.to_string(),
+                    message_type: ClientChatType::Normal,
+                    channel: 0,
+                }))
                 .await
             {
                 Ok(_) => println!("chat sent: {:?}", input),

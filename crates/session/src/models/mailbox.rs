@@ -6,10 +6,11 @@ use metaverse_messages::models::packet_ack::PacketAck;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::task::Context;
 use tokio::net::UdpSocket;
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Notify};
 use tokio::time::sleep;
+use tokio::time::Duration;
 
 use super::errors::{AckError, SessionError};
 
@@ -28,10 +29,12 @@ pub struct Mailbox {
 
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     pub packet_sequence_number: Arc<Mutex<u32>>,
+    pub state: Arc<Mutex<ServerState>>,
+    pub notify: Arc<Notify>,
 }
 
 const ACK_ATTEMPTS: i8 = 3;
-const ACK_TIMEOUT: Duration = Duration::from_secs(1);
+const ACK_TIMEOUT: Duration = Duration::from_secs(2);
 
 impl Mailbox {
     async fn start_udp_read(
@@ -123,6 +126,26 @@ impl Mailbox {
             }
         }
     }
+
+    fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
+        let state_clone = Arc::clone(&self.state);
+        {
+            let mut state = state_clone.lock().unwrap();
+            *state = new_state.clone();
+        }
+        // notify on start and stop
+        if new_state == ServerState::Running || new_state == ServerState::Stopped {
+            self.notify.notify_one();
+        }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub enum ServerState{
+    Starting, 
+    Running,
+    Stopping,
+    Stopped 
 }
 
 impl Actor for Mailbox {
@@ -169,8 +192,7 @@ impl Actor for Mailbox {
                     Err(e)
                 }
             }
-        };
-
+        }; 
         ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
             Ok(sock) => {
                 act.socket = Some(sock);
@@ -179,6 +201,8 @@ impl Actor for Mailbox {
                 panic!("Socket binding failed");
             }
         }));
+
+        self.set_state(ServerState::Running, ctx);
     }
 }
 
@@ -190,7 +214,6 @@ impl Handler<Packet> for Mailbox {
             {
                 let mut sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
-                println!("SEQUENCE NUMBER IS: {:?}", *sequence_number);
                 *sequence_number += 1;
             }
 
@@ -227,16 +250,15 @@ async fn send_ack(
 ) -> Result<(), SessionError> {
     let mut attempts = 0;
     let mut received_ack = false;
+    let packet_id = packet.header.sequence_number;
 
     while attempts < ACK_ATTEMPTS && !received_ack {
         let (tx, rx) = oneshot::channel();
         let packet_clone = packet.clone();
-        let packet_id = packet.header.sequence_number - 1;
 
         {
             let mut queue = ack_queue.lock().unwrap();
             queue.insert(packet_id, tx);
-            println!("{:?}", queue);
         }
         // Send the packet
 

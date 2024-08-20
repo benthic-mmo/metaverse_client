@@ -17,7 +17,7 @@ impl Packet {
             header: Header {
                 id: 3,
                 frequency: PacketFrequency::Low,
-                reliable: false,
+                reliable: true,
                 sequence_number: 0,
                 appended_acks: false,
                 zerocoded: false,
