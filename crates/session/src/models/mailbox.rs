@@ -211,9 +211,8 @@ impl Handler<Packet> for Mailbox {
         if let Some(ref sock) = self.socket {
             let addr = format!("{}:{}", self.url, self.server_socket);
             {
-                let mut sequence_number = self.packet_sequence_number.lock().unwrap();
+                let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
-                *sequence_number += 1;
             }
 
             if msg.header.reliable {
@@ -237,6 +236,10 @@ impl Handler<Packet> for Mailbox {
                 };
                 ctx.spawn(fut.into_actor(self));
             };
+            {
+                let mut sequence_number = self.packet_sequence_number.lock().unwrap();
+                *sequence_number += 1;
+            }
         }
     }
 }
@@ -251,22 +254,31 @@ async fn send_ack(
     let mut received_ack = false;
     let packet_id = packet.header.sequence_number;
 
+    println!("SENDING ACK FOR PACKET ID: {}", packet_id);
     while attempts < ACK_ATTEMPTS && !received_ack {
         let (tx, rx) = oneshot::channel();
-        let packet_clone = packet.clone();
+        let mut packet_clone = packet.clone();
+       
+        // if there have been more than 1 attempt, set the resent to true.
+        if attempts > 0 {
+            packet_clone.header.resent = true;
+        }
 
         {
             let mut queue = ack_queue.lock().unwrap();
             queue.insert(packet_id, tx);
+            println!("QUEUE CONTENTS: {:?}", queue);
         }
         // Send the packet
 
         let data = packet_clone.to_bytes().clone();
         let addr_clone = addr.clone();
-
-        if let Err(e) = socket.send_to(&data, addr_clone).await {
-            error!("Failed to send data: {}", e);
-        };
+        let sock_clone = socket.clone();
+        tokio::spawn(async move {
+             if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
+                error!("Failed to send data: {}", e);
+            };
+        });
 
         tokio::select! {
             _ = rx => {
