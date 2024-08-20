@@ -6,7 +6,6 @@ use metaverse_messages::models::packet_ack::PacketAck;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::task::Context;
 use tokio::net::UdpSocket;
 use tokio::sync::{oneshot, Notify};
 use tokio::time::sleep;
@@ -267,7 +266,7 @@ async fn send_ack(
 
         if let Err(e) = socket.send_to(&data, addr_clone).await {
             error!("Failed to send data: {}", e);
-        }
+        };
 
         tokio::select! {
             _ = rx => {
