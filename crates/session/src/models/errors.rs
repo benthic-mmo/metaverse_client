@@ -6,7 +6,7 @@ pub enum SessionError {
     CircuitCode(CircuitCodeError),
     CompleteAgentMovement(CompleteAgentMovementError),
     Login(LoginError),
-    // Add other error types here
+    AckError(AckError), // Add other error types here
 }
 
 impl SessionError {
@@ -17,14 +17,13 @@ impl SessionError {
         error.into()
     }
 }
-
 impl fmt::Display for SessionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             SessionError::CircuitCode(err) => write!(f, "CircuitCodeError: {}", err),
             SessionError::Login(err) => write!(f, "LoginError: {}", err),
             SessionError::CompleteAgentMovement(err) => write!(f, "CompleteAgentMovement: {}", err),
-            // Handle other error types here
+            SessionError::AckError(err) => write!(f, "AckError: {}", err),
         }
     }
 }
@@ -35,6 +34,7 @@ impl Error for SessionError {
             SessionError::CircuitCode(err) => Some(err),
             SessionError::Login(err) => Some(err),
             SessionError::CompleteAgentMovement(err) => Some(err),
+            SessionError::AckError(err) => Some(err),
         }
     }
 }
@@ -46,7 +46,8 @@ impl SessionError {
             SessionError::Login(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
             SessionError::CompleteAgentMovement(err) => {
                 Box::new(err.clone()) as Box<dyn Error + Send + Sync>
-            } // Add other error types here
+            }
+            SessionError::AckError(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
         }
     }
 }
@@ -105,6 +106,28 @@ impl fmt::Display for CompleteAgentMovementError {
     }
 }
 impl Error for CompleteAgentMovementError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AckError {
+    pub message: String,
+}
+impl AckError {
+    pub fn new(message: String) -> Self {
+        Self { message }
+    }
+}
+
+impl fmt::Display for AckError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl Error for AckError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         None
     }

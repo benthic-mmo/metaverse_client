@@ -1,5 +1,4 @@
 use actix::prelude::*;
-use futures::future::BoxFuture;
 use log::{error, info};
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::{MessageType, Packet};
@@ -11,6 +10,8 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
+
+use super::errors::{AckError, SessionError};
 
 pub struct Mailbox {
     pub socket: Option<Arc<UdpSocket>>,
@@ -28,6 +29,9 @@ pub struct Mailbox {
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     pub packet_sequence_number: Arc<Mutex<u32>>,
 }
+
+const ACK_ATTEMPTS: i8 = 3;
+const ACK_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Mailbox {
     async fn start_udp_read(
@@ -57,11 +61,9 @@ impl Mailbox {
                     };
                     if packet.header.reliable {
                         match mailbox_address
-                            .send(Packet::new_packet_ack(
-                                PacketAck {
-                                    packet_ids: vec![packet.header.sequence_number],
-                                },
-                            ))
+                            .send(Packet::new_packet_ack(PacketAck {
+                                packet_ids: vec![packet.header.sequence_number],
+                            }))
                             .await
                         {
                             Ok(_) => println!("ack sent"),
@@ -185,7 +187,6 @@ impl Handler<Packet> for Mailbox {
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref sock) = self.socket {
             let addr = format!("{}:{}", self.url, self.server_socket);
-            
             {
                 let mut sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
@@ -193,92 +194,80 @@ impl Handler<Packet> for Mailbox {
                 *sequence_number += 1;
             }
 
-            let data = msg.to_bytes().clone();
-            let socket_clone = sock.clone();
-            let fut = async move {
-                if let Err(e) = socket_clone.send_to(&data, &addr).await {
-                    error!("Failed to send data: {}", e);
-                }
-                info!("sent data to {}", addr)
+            if msg.header.reliable {
+                let ack_future = send_ack(msg, addr, self.ack_queue.clone(), sock.clone());
+                ctx.spawn(
+                    async move {
+                        if let Err(e) = ack_future.await {
+                            error!("Error sending acknowledgment: {:?}", e);
+                        }
+                    }
+                    .into_actor(self),
+                );
+            } else {
+                let data = msg.to_bytes().clone();
+                let socket_clone = sock.clone();
+                let fut = async move {
+                    if let Err(e) = socket_clone.send_to(&data, &addr).await {
+                        error!("Failed to send data: {}", e);
+                    }
+                    info!("sent data to {}", addr)
+                };
+                ctx.spawn(fut.into_actor(self));
             };
-            ctx.spawn(fut.into_actor(self));
         }
     }
 }
 
-pub trait AllowAcks {
-    fn send_with_ack(
-        &self,
-        packet: Packet,
-        timeout: Duration,
-        max_attempts: i8,
-    ) -> BoxFuture<'static, Result<(), String>>;
-}
+async fn send_ack(
+    packet: Packet,
+    addr: String,
+    ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+    socket: Arc<UdpSocket>,
+) -> Result<(), SessionError> {
+    let mut attempts = 0;
+    let mut received_ack = false;
 
-impl AllowAcks for Addr<Mailbox> {
-    fn send_with_ack(
-        &self,
-        packet: Packet,
-        timeout: Duration,
-        max_attempts: i8,
-    ) -> BoxFuture<'static, Result<(), String>> {
-        let addr = self.clone();
-        Box::pin(async move {
-            let mut attempts = 0;
-            let mut received_ack = false;
+    while attempts < ACK_ATTEMPTS && !received_ack {
+        let (tx, rx) = oneshot::channel();
+        let packet_clone = packet.clone();
+        let packet_id = packet.header.sequence_number - 1;
 
-            while attempts < max_attempts && !received_ack {
-                let (tx, rx) = oneshot::channel();
-                let packet_clone = packet.clone();
-                let packet_id = packet.header.sequence_number;
+        {
+            let mut queue = ack_queue.lock().unwrap();
+            queue.insert(packet_id, tx);
+            println!("{:?}", queue);
+        }
+        // Send the packet
 
-                // Get the ack queue
-                let ack_queue = match addr.send(GetAckQueue).await {
-                    Ok(queue) => queue,
-                    Err(e) => return Err(format!("Failed to get ack queue: {}", e)),
-                };
+        let data = packet_clone.to_bytes().clone();
+        let addr_clone = addr.clone();
 
-                // these brackets make a new scope so the queue is opened and closed inside them
-                {
-                    let mut queue = ack_queue.lock().unwrap();
-                    queue.insert(packet_id, tx);
-                    println!("{:?}", queue);
-                }
-                // Send the packet
-                addr.do_send(packet_clone);
+        if let Err(e) = socket.send_to(&data, addr_clone).await {
+            error!("Failed to send data: {}", e);
+        }
 
-                tokio::select! {
-                    _ = rx => {
-                        received_ack = true;
-                    },
-                    _ = sleep(timeout) => {
-                        println!("Attempt {} failed to receive acknowledgment", attempts);
-                        if !received_ack {
-                            {
-                                let mut queue = ack_queue.lock().unwrap();
-                                queue.remove(&1);
-                            }
-                        }
-                        attempts += 1;
+        tokio::select! {
+            _ = rx => {
+                received_ack = true;
+            },
+            _ = sleep(ACK_TIMEOUT) => {
+                println!("Attempt {} failed to receive acknowledgment", attempts);
+                if !received_ack {
+                    {
+                        let mut queue = ack_queue.lock().unwrap();
+                        queue.remove(&1);
                     }
                 }
+                attempts += 1;
             }
-            if received_ack {
-                Ok(())
-            } else {
-                Err("Failed to receive acknowledgment".into())
-            }
-        })
+        }
     }
-}
-#[derive(Message)]
-#[rtype(result = "Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>")]
-struct GetAckQueue;
-
-impl Handler<GetAckQueue> for Mailbox {
-    type Result = Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>;
-
-    fn handle(&mut self, _msg: GetAckQueue, _ctx: &mut Self::Context) -> Self::Result {
-        self.ack_queue.clone()
+    if received_ack {
+        Ok(())
+    } else {
+        Err(SessionError::AckError(AckError::new(
+            "failed to retrieve ack ".to_string(),
+        )))
     }
 }

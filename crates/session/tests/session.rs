@@ -144,16 +144,14 @@ async fn check_for_updates(stream: Arc<Mutex<Vec<ClientUpdateData>>>) {
                     ClientUpdateData::Error(error) => {
                         println!("Error received: {:?}", error);
                     }
-                    ClientUpdateData::LoginProgress(_) => {
-                        println!("Login Progress received")
+                    ClientUpdateData::LoginProgress(login) => {
+                        println!("Login Progress received {:?}", login)
                     }
                     ClientUpdateData::ChatFromSimulator(chat) => {
                         println!("Chat received {:?}", chat)
                     }
                 }
             }
-        } else {
-            println!("EMPTY");
         }
     }
 }

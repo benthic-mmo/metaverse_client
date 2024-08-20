@@ -3,7 +3,6 @@ use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::chat_from_viewer::{ChatFromViewer, ClientChatType};
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::Packet;
-use metaverse_session::models::mailbox::AllowAcks;
 use metaverse_session::session::Session;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
@@ -111,14 +110,14 @@ fn main() {
             }
             match session
                 .mailbox
-                .send(Packet::new_chat_from_viewer(ChatFromViewer {
-                    agent_id: session.agent_id,
-                    session_id: session.session_id,
-                    message: input.to_string(),
-                    message_type: ClientChatType::Normal,
-                    channel: 0,
-                })) 
-                    //, Duration::from_secs(3), 3)
+                .send(
+                    Packet::new_chat_from_viewer(ChatFromViewer {
+                        agent_id: session.agent_id,
+                        session_id: session.session_id,
+                        message: input.to_string(),
+                        message_type: ClientChatType::Normal,
+                        channel: 0,
+                    }))
                 .await
             {
                 Ok(_) => println!("chat sent: {:?}", input),
