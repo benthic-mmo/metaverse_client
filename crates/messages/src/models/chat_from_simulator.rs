@@ -19,9 +19,7 @@ use uuid::Uuid;
 // Frequency: Low
 
 impl Packet {
-    pub fn new_chat_from_simulator(
-        chat_from_simulator: ChatFromSimulator,
-    ) -> Self {
+    pub fn new_chat_from_simulator(chat_from_simulator: ChatFromSimulator) -> Self {
         Packet {
             header: Header {
                 id: 139,

@@ -73,7 +73,6 @@ impl PacketData for PacketAck {
 
         Box::pin(async move {
             let mut queue = ack_queue.lock().unwrap();
-            println!("request ID: {:?}", queue);
             for id in packet_ids {
                 if let Some(sender) = queue.remove(&id) {
                     let _ = sender.send(());

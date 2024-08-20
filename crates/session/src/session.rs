@@ -13,12 +13,11 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use uuid::Uuid;
 
-use tokio::time::Duration;
 
 use crate::models::errors::{
     CircuitCodeError, CompleteAgentMovementError, SendFailReason, SessionError,
 };
-use crate::models::mailbox::{AllowAcks, Mailbox};
+use crate::models::mailbox::Mailbox;
 
 pub struct Session {
     pub mailbox: Addr<Mailbox>,
@@ -138,41 +137,37 @@ impl Session {
         )
         .await;
 
-            match mailbox
-                .send_with_ack(
-                    Packet::new_circuit_code(
-                        CircuitCodeData {
-                            code: login_response.circuit_code,
-                            session_id: login_response.session_id.unwrap(),
-                            id: login_response.agent_id.unwrap(),
-                        },
-                    ),
-                    Duration::from_secs(1),
-                    10,
+        match mailbox
+            .send(
+                Packet::new_circuit_code(CircuitCodeData {
+                    code: login_response.circuit_code,
+                    session_id: login_response.session_id.unwrap(),
+                    id: login_response.agent_id.unwrap(),
+                })
+            )
+            .await
+        {
+            Ok(_) => {
+                send_message_to_client(
+                    update_stream.clone(),
+                    LoginProgress {
+                        message: "Circuit code sent and server ack received".to_string(),
+                        percent: 60,
+                    }
+                    .into(),
                 )
-                .await
-            {
-                Ok(_) => {
-                    send_message_to_client(
-                        update_stream.clone(),
-                        LoginProgress {
-                            message: "Circuit code sent and server ack received".to_string(),
-                            percent: 60,
-                        }
-                        .into(),
-                    )
-                    .await;
-                    info!("circuit code sent and ack received");
-                }
-                Err(e) => {
-                    let error = SessionError::CircuitCode(CircuitCodeError::new(
-                        SendFailReason::Timeout,
-                        format!("{}", e),
-                    ));
-                    send_message_to_client(update_stream, error.as_boxed_error().into()).await;
-                    return Err(error);
-                }
-            };
+                .await;
+                info!("circuit code sent and ack received");
+            }
+            Err(e) => {
+                let error = SessionError::CircuitCode(CircuitCodeError::new(
+                    SendFailReason::Timeout,
+                    format!("{}", e),
+                ));
+                send_message_to_client(update_stream, error.as_boxed_error().into()).await;
+                return Err(error);
+            }
+        };
 
         send_message_to_client(
             update_stream.clone(),
@@ -184,36 +179,37 @@ impl Session {
         )
         .await;
 
-            match mailbox
-                .send(Packet::new_complete_agent_movement(
-                    CompleteAgentMovementData {
-                        circuit_code: login_response.circuit_code,
-                        session_id: login_response.session_id.unwrap(),
-                        agent_id: login_response.agent_id.unwrap(),
-                    },
-                ))
-                .await
-            {
-                Ok(_) => {
-                    send_message_to_client(
-                        update_stream.clone(),
-                        LoginProgress {
-                            message: "Complete agent movement sent".to_string(),
-                            percent: 90,
-                        }
-                        .into(),
-                    )
-                    .await;
-                    info!("Complete agent movement sent");
-                }
-                Err(e) => {
-                    let error = SessionError::CompleteAgentMovement(
-                        CompleteAgentMovementError::new(SendFailReason::Timeout, format!("{}", e)),
-                    );
-                    send_message_to_client(update_stream, error.as_boxed_error().into()).await;
-                    return Err(error);
-                }
-            };
+        match mailbox
+            .send(Packet::new_complete_agent_movement(
+                CompleteAgentMovementData {
+                    circuit_code: login_response.circuit_code,
+                    session_id: login_response.session_id.unwrap(),
+                    agent_id: login_response.agent_id.unwrap(),
+                },
+            ))
+            .await
+        {
+            Ok(_) => {
+                send_message_to_client(
+                    update_stream.clone(),
+                    LoginProgress {
+                        message: "Complete agent movement sent".to_string(),
+                        percent: 90,
+                    }
+                    .into(),
+                )
+                .await;
+                info!("Complete agent movement sent");
+            }
+            Err(e) => {
+                let error = SessionError::CompleteAgentMovement(CompleteAgentMovementError::new(
+                    SendFailReason::Timeout,
+                    format!("{}", e),
+                ));
+                send_message_to_client(update_stream, error.as_boxed_error().into()).await;
+                return Err(error);
+            }
+        };
         send_message_to_client(
             update_stream.clone(),
             LoginProgress {
