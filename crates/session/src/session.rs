@@ -20,6 +20,7 @@ use crate::models::errors::{
 };
 use crate::models::mailbox::Mailbox;
 
+#[derive(Debug)]
 pub struct Session {
     pub mailbox: Addr<Mailbox>,
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
