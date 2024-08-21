@@ -13,6 +13,7 @@ use tokio::time::Duration;
 
 use super::errors::{AckError, SessionError};
 
+#[derive(Debug)]
 pub struct Mailbox {
     pub socket: Option<Arc<UdpSocket>>,
     pub url: String,
@@ -33,7 +34,7 @@ pub struct Mailbox {
 }
 
 const ACK_ATTEMPTS: i8 = 3;
-const ACK_TIMEOUT: Duration = Duration::from_secs(2);
+const ACK_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Mailbox {
     async fn start_udp_read(
@@ -139,7 +140,7 @@ impl Mailbox {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ServerState{
     Starting, 
     Running,
@@ -213,6 +214,7 @@ impl Handler<Packet> for Mailbox {
             {
                 let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
+                println!("PACKET NUMBER IS: {}", *sequence_number);
             }
 
             if msg.header.reliable {
@@ -254,7 +256,9 @@ async fn send_ack(
     let mut received_ack = false;
     let packet_id = packet.header.sequence_number;
 
+    println!("PACKET IS: {:?}", packet);
     println!("SENDING ACK FOR PACKET ID: {}", packet_id);
+
     while attempts < ACK_ATTEMPTS && !received_ack {
         let (tx, rx) = oneshot::channel();
         let mut packet_clone = packet.clone();
@@ -267,35 +271,37 @@ async fn send_ack(
         {
             let mut queue = ack_queue.lock().unwrap();
             queue.insert(packet_id, tx);
-            println!("QUEUE CONTENTS: {:?}", queue);
+
+            println!("QUEUE IS: {:?}", queue);
         }
         // Send the packet
 
         let data = packet_clone.to_bytes().clone();
         let addr_clone = addr.clone();
         let sock_clone = socket.clone();
-        tokio::spawn(async move {
-             if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
-                error!("Failed to send data: {}", e);
-            };
-        });
+        if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
+            error!("Failed to send data: {}", e);
+        }
 
         tokio::select! {
             _ = rx => {
+                println!("RECEIVED ACK FOR {}", packet_id);
                 received_ack = true;
             },
             _ = sleep(ACK_TIMEOUT) => {
                 println!("Attempt {} failed to receive acknowledgment", attempts);
-                if !received_ack {
-                    {
-                        let mut queue = ack_queue.lock().unwrap();
-                        queue.remove(&1);
-                    }
-                }
                 attempts += 1;
+                if !received_ack && attempts >= ACK_ATTEMPTS {
+                    // Remove from queue after final attempt
+                    let mut queue = ack_queue.lock().unwrap();
+                    queue.remove(&packet_id);
+                }
             }
         }
     }
+    println!("");
+    println!("");
+    println!("");
     if received_ack {
         Ok(())
     } else {
