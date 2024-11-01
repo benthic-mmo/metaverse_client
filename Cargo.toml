@@ -4,7 +4,7 @@ members = [
 	"crates/session",
 	"crates/messages",
   "crates/instantiator", 
-  "crates/utils", "crates/chat"]
+  "crates/utils", "crates/chat", "crates/ui"]
 
 
 [patch.crates-io]

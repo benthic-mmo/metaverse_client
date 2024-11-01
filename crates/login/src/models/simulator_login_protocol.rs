@@ -347,6 +347,7 @@ impl From<SimulatorLoginProtocol> for xmlrpc::Value {
 }
 
 /// this struct contains the information for a login using only the user-supplied information
+#[derive(Debug)]
 pub struct Login {
     /// Name of the viewer/client connecting
     pub channel: String,
