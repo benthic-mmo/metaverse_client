@@ -141,11 +141,11 @@ impl Mailbox {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ServerState{
-    Starting, 
+pub enum ServerState {
+    Starting,
     Running,
     Stopping,
-    Stopped 
+    Stopped,
 }
 
 impl Actor for Mailbox {
@@ -192,7 +192,7 @@ impl Actor for Mailbox {
                     Err(e)
                 }
             }
-        }; 
+        };
         ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
             Ok(sock) => {
                 act.socket = Some(sock);
@@ -262,7 +262,7 @@ async fn send_ack(
     while attempts < ACK_ATTEMPTS && !received_ack {
         let (tx, rx) = oneshot::channel();
         let mut packet_clone = packet.clone();
-       
+
         // if there have been more than 1 attempt, set the resent to true.
         if attempts > 0 {
             packet_clone.header.resent = true;

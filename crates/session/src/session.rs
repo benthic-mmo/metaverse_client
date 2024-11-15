@@ -1,7 +1,7 @@
+use crate::models::mailbox::ServerState;
 use actix::{Actor, Addr};
 use log::info;
 use metaverse_login::login::{self};
-use crate::models::mailbox::ServerState;
 use metaverse_login::models::errors::{LoginError, Reason};
 use metaverse_login::models::simulator_login_protocol::{Login, SimulatorLoginProtocol};
 use metaverse_messages::models::circuit_code::CircuitCodeData;
@@ -9,10 +9,10 @@ use metaverse_messages::models::client_update_data::send_message_to_client;
 use metaverse_messages::models::client_update_data::{ClientUpdateData, LoginProgress};
 use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::models::packet::Packet;
-use tokio::sync::Notify;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tokio::sync::Notify;
 use uuid::Uuid;
 
 use crate::models::errors::{
@@ -94,10 +94,10 @@ impl Session {
         }
         .start();
 
-        // wait for the mailbox to start 
+        // wait for the mailbox to start
         notify.notified().await;
-        if *state.lock().unwrap() != ServerState::Running{
-            return Err(SessionError::CircuitCode(CircuitCodeError::new(SendFailReason::Timeout, format!("server failed to start, also this isn't a circuitcode error, implement the real error k thx byyyeee"))))
+        if *state.lock().unwrap() != ServerState::Running {
+            return Err(SessionError::CircuitCode(CircuitCodeError::new(SendFailReason::Timeout, format!("server failed to start, also this isn't a circuitcode error, implement the real error k thx byyyeee"))));
         };
 
         match mailbox
@@ -106,7 +106,8 @@ impl Session {
                 session_id: login_response.session_id.unwrap(),
                 id: login_response.agent_id.unwrap(),
             }))
-            .await{
+            .await
+        {
             Ok(_) => {
                 info!("circuit code sent and ack received");
             }
@@ -127,7 +128,8 @@ impl Session {
                     agent_id: login_response.agent_id.unwrap(),
                 },
             ))
-            .await{
+            .await
+        {
             Ok(_) => {
                 info!("Complete agent movement sent");
             }
