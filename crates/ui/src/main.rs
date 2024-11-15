@@ -8,69 +8,52 @@ use metaverse_messages::models::{
 };
 use metaverse_session::session::Session;
 use std::{
-    error::Error,
-    sync::{Arc, Mutex},
-    thread,
+    collections::VecDeque, error::Error, sync::{Arc, Mutex}, thread
 };
 use tokio::sync::Notify;
+use uuid::Uuid;
 
 #[derive(Resource)]
 struct UpdateStream(Arc<Mutex<Vec<ClientUpdateData>>>);
 
 #[derive(Resource)]
-struct SessionResource(Arc<Mutex<Option<Session>>>);
-
+struct ClientActionStream(Arc<Mutex<VecDeque<Packet>>>);
 
 #[derive(Resource)]
 struct Notification(Arc<Notify>);
 
 #[derive(Event)]
-struct ChatSendEvent();
+struct ClientEvent(Packet);
 
 fn main() {
     let update_stream = Arc::new(Mutex::new(Vec::new()));
+    let client_action_stream = Arc::new(Mutex::new(VecDeque::new()));
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(UpdateStream(update_stream.clone()))
-        .insert_resource(SessionResource(Arc::new(Mutex::new(None))))
+        .insert_resource(ClientActionStream(client_action_stream.clone()))
         .insert_resource(Notification(Arc::new(Notify::new())))
-        .insert_resource(Events::<ChatSendEvent>::default())
+        .insert_resource(Events::<ClientEvent>::default())
         .add_systems(Startup, setup)
         // on every frame check if there is an updated added to the update stream
         .add_systems(Update, check_updates)
-
         .add_systems(Update, send_chat_message)
         .add_systems(Update, button_system)
+        .add_systems(Update, heartbeat)
         .run();
 }
 
-fn send_chat_message(session: Res<SessionResource>, mut ev_chat_send: EventReader<ChatSendEvent>) {
-    for _ in ev_chat_send.read() {
-        let task_pool = IoTaskPool::get();
-        let session_data = session.0.lock().unwrap().clone();
-        if let Some(session) = session_data {
-            task_pool
-                .spawn(async move {
-                    let agent_id = session.agent_id.clone();
-                    let session_id = session.session_id.clone();
-                    match session
-                        .mailbox
-                        .send(Packet::new_chat_from_viewer(ChatFromViewer {
-                            agent_id,
-                            session_id,
-                            message: "hello world".to_string(),
-                            message_type: ClientChatType::Normal,
-                            channel: 0,
-                        }))
-                        .await
-                    {
-                        Ok(_) => println!("chat sent"),
-                        Err(_) => println!("chat failed to send"),
-                    }
-                }).is_finished();
-        } else {
-            println!("No active session found.");
-        }
+fn heartbeat(){
+    print!(".");
+}
+
+fn send_chat_message(
+    mut ev_client_event: EventReader<ClientEvent>,
+    client_action_stream: ResMut<ClientActionStream>,
+) {
+    for event in ev_client_event.read() {
+        let mut client_action_stream = client_action_stream.0.lock().unwrap();
+        client_action_stream.push_back(event.0.clone());
     }
 }
 
@@ -161,7 +144,7 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
     notify: Res<Notification>,
-    mut ev_press: EventWriter<ChatSendEvent>,
+    mut ev_press: EventWriter<ClientEvent>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
@@ -172,8 +155,15 @@ fn button_system(
                 border_color.0 = RED.into();
                 // login button was pressed, notify the actix thread to login
                 notify.0.notify_one();
-                println!("AWAAGA");
-                ev_press.send(ChatSendEvent());
+
+                ev_press.send(ClientEvent(Packet::new_chat_from_viewer(ChatFromViewer {
+                    agent_id: Uuid::nil(),   // set these to nil and set them properly later
+                    session_id: Uuid::nil(), // set these to nil and set them properly later
+                    message: "hello world".to_string(),
+                    message_type: ClientChatType::Normal,
+                    channel: 0,
+                })));
+                println!("pressed");
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
@@ -193,15 +183,23 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     notify: Res<Notification>,
-    session: ResMut<SessionResource>,
     stream: ResMut<UpdateStream>,
+    client_action_stream: ResMut<ClientActionStream>,
 ) {
     let notify_clone = notify.0.clone();
     let stream_clone = stream.0.clone();
-    let session_clone = session.0.clone();
+    let client_action_stream_clone = client_action_stream.0.clone();
 
-    // this is literally diabolical but it may be the only way that works
-    // basically you spawn a thread that will contain the actix mailbox
+    let task_pool = IoTaskPool::get();
+
+    task_pool
+        .spawn(async move {
+            println!("Task pool has started!");
+        })
+        .is_finished();
+
+    // I need to say 100 hail marys after writing this
+    // someone smarter than me please help
     thread::spawn(move || {
         let system = System::new();
         system.block_on(async {
@@ -214,21 +212,28 @@ fn setup(
                 let result = login(stream_clone.clone()).await;
                 match result {
                     Ok(s) => {
-                        // set the session to the result of the successful login, so messages can
-                        // be sent to the mailbox running in this thread
-                        *session_clone.lock().unwrap() = Some(s);
                         println!("successfully logged in");
-                        break;
+                        // run forever
+                        loop {
+                            let mut client_stream = client_action_stream_clone.lock().unwrap();
+                            if let Some(packet) = client_stream.pop_front() {
+                                if let Err(e) = s.mailbox.send(packet).await {
+                                    eprintln!("Failed to send packet {:?}", e);
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         println!("{}", e)
                     }
                 }
             }
-            // keep the thread alive for the lifetime of the app
-            loop {}
+            // keep the thread alive for the lifetime of the app and handle messages sent to
+            // mailbox
         });
-    });
+    })
+    .is_finished();
+
     // ui camera
     commands.spawn(Camera2dBundle::default());
     commands
