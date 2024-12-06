@@ -1,11 +1,10 @@
-use std::{
-    error::Error,
-    sync::{Arc, Mutex},
-};
+use actix_rt::System;
+use std::thread;
 
-use crate::utils::Notification;
+use crate::utils;
 
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts};
 use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::{
     chat_from_viewer::{ChatFromViewer, ClientChatType},
@@ -13,7 +12,6 @@ use metaverse_messages::models::{
     packet::Packet,
 };
 use metaverse_session::session::Session;
-use bevy_egui::{egui, EguiContexts};
 
 #[derive(Event)]
 pub struct ClientEvent(pub Packet);
@@ -22,7 +20,7 @@ pub struct ClientEvent(pub Packet);
 pub struct LoginState {
     first_name: String,
     last_name: String,
-    password: String, 
+    password: String,
     grid: String,
     is_window_open: bool,
 }
@@ -35,7 +33,8 @@ pub fn ui_example_system(
     mut login_state: ResMut<LoginState>,
     mut is_initialized: Local<bool>,
     mut contexts: EguiContexts,
-    notify: Res<Notification>,
+    stream: ResMut<utils::UpdateStream>,
+    client_action_stream: ResMut<utils::ClientActionStream>,
 ) {
     if !*is_initialized {
         *is_initialized = true;
@@ -67,44 +66,69 @@ pub fn ui_example_system(
                 ui.label("Grid: ");
                 ui.text_edit_singleline(&mut login_state.grid);
             });
-            
+
             ui.allocate_space(egui::Vec2::new(1.0, 100.0));
             ui.horizontal(|ui| {
                 login = ui.button("Login").clicked();
             });
         });
 
+    // if the login button is pressed, initiate the session!
     if login {
-        notify.0.notify_one();
+        // this may be more idiomatic if I made this into an event
+        // HOWEVER, I do not care right now this works :) 
+        init_session(stream, client_action_stream, login_state)
     }
 }
 
-pub async fn create_session<'a>(
-    stream: Arc<Mutex<Vec<ClientUpdateData>>>,
-    login_state: LoginState,
-) -> Result<Session, Box<dyn Error>> {
-    println!("FIRST NAME {}", login_state.first_name);
-    println!("LAST NAME {}", login_state.last_name);
-    println!("GRID {}", login_state.grid);
-    println!("PASSWORD {}", login_state.password);
-    let result = Session::new(
-        Login {
-            first: login_state.first_name,
-            last: login_state.last_name,
-            passwd: login_state.password,
-            channel: "benthic".to_string(),
-            start: "home".to_string(),
-            agree_to_tos: true,
-            read_critical: true,
-        },
-        build_url("http://127.0.0.1", 9000),
-        stream.clone(),
-    )
-    .await;
-    match result {
-        Ok(s) => Ok(s),
-        Err(e) => Err(Box::new(e)),
-    }
+fn init_session(
+    stream: ResMut<utils::UpdateStream>,
+    client_action_stream: ResMut<utils::ClientActionStream>,
+    login_state: ResMut<LoginState>,
+) {
+    let stream_clone = stream.0.clone();
+    let client_action_stream_clone = client_action_stream.0.clone();
+
+    // I need to say 100 hail marys after writing this
+    // someone smarter than me please help
+    let login_state_clone = login_state.clone();
+    thread::spawn(move || {
+        let system = System::new();
+        system.block_on(async {
+            let login_state_clone_clone = login_state_clone.clone();
+            let result = Session::new(
+                Login {
+                    first: login_state_clone_clone.first_name,
+                    last: login_state_clone_clone.last_name,
+                    passwd: login_state_clone_clone.password,
+                    channel: "benthic".to_string(),
+                    start: "home".to_string(),
+                    agree_to_tos: true,
+                    read_critical: true,
+                },
+                build_url("http://127.0.0.1", 9000),
+                stream_clone.clone(),
+            )
+            .await;
+            match result {
+                Ok(s) => {
+                    println!("successfully logged in");
+                    // run forever
+                    loop {
+                        let mut client_stream = client_action_stream_clone.lock().unwrap();
+                        if let Some(packet) = client_stream.pop_front() {
+                            if let Err(e) = s.mailbox.send(packet).await {
+                                eprintln!("Failed to send packet {:?}", e);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("{}", e)
+                }
+            }
+        });
+    });
 }
 
 fn build_url(url: &str, port: u16) -> String {
