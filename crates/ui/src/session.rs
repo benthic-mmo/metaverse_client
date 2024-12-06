@@ -1,13 +1,14 @@
-use std::thread;
 use actix_rt::System;
+use std::thread;
 
-use bevy::prelude::*;
 use crate::{login, utils};
+use bevy::prelude::*;
 
 pub fn setup_actix(
     notify: Res<utils::Notification>,
     stream: ResMut<utils::UpdateStream>,
     client_action_stream: ResMut<utils::ClientActionStream>,
+    login_state: Res<login::LoginState>,
 ) {
     let notify_clone = notify.0.clone();
     let stream_clone = stream.0.clone();
@@ -15,6 +16,7 @@ pub fn setup_actix(
 
     // I need to say 100 hail marys after writing this
     // someone smarter than me please help
+    let login_state_clone = login_state.clone();
     thread::spawn(move || {
         let system = System::new();
         system.block_on(async {
@@ -24,7 +26,7 @@ pub fn setup_actix(
                 // pressed
                 notify_clone.notified().await;
                 // login and create the session
-                let result = login::create_session(stream_clone.clone()).await;
+                let result = login::create_session(stream_clone.clone(), login_state_clone.clone()).await;
                 match result {
                     Ok(s) => {
                         println!("successfully logged in");
@@ -45,6 +47,4 @@ pub fn setup_actix(
             }
         });
     });
-   }
-
-
+}

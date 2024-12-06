@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.14"
+bevy = "0.15"
 metaverse_session = {path = "../session/"}
 metaverse_messages = {path = "../messages/"}
 metaverse_login = {path = "../login/"}
 bevy-tokio-tasks = {path = "../../../bevy-actix-tasks/"}
 tokio = { version = "1", features = ["full"] }
 actix-rt = "2.8.0"
+accesskit = "0.17.1"
+bevy_egui = "0.31.1"
 [dependencies.uuid]
 version = "1.10.0"
 features = [

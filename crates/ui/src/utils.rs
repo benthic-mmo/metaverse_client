@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex}};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
 use bevy::prelude::*;
 use metaverse_messages::models::{client_update_data::ClientUpdateData, packet::Packet};
