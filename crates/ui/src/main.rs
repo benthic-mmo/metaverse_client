@@ -1,6 +1,5 @@
 mod chat;
 mod login;
-mod session;
 mod utils;
 
 use bevy::prelude::*;
@@ -19,7 +18,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
         .insert_resource(login::LoginState::default())
-
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, login::configure_ui_state_system)
         .add_systems(Update, update_ui_scale_factor_system)
@@ -28,7 +26,6 @@ fn main() {
         .insert_resource(utils::ClientActionStream(client_action_stream.clone()))
         .insert_resource(utils::Notification(Arc::new(Notify::new())))
         .insert_resource(Events::<login::ClientEvent>::default())
-        .add_systems(Startup, session::setup_actix)
         // on every frame check if there is an updated added to the update stream
         .add_systems(Update, check_updates)
         .add_systems(Update, chat::send_chat_message)
@@ -77,7 +74,7 @@ fn update_ui_scale_factor_system(
         *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
 
         if let Ok((mut egui_settings, window)) = contexts.get_single_mut() {
-     let scale_factor = if toggle_scale_factor.unwrap() {
+            let scale_factor = if toggle_scale_factor.unwrap() {
                 1.0
             } else {
                 1.0 / window.scale_factor()
@@ -86,4 +83,3 @@ fn update_ui_scale_factor_system(
         }
     }
 }
-
