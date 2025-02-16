@@ -2,6 +2,7 @@ use super::agent_update::AgentUpdate;
 use super::chat_from_simulator::ChatFromSimulator;
 use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
+use super::login::Login;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
@@ -25,6 +26,7 @@ pub enum PacketType {
     AgentUpdate(Box<dyn PacketData>),
     ChatFromSimulator(Box<dyn PacketData>),
     ChatFromViewer(Box<dyn PacketData>),
+    Login(Box<dyn PacketData>),
 }
 
 impl PacketType {
@@ -81,6 +83,7 @@ impl PacketType {
                 251 => Ok(PacketType::PacketAck(Box::new(PacketAck::from_bytes(
                     bytes,
                 )?))),
+                66 => Ok(PacketType::Login(Box::new(Login::from_bytes(bytes)?))),
 
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,

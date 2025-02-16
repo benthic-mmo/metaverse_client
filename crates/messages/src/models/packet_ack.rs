@@ -5,7 +5,7 @@ use super::{
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::sync::Mutex;
+use std::{any::Any, sync::Mutex};
 use std::{
     collections::HashMap,
     io::{self, Cursor},
@@ -85,5 +85,9 @@ impl PacketData for PacketAck {
 
     fn message_type(&self) -> MessageType {
         MessageType::Acknowledgment
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

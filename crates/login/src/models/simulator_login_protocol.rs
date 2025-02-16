@@ -345,30 +345,3 @@ impl From<SimulatorLoginProtocol> for xmlrpc::Value {
         xmlrpc::Value::Struct(login_vec.into_iter().collect())
     }
 }
-
-/// this struct contains the information for a login using only the user-supplied information
-#[derive(Debug)]
-pub struct Login {
-    /// Name of the viewer/client connecting
-    pub channel: String,
-    /// first name of the user
-    pub first: String,
-    /// last name of the user
-    pub last: String,
-    /// MD5 hash of the user's password with the string "$1$" prepended
-    pub passwd: String,
-    /// The region in which the user should start upon login. This can be one of
-    /// "home" - start in the user's home location
-    /// "last" - start in the location where the user last logged out
-    /// a specific location - in the format
-    /// uri:<region-name>&<x-coord>&<y-coord>&<z-coord>
-    /// for example, the string "uri:test&128&128&0" says the user
-    /// should log in to the center of the region named test, and
-    /// the avatar should be placed on the ground if the
-    /// z-coordinate is below the terrain.
-    pub start: String,
-    /// Has user agreed to the terms of service. Boolean true/false
-    pub agree_to_tos: bool,
-    /// Has user read other important doc. Boolean true/false
-    pub read_critical: bool,
-}

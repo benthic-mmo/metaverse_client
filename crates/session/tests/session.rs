@@ -7,12 +7,10 @@ use metaverse_instantiator::config_generator::{
 };
 use metaverse_instantiator::models::server::{CommandMessage, ExecData, ServerState, SimServer};
 use metaverse_instantiator::server::{download_sim, read_config};
-use metaverse_login::models::simulator_login_protocol::Login;
 use metaverse_messages::models::circuit_code::CircuitCodeData;
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::header::*;
 use metaverse_messages::models::packet::Packet;
-use metaverse_session::session::Session;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
@@ -93,28 +91,10 @@ async fn test_local() {
 
         let update_stream = Arc::new(Mutex::new(Vec::new()));
         let update_stream_clone = update_stream.clone();
+
         tokio::spawn(async move {
             check_for_updates(update_stream_clone).await;
         });
-        let session = Session::new(
-            Login {
-                first: "default".to_string(),
-                last: "user".to_string(),
-                passwd: "password".to_string(),
-                start: "home".to_string(),
-                channel: "benthic".to_string(),
-                agree_to_tos: true,
-                read_critical: true,
-            },
-            build_test_url("http://127.0.0.1", 9000),
-            update_stream.clone(),
-        )
-        .await;
-
-        match session {
-            Ok(_) => sleep(Duration::from_secs(3)).await,
-            Err(e) => info!("sesion failed to start: {}", e),
-        }
 
         sleep(Duration::from_secs(10)).await;
         sim_server.do_send(CommandMessage {
@@ -164,24 +144,6 @@ async fn test_chat() {
     tokio::spawn(async move {
         check_for_updates(update_stream_clone).await;
     });
-    let session = Session::new(
-        Login {
-            first: "default".to_string(),
-            last: "user".to_string(),
-            passwd: "password".to_string(),
-            start: "home".to_string(),
-            channel: "benthic".to_string(),
-            agree_to_tos: true,
-            read_critical: true,
-        },
-        build_test_url("http://127.0.0.1", 9000),
-        update_stream.clone(),
-    )
-    .await;
-    match session {
-        Ok(_) => sleep(Duration::from_secs(10)).await,
-        Err(e) => info!("sesion failed to start: {}", e),
-    }
 }
 
 fn send_setup_commands(sim_server: &actix::Addr<SimServer>) {
@@ -244,7 +206,7 @@ async fn setup_server(
     sim_server
 }
 
-/// helper function for building URL. May be unnescecary
+/// helper function for building url. may be unnescecary
 fn build_test_url(url: &str, port: u16) -> String {
     let mut url_string = "".to_owned();
     url_string.push_str(url);

@@ -3,7 +3,7 @@ use super::{
     packet::{MessageType, PacketData},
 };
 use futures::future::BoxFuture;
-use std::sync::Mutex;
+use std::{any::Any, sync::Mutex};
 use std::{collections::HashMap, io, sync::Arc};
 use tokio::sync::oneshot::Sender;
 
@@ -32,5 +32,9 @@ impl PacketData for DisableSimulator {
     }
     fn message_type(&self) -> MessageType {
         MessageType::Event
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

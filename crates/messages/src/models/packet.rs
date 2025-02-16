@@ -10,6 +10,7 @@ use tokio::sync::oneshot::Sender;
 
 use super::client_update_data::ClientUpdateData;
 use super::packet_types::PacketType;
+use std::any::Any;
 
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
@@ -17,6 +18,10 @@ pub struct Packet {
     pub header: Header,
     pub body: Arc<dyn PacketData>,
 }
+
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
+pub struct Initialize {}
 
 pub enum MessageType {
     Acknowledgment,
@@ -26,10 +31,11 @@ pub enum MessageType {
     Error,
     Data,
     Outgoing,
+    Login, // special type for login
 }
 
 // this is the trait that allows for serializing and deserializing the packet's data
-pub trait PacketData: std::fmt::Debug + Send + Sync + 'static {
+pub trait PacketData: std::fmt::Debug + Send + Sync + 'static + Any {
     fn from_bytes(bytes: &[u8]) -> io::Result<Self>
     where
         Self: Sized;
@@ -40,11 +46,12 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static {
         update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
     ) -> BoxFuture<'static, ()>;
     fn message_type(&self) -> MessageType;
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl Packet {
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
-        let header = Header::try_from_bytes(bytes).unwrap();
+        let header = Header::try_from_bytes(bytes)?;
         // if the packet has a body, add the body to the packet
         let body = if header.size.unwrap_or(0) < bytes.len() {
             &bytes[header.size.unwrap_or(0)..]
@@ -57,9 +64,9 @@ impl Packet {
         } else {
             body.to_vec() // Convert slice to Vec<u8>
         };
-
         let body =
             PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?.into_arc();
+
         Ok(Self { header, body })
     }
 

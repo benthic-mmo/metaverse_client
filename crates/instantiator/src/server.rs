@@ -4,9 +4,6 @@ use log::{error, info, warn};
 use regex::Regex;
 use reqwest::Url;
 use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::error::Error;
-use std::fs;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::{Error as IOError, Write};
@@ -379,22 +376,6 @@ impl SimServer {
     }
 }
 
-// will probably remove later
-pub fn read_sim_config() -> Option<HashMap<String, String>> {
-    let mut settings = config::Config::default();
-    match settings.merge(config::File::with_name("sim_config")) {
-        Ok(_file) => _file,
-        Err(..) => {
-            return None;
-        }
-    };
-    settings
-        .merge(config::Environment::with_prefix("APP"))
-        .unwrap();
-
-    Some(settings.try_into::<HashMap<String, String>>().unwrap())
-}
-
 // handle downloading sim
 pub async fn download_sim(
     url: &str,
@@ -431,52 +412,4 @@ pub async fn download_sim(
     Ok(())
 }
 
-// handle reading and creating dirs from config
-pub fn read_config() -> Result<(String, String, String, String), Box<dyn Error>> {
-    let conf = match read_sim_config() {
-        Some(x) => x,
-        None => {
-            println!("test skipped, no config file");
-            return Err("failed to read sim config".into());
-        }
-    };
-    let url = conf.get("url").unwrap().to_string();
-    let archive = conf.get("archive").unwrap().to_string();
-    let path = conf.get("path").unwrap().to_string();
-    let executable = conf.get("executable").unwrap().to_string();
-    let name = conf.get("name").unwrap().to_string();
 
-    let output_dir = Path::new(&path);
-    if !Path::new(&path).exists() {
-        fs::create_dir_all(output_dir)?;
-    }
-
-    let sim_dir: String;
-
-    match fs::canonicalize(output_dir) {
-        Ok(canonical_path) => {
-            sim_dir = canonical_path
-                .into_os_string()
-                .into_string()
-                .unwrap()
-                .to_string();
-        }
-        Err(e) => {
-            panic!("failed to canonicalize sim_dir: {}", e)
-        }
-    }
-    let base_dir = Path::new(&sim_dir)
-        .join(name)
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .to_string();
-    let sim_archive = Path::new(&path)
-        .join(archive)
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        .to_string();
-
-    Ok((url, sim_archive, base_dir, executable))
-}

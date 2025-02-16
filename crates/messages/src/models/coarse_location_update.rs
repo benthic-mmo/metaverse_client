@@ -4,7 +4,7 @@ use super::{
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::sync::Mutex;
+use std::{any::Any, sync::Mutex};
 use std::{
     collections::HashMap,
     io::{self, Cursor, Write},
@@ -99,5 +99,9 @@ impl PacketData for CoarseLocationUpdate {
     }
     fn message_type(&self) -> MessageType {
         MessageType::Event
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

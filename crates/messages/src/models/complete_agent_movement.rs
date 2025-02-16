@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot::Sender;
@@ -68,5 +69,9 @@ impl PacketData for CompleteAgentMovementData {
     }
     fn message_type(&self) -> MessageType {
         MessageType::Outgoing
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
