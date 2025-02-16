@@ -10,11 +10,11 @@ metaverse_messages = {path = "../messages/"}
 metaverse_login = {path = "../login/"}
 bevy-tokio-tasks = {path = "../../../bevy-actix-tasks/"}
 tokio = { version = "1", features = ["full"] }
-actix-rt = "2.8.0"
+actix-rt = "2.10.0"
 accesskit = "0.17.1"
-bevy_egui = "0.31.1"
+bevy_egui = "0.32.0"
 [dependencies.uuid]
-version = "1.10.0"
+version = "1.13.1"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG

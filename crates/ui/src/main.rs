@@ -3,7 +3,7 @@ mod login;
 mod utils;
 
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSettings};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use std::{
     collections::VecDeque,
@@ -20,8 +20,7 @@ fn main() {
         .insert_resource(login::LoginState::default())
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, login::configure_ui_state_system)
-        .add_systems(Update, update_ui_scale_factor_system)
-        .add_systems(Update, login::ui_example_system)
+        .add_systems(Update, login::ui_login_system)
         .insert_resource(utils::UpdateStream(update_stream.clone()))
         .insert_resource(utils::ClientActionStream(client_action_stream.clone()))
         .insert_resource(utils::Notification(Arc::new(Notify::new())))
@@ -65,21 +64,3 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
-fn update_ui_scale_factor_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut toggle_scale_factor: Local<Option<bool>>,
-    mut contexts: Query<(&mut EguiSettings, &Window)>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Slash) || toggle_scale_factor.is_none() {
-        *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
-
-        if let Ok((mut egui_settings, window)) = contexts.get_single_mut() {
-            let scale_factor = if toggle_scale_factor.unwrap() {
-                1.0
-            } else {
-                1.0 / window.scale_factor()
-            };
-            egui_settings.scale_factor = scale_factor;
-        }
-    }
-}
