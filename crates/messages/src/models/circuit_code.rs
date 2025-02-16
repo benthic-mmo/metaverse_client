@@ -1,6 +1,7 @@
 use crate::models::header::{Header, PacketFrequency};
 use crate::models::packet::{Packet, PacketData};
 use futures::future::BoxFuture;
+use std::any::Any;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
@@ -68,5 +69,9 @@ impl PacketData for CircuitCodeData {
     }
     fn message_type(&self) -> MessageType {
         MessageType::Outgoing
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

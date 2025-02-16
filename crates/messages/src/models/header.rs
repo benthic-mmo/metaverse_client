@@ -131,7 +131,7 @@ fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
     [(value >> 8) as u8, (value & 0xFF) as u8]
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PacketFrequency {
     High,
     Medium,
@@ -166,7 +166,7 @@ impl PacketFrequency {
                 // 4 byte ID
                 bytes.push(0xFF);
                 bytes.push(0xFF);
-                let id_bytes = uint16_to_bytes_big(header.id as u16);
+                let id_bytes = uint16_to_bytes_big(header.id);
                 bytes.extend_from_slice(&id_bytes);
             }
             PacketFrequency::Fixed => {

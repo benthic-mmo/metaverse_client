@@ -12,6 +12,7 @@ license = "AGPL-3.0-or-later"
 xmlrpc = "0.15.1"
 lazy_static = "1.5.0"
 metaverse_instantiator = "0.0.4"
+metaverse_messages = {path = "../messages/"} 
 config = "0.15"
 sys-info = "0.9.1"
 mac_address = "1.1.8"

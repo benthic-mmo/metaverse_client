@@ -6,6 +6,7 @@ use super::{
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use futures::future::BoxFuture;
 use std::{
+    any::Any,
     collections::HashMap,
     io::{self, Cursor},
     sync::Arc,
@@ -147,7 +148,6 @@ impl PacketData for ChatFromViewer {
                 ClientUpdateData::String(
                     format!("sent message!!!!!! {}", message_clone)
                         .to_string()
-                        .into(),
                 ),
             )
             .await
@@ -156,5 +156,9 @@ impl PacketData for ChatFromViewer {
 
     fn message_type(&self) -> MessageType {
         MessageType::Event
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

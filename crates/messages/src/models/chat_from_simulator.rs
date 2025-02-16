@@ -1,12 +1,13 @@
 use super::{
-    agent_update::Vector3,
     client_update_data::{send_message_to_client, ClientUpdateData},
     header::Header,
     packet::{MessageType, Packet, PacketData},
 };
 use byteorder::ReadBytesExt;
 use futures::future::BoxFuture;
+use glam::Vec3;
 use std::{
+    any::Any,
     collections::HashMap,
     io::{self, BufRead, Cursor},
     sync::Arc,
@@ -45,7 +46,7 @@ pub struct ChatFromSimulator {
     pub source_type: SourceType,
     pub chat_type: ChatType,
     pub audible: Audible,
-    pub position: Vector3,
+    pub position: Vec3,
     pub message: String,
 }
 
@@ -180,7 +181,7 @@ impl PacketData for ChatFromSimulator {
         let audible = Audible::from_bytes(audible_byte);
 
         // Position (LLVector3)
-        let position = Vector3 {
+        let position = Vec3 {
             x: cursor.read_f32::<byteorder::LittleEndian>()?,
             y: cursor.read_f32::<byteorder::LittleEndian>()?,
             z: cursor.read_f32::<byteorder::LittleEndian>()?,
@@ -246,5 +247,9 @@ impl PacketData for ChatFromSimulator {
 
     fn message_type(&self) -> MessageType {
         MessageType::Outgoing
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

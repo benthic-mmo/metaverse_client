@@ -1,60 +1,46 @@
-mod chat;
 mod login;
-mod utils;
+use std::os::unix::net::UnixDatagram;
+use std::path::PathBuf;
 
-use bevy::prelude::*;
+use actix_rt::System;
+use tempfile::NamedTempFile;
+
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use metaverse_messages::models::client_update_data::ClientUpdateData;
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-use tokio::sync::Notify;
+use metaverse_session::initialize::initialize;
+
+#[derive(Resource)]
+struct Sockets {
+    incoming_socket: PathBuf,
+    outgoing_socket: PathBuf,
+}
 
 fn main() {
-    let update_stream = Arc::new(Mutex::new(Vec::new()));
-    let client_action_stream = Arc::new(Mutex::new(VecDeque::new()));
+    // create temporary files
+    let incoming_socket_path = NamedTempFile::new()
+        .expect("Failed to create temp file")
+        .path()
+        .to_path_buf();
+    let outgoing_socket_path = NamedTempFile::new()
+        .expect("Failed to create temp file")
+        .path()
+        .to_path_buf();
+
     App::new()
+        .insert_resource(Sockets {
+            incoming_socket: incoming_socket_path,
+            outgoing_socket: outgoing_socket_path,
+        })
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
-        .insert_resource(login::LoginState::default())
+        .insert_resource(login::LoginData::default())
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, login::configure_ui_state_system)
         .add_systems(Update, login::ui_login_system)
-        .insert_resource(utils::UpdateStream(update_stream.clone()))
-        .insert_resource(utils::ClientActionStream(client_action_stream.clone()))
-        .insert_resource(utils::Notification(Arc::new(Notify::new())))
         .insert_resource(Events::<login::ClientEvent>::default())
-        // on every frame check if there is an updated added to the update stream
-        .add_systems(Update, check_updates)
-        .add_systems(Update, chat::send_chat_message)
+        .add_systems(Startup, start_client)
+        .add_systems(Startup, start_listener)
         .run();
-}
-
-// every frame, bevy checks for updates on the updateStream
-fn check_updates(stream: Res<utils::UpdateStream>) {
-    let mut stream = stream.0.lock().unwrap();
-    if !stream.is_empty() {
-        for update in stream.drain(..) {
-            match update {
-                ClientUpdateData::Packet(packet) => {
-                    println!("Packet received: {:?}", packet);
-                }
-                ClientUpdateData::String(string) => {
-                    println!("String received: {:?}", string)
-                }
-                ClientUpdateData::Error(error) => {
-                    println!("Error received: {:?}", error);
-                }
-                ClientUpdateData::LoginProgress(login) => {
-                    println!("Login Progress received {:?}", login)
-                }
-                ClientUpdateData::ChatFromSimulator(chat) => {
-                    println!("Chat received {:?}", chat)
-                }
-            }
-        }
-    }
 }
 
 fn configure_visuals_system(mut contexts: EguiContexts) {
@@ -64,3 +50,51 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
+fn start_listener(sockets: Res<Sockets>) {
+    let thread_pool = AsyncComputeTaskPool::get();
+    let outgoing_socket = sockets.outgoing_socket.clone();
+    thread_pool
+        .spawn(async move {
+            let socket = UnixDatagram::bind(outgoing_socket.clone()).unwrap();
+            info!(
+                "UI process listening to outgoing UDS on: {:?}",
+                outgoing_socket
+            );
+            loop {
+                let mut buf = [0u8; 1024];
+                match socket.recv_from(&mut buf) {
+                    Ok((n, _)) => {
+                        info!("UI process receiving data {}", n);
+                    }
+                    Err(e) => {
+                        error!("UI process failed to read buffer {}", e)
+                    }
+                }
+            }
+        })
+        .detach();
+}
+
+fn start_client(sockets: Res<Sockets>) {
+    let incoming_socket = sockets.incoming_socket.clone();
+    let outgoing_socket = sockets.outgoing_socket.clone();
+    let thread_pool = AsyncComputeTaskPool::get();
+    // start the actix process, and do not close the system until everything is finished
+    thread_pool
+        .spawn(async move {
+            System::new().block_on(async {
+                match initialize(incoming_socket, outgoing_socket).await {
+                    Ok(handle) => {
+                        match handle.await {
+                            Ok(()) => info!("Listener exited successfully!"),
+                            Err(e) => error!("Listener exited with error {:?}", e),
+                        };
+                    }
+                    Err(err) => {
+                        error!("Failed to start client: {:?}", err);
+                    }
+                }
+            });
+        })
+        .detach();
+}

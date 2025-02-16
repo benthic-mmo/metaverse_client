@@ -4,39 +4,58 @@ use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::{MessageType, Packet};
 use metaverse_messages::models::packet_ack::PacketAck;
 use std::collections::HashMap;
+use std::os::unix::net::UnixDatagram;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
 use tokio::sync::{oneshot, Notify};
-use tokio::time::sleep;
 use tokio::time::Duration;
+use uuid::Uuid;
 
 use super::errors::{AckError, SessionError};
 
 #[derive(Debug)]
 pub struct Mailbox {
-    pub socket: Option<Arc<UdpSocket>>,
-    pub url: String,
-    pub server_socket: u16,
     pub client_socket: u16,
+    pub outgoing_socket: Option<OutgoingSocket>,
 
     pub ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub request_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub event_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub command_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub error_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub data_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-
     pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
+
     pub packet_sequence_number: Arc<Mutex<u32>>,
     pub state: Arc<Mutex<ServerState>>,
     pub notify: Arc<Notify>,
+    pub session: Option<Session>,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct Session {
+    pub url: String,
+    pub server_socket: u16,
+    pub agent_id: Uuid,
+    pub session_id: Uuid,
+    pub socket: Option<Arc<UdpSocket>>,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct OutgoingSocket {
+    pub socket_path: PathBuf,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct TriggerSend {
+    pub message: String,
 }
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl Mailbox {
+    // this is for reading packets coming from the external server
     async fn start_udp_read(
         ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
         command_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
@@ -74,6 +93,12 @@ impl Mailbox {
                         };
                     }
                     match packet.body.message_type() {
+                        MessageType::Login => {
+                            packet
+                                .body
+                                .on_receive(ack_queue.clone(), update_stream.clone())
+                                .await;
+                        }
                         MessageType::Acknowledgment => {
                             packet
                                 .body
@@ -154,7 +179,38 @@ impl Actor for Mailbox {
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Mailbox has started");
 
-        let addr = format!("127.0.0.1:{}", self.client_socket.clone());
+        self.set_state(ServerState::Running, ctx);
+    }
+}
+
+impl Handler<TriggerSend> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: TriggerSend, _: &mut Self::Context) -> Self::Result {
+        if let Some(outgoing_socket) = &self.outgoing_socket {
+            let client_socket = UnixDatagram::unbound().unwrap();
+            match client_socket.send_to(msg.message.as_bytes(), &outgoing_socket.socket_path) {
+                Ok(_) => println!("message sent from mailbox"),
+                Err(e) => println!("error sending from mailbox {:?}", e),
+            };
+        }
+    }
+}
+
+impl Handler<OutgoingSocket> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: OutgoingSocket, _: &mut Self::Context) -> Self::Result {
+        self.outgoing_socket = Some(msg);
+    }
+}
+
+// set the session to initialized.
+impl Handler<Session> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: Session, ctx: &mut Self::Context) -> Self::Result {
+        self.session = Some(msg);
+
+        let addr = format!("127.0.0.1:{}", self.client_socket);
+
         let addr_clone = addr.clone();
         let ack_queue_clone = self.ack_queue.clone();
         let command_queue_clone = self.ack_queue.clone();
@@ -165,10 +221,13 @@ impl Actor for Mailbox {
         let outgoing_queue_clone = self.ack_queue.clone();
         let update_stream_clone = self.update_stream.clone();
         let mailbox_addr = ctx.address();
+
+        println!("session established, starting UDP processing");
+
         let fut = async move {
             match UdpSocket::bind(&addr).await {
                 Ok(sock) => {
-                    println!("Successfully bound to {}", &addr_clone);
+                    println!("Successfully bound to {}", &addr);
 
                     let sock = Arc::new(sock);
 
@@ -195,22 +254,22 @@ impl Actor for Mailbox {
         };
         ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
             Ok(sock) => {
-                act.socket = Some(sock);
+                if let Some(session) = &mut act.session {
+                    session.socket = Some(sock);
+                }
             }
             Err(_) => {
                 panic!("Socket binding failed");
             }
         }));
-
-        self.set_state(ServerState::Running, ctx);
     }
 }
 
 impl Handler<Packet> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(ref sock) = self.socket {
-            let addr = format!("{}:{}", self.url, self.server_socket);
+        if let Some(ref session) = self.session {
+            let addr = format!("{}:{}", session.url, session.server_socket);
             {
                 let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
@@ -218,7 +277,12 @@ impl Handler<Packet> for Mailbox {
             }
 
             if msg.header.reliable {
-                let ack_future = send_ack(msg, addr, self.ack_queue.clone(), sock.clone());
+                let ack_future = send_ack(
+                    msg,
+                    addr,
+                    self.ack_queue.clone(),
+                    session.socket.as_ref().unwrap().clone(),
+                );
                 ctx.spawn(
                     async move {
                         if let Err(e) = ack_future.await {
@@ -229,7 +293,7 @@ impl Handler<Packet> for Mailbox {
                 );
             } else {
                 let data = msg.to_bytes().clone();
-                let socket_clone = sock.clone();
+                let socket_clone = session.socket.as_ref().unwrap().clone();
                 let fut = async move {
                     if let Err(e) = socket_clone.send_to(&data, &addr).await {
                         error!("Failed to send data: {}", e);
@@ -288,7 +352,7 @@ async fn send_ack(
                 println!("RECEIVED ACK FOR {}", packet_id);
                 received_ack = true;
             },
-            _ = sleep(ACK_TIMEOUT) => {
+            _ = tokio::time::sleep(ACK_TIMEOUT) => {
                 println!("Attempt {} failed to receive acknowledgment", attempts);
                 attempts += 1;
                 if !received_ack && attempts >= ACK_ATTEMPTS {
@@ -299,9 +363,6 @@ async fn send_ack(
             }
         }
     }
-    println!("");
-    println!("");
-    println!("");
     if received_ack {
         Ok(())
     } else {

@@ -1,8 +1,9 @@
+use glam::{Quat, Vec3};
+use std::any::Any;
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::oneshot::Sender;
 
-use nalgebra::Quaternion;
 use uuid::Uuid;
 
 use super::{
@@ -67,13 +68,6 @@ impl Packet {
             body: Arc::new(agent_update),
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Vector3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
 }
 
 #[derive(Debug)]
@@ -279,6 +273,7 @@ pub struct Flags {
     pub none: bool,
     pub hide_title: bool,
 }
+#[allow(clippy::bad_bit_mask)]
 impl Flags {
     pub fn from_bytes(bits: u8) -> Self {
         Self {
@@ -297,18 +292,17 @@ impl Flags {
         bits
     }
 }
-
 #[derive(Debug)]
 pub struct AgentUpdate {
     pub agent_id: Uuid,
     pub session_id: Uuid,
-    pub body_rotation: Quaternion<f32>,
-    pub head_rotation: Quaternion<f32>,
+    pub body_rotation: Quat,
+    pub head_rotation: Quat,
     pub state: State,
-    pub camera_center: Vector3,
-    pub camera_at_axis: Vector3,
-    pub camera_left_axis: Vector3,
-    pub camera_up_axis: Vector3,
+    pub camera_center: Vec3,
+    pub camera_at_axis: Vec3,
+    pub camera_left_axis: Vec3,
+    pub camera_up_axis: Vec3,
     pub far: f32,
     pub control_flags: ControlFlags,
     pub flags: Flags,
@@ -319,20 +313,20 @@ pub trait ToFromBytes {
     fn to_bytes(&self) -> [u8; 16];
 }
 
-impl ToFromBytes for Quaternion<f32> {
+impl ToFromBytes for Quat {
     fn from_bytes(bytes: &[u8]) -> Self {
         let x = f32::from_le_bytes(bytes[0..4].try_into().unwrap());
         let y = f32::from_le_bytes(bytes[4..8].try_into().unwrap());
         let z = f32::from_le_bytes(bytes[8..12].try_into().unwrap());
         let w = f32::from_le_bytes(bytes[12..16].try_into().unwrap());
-        Quaternion::new(w, x, y, z)
+        Quat::from_xyzw(x, y, z, w)
     }
     fn to_bytes(&self) -> [u8; 16] {
         let mut bytes = [0u8; 16];
         bytes[0..4].copy_from_slice(&self.w.to_le_bytes());
-        bytes[4..8].copy_from_slice(&self.i.to_le_bytes());
-        bytes[8..12].copy_from_slice(&self.j.to_le_bytes());
-        bytes[12..16].copy_from_slice(&self.k.to_le_bytes());
+        bytes[4..8].copy_from_slice(&self.x.to_le_bytes());
+        bytes[8..12].copy_from_slice(&self.y.to_le_bytes());
+        bytes[12..16].copy_from_slice(&self.z.to_le_bytes());
         bytes
     }
 }
@@ -343,26 +337,26 @@ impl PacketData for AgentUpdate {
         // THIS WILL CRASH AND BREAK YOUR SHIT
         let agent_id = Uuid::from_slice(&bytes[0..16]).unwrap();
         let session_id = Uuid::from_slice(&bytes[16..32]).unwrap();
-        let body_rotation = Quaternion::from_bytes(&bytes[32..48]);
-        let head_rotation = Quaternion::from_bytes(&bytes[48..64]);
+        let body_rotation = Quat::from_bytes(&bytes[32..48]);
+        let head_rotation = Quat::from_bytes(&bytes[48..64]);
 
         let state = State::from_bytes(bytes[64]);
-        let camera_center = Vector3 {
+        let camera_center = Vec3 {
             x: f32::from_le_bytes(bytes[65..69].try_into().unwrap()),
             y: f32::from_le_bytes(bytes[69..73].try_into().unwrap()),
             z: f32::from_le_bytes(bytes[73..77].try_into().unwrap()),
         };
-        let camera_at_axis = Vector3 {
+        let camera_at_axis = Vec3 {
             x: f32::from_le_bytes(bytes[77..81].try_into().unwrap()),
             y: f32::from_le_bytes(bytes[81..85].try_into().unwrap()),
             z: f32::from_le_bytes(bytes[85..89].try_into().unwrap()),
         };
-        let camera_left_axis = Vector3 {
+        let camera_left_axis = Vec3 {
             x: f32::from_le_bytes(bytes[89..93].try_into().unwrap()),
             y: f32::from_le_bytes(bytes[93..97].try_into().unwrap()),
             z: f32::from_le_bytes(bytes[97..101].try_into().unwrap()),
         };
-        let camera_up_axis = Vector3 {
+        let camera_up_axis = Vec3 {
             x: f32::from_le_bytes(bytes[101..105].try_into().unwrap()),
             y: f32::from_le_bytes(bytes[105..109].try_into().unwrap()),
             z: f32::from_le_bytes(bytes[109..113].try_into().unwrap()),
@@ -437,5 +431,9 @@ impl PacketData for AgentUpdate {
 
     fn message_type(&self) -> super::packet::MessageType {
         MessageType::Outgoing
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

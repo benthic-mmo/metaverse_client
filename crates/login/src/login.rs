@@ -1,9 +1,8 @@
 use crate::models::errors::{create_login_error_from_message, LoginError};
 use crate::models::login_response::LoginResponse;
-use crate::models::simulator_login_protocol::{
-    Login, SimulatorLoginOptions, SimulatorLoginProtocol,
-};
+use crate::models::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 use md5;
+use metaverse_messages::models::login::Login;
 use std::env;
 use std::error::Error;
 
@@ -64,7 +63,7 @@ pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginRes
         return Ok(login_response);
     }
 
-    return Err(create_login_error_from_message(request));
+    Err(create_login_error_from_message(request))
 }
 
 ///Generates a SimulatorLoginProtocol based on user supplied values
@@ -81,7 +80,6 @@ pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginRes
 ///                         read_critical: true
 ///                         });
 ///assert_eq!(login_struct.first, "first");
-
 impl SimulatorLoginProtocol {
     pub fn new(login: Login) -> Self {
         SimulatorLoginProtocol {
