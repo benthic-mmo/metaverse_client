@@ -6,11 +6,7 @@ use crate::utils;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use metaverse_login::models::simulator_login_protocol::Login;
-use metaverse_messages::models::{
-    chat_from_viewer::{ChatFromViewer, ClientChatType},
-    client_update_data::ClientUpdateData,
-    packet::Packet,
-};
+use metaverse_messages::models::packet::Packet;
 use metaverse_session::session::Session;
 
 #[derive(Event)]
@@ -26,10 +22,10 @@ pub struct LoginState {
 }
 
 pub fn configure_ui_state_system(mut ui_state: ResMut<LoginState>) {
-    ui_state.is_window_open = true;
+    ui_state.is_window_open = true
 }
 
-pub fn ui_example_system(
+pub fn ui_login_system(
     mut login_state: ResMut<LoginState>,
     mut is_initialized: Local<bool>,
     mut contexts: EguiContexts,
@@ -43,18 +39,18 @@ pub fn ui_example_system(
     let mut login = false;
     let ctx = contexts.ctx_mut();
 
-    egui::SidePanel::left("side_panel")
+    egui::SidePanel::left("Login")
         .default_width(200.0)
         .show(ctx, |ui| {
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
-                ui.label("first name: ");
+                ui.label("First Name: ");
                 ui.text_edit_singleline(&mut login_state.first_name);
             });
 
             ui.horizontal(|ui| {
-                ui.label("last name: ");
+                ui.label("Last Name: ");
                 ui.text_edit_singleline(&mut login_state.last_name);
             });
             ui.horizontal(|ui| {
@@ -77,7 +73,9 @@ pub fn ui_example_system(
     if login {
         // this may be more idiomatic if I made this into an event
         // HOWEVER, I do not care right now this works :) 
-        init_session(stream, client_action_stream, login_state)
+        init_session(stream, client_action_stream, login_state);
+        // start the loading screen 
+        //open the chat UI
     }
 }
 
@@ -136,6 +134,5 @@ fn build_url(url: &str, port: u16) -> String {
     url_string.push_str(url);
     url_string.push(':');
     url_string.push_str(&port.to_string());
-    println!("url string {}", url_string);
     url_string
 }

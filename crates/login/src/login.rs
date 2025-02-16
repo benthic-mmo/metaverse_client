@@ -137,6 +137,10 @@ fn hash_viewer_digest() -> Result<String, Box<dyn Error>> {
     let mut f = File::open(path)?;
     let mut byt = Vec::new();
     f.read_to_end(&mut byt)?;
-    let hash = Md5::new().chain(&byt).finalize();
+
+    let mut hasher = Md5::new();
+    hasher.update(&byt);
+    let hash = hasher.finalize();
+
     Ok(format!("{:x}", hash))
 }
