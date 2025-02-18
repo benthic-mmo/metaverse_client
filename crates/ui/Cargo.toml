@@ -14,6 +14,9 @@ actix-rt = "2.10.0"
 accesskit = "0.17.1"
 tempfile = "3.17.1"
 bevy_egui = "0.32.0"
+serde = { version = "1.0", features = ["derive"] }
+crossbeam-channel = "0.5.14"
+serde_json = "1.0"
 [dependencies.uuid]
 version = "1.13.1"
 features = [

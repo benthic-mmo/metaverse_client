@@ -146,8 +146,7 @@ impl PacketData for ChatFromViewer {
             send_message_to_client(
                 client_update.clone(),
                 ClientUpdateData::String(
-                    format!("sent message!!!!!! {}", message_clone)
-                        .to_string()
+                    format!("sent message!!!!!! {}", message_clone).to_string(),
                 ),
             )
             .await

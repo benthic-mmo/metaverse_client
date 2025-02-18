@@ -2,14 +2,14 @@ use actix::Actor;
 use log::error;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tokio::task::JoinHandle;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Notify;
+use tokio::task::JoinHandle;
 
-use crate::errors::{CircuitCodeError, SendFailReason, SessionError};
+use crate::errors::SessionError;
 use crate::listen_uds::listen;
-use crate::mailbox::{Mailbox, OutgoingSocket};
 use crate::mailbox::ServerState;
+use crate::mailbox::{Mailbox, OutgoingSocket};
 
 pub async fn initialize(
     incoming_socket_path: PathBuf,
@@ -47,6 +47,6 @@ pub async fn initialize(
     let handle = actix::spawn(async move {
         listen(incoming_socket_path, mailbox).await;
     });
-    
+
     Ok(handle)
 }

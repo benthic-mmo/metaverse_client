@@ -3,6 +3,7 @@ use log::{error, info};
 use metaverse_messages::models::client_update_data::ClientUpdateData;
 use metaverse_messages::models::packet::{MessageType, Packet};
 use metaverse_messages::models::packet_ack::PacketAck;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
@@ -45,10 +46,26 @@ pub struct OutgoingSocket {
     pub socket_path: PathBuf,
 }
 
-#[derive(Debug, Message)]
+// this is a debug method that triggers a message send from the mailbox
+#[derive(Debug, Message, Serialize, Deserialize)]
 #[rtype(result = "()")]
 pub struct TriggerSend {
+    pub message_type: String,
+    pub encoding: String,
+    pub sequence_number: u16,
+    pub total_packet_number: u16,
     pub message: String,
+}
+impl TriggerSend {
+    /// Convert the struct into bytes using JSON serialization
+    pub fn as_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("Failed to serialize TriggerSend")
+    }
+
+    /// Convert bytes back into a `TriggerSend` struct
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, serde_json::Error> {
+        serde_json::from_slice(bytes)
+    }
 }
 
 const ACK_ATTEMPTS: i8 = 3;
@@ -72,12 +89,12 @@ impl Mailbox {
         loop {
             match sock.recv_from(&mut buf).await {
                 Ok((size, addr)) => {
-                    info!("Received {} bytes from {:?}", size, addr);
+                    //info!("Received {} bytes from {:?}", size, addr);
 
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
-                        Err(e) => {
-                            error!("failed to parse packet: {:?}", e);
+                        Err(_) => {
+                            //error!("failed to parse packet: {:?}", e);
                             continue;
                         }
                     };
@@ -187,11 +204,65 @@ impl Handler<TriggerSend> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: TriggerSend, _: &mut Self::Context) -> Self::Result {
         if let Some(outgoing_socket) = &self.outgoing_socket {
-            let client_socket = UnixDatagram::unbound().unwrap();
-            match client_socket.send_to(msg.message.as_bytes(), &outgoing_socket.socket_path) {
-                Ok(_) => println!("message sent from mailbox"),
-                Err(e) => println!("error sending from mailbox {:?}", e),
-            };
+            let max_message_size = 1024;
+            // json inflates the size of packages by adding braces and escape characters.
+            // This shouldn't change too much unless we change the struct
+            let json_overhead = 200;
+
+            // Serialize the common fields (message_type, encoding, sequence_number)
+            let message_type_len = msg.message_type.len();
+            let encoding_len = msg.encoding.len();
+            let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
+            let total_packet_number_len = std::mem::size_of::<u16>();
+
+            // Calculate the maximum size available for the actual message content
+            let available_size = max_message_size
+                - (message_type_len
+                    + encoding_len
+                    + sequence_number_len
+                    + total_packet_number_len
+                    + json_overhead);
+
+            // Ensure we have enough space for the actual message
+            if available_size <= 0 {
+                println!("Error: Message is too large to fit within the 1024 byte limit.");
+                return;
+            }
+
+            // Split the message content if it's larger than the available size
+            let message = msg.message;
+            let message_bytes = message.as_bytes();
+            let total_chunks = (message_bytes.len() + available_size - 1) / available_size;
+
+            // Loop through each chunk and send it
+            for chunk_index in 0..total_chunks {
+                let start = chunk_index * available_size;
+                let end = usize::min(start + available_size, message_bytes.len());
+                let chunk = &message_bytes[start..end];
+
+                // Increment the sequence number for each chunk
+                let sequence_number = msg.sequence_number + chunk_index as u16;
+
+                // Create a new message with the chunked data
+                let chunked_message = TriggerSend {
+                    message_type: msg.message_type.clone(),
+                    encoding: msg.encoding.clone(),
+                    sequence_number,
+                    total_packet_number: total_chunks as u16, // Add total number of chunks
+                    message: String::from_utf8_lossy(chunk).to_string(),
+                };
+
+                // Send the chunk using the UnixDatagram socket
+                let client_socket = UnixDatagram::unbound().unwrap();
+                if let Err(e) =
+                    client_socket.send_to(&chunked_message.as_bytes(), &outgoing_socket.socket_path)
+                {
+                    error!(
+                        "Error sending chunk {} of {} from mailbox: {:?}",
+                        sequence_number, total_chunks, e
+                    )
+                }
+            }
         }
     }
 }
@@ -206,62 +277,71 @@ impl Handler<OutgoingSocket> for Mailbox {
 // set the session to initialized.
 impl Handler<Session> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: Session, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: Session, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_ref() {
+            msg.socket = session.socket.clone();
+        }
         self.session = Some(msg);
 
-        let addr = format!("127.0.0.1:{}", self.client_socket);
+        // if the session doesn't already have a UDP socket to watch, create one
+        if let Some(session) = self.session.as_ref() {
+            if session.socket.is_none() {
+                let addr = format!("127.0.0.1:{}", self.client_socket);
 
-        let addr_clone = addr.clone();
-        let ack_queue_clone = self.ack_queue.clone();
-        let command_queue_clone = self.ack_queue.clone();
-        let data_queue_clone = self.ack_queue.clone();
-        let event_queue_clone = self.ack_queue.clone();
-        let request_queue_clone = self.ack_queue.clone();
-        let error_queue_clone = self.ack_queue.clone();
-        let outgoing_queue_clone = self.ack_queue.clone();
-        let update_stream_clone = self.update_stream.clone();
-        let mailbox_addr = ctx.address();
+                let addr_clone = addr.clone();
+                let ack_queue_clone = self.ack_queue.clone();
+                let command_queue_clone = self.ack_queue.clone();
+                let data_queue_clone = self.ack_queue.clone();
+                let event_queue_clone = self.ack_queue.clone();
+                let request_queue_clone = self.ack_queue.clone();
+                let error_queue_clone = self.ack_queue.clone();
+                let outgoing_queue_clone = self.ack_queue.clone();
+                let update_stream_clone = self.update_stream.clone();
+                let mailbox_addr = ctx.address();
 
-        println!("session established, starting UDP processing");
+                println!("session established, starting UDP processing");
 
-        let fut = async move {
-            match UdpSocket::bind(&addr).await {
-                Ok(sock) => {
-                    println!("Successfully bound to {}", &addr);
+                let fut = async move {
+                    match UdpSocket::bind(&addr).await {
+                        Ok(sock) => {
+                            println!("Successfully bound to {}", &addr);
 
-                    let sock = Arc::new(sock);
+                            let sock = Arc::new(sock);
 
-                    // Spawn a new Tokio task for reading from the socket
-                    tokio::spawn(Mailbox::start_udp_read(
-                        ack_queue_clone,
-                        command_queue_clone,
-                        data_queue_clone,
-                        event_queue_clone,
-                        request_queue_clone,
-                        error_queue_clone,
-                        outgoing_queue_clone,
-                        update_stream_clone,
-                        sock.clone(),
-                        mailbox_addr,
-                    ));
-                    Ok(sock) // Return the socket wrapped in Arc
-                }
-                Err(e) => {
-                    error!("Failed to bind to {}: {}", &addr_clone, e);
-                    Err(e)
-                }
+                            // Spawn a new Tokio task for reading from the socket
+                            tokio::spawn(Mailbox::start_udp_read(
+                                ack_queue_clone,
+                                command_queue_clone,
+                                data_queue_clone,
+                                event_queue_clone,
+                                request_queue_clone,
+                                error_queue_clone,
+                                outgoing_queue_clone,
+                                update_stream_clone,
+                                sock.clone(),
+                                mailbox_addr,
+                            ));
+                            Ok(sock) // Return the socket wrapped in Arc
+                        }
+                        Err(e) => {
+                            error!("Failed to bind to {}: {}", &addr_clone, e);
+                            Err(e)
+                        }
+                    }
+                };
+                // wait for the socket to be successfully bound and then assign it
+                ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
+                    Ok(sock) => {
+                        if let Some(session) = &mut act.session {
+                            session.socket = Some(sock);
+                        }
+                    }
+                    Err(_) => {
+                        panic!("Socket binding failed");
+                    }
+                }));
             }
-        };
-        ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
-            Ok(sock) => {
-                if let Some(session) = &mut act.session {
-                    session.socket = Some(sock);
-                }
-            }
-            Err(_) => {
-                panic!("Socket binding failed");
-            }
-        }));
+        }
     }
 }
 

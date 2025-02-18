@@ -411,5 +411,3 @@ pub async fn download_sim(
 
     Ok(())
 }
-
-

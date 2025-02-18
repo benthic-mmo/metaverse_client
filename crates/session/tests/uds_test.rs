@@ -4,31 +4,13 @@ use metaverse_messages::models::chat_from_viewer::{ChatFromViewer, ClientChatTyp
 use metaverse_messages::models::login::Login;
 use metaverse_messages::models::packet::Packet;
 use metaverse_session::initialize::initialize;
+use metaverse_session::listener_util;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
 use std::fs;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
-
-pub async fn listen(socket_path: PathBuf) {
-    let socket = UnixDatagram::bind(socket_path.clone()).unwrap();
-    info!(
-        "Test client listening to outgoing UDS on: {:?}",
-        socket_path
-    );
-    loop {
-        let mut buf = [0u8; 1024];
-        match socket.recv_from(&mut buf).await {
-            Ok((n, _)) => {
-                info!("outgoing listener receiving data {}", n);
-            }
-            Err(e) => {
-                error!("outgoing Failed to read buffer {}", e)
-            }
-        }
-    }
-}
 
 #[actix_rt::test]
 async fn test_initialize() {
@@ -39,7 +21,7 @@ async fn test_initialize() {
 
     println!("starting outgoing UDS listener");
     tokio::spawn(async move {
-        listen(outgoing_socket_path_clone).await;
+        listener_util::listen(outgoing_socket_path_clone).await;
     });
 
     match initialize(incoming_socket_path.clone(), outgoing_socket_path.clone()).await {
