@@ -2,7 +2,10 @@ use std::os::unix::net::UnixDatagram;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
-use metaverse_messages::models::{login::Login, packet::{Packet, PacketData}};
+use metaverse_messages::models::{
+    login::Login,
+    packet::{Packet, PacketData},
+};
 
 use crate::Sockets;
 
@@ -65,29 +68,30 @@ pub fn ui_login_system(
             });
         });
     if login {
-    let grid = if login_data.grid == "localhost" {
-        build_url("http://127.0.0.1", 9000)
-    } else {
-        // handle the URL normally
-        "http".to_string()
-    };
+        let grid = if login_data.grid == "localhost" {
+            build_url("http://127.0.0.1", 9000)
+        } else {
+            // handle the URL normally
+            "http".to_string()
+        };
 
-   let packet = Packet::new_login_packet(Login{
-        first: login_data.first_name.clone(),
-        last: login_data.last_name.clone(),
-        passwd: login_data.password.clone(),
-        start: "home".to_string(),
-        channel: "benthic".to_string(),
-        agree_to_tos: true,
-        read_critical: true,
-        url: grid,
-    }).to_bytes();
+        let packet = Packet::new_login_packet(Login {
+            first: login_data.first_name.clone(),
+            last: login_data.last_name.clone(),
+            passwd: login_data.password.clone(),
+            start: "home".to_string(),
+            channel: "benthic".to_string(),
+            agree_to_tos: true,
+            read_critical: true,
+            url: grid,
+        })
+        .to_bytes();
 
-    let client_socket = UnixDatagram::unbound().unwrap();
-    match client_socket.send_to(&packet, &sockets.incoming_socket) {
-        Ok(_) => println!("message sent from mailbox"),
-        Err(e) => println!("error sending from mailbox {:?}", e),
-    };
+        let client_socket = UnixDatagram::unbound().unwrap();
+        match client_socket.send_to(&packet, &sockets.incoming_socket) {
+            Ok(_) => println!("Login sent from UI"),
+            Err(e) => println!("Error sending login from UI {:?}", e),
+        };
     }
 }
 

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
 use crate::errors::{CircuitCodeError, CompleteAgentMovementError, SendFailReason, SessionError};
-use crate::mailbox::{Mailbox, Session};
+use crate::mailbox::{Mailbox, Session, TriggerSend};
 
 pub async fn listen(socket_path: PathBuf, mailbox_addr: actix::Addr<Mailbox>) {
     let socket = UnixDatagram::bind(socket_path.clone()).unwrap();
@@ -56,15 +56,11 @@ async fn login_with_creds(login_data: Login) -> Result<LoginResponse, SessionErr
 
     match login_result.await {
         Ok(Ok(response)) => Ok(response),
-        Ok(Err(e)) => {
-            Err(SessionError::new_login_error(e))
-        }
-        Err(e) => {
-            Err(SessionError::new_login_error(LoginError::new(
-                Reason::Unknown,
-                &format!("join error: {}", e),
-            )))
-        }
+        Ok(Err(e)) => Err(SessionError::new_login_error(e)),
+        Err(e) => Err(SessionError::new_login_error(LoginError::new(
+            Reason::Unknown,
+            &format!("join error: {}", e),
+        ))),
     }
 }
 
@@ -73,7 +69,22 @@ async fn handle_login(
     mailbox_addr: &actix::Addr<Mailbox>,
 ) -> Result<(), SessionError> {
     let login_response = match login_with_creds(login_data).await {
-        Ok(response) => response,
+        Ok(response) => {
+            let serialized = serde_json::to_string(&response).unwrap();
+            if let Err(e) = mailbox_addr
+                .send(TriggerSend {
+                    message_type: "LoginResponse".to_string(),
+                    total_packet_number: 0,
+                    sequence_number: 0,
+                    encoding: "json".to_string(),
+                    message: serialized.to_string(),
+                })
+                .await
+            {
+                error!("Failed to send LoginResponse to Mailbox {:?}", e)
+            };
+            response
+        }
         Err(error) => return Err(error),
     };
 
