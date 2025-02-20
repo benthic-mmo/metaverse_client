@@ -1,5 +1,5 @@
-use crate::models::header::{Header, PacketFrequency};
-use crate::models::packet::{Packet, PacketData};
+use crate::header::{Header, PacketFrequency};
+use crate::packet::{Packet, PacketData};
 use futures::future::BoxFuture;
 use std::any::Any;
 use std::collections::HashMap;

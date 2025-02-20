@@ -1,34 +1,24 @@
 // this is for your client to listen on the data coming out of the server.
 // import this and use directly, or modify to suit your own needs.
 
-use metaverse_login::models::login_response::LoginResponse;
+use crossbeam_channel::Sender;
+use metaverse_messages::login::login_response::LoginResponse;
+use std::os::unix::net::UnixDatagram;
 use std::{collections::HashMap, path::PathBuf};
-use tokio::net::UnixDatagram;
 
 use log::{error, info};
 
 use crate::mailbox::TriggerSend;
 
-pub async fn listen(socket_path: PathBuf) {
-    let socket = UnixDatagram::bind(socket_path.clone()).unwrap();
+pub async fn client_listen(socket_path: PathBuf, sender: Sender<LoginResponse>) {
+    let socket = UnixDatagram::bind(socket_path).unwrap();
     let mut message_store: HashMap<u16, String> = HashMap::new();
-    info!(
-        "Test client listening to outgoing UDS on: {:?}",
-        socket_path
-    );
+    info!("Client listening to outgoing UDS on: {:?}", socket);
     loop {
         let mut buf = [0u8; 1024];
-        match socket.recv_from(&mut buf).await {
+        match socket.recv_from(&mut buf) {
             Ok((n, _)) => {
                 if let Ok(received_chunk) = TriggerSend::from_bytes(&buf[..n]) {
-                    info!(
-                        "Received chunk {}/{} for message type: {}",
-                        received_chunk.sequence_number,
-                        received_chunk.total_packet_number,
-                        received_chunk.message_type
-                    );
-
-                    // Store the chunk
                     message_store
                         .entry(received_chunk.sequence_number)
                         .or_insert_with(String::new)
@@ -49,11 +39,12 @@ pub async fn listen(socket_path: PathBuf) {
                         if received_chunk.message_type == "LoginResponse" {
                             match serde_json::from_str::<LoginResponse>(&full_message) {
                                 Ok(login_response) => {
-                                    info!(
-                                        "Successfully deserialized LoginResponse: {:?}",
-                                        login_response
-                                    );
-                                    // Now you can use the `login_response` object
+                                    {
+                                        match sender.send(login_response) {
+                                                    Ok(()) => info!("sent LoginResponse event to the login response handler"),
+                                                    Err(e) => error!("failed to send to mspc {:?}", e)
+                                                };
+                                    };
                                 }
                                 Err(e) => {
                                     error!("Failed to deserialize LoginResponse: {:?}", e);

@@ -1,4 +1,4 @@
-use metaverse_login::models::errors::LoginError;
+use metaverse_messages::login::errors::LoginError;
 use std::{error::Error, fmt};
 
 #[derive(Clone, Debug)]

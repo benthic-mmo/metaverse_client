@@ -1,4 +1,4 @@
-use crate::models::header::Header;
+use crate::header::Header;
 use actix::prelude::*;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
@@ -100,7 +100,8 @@ fn zero_decode(bytes: &[u8]) -> Vec<u8> {
     dest
 }
 
-fn zero_encode(src: &[u8]) -> Vec<u8> {
+// not implemented yet
+fn _zero_encode(src: &[u8]) -> Vec<u8> {
     let mut dest = Vec::new();
     let mut i = 0;
 
