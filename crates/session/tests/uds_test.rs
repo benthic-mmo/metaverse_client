@@ -1,38 +1,61 @@
+use actix::System;
+use crossbeam_channel::unbounded;
 use log::{error, info, LevelFilter};
+use tempfile::NamedTempFile;
 
-use metaverse_messages::models::chat_from_viewer::{ChatFromViewer, ClientChatType};
-use metaverse_messages::models::login::Login;
-use metaverse_messages::models::packet::Packet;
+use metaverse_messages::chat_from_viewer::{ChatFromViewer, ClientChatType};
+use metaverse_messages::login::login::Login;
+use metaverse_messages::packet::Packet;
 use metaverse_session::initialize::initialize;
 use metaverse_session::listener_util;
-use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
 use std::fs;
-use std::path::PathBuf;
-use tokio::net::UnixDatagram;
+use std::os::unix::net::UnixDatagram;
+use std::thread::sleep;
+use std::time::Duration;
 
-#[actix_rt::test]
-async fn test_initialize() {
+#[test]
+fn test_initialize() {
     init_logger();
-    let incoming_socket_path = PathBuf::from("/tmp/metaverse_incoming.sock");
-    let outgoing_socket_path = PathBuf::from("/tmp/metaverse_outgoing.sock");
+    let incoming_socket_path = NamedTempFile::new()
+        .expect("Failed to create temp file")
+        .path()
+        .to_path_buf();
+    let outgoing_socket_path = NamedTempFile::new()
+        .expect("Failed to create temp file")
+        .path()
+        .to_path_buf();
     let outgoing_socket_path_clone = outgoing_socket_path.clone();
+    let outgoing_socket_path_clone2 = outgoing_socket_path.clone();
+
+    let incoming_socket_path_clone = incoming_socket_path.clone();
 
     println!("starting outgoing UDS listener");
-    tokio::spawn(async move {
-        listener_util::listen(outgoing_socket_path_clone).await;
+    let (sender, _) = unbounded();
+
+    std::thread::spawn(||async move {
+        listener_util::client_listen(outgoing_socket_path_clone, sender).await;
     });
 
-    match initialize(incoming_socket_path.clone(), outgoing_socket_path.clone()).await {
-        Ok(_) => {
-            println!("mailbox initialized")
-        }
-        Err(e) => {
-            println!("error :( {:?}", e)
-        }
-    };
+    std::thread::spawn(|| {
+        System::new().block_on(async {
+            match initialize(incoming_socket_path_clone, outgoing_socket_path_clone2).await {
+                Ok(handle) => {
+                    match handle.await {
+                        Ok(()) => info!("Listener exited successfully!"),
+                        Err(e) => error!("Listener exited with error {:?}", e),
+                    };
+                }
+                Err(err) => {
+                    error!("Failed to start client: {:?}", err);
+                }
+            }
+        });
+    });
 
+    // wait for the mailbox to be ready. This can be done in a better way. 
+    sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
         first: "default".to_string(),
         last: "user".to_string(),
@@ -45,12 +68,12 @@ async fn test_initialize() {
     })
     .to_bytes();
     let client_socket = UnixDatagram::unbound().unwrap();
-    match client_socket.send_to(&message, &incoming_socket_path).await {
-        Ok(_) => println!("message sent from mailbox"),
-        Err(e) => println!("error sending from mailbox {:?}", e),
+    match client_socket.send_to(&message, &incoming_socket_path) {
+        Ok(_) => println!("message sent to mailbox"),
+        Err(e) => println!("error sending to mailbox {:?}", e),
     };
 
-    sleep(Duration::from_secs(2)).await;
+    sleep(Duration::from_secs(2));
     let chat_message = Packet::new_chat_from_viewer(ChatFromViewer {
         agent_id: Uuid::new_v4(),
         session_id: Uuid::new_v4(),
@@ -62,25 +85,12 @@ async fn test_initialize() {
     let client_socket = UnixDatagram::unbound().unwrap();
     match client_socket
         .send_to(&chat_message, &incoming_socket_path)
-        .await
     {
         Ok(_) => println!("message sent from mailbox"),
         Err(e) => println!("error sending from mailbox {:?}", e),
     };
 
-    sleep(Duration::from_secs(3)).await;
-    if incoming_socket_path.exists() {
-        println!("Removing existing socket file");
-        if let Err(e) = fs::remove_file(incoming_socket_path) {
-            eprintln!("Failed to remove socket file: {}", e);
-        }
-    }
-    if outgoing_socket_path.exists() {
-        println!("Removing existing socket file");
-        if let Err(e) = fs::remove_file(outgoing_socket_path) {
-            eprintln!("Failed to remove socket file: {}", e);
-        }
-    }
+    sleep(Duration::from_secs(5));
 }
 
 fn init_logger() {

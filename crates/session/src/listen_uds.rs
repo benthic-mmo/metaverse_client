@@ -1,12 +1,11 @@
 use log::{error, info};
-use metaverse_login::login::login;
-use metaverse_login::models::errors::{LoginError, Reason};
-use metaverse_login::models::login_response::LoginResponse;
-use metaverse_login::models::simulator_login_protocol::SimulatorLoginProtocol;
-use metaverse_messages::models::circuit_code::CircuitCodeData;
-use metaverse_messages::models::complete_agent_movement::CompleteAgentMovementData;
-use metaverse_messages::models::login::Login;
-use metaverse_messages::models::packet::Packet;
+use metaverse_messages::circuit_code::CircuitCodeData;
+use metaverse_messages::complete_agent_movement::CompleteAgentMovementData;
+use metaverse_messages::login::errors::{LoginError, Reason};
+use metaverse_messages::login::login::{login, Login};
+use metaverse_messages::login::login_response::LoginResponse;
+use metaverse_messages::login::simulator_login_protocol::SimulatorLoginProtocol;
+use metaverse_messages::packet::Packet;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 

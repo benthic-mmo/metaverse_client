@@ -1,10 +1,9 @@
 [workspace]
 members = [
-	"crates/login", 
 	"crates/session",
 	"crates/messages",
   "crates/instantiator", 
-  "crates/utils", "crates/chat", "crates/ui"]
+  "crates/utils", "crates/ui"]
 
 
 [patch.crates-io]

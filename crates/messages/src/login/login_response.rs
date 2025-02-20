@@ -1,4 +1,11 @@
-use crate::models::errors::ConversionError;
+/// This is cursed land. 
+/// the code in this file could be tried for treason. 
+/// this is for parsing absolutely busted xlm-rpc that comes out of the server, and should never be touched by anyone
+/// unless it breaks.
+/// I wrote this a long time ago, but it still works, and the less time you spend thinking about
+/// xml-rpc as used in this project, the better. 
+
+use crate::login::errors::ConversionError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;

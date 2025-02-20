@@ -2,15 +2,9 @@ use std::os::unix::net::UnixDatagram;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
-use metaverse_messages::models::{
-    login::Login,
-    packet::{Packet, PacketData},
-};
+use metaverse_messages::{login::login::Login, packet::Packet};
 
 use crate::Sockets;
-
-#[derive(Event)]
-pub struct ClientEvent(pub Packet);
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
@@ -18,11 +12,6 @@ pub struct LoginData {
     last_name: String,
     password: String,
     grid: String,
-    is_window_open: bool,
-}
-
-pub fn configure_ui_state_system(mut ui_state: ResMut<LoginData>) {
-    ui_state.is_window_open = true
 }
 
 pub fn ui_login_system(

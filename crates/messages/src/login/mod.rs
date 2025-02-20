@@ -4,4 +4,6 @@
 //! servers.
 //login functions for logging into metaverse servers
 pub mod login;
-pub mod models;
+pub mod errors;
+pub mod login_response;
+pub mod simulator_login_protocol;

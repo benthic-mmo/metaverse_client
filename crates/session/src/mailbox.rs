@@ -1,8 +1,8 @@
 use actix::prelude::*;
 use log::{error, info};
-use metaverse_messages::models::client_update_data::ClientUpdateData;
-use metaverse_messages::models::packet::{MessageType, Packet};
-use metaverse_messages::models::packet_ack::PacketAck;
+use metaverse_messages::client_update_data::ClientUpdateData;
+use metaverse_messages::packet::{MessageType, Packet};
+use metaverse_messages::packet_ack::PacketAck;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::os::unix::net::UnixDatagram;
@@ -88,7 +88,7 @@ impl Mailbox {
         let mut buf = [0; 1024];
         loop {
             match sock.recv_from(&mut buf).await {
-                Ok((size, addr)) => {
+                Ok((size, _addr)) => {
                     //info!("Received {} bytes from {:?}", size, addr);
 
                     let packet = match Packet::from_bytes(&buf[..size]) {

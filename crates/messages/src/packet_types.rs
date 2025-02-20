@@ -1,8 +1,9 @@
+use crate::login::login::Login;
+
 use super::agent_update::AgentUpdate;
 use super::chat_from_simulator::ChatFromSimulator;
 use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
-use super::login::Login;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
