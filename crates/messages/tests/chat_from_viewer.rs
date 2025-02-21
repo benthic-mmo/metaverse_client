@@ -1,5 +1,5 @@
 use hex::FromHex;
-use metaverse_messages::models::{
+use metaverse_messages::{
     chat_from_viewer::{ChatFromViewer, ClientChatType},
     packet::Packet,
 };
