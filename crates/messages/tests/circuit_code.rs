@@ -1,5 +1,5 @@
 use hex::FromHex;
-use metaverse_messages::models::packet::Packet;
+use metaverse_messages::packet::Packet;
 
 #[test]
 fn test_use_circuit_code_firestorm_parse() {

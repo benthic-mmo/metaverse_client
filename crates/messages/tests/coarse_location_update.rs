@@ -1,5 +1,5 @@
 use hex::FromHex;
-use metaverse_messages::models::packet::Packet;
+use metaverse_messages::packet::Packet;
 
 #[test]
 fn test_coarse_location_update() {

@@ -1,5 +1,5 @@
 use hex::FromHex;
-use metaverse_messages::models::header::{Header, PacketFrequency};
+use metaverse_messages::header::{Header, PacketFrequency};
 
 #[test]
 fn test_header_for_acks() {
