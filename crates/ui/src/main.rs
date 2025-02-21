@@ -1,23 +1,21 @@
 mod login;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use actix_rt::System;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
-use metaverse_messages::login::login_response::LoginResponse;
-use metaverse_session::listener_util::client_listen;
+use metaverse_messages::login_system::login_response::LoginResponse;
+use metaverse_session::client_subscriber::listen_for_server_events;
 use tempfile::NamedTempFile;
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use metaverse_session::initialize::initialize;
-use tokio::sync::Notify;
 
 #[derive(Resource)]
 struct Sockets {
-    incoming_socket: PathBuf,
-    outgoing_socket: PathBuf,
+    ui_to_server_socket: PathBuf,
+    server_to_ui_socket: PathBuf,
 }
 
 #[derive(Resource)]
@@ -33,11 +31,11 @@ struct LoginResponseEvent {
 
 fn main() {
     // create temporary files
-    let incoming_socket_path = NamedTempFile::new()
+    let ui_to_server_socket = NamedTempFile::new()
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    let outgoing_socket_path = NamedTempFile::new()
+    let server_to_ui_socket = NamedTempFile::new()
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
@@ -46,8 +44,8 @@ fn main() {
 
     App::new()
         .insert_resource(Sockets {
-            incoming_socket: incoming_socket_path,
-            outgoing_socket: outgoing_socket_path,
+            ui_to_server_socket,
+            server_to_ui_socket,
         })
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
@@ -85,23 +83,22 @@ fn handle_queue(
 }
 
 fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
-    let outgoing_socket = sockets.outgoing_socket.clone();
+    let outgoing_socket = sockets.server_to_ui_socket.clone();
     let thread_pool = AsyncComputeTaskPool::get();
     let sender = event_queue.sender.clone();
 
     thread_pool
-        .spawn(async move { client_listen(outgoing_socket, sender).await })
+        .spawn(async move { listen_for_server_events(outgoing_socket, sender).await })
         .detach();
 }
 
 fn start_client(sockets: Res<Sockets>) {
-    let incoming_socket = sockets.incoming_socket.clone();
-    let outgoing_socket = sockets.outgoing_socket.clone();
-    let notify = Arc::new(Notify::new());
+    let server_to_ui_socket = sockets.server_to_ui_socket.clone();
+    let ui_to_server_socket = sockets.ui_to_server_socket.clone();
     // start the actix process, and do not close the system until everything is finished
     std::thread::spawn(|| {
         System::new().block_on(async {
-            match initialize(incoming_socket, outgoing_socket, notify).await {
+            match initialize(ui_to_server_socket, server_to_ui_socket).await {
                 Ok(handle) => {
                     match handle.await {
                         Ok(()) => info!("Listener exited successfully!"),

@@ -2,7 +2,7 @@ use std::os::unix::net::UnixDatagram;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
-use metaverse_messages::{login::login::Login, packet::Packet};
+use metaverse_messages::{login_system::login::Login, packet::Packet};
 
 use crate::Sockets;
 
@@ -77,7 +77,7 @@ pub fn ui_login_system(
         .to_bytes();
 
         let client_socket = UnixDatagram::unbound().unwrap();
-        match client_socket.send_to(&packet, &sockets.incoming_socket) {
+        match client_socket.send_to(&packet, &sockets.ui_to_server_socket) {
             Ok(_) => println!("Login sent from UI"),
             Err(e) => println!("Error sending login from UI {:?}", e),
         };

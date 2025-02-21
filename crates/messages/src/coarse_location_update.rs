@@ -1,16 +1,8 @@
-use super::{
-    client_update_data::ClientUpdateData,
-    packet::{MessageType, PacketData},
-};
+use super::packet::{MessageType, PacketData};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::{any::Any, sync::Mutex};
-use std::{
-    collections::HashMap,
-    io::{self, Cursor, Write},
-    sync::Arc,
-};
-use tokio::sync::oneshot::Sender;
+use std::any::Any;
+use std::io::{self, Cursor, Write};
 
 /// ID: 6
 /// Frequency: Medium
@@ -86,15 +78,9 @@ impl PacketData for CoarseLocationUpdate {
 
         bytes
     }
-    fn on_receive(
-        &self,
-        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        _: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> BoxFuture<'static, ()> {
-        // Dummy implementation for boilerplate
+    fn on_receive(&self) -> BoxFuture<'static, ()> {
         Box::pin(async move {
-            // Implement the actual logic here later
-            println!("on_receive is not yet implemented.");
+            println!("coarse_location_update on_receive is not yet implemented.");
         })
     }
     fn message_type(&self) -> MessageType {

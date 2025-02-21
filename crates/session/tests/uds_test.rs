@@ -4,13 +4,12 @@ use log::{error, info, LevelFilter};
 use tempfile::NamedTempFile;
 
 use metaverse_messages::chat_from_viewer::{ChatFromViewer, ClientChatType};
-use metaverse_messages::login::login::Login;
+use metaverse_messages::login_system::login::Login;
 use metaverse_messages::packet::Packet;
+use metaverse_session::client_subscriber::listen_for_server_events;
 use metaverse_session::initialize::initialize;
-use metaverse_session::listener_util;
 use uuid::Uuid;
 
-use std::fs;
 use std::os::unix::net::UnixDatagram;
 use std::thread::sleep;
 use std::time::Duration;
@@ -31,11 +30,14 @@ fn test_initialize() {
 
     let incoming_socket_path_clone = incoming_socket_path.clone();
 
-    println!("starting outgoing UDS listener");
+    println!("Starting outgoing UDS listener");
     let (sender, _) = unbounded();
 
-    std::thread::spawn(||async move {
-        listener_util::client_listen(outgoing_socket_path_clone, sender).await;
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+        rt.block_on(async {
+            listen_for_server_events(outgoing_socket_path_clone, sender).await;
+        });
     });
 
     std::thread::spawn(|| {
@@ -54,7 +56,7 @@ fn test_initialize() {
         });
     });
 
-    // wait for the mailbox to be ready. This can be done in a better way. 
+    // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
         first: "default".to_string(),
@@ -83,9 +85,7 @@ fn test_initialize() {
     })
     .to_bytes();
     let client_socket = UnixDatagram::unbound().unwrap();
-    match client_socket
-        .send_to(&chat_message, &incoming_socket_path)
-    {
+    match client_socket.send_to(&chat_message, &incoming_socket_path) {
         Ok(_) => println!("message sent from mailbox"),
         Err(e) => println!("error sending from mailbox {:?}", e),
     };

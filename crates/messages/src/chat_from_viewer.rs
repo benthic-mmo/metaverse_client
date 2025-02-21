@@ -1,18 +1,15 @@
 use super::{
-    client_update_data::{send_message_to_client, ClientUpdateData},
     header::{Header, PacketFrequency},
     packet::{MessageType, Packet, PacketData},
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use futures::future::BoxFuture;
+use std::io::Read;
 use std::{
     any::Any,
-    collections::HashMap,
     io::{self, Cursor},
     sync::Arc,
 };
-use std::{io::Read, sync::Mutex};
-use tokio::sync::oneshot::Sender;
 use uuid::Uuid;
 
 impl Packet {
@@ -135,21 +132,9 @@ impl PacketData for ChatFromViewer {
         bytes
     }
 
-    fn on_receive(
-        &self,
-        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        client_update: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> BoxFuture<'static, ()> {
-        //let chat_data: ClientUpdateData = ClientUpdateData::ChatFromSimulator(self.clone());
-        let message_clone = self.message.clone();
+    fn on_receive(&self) -> BoxFuture<'static, ()> {
         Box::pin(async move {
-            send_message_to_client(
-                client_update.clone(),
-                ClientUpdateData::String(
-                    format!("sent message!!!!!! {}", message_clone).to_string(),
-                ),
-            )
-            .await
+            println!("chat_from_viewer on_receive is not yet implemented.");
         })
     }
 

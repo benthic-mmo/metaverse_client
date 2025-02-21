@@ -1,16 +1,11 @@
+use super::packet_types::PacketType;
 use crate::header::Header;
 use actix::prelude::*;
 use futures::future::BoxFuture;
-use std::collections::HashMap;
+use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
 use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::sync::oneshot::Sender;
-
-use super::client_update_data::ClientUpdateData;
-use super::packet_types::PacketType;
-use std::any::Any;
 
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
@@ -40,11 +35,7 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static + Any {
     where
         Self: Sized;
     fn to_bytes(&self) -> Vec<u8>;
-    fn on_receive(
-        &self,
-        queue: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> BoxFuture<'static, ()>;
+    fn on_receive(&self) -> BoxFuture<'static, ()>;
     fn message_type(&self) -> MessageType;
     fn as_any(&self) -> &dyn Any;
 }

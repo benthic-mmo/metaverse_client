@@ -1,8 +1,7 @@
-use crate::client_update_data::ClientUpdateData;
+use crate::login_system::errors::{create_login_error_from_message, LoginError, Reason};
+use crate::login_system::login_response::LoginResponse;
+use crate::login_system::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 use crate::packet::MessageType;
-use crate::login::errors::{create_login_error_from_message, LoginError, Reason};
-use crate::login::login_response::LoginResponse;
-use crate::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 use std::env;
 use std::error::Error;
 
@@ -15,12 +14,8 @@ use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
 use futures::future::BoxFuture;
 use std::any::Any;
-use std::collections::HashMap;
 use std::io::{self, BufRead, Read};
 use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::sync::oneshot::Sender;
-
 
 #[derive(Debug, Clone)]
 pub struct Login {
@@ -71,12 +66,7 @@ pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginRes
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
     let request = match req.call_url(url) {
         Ok(request) => request,
-        Err(e) => {
-            return Err(LoginError::new(
-                Reason::Connection,
-                &e.to_string(),
-            ))
-        }
+        Err(e) => return Err(LoginError::new(Reason::Connection, &e.to_string())),
     };
 
     if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
@@ -171,8 +161,8 @@ impl PacketData for Login {
             let mut buffer = Vec::new();
             cursor.read_until(0, &mut buffer)?;
             buffer.pop(); // Remove null terminator
-            Ok(String::from_utf8(buffer)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?)
+            String::from_utf8(buffer)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         };
 
         let first = read_string(&mut cursor)?;
@@ -219,13 +209,9 @@ impl PacketData for Login {
         bytes
     }
 
-    fn on_receive(
-        &self,
-        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        _: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> BoxFuture<'static, ()> {
+    fn on_receive(&self) -> BoxFuture<'static, ()> {
         Box::pin(async move {
-            println!("Login packet received");
+            println!("Login on_recieve not yet implemented");
         })
     }
 

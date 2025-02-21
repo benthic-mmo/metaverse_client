@@ -1,17 +1,14 @@
 use super::{
-    client_update_data::ClientUpdateData,
     header::{Header, PacketFrequency},
     packet::{MessageType, Packet, PacketData},
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::{any::Any, sync::Mutex};
+use std::any::Any;
 use std::{
-    collections::HashMap,
     io::{self, Cursor},
     sync::Arc,
 };
-use tokio::sync::oneshot::Sender;
 
 impl Packet {
     pub fn new_packet_ack(packet_ack: PacketAck) -> Self {
@@ -64,22 +61,9 @@ impl PacketData for PacketAck {
         bytes
     }
 
-    fn on_receive(
-        &self,
-        ack_queue: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        _: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> BoxFuture<'static, ()> {
-        let packet_ids = self.packet_ids.clone();
-
+    fn on_receive(&self) -> BoxFuture<'static, ()> {
         Box::pin(async move {
-            let mut queue = ack_queue.lock().unwrap();
-            for id in packet_ids {
-                if let Some(sender) = queue.remove(&id) {
-                    let _ = sender.send(());
-                } else {
-                    println!("No pending ack found for request ID: {}", id);
-                }
-            }
+            println!("packet_ack on_receive is not yet implemented.");
         })
     }
 
