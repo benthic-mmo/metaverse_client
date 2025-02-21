@@ -1,10 +1,10 @@
-use std::any::Any;
-use std::sync::Arc;
 use uuid::Uuid;
+
+use crate::packet_types::PacketType;
 
 use super::{
     header::{Header, PacketFrequency},
-    packet::{MessageType, Packet, PacketData},
+    packet::{Packet, PacketData},
 };
 
 impl Packet {
@@ -23,12 +23,12 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(complete_agent_movement_data),
+            body: PacketType::CompleteAgentMovementData(Box::new(complete_agent_movement_data)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompleteAgentMovementData {
     pub agent_id: Uuid,
     pub session_id: Uuid,
@@ -58,12 +58,5 @@ impl PacketData for CompleteAgentMovementData {
         Box::pin(async move {
             println!("complete_agent_movement on_receive is not yet implemented.");
         })
-    }
-    fn message_type(&self) -> MessageType {
-        MessageType::Outgoing
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

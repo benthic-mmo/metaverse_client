@@ -1,13 +1,12 @@
-use super::packet::{MessageType, PacketData};
+use super::packet::PacketData;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::any::Any;
 use std::io::{self, Cursor, Write};
 
 /// ID: 6
 /// Frequency: Medium
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MinimapEntities {
     x: u8,
     y: u8,
@@ -30,7 +29,7 @@ impl MinimapEntities {
         Ok(())
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CoarseLocationUpdate {
     locations: Vec<MinimapEntities>,
     you: i16,
@@ -82,12 +81,5 @@ impl PacketData for CoarseLocationUpdate {
         Box::pin(async move {
             println!("coarse_location_update on_receive is not yet implemented.");
         })
-    }
-    fn message_type(&self) -> MessageType {
-        MessageType::Event
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

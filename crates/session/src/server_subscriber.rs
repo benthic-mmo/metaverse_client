@@ -6,21 +6,23 @@ use metaverse_messages::login_system::login::{login, Login};
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
+use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::ui_events::UiEventTypes;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
 use crate::errors::{CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError};
 use crate::mailbox::{Mailbox, Session, UiMessage};
 
-/// This is used for the server to listen to messages coming in from the UI. 
+/// This is used for the server to listen to messages coming in from the UI.
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
-/// would be sent to and from the server. 
-/// all of these packets and their byte representations are defined by the spec here. 
+/// would be sent to and from the server.
+/// all of these packets and their byte representations are defined by the spec here.
 /// https://wiki.secondlife.com/wiki/Category:Messages
-/// Messages are sent to the server using UDS. 
+/// Messages are sent to the server using UDS.
 ///
-/// Once this is running, users can send messages like 
-/// ```rust 
+/// Once this is running, users can send messages like
+/// ```rust
 /// use metaverse_messages::packet::Packet;
 /// use metaverse_messages::login::login::Login;
 /// use std::os::unix::net::UnixDatagram;
@@ -67,7 +69,7 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
                         continue;
                     }
                 };
-                if let Some(login) = packet.body.as_any().downcast_ref::<Login>() {
+                if let PacketType::Login(login) = packet.body {
                     match handle_login((*login).clone(), &mailbox_addr).await {
                         Ok(_) => info!("Successfully logged in"),
                         Err(e) => warn!("Failed to log in {:?}", e),
@@ -107,13 +109,10 @@ async fn handle_login(
         Ok(response) => {
             let serialized = serde_json::to_string(&response).unwrap();
             if let Err(e) = mailbox_addr
-                .send(UiMessage {
-                    message_type: "LoginResponse".to_string(),
-                    total_packet_number: 0,
-                    sequence_number: 0,
-                    encoding: "json".to_string(),
-                    message: serialized.to_string(),
-                })
+                .send(UiMessage::new(
+                    UiEventTypes::LoginResponseEvent,
+                    serialized.to_string().into_bytes(),
+                ))
                 .await
             {
                 warn!("Failed to send LoginResponse to Mailbox {:?}", e)

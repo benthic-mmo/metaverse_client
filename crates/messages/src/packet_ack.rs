@@ -1,14 +1,12 @@
+use crate::packet_types::PacketType;
+
 use super::{
     header::{Header, PacketFrequency},
-    packet::{MessageType, Packet, PacketData},
+    packet::{Packet, PacketData},
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use futures::future::BoxFuture;
-use std::any::Any;
-use std::{
-    io::{self, Cursor},
-    sync::Arc,
-};
+use std::io::{self, Cursor};
 
 impl Packet {
     pub fn new_packet_ack(packet_ack: PacketAck) -> Self {
@@ -24,12 +22,12 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(packet_ack),
+            body: PacketType::PacketAck(Box::new(packet_ack)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PacketAck {
     pub packet_ids: Vec<u32>,
 }
@@ -65,13 +63,5 @@ impl PacketData for PacketAck {
         Box::pin(async move {
             println!("packet_ack on_receive is not yet implemented.");
         })
-    }
-
-    fn message_type(&self) -> MessageType {
-        MessageType::Acknowledgment
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

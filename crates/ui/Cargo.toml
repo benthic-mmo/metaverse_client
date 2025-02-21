@@ -8,7 +8,6 @@ resolver = "2"
 bevy = "0.15"
 metaverse_session = {path = "../session/"}
 metaverse_messages = {path = "../messages/"}
-bevy-tokio-tasks = {path = "../../../bevy-actix-tasks/"}
 tokio = { version = "1", features = ["full"] }
 actix-rt = "2.10.0"
 accesskit = "0.17.1"

@@ -1,8 +1,11 @@
 use actix::prelude::*;
-use log::{error, info};
+use bincode;
+use log::{error, info, warn};
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
+use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::os::unix::net::UnixDatagram;
@@ -38,6 +41,9 @@ pub struct Mailbox {
     pub notify: Arc<Notify>,
     /// Session information for after login
     pub session: Option<Session>,
+
+    /// the global number of packets that have been sent to the UI
+    pub sent_packet_count: u16,
 }
 
 /// Session of the user
@@ -65,29 +71,40 @@ pub struct ServerToUiSocket {
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.
-#[derive(Debug, Message, Serialize, Deserialize)]
+#[derive(Debug, Message, Serialize, Deserialize, Clone)]
 #[rtype(result = "()")]
 pub struct UiMessage {
     /// Type of message, for decoding in the UI
-    pub message_type: String,
-    /// Encoding of message body, for decoding in the UI
-    pub encoding: String,
+    pub message_type: UiEventTypes,
     /// Which number in a series of messages is it
     pub sequence_number: u16,
     /// how mant messages are there in total
     pub total_packet_number: u16,
+    /// for serializing
+    pub packet_number: u16,
     /// the encoded message to be decoded by the UI
-    pub message: String,
+    pub message: Vec<u8>,
 }
 impl UiMessage {
     /// Convert the struct into bytes using JSON serialization
     pub fn as_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("Failed to serialize UiMessage")
+        bincode::serialize(self).expect("Failed to serialize UiMessage")
     }
 
     /// Convert bytes back into a `UiMessage` struct
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, serde_json::Error> {
-        serde_json::from_slice(bytes)
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        bincode::deserialize(bytes).ok()
+    }
+    /// create a new UiMessage
+    pub fn new(message_type: UiEventTypes, message: Vec<u8>) -> UiMessage {
+        UiMessage {
+            message_type,
+            message,
+            // these will get handled later
+            sequence_number: 0,
+            total_packet_number: 0,
+            packet_number: 0,
+        }
     }
 }
 
@@ -100,10 +117,9 @@ pub enum ServerState {
     Running,
     /// The mailbox is preparing to stop
     Stopping,
-    /// the mailbox is stopped 
+    /// the mailbox is stopped
     Stopped,
 }
-
 
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
@@ -136,14 +152,13 @@ impl Mailbox {
                             Err(_) => println!("ack failed to send"),
                         };
                     }
-
+                    packet.body.on_receive().await;
                     // if the packet is an Ack packet, handle it
-                    if let MessageType::Acknowledgment = packet.body.message_type() {
-                            if let Some(packet_ack) =
-                                packet.body.as_any().downcast_ref::<PacketAck>()
-                            {
+                    match packet.body.message_type() {
+                        MessageType::Acknowledgment => {
+                            if let PacketType::PacketAck(data) = packet.body.clone() {
                                 let mut queue = ack_queue.lock().unwrap();
-                                for id in packet_ack.packet_ids.clone() {
+                                for id in data.packet_ids.clone() {
                                     if let Some(sender) = queue.remove(&id) {
                                         let _ = sender.send(());
                                     } else {
@@ -152,6 +167,21 @@ impl Mailbox {
                                 }
                             }
                         }
+
+                        MessageType::Event => {
+                            match mailbox_address
+                                .send(UiMessage::new(
+                                    packet.body.ui_event(),
+                                    packet.body.to_bytes(),
+                                ))
+                                .await
+                            {
+                                Ok(()) => info!("event sent to UI"),
+                                Err(e) => warn!("failed to send to ui: {:?}", e),
+                            };
+                        }
+                        _ => {}
+                    }
                     packet.body.on_receive().await;
                     info!("packet received: {:?}", packet);
                 }
@@ -191,34 +221,31 @@ impl Handler<UiMessage> for Mailbox {
     fn handle(&mut self, msg: UiMessage, _: &mut Self::Context) -> Self::Result {
         if let Some(socket) = &self.server_to_ui_socket {
             let max_message_size = 1024;
-            // json inflates the size of packages by adding braces and escape characters.
-            // This shouldn't change too much unless we change the struct
-            let json_overhead = 200;
+            // leave a little room at the end
+            let overhead = 2;
 
-            // Serialize the common fields (message_type, encoding, sequence_number)
-            let message_type_len = msg.message_type.len();
-            let encoding_len = msg.encoding.len();
+            let message_type_len = msg.message_type.to_string().len();
             let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
             let total_packet_number_len = std::mem::size_of::<u16>();
+            let packet_number_len = std::mem::size_of::<u16>();
 
             // Calculate the maximum size available for the actual message content
             let available_size = max_message_size
                 - (message_type_len
-                    + encoding_len
                     + sequence_number_len
                     + total_packet_number_len
-                    + json_overhead);
+                    + packet_number_len
+                    + overhead);
 
             // Split the message content if it's larger than the available size
             let message = msg.message;
-            let message_bytes = message.as_bytes();
-            let total_chunks = message_bytes.len().div_ceil(available_size);
+            let total_chunks = message.len().div_ceil(available_size);
 
             // Loop through each chunk and send it
             for chunk_index in 0..total_chunks {
                 let start = chunk_index * available_size;
-                let end = usize::min(start + available_size, message_bytes.len());
-                let chunk = &message_bytes[start..end];
+                let end = usize::min(start + available_size, message.len());
+                let chunk = &message[start..end];
 
                 // Increment the sequence number for each chunk
                 let sequence_number = msg.sequence_number + chunk_index as u16;
@@ -226,10 +253,10 @@ impl Handler<UiMessage> for Mailbox {
                 // Create a new message with the chunked data
                 let chunked_message = UiMessage {
                     message_type: msg.message_type.clone(),
-                    encoding: msg.encoding.clone(),
                     sequence_number,
                     total_packet_number: total_chunks as u16, // Add total number of chunks
-                    message: String::from_utf8_lossy(chunk).to_string(),
+                    message: chunk.to_vec(),
+                    packet_number: self.sent_packet_count,
                 };
 
                 // Send the chunk using the UnixDatagram socket
@@ -243,6 +270,7 @@ impl Handler<UiMessage> for Mailbox {
                     )
                 }
             }
+            self.sent_packet_count += 1;
         }
     }
 }

@@ -1,11 +1,22 @@
 use crossbeam_channel::Sender;
+use log::error;
+use metaverse_messages::chat_from_simulator::ChatFromSimulator;
+use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login_system::login_response::LoginResponse;
+use metaverse_messages::packet::PacketData;
+use metaverse_messages::ui_events::UiEventTypes;
 use std::os::unix::net::UnixDatagram;
 use std::{collections::HashMap, path::PathBuf};
 
 use log::{info, warn};
 
 use crate::mailbox::UiMessage;
+
+/// This stores the packet and the chunks for deserialization
+pub struct PacketStore {
+    /// the chunks that belong to that packet
+    chunks: HashMap<u16, Vec<u8>>,
+}
 
 /// This is for your client to listen on the data coming out of the server.
 /// import this and use directly, or modify to suit your own needs.
@@ -48,48 +59,78 @@ use crate::mailbox::UiMessage;
 ///```
 pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<LoginResponse>) {
     let socket = UnixDatagram::bind(socket_path).unwrap();
-    let mut message_store: HashMap<u16, String> = HashMap::new();
+    let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
+
     info!("UI listening for server events on UDS: {:?}", socket);
     loop {
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf) {
             Ok((n, _)) => {
-                if let Ok(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
-                    message_store
-                        .entry(received_chunk.sequence_number)
-                        .or_default()
-                        .push_str(&received_chunk.message);
+                if let Some(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
+                    let packet_store =
+                        message_store
+                            .entry(received_chunk.packet_number)
+                            .or_insert(PacketStore {
+                                chunks: HashMap::new(),
+                            });
+
+                    packet_store
+                        .chunks
+                        .insert(received_chunk.sequence_number, received_chunk.message);
+
                     // Check if we have all chunks
-                    if message_store.len() == received_chunk.total_packet_number as usize {
-                        let mut full_message = String::new();
+                    if packet_store.chunks.len() == received_chunk.total_packet_number as usize {
+                        let mut full_message = Vec::new();
                         for i in 0..received_chunk.total_packet_number {
-                            if let Some(chunk) = message_store.remove(&i) {
-                                full_message.push_str(&chunk);
+                            if let Some(chunk) = packet_store.chunks.remove(&i) {
+                                full_message.extend_from_slice(&chunk);
                             } else {
                                 warn!("Missing chunk {} for message reconstruction", i);
                                 return;
                             }
                         }
-                        // TODO: right now this function ONLY works on LoginResponses.
-                        // that's not good. This is going to become much more generic very soon.
-                        // we can do better than parsing this string but it's good enough for now
-                        // After receiving the full message, check the message type and deserialize if needed
-                        if received_chunk.message_type == "LoginResponse" {
-                            match serde_json::from_str::<LoginResponse>(&full_message) {
-                                Ok(login_response) => {
-                                    {
-                                        match sender.send(login_response) {
+                        match received_chunk.message_type {
+                            UiEventTypes::LoginResponseEvent => {
+                                match serde_json::from_str::<LoginResponse>(
+                                    &String::from_utf8(full_message).unwrap(),
+                                ) {
+                                    Ok(login_response) => {
+                                        {
+                                            match sender.send(login_response) {
                                                     Ok(()) => info!("sent LoginResponse event to the login response handler"),
                                                     Err(e) => warn!("failed to send to mspc {:?}", e)
                                                 };
-                                    };
-                                }
-                                Err(e) => {
-                                    warn!(
+                                        };
+                                    }
+                                    Err(e) => {
+                                        warn!(
                                         "UI failed to deserialize LoginResponse from server: {:?}",
                                         e
                                     );
+                                    }
                                 }
+                            }
+                            UiEventTypes::ChatEvent => {
+                                let _packet = match ChatFromSimulator::from_bytes(&full_message) {
+                                    Ok(packet) => info!("parsed packet: {:?}", packet),
+                                    Err(e) => {
+                                        error!("failed to parse packet {:?}", e);
+                                        continue;
+                                    }
+                                };
+                            }
+                            UiEventTypes::CoarseLocationUpdateEvent => {
+                                let _packet = match CoarseLocationUpdate::from_bytes(&full_message)
+                                {
+                                    Ok(packet) => info!("parsed packet: {:?}", packet),
+                                    Err(e) => {
+                                        error!("failed to parse packet {:?}", e);
+                                        continue;
+                                    }
+                                };
+                            }
+                            event => {
+                                info!("{:?} not implemented yet", event)
                             }
                         }
                     }

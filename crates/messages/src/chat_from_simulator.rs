@@ -1,16 +1,14 @@
+use crate::packet_types::PacketType;
+
 use super::{
     header::Header,
-    packet::{MessageType, Packet, PacketData},
+    packet::{Packet, PacketData},
 };
 use byteorder::ReadBytesExt;
 use futures::future::BoxFuture;
 use glam::Vec3;
 use std::io::Read;
-use std::{
-    any::Any,
-    io::{self, BufRead, Cursor},
-    sync::Arc,
-};
+use std::io::{self, BufRead, Cursor};
 use uuid::Uuid;
 
 // ID: 139
@@ -30,7 +28,7 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(chat_from_simulator),
+            body: PacketType::ChatFromSimulator(Box::new(chat_from_simulator)),
         }
     }
 }
@@ -236,13 +234,5 @@ impl PacketData for ChatFromSimulator {
         Box::pin(async move {
             println!("chat_from_simulator on_receive is not yet implemented.");
         })
-    }
-
-    fn message_type(&self) -> MessageType {
-        MessageType::Outgoing
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

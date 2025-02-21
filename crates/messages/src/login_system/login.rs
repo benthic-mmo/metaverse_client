@@ -1,7 +1,9 @@
 use crate::login_system::errors::{create_login_error_from_message, LoginError, Reason};
 use crate::login_system::login_response::LoginResponse;
-use crate::login_system::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
-use crate::packet::MessageType;
+use crate::login_system::simulator_login_protocol::{
+    SimulatorLoginOptions, SimulatorLoginProtocol,
+};
+use crate::packet_types::PacketType;
 use std::env;
 use std::error::Error;
 
@@ -13,9 +15,7 @@ extern crate sys_info;
 use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
 use futures::future::BoxFuture;
-use std::any::Any;
 use std::io::{self, BufRead, Read};
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct Login {
@@ -161,8 +161,7 @@ impl PacketData for Login {
             let mut buffer = Vec::new();
             cursor.read_until(0, &mut buffer)?;
             buffer.pop(); // Remove null terminator
-            String::from_utf8(buffer)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+            String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         };
 
         let first = read_string(&mut cursor)?;
@@ -214,14 +213,6 @@ impl PacketData for Login {
             println!("Login on_recieve not yet implemented");
         })
     }
-
-    fn message_type(&self) -> MessageType {
-        MessageType::Login
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 impl Packet {
@@ -238,7 +229,7 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(login_packet),
+            body: PacketType::Login(Box::new(login_packet)),
         }
     }
 }

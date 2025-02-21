@@ -5,13 +5,12 @@ use futures::future::BoxFuture;
 use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
-use std::sync::Arc;
 
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct Packet {
     pub header: Header,
-    pub body: Arc<dyn PacketData>,
+    pub body: PacketType,
 }
 
 #[derive(Debug, Message, Clone)]
@@ -36,8 +35,6 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static + Any {
         Self: Sized;
     fn to_bytes(&self) -> Vec<u8>;
     fn on_receive(&self) -> BoxFuture<'static, ()>;
-    fn message_type(&self) -> MessageType;
-    fn as_any(&self) -> &dyn Any;
 }
 
 impl Packet {
@@ -55,8 +52,7 @@ impl Packet {
         } else {
             body.to_vec() // Convert slice to Vec<u8>
         };
-        let body =
-            PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?.into_arc();
+        let body = PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?;
 
         Ok(Self { header, body })
     }

@@ -1,12 +1,12 @@
 use glam::{Quat, Vec3};
-use std::any::Any;
-use std::sync::Arc;
 
 use uuid::Uuid;
 
+use crate::packet_types::PacketType;
+
 use super::{
     header::{Header, PacketFrequency},
-    packet::{MessageType, Packet, PacketData},
+    packet::{Packet, PacketData},
 };
 
 const AGENT_STATE_TYPING: u8 = 0x04; // 00000100 in binary
@@ -62,12 +62,12 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(agent_update),
+            body: PacketType::AgentUpdate(Box::new(agent_update)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State {
     pub typing: bool,
     pub editing: bool,
@@ -91,7 +91,7 @@ impl State {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ControlFlags {
     pub at_pos: bool,
     pub at_neg: bool,
@@ -265,7 +265,7 @@ impl ControlFlags {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Flags {
     pub none: bool,
     pub hide_title: bool,
@@ -289,7 +289,7 @@ impl Flags {
         bits
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AgentUpdate {
     pub agent_id: Uuid,
     pub session_id: Uuid,
@@ -419,13 +419,5 @@ impl PacketData for AgentUpdate {
         Box::pin(async move {
             println!("agent_update on_receive is not yet implemented.");
         })
-    }
-
-    fn message_type(&self) -> super::packet::MessageType {
-        MessageType::Outgoing
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
