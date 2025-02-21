@@ -9,7 +9,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-metaverse_messages = {path = "../messages/"}
+metaverse_messages = "0.0.2"
 xmlrpc = "0.15.1"
 tokio = { version = "1.43.0", features = ["full"] }
 env_logger = "0.11"
