@@ -1,12 +1,11 @@
-use super::packet::{MessageType, PacketData};
+use super::packet::PacketData;
 use futures::future::BoxFuture;
-use std::any::Any;
 use std::io;
 
 // ID: 152
 // Frequency: Low
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DisableSimulator {}
 
 impl PacketData for DisableSimulator {
@@ -20,12 +19,5 @@ impl PacketData for DisableSimulator {
         Box::pin(async move {
             println!("disable_simulator on_receive is not yet implemented.");
         })
-    }
-    fn message_type(&self) -> MessageType {
-        MessageType::Event
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

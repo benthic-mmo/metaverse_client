@@ -61,6 +61,7 @@ pub async fn initialize(
         state: state.clone(),
         notify: notify.clone(),
         session: None,
+        sent_packet_count: 0,
     }
     .start();
     // wait until the mailbox starts

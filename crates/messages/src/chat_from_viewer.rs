@@ -1,15 +1,13 @@
+use crate::packet_types::PacketType;
+
 use super::{
     header::{Header, PacketFrequency},
-    packet::{MessageType, Packet, PacketData},
+    packet::{Packet, PacketData},
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use futures::future::BoxFuture;
 use std::io::Read;
-use std::{
-    any::Any,
-    io::{self, Cursor},
-    sync::Arc,
-};
+use std::io::{self, Cursor};
 use uuid::Uuid;
 
 impl Packet {
@@ -26,12 +24,12 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(chat_from_viewer),
+            body: PacketType::ChatFromViewer(Box::new(chat_from_viewer)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChatFromViewer {
     pub agent_id: Uuid,
     pub session_id: Uuid,
@@ -40,7 +38,7 @@ pub struct ChatFromViewer {
     pub channel: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ClientChatType {
     Whisper,
     Normal,
@@ -136,13 +134,5 @@ impl PacketData for ChatFromViewer {
         Box::pin(async move {
             println!("chat_from_viewer on_receive is not yet implemented.");
         })
-    }
-
-    fn message_type(&self) -> MessageType {
-        MessageType::Event
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

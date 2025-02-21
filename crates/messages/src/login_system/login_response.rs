@@ -529,9 +529,18 @@ pub struct GlobalTextures {
 impl From<GlobalTextures> for Value {
     fn from(val: GlobalTextures) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("cloud_texture_id".to_string(), Value::String(val.cloud_texture_id));
-        map.insert("sun_texture_id".to_string(), Value::String(val.sun_texture_id));
-        map.insert("moon_texture_id".to_string(), Value::String(val.moon_texture_id));
+        map.insert(
+            "cloud_texture_id".to_string(),
+            Value::String(val.cloud_texture_id),
+        );
+        map.insert(
+            "sun_texture_id".to_string(),
+            Value::String(val.sun_texture_id),
+        );
+        map.insert(
+            "moon_texture_id".to_string(),
+            Value::String(val.moon_texture_id),
+        );
         Value::Struct(map)
     }
 }
@@ -550,7 +559,6 @@ impl From<InitialOutfit> for Value {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GesturesValues {
     /// the item ID of the gesture in the user's inventory
@@ -567,7 +575,6 @@ impl From<GesturesValues> for Value {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BuddyListValues {
     /// the UUID of the friend
@@ -580,7 +587,10 @@ impl From<BuddyListValues> for Value {
     fn from(val: BuddyListValues) -> Self {
         let mut map = BTreeMap::new();
         map.insert("buddy_id".to_string(), Value::String(val.buddy_id));
-        map.insert("buddy_rights_given".to_string(), val.buddy_rights_given.into());
+        map.insert(
+            "buddy_rights_given".to_string(),
+            val.buddy_rights_given.into(),
+        );
         map.insert("buddy_rights_has".to_string(), val.buddy_rights_has.into());
         Value::Struct(map)
     }
@@ -597,9 +607,18 @@ pub struct FriendsRights {
 impl From<FriendsRights> for Value {
     fn from(val: FriendsRights) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("can_see_online".to_string(), Value::Bool(val.can_see_online));
-        map.insert("can_see_on_map".to_string(), Value::Bool(val.can_see_on_map));
-        map.insert("can_modify_objects".to_string(), Value::Bool(val.can_modify_objects));
+        map.insert(
+            "can_see_online".to_string(),
+            Value::Bool(val.can_see_online),
+        );
+        map.insert(
+            "can_see_on_map".to_string(),
+            Value::Bool(val.can_see_on_map),
+        );
+        map.insert(
+            "can_modify_objects".to_string(),
+            Value::Bool(val.can_modify_objects),
+        );
         Value::Struct(map)
     }
 }
@@ -733,7 +752,6 @@ impl From<HomeValues> for Value {
         Value::Struct(map)
     }
 }
-
 
 // TODO: all of these parse functions should be Into functions.
 

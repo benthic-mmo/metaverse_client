@@ -1,12 +1,9 @@
 use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
+use crate::packet_types::PacketType;
 use futures::future::BoxFuture;
-use std::any::Any;
 use std::io;
-use std::sync::Arc;
 use uuid::Uuid;
-
-use super::packet::MessageType;
 
 impl Packet {
     pub fn new_circuit_code(circuit_code_block: CircuitCodeData) -> Self {
@@ -22,12 +19,12 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: Arc::new(circuit_code_block),
+            body: PacketType::CircuitCode(Box::new(circuit_code_block)),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CircuitCodeData {
     pub code: u32,
     pub session_id: Uuid,
@@ -57,12 +54,5 @@ impl PacketData for CircuitCodeData {
         Box::pin(async move {
             println!("circuit_code on_receive is not yet implemented.");
         })
-    }
-    fn message_type(&self) -> MessageType {
-        MessageType::Outgoing
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

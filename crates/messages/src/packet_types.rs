@@ -1,4 +1,8 @@
+use futures::future::BoxFuture;
+
 use crate::login_system::login::Login;
+use crate::packet::MessageType;
+use crate::ui_events::UiEventTypes;
 
 use super::agent_update::AgentUpdate;
 use super::chat_from_simulator::ChatFromSimulator;
@@ -9,25 +13,76 @@ use super::{
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
     packet_ack::PacketAck,
 };
-use metaverse_utils::IntoArc;
 use std::io;
-use std::sync::Arc;
 
 // IntoArc provides a macro that allows all of these to be contained within arcs
 // this is reqired for PacketData to be object safe
 // I'm doing it this way because writing them all out is tedious,
 // and I want to have as few packet definitions as possible in this project
-#[derive(Debug, IntoArc)]
+//#[derive(Debug, IntoArc)]
+#[derive(Debug, Clone)]
 pub enum PacketType {
-    CircuitCode(Box<dyn PacketData>),
-    DisableSimulator(Box<dyn PacketData>),
-    PacketAck(Box<dyn PacketData>),
-    CoarseLocationUpdate(Box<dyn PacketData>),
-    CompleteAgentMovementData(Box<dyn PacketData>),
-    AgentUpdate(Box<dyn PacketData>),
-    ChatFromSimulator(Box<dyn PacketData>),
-    ChatFromViewer(Box<dyn PacketData>),
-    Login(Box<dyn PacketData>),
+    CircuitCode(Box<CircuitCodeData>),
+    DisableSimulator(Box<DisableSimulator>),
+    PacketAck(Box<PacketAck>),
+    CoarseLocationUpdate(Box<CoarseLocationUpdate>),
+    CompleteAgentMovementData(Box<CompleteAgentMovementData>),
+    AgentUpdate(Box<AgentUpdate>),
+    ChatFromSimulator(Box<ChatFromSimulator>),
+    ChatFromViewer(Box<ChatFromViewer>),
+    Login(Box<Login>),
+}
+impl PacketType {
+    pub fn message_type(&self) -> MessageType {
+        match self {
+            PacketType::ChatFromViewer(_) => MessageType::Event,
+            PacketType::CoarseLocationUpdate(_) => MessageType::Event,
+            PacketType::DisableSimulator(_) => MessageType::Event,
+
+            PacketType::AgentUpdate(_) => MessageType::Outgoing,
+            PacketType::CompleteAgentMovementData(_) => MessageType::Outgoing,
+            PacketType::ChatFromSimulator(_) => MessageType::Outgoing,
+            PacketType::CircuitCode(_) => MessageType::Outgoing,
+
+            PacketType::PacketAck(_) => MessageType::Acknowledgment,
+
+            PacketType::Login(_) => MessageType::Login,
+        }
+    }
+    pub fn ui_event(&self) -> UiEventTypes {
+        match self {
+            PacketType::ChatFromViewer(_) => UiEventTypes::ChatEvent,
+            PacketType::CoarseLocationUpdate(_) => UiEventTypes::CoarseLocationUpdateEvent,
+            PacketType::DisableSimulator(_) => UiEventTypes::DisableSimulatorEvent,
+            _ => UiEventTypes::None,
+        }
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            PacketType::CircuitCode(data) => data.to_bytes(),
+            PacketType::DisableSimulator(data) => data.to_bytes(),
+            PacketType::PacketAck(data) => data.to_bytes(),
+            PacketType::CoarseLocationUpdate(data) => data.to_bytes(),
+            PacketType::CompleteAgentMovementData(data) => data.to_bytes(),
+            PacketType::AgentUpdate(data) => data.to_bytes(),
+            PacketType::ChatFromSimulator(data) => data.to_bytes(),
+            PacketType::ChatFromViewer(data) => data.to_bytes(),
+            PacketType::Login(data) => data.to_bytes(),
+        }
+    }
+    pub fn on_receive(&self) -> BoxFuture<'static, ()> {
+        match self {
+            PacketType::CircuitCode(data) => data.on_receive(),
+            PacketType::DisableSimulator(data) => data.on_receive(),
+            PacketType::PacketAck(data) => data.on_receive(),
+            PacketType::CoarseLocationUpdate(data) => data.on_receive(),
+            PacketType::CompleteAgentMovementData(data) => data.on_receive(),
+            PacketType::AgentUpdate(data) => data.on_receive(),
+            PacketType::ChatFromSimulator(data) => data.on_receive(),
+            PacketType::ChatFromViewer(data) => data.on_receive(),
+            PacketType::Login(data) => data.on_receive(),
+        }
+    }
 }
 
 impl PacketType {
