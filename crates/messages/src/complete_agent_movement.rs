@@ -1,11 +1,8 @@
 use std::any::Any;
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::oneshot::Sender;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::{
-    client_update_data::ClientUpdateData,
     header::{Header, PacketFrequency},
     packet::{MessageType, Packet, PacketData},
 };
@@ -57,14 +54,9 @@ impl PacketData for CompleteAgentMovementData {
         bytes.extend(self.circuit_code.to_le_bytes());
         bytes
     }
-    fn on_receive(
-        &self,
-        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        _: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> futures::future::BoxFuture<'static, ()> {
+    fn on_receive(&self) -> futures::future::BoxFuture<'static, ()> {
         Box::pin(async move {
-            // Implement the actual logic here later
-            println!("on_receive is not yet implemented.");
+            println!("complete_agent_movement on_receive is not yet implemented.");
         })
     }
     fn message_type(&self) -> MessageType {

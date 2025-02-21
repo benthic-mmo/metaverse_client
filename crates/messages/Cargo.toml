@@ -3,8 +3,8 @@ name = "metaverse_messages"
 version = "0.0.1"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "packet definitions for the open metaverse"
-edition = "2021"
 license = "AGPL-3.0-or-later"
+edition = "2021"
 
 [dependencies]
 log = "0.4"

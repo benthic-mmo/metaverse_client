@@ -1,11 +1,10 @@
-/// This is cursed land. 
-/// the code in this file could be tried for treason. 
+/// This is cursed land.
+/// the code in this file could be tried for treason.
 /// this is for parsing absolutely busted xlm-rpc that comes out of the server, and should never be touched by anyone
 /// unless it breaks.
 /// I wrote this a long time ago, but it still works, and the less time you spend thinking about
-/// xml-rpc as used in this project, the better. 
-
-use crate::login::errors::ConversionError;
+/// xml-rpc as used in this project, the better.
+use crate::login_system::errors::ConversionError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -108,14 +107,14 @@ pub struct LoginResponse {
     /// Undocumented
     pub seconds_since_epoch: Option<i64>,
 }
-impl Into<Value> for LoginResponse {
-    fn into(self) -> Value {
+impl From<LoginResponse> for Value {
+    fn from(val: LoginResponse) -> Self {
         let mut map = BTreeMap::new();
 
-        if let Some(home) = self.home {
+        if let Some(home) = val.home {
             map.insert("home".to_string(), home.into());
         }
-        if let Some(look_at) = self.look_at {
+        if let Some(look_at) = val.look_at {
             map.insert(
                 "look_at".to_string(),
                 Value::Array(vec![
@@ -125,50 +124,50 @@ impl Into<Value> for LoginResponse {
                 ]),
             );
         }
-        if let Some(agent_access) = self.agent_access {
+        if let Some(agent_access) = val.agent_access {
             map.insert("agent_access".to_string(), agent_access.into());
         }
-        if let Some(agent_access_max) = self.agent_access_max {
+        if let Some(agent_access_max) = val.agent_access_max {
             map.insert("agent_access_max".to_string(), agent_access_max.into());
         }
-        if let Some(seed_capability) = self.seed_capability {
+        if let Some(seed_capability) = val.seed_capability {
             map.insert(
                 "seed_capability".to_string(),
                 Value::String(seed_capability),
             );
         }
 
-        map.insert("first_name".to_string(), Value::String(self.first_name));
-        map.insert("last_name".to_string(), Value::String(self.last_name));
+        map.insert("first_name".to_string(), Value::String(val.first_name));
+        map.insert("last_name".to_string(), Value::String(val.last_name));
 
-        if let Some(agent_id) = self.agent_id {
+        if let Some(agent_id) = val.agent_id {
             map.insert("agent_id".to_string(), Value::String(agent_id.to_string()));
         }
-        if let Some(sim_ip) = self.sim_ip {
+        if let Some(sim_ip) = val.sim_ip {
             map.insert("sim_ip".to_string(), Value::String(sim_ip));
         }
-        if let Some(sim_port) = self.sim_port {
+        if let Some(sim_port) = val.sim_port {
             map.insert("sim_port".to_string(), Value::Int(sim_port as i32));
         }
-        if let Some(http_port) = self.http_port {
+        if let Some(http_port) = val.http_port {
             map.insert("http_port".to_string(), Value::Int(http_port as i32));
         }
-        if let Some(start_location) = self.start_location {
+        if let Some(start_location) = val.start_location {
             map.insert("start_location".to_string(), Value::String(start_location));
         }
-        if let Some(region_x) = self.region_x {
+        if let Some(region_x) = val.region_x {
             map.insert("region_x".to_string(), Value::Int(region_x as i32));
         }
-        if let Some(region_y) = self.region_y {
+        if let Some(region_y) = val.region_y {
             map.insert("region_y".to_string(), Value::Int(region_y as i32));
         }
-        if let Some(region_size_x) = self.region_size_x {
+        if let Some(region_size_x) = val.region_size_x {
             map.insert(
                 "region_size_x".to_string(),
                 Value::Int(region_size_x as i32),
             );
         }
-        if let Some(region_size_y) = self.region_size_y {
+        if let Some(region_size_y) = val.region_size_y {
             map.insert(
                 "region_size_y".to_string(),
                 Value::Int(region_size_y as i32),
@@ -177,29 +176,29 @@ impl Into<Value> for LoginResponse {
 
         map.insert(
             "circuit_code".to_string(),
-            Value::Int(self.circuit_code as i32),
+            Value::Int(val.circuit_code as i32),
         );
 
-        if let Some(session_id) = self.session_id {
+        if let Some(session_id) = val.session_id {
             map.insert(
                 "session_id".to_string(),
                 Value::String(session_id.to_string()),
             );
         }
-        if let Some(secure_session_id) = self.secure_session_id {
+        if let Some(secure_session_id) = val.secure_session_id {
             map.insert(
                 "secure_session_id".to_string(),
                 Value::String(secure_session_id.to_string()),
             );
         }
 
-        if let Some(inventory_root) = self.inventory_root {
+        if let Some(inventory_root) = val.inventory_root {
             map.insert(
                 "inventory-root".to_string(),
                 Value::Array(inventory_root.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(inventory_skeleton) = self.inventory_skeleton {
+        if let Some(inventory_skeleton) = val.inventory_skeleton {
             map.insert(
                 "inventory-skeleton".to_string(),
                 Value::Array(
@@ -210,7 +209,7 @@ impl Into<Value> for LoginResponse {
                 ),
             );
         }
-        if let Some(inventory_lib_root) = self.inventory_lib_root {
+        if let Some(inventory_lib_root) = val.inventory_lib_root {
             map.insert(
                 "inventory-lib-root".to_string(),
                 Value::Array(
@@ -221,7 +220,7 @@ impl Into<Value> for LoginResponse {
                 ),
             );
         }
-        if let Some(inventory_skeleton_lib) = self.inventory_skeleton_lib {
+        if let Some(inventory_skeleton_lib) = val.inventory_skeleton_lib {
             map.insert(
                 "inventory-skel-lib".to_string(),
                 Value::Array(
@@ -232,7 +231,7 @@ impl Into<Value> for LoginResponse {
                 ),
             );
         }
-        if let Some(inventory_lib_owner) = self.inventory_lib_owner {
+        if let Some(inventory_lib_owner) = val.inventory_lib_owner {
             map.insert(
                 "inventory-lib-owner".to_string(),
                 Value::Array(
@@ -244,28 +243,28 @@ impl Into<Value> for LoginResponse {
             );
         }
 
-        if let Some(map_server_url) = self.map_server_url {
+        if let Some(map_server_url) = val.map_server_url {
             map.insert("map-server-url".to_string(), Value::String(map_server_url));
         }
-        if let Some(buddy_list) = self.buddy_list {
+        if let Some(buddy_list) = val.buddy_list {
             map.insert(
                 "buddy-list".to_string(),
                 Value::Array(buddy_list.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(gestures) = self.gestures {
+        if let Some(gestures) = val.gestures {
             map.insert(
                 "gestures".to_string(),
                 Value::Array(gestures.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(initial_outfit) = self.initial_outfit {
+        if let Some(initial_outfit) = val.initial_outfit {
             map.insert(
                 "initial-outfit".to_string(),
                 Value::Array(initial_outfit.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(global_textures) = self.global_textures {
+        if let Some(global_textures) = val.global_textures {
             map.insert(
                 "global-textures".to_string(),
                 Value::Array(
@@ -276,31 +275,31 @@ impl Into<Value> for LoginResponse {
                 ),
             );
         }
-        if let Some(login) = self.login {
+        if let Some(login) = val.login {
             map.insert("login".to_string(), Value::Bool(login));
         }
-        if let Some(login_flags) = self.login_flags {
+        if let Some(login_flags) = val.login_flags {
             map.insert(
                 "login-flags".to_string(),
                 Value::Array(login_flags.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(message) = self.message {
+        if let Some(message) = val.message {
             map.insert("message".to_string(), Value::String(message));
         }
-        if let Some(ui_config) = self.ui_config {
+        if let Some(ui_config) = val.ui_config {
             map.insert(
                 "ui-config".to_string(),
                 Value::Array(ui_config.into_iter().map(|item| item.into()).collect()),
             );
         }
-        if let Some(event_categories) = self.event_categories {
+        if let Some(event_categories) = val.event_categories {
             map.insert(
                 "event_categories".to_string(),
                 Value::String(event_categories),
             );
         }
-        if let Some(classified_categories) = self.classified_categories {
+        if let Some(classified_categories) = val.classified_categories {
             map.insert(
                 "classified_categories".to_string(),
                 Value::Array(
@@ -311,31 +310,31 @@ impl Into<Value> for LoginResponse {
                 ),
             );
         }
-        if let Some(real_id) = self.real_id {
+        if let Some(real_id) = val.real_id {
             map.insert("real_id".to_string(), Value::String(real_id));
         }
-        if let Some(search) = self.search {
+        if let Some(search) = val.search {
             map.insert("search".to_string(), Value::String(search));
         }
-        if let Some(destination_guide_url) = self.destination_guide_url {
+        if let Some(destination_guide_url) = val.destination_guide_url {
             map.insert(
                 "destination_guide_url".to_string(),
                 Value::String(destination_guide_url),
             );
         }
-        if let Some(event_notifications) = self.event_notifications {
+        if let Some(event_notifications) = val.event_notifications {
             map.insert(
                 "event_notifications".to_string(),
                 Value::String(event_notifications),
             );
         }
-        if let Some(max_agent_groups) = self.max_agent_groups {
+        if let Some(max_agent_groups) = val.max_agent_groups {
             map.insert(
                 "max_agent_groups".to_string(),
                 Value::Int(max_agent_groups as i32),
             );
         }
-        if let Some(seconds_since_epoch) = self.seconds_since_epoch {
+        if let Some(seconds_since_epoch) = val.seconds_since_epoch {
             map.insert(
                 "seconds_since_epoch".to_string(),
                 Value::Int(seconds_since_epoch as i32),
@@ -434,9 +433,9 @@ macro_rules! bool_val {
 pub struct AgentID {
     pub agent_id: String,
 }
-impl Into<Value> for AgentID {
-    fn into(self) -> Value {
-        Value::String(self.agent_id)
+impl From<AgentID> for Value {
+    fn from(val: AgentID) -> Self {
+        Value::String(val.agent_id)
     }
 }
 
@@ -444,9 +443,9 @@ impl Into<Value> for AgentID {
 pub struct InventoryRootValues {
     pub folder_id: String,
 }
-impl Into<Value> for InventoryRootValues {
-    fn into(self) -> Value {
-        Value::String(self.folder_id)
+impl From<InventoryRootValues> for Value {
+    fn from(val: InventoryRootValues) -> Self {
+        Value::String(val.folder_id)
     }
 }
 
@@ -455,13 +454,13 @@ pub struct ClassifiedCategoriesValues {
     pub category_id: i32,
     pub category_name: String,
 }
-impl Into<Value> for ClassifiedCategoriesValues {
-    fn into(self) -> Value {
+impl From<ClassifiedCategoriesValues> for Value {
+    fn from(val: ClassifiedCategoriesValues) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("category_id".to_string(), Value::Int(self.category_id));
+        map.insert("category_id".to_string(), Value::Int(val.category_id));
         map.insert(
             "category_name".to_string(),
-            Value::String(self.category_name),
+            Value::String(val.category_name),
         );
         Value::Struct(map)
     }
@@ -471,12 +470,12 @@ impl Into<Value> for ClassifiedCategoriesValues {
 pub struct UiConfig {
     pub allow_first_life: bool,
 }
-impl Into<Value> for UiConfig {
-    fn into(self) -> Value {
+impl From<UiConfig> for Value {
+    fn from(val: UiConfig) -> Self {
         let mut map = BTreeMap::new();
         map.insert(
             "allow_first_life".to_string(),
-            Value::Bool(self.allow_first_life),
+            Value::Bool(val.allow_first_life),
         );
         Value::Struct(map)
     }
@@ -495,18 +494,18 @@ pub struct LoginFlags {
     /// Mysterious!
     pub gendered: bool,
 }
-impl Into<Value> for LoginFlags {
-    fn into(self) -> Value {
+impl From<LoginFlags> for Value {
+    fn from(val: LoginFlags) -> Self {
         let mut map = BTreeMap::new();
         map.insert(
             "stipend_since_login".to_string(),
-            Value::String(self.stipend_since_login),
+            Value::String(val.stipend_since_login),
         );
         map.insert(
             "ever_logged_in".to_string(),
-            Value::Bool(self.ever_logged_in),
+            Value::Bool(val.ever_logged_in),
         );
-        if let Some(seconds) = self.seconds_since_epoch {
+        if let Some(seconds) = val.seconds_since_epoch {
             map.insert(
                 "seconds_since_epoch".to_string(),
                 Value::Int(seconds as i32),
@@ -514,9 +513,9 @@ impl Into<Value> for LoginFlags {
         }
         map.insert(
             "daylight_savings".to_string(),
-            Value::Bool(self.daylight_savings),
+            Value::Bool(val.daylight_savings),
         );
-        map.insert("gendered".to_string(), Value::Bool(self.gendered));
+        map.insert("gendered".to_string(), Value::Bool(val.gendered));
         Value::Struct(map)
     }
 }
@@ -527,21 +526,12 @@ pub struct GlobalTextures {
     pub sun_texture_id: String,
     pub moon_texture_id: String,
 }
-impl Into<Value> for GlobalTextures {
-    fn into(self) -> Value {
+impl From<GlobalTextures> for Value {
+    fn from(val: GlobalTextures) -> Self {
         let mut map = BTreeMap::new();
-        map.insert(
-            "cloud_texture_id".to_string(),
-            Value::String(self.cloud_texture_id),
-        );
-        map.insert(
-            "sun_texture_id".to_string(),
-            Value::String(self.sun_texture_id),
-        );
-        map.insert(
-            "moon_texture_id".to_string(),
-            Value::String(self.moon_texture_id),
-        );
+        map.insert("cloud_texture_id".to_string(), Value::String(val.cloud_texture_id));
+        map.insert("sun_texture_id".to_string(), Value::String(val.sun_texture_id));
+        map.insert("moon_texture_id".to_string(), Value::String(val.moon_texture_id));
         Value::Struct(map)
     }
 }
@@ -551,14 +541,15 @@ pub struct InitialOutfit {
     pub folder_name: String,
     pub gender: String,
 }
-impl Into<Value> for InitialOutfit {
-    fn into(self) -> Value {
+impl From<InitialOutfit> for Value {
+    fn from(val: InitialOutfit) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("folder_name".to_string(), Value::String(self.folder_name));
-        map.insert("gender".to_string(), Value::String(self.gender));
+        map.insert("folder_name".to_string(), Value::String(val.folder_name));
+        map.insert("gender".to_string(), Value::String(val.gender));
         Value::Struct(map)
     }
 }
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GesturesValues {
@@ -567,14 +558,15 @@ pub struct GesturesValues {
     /// the asset ID of the gesture
     pub asset_id: String,
 }
-impl Into<Value> for GesturesValues {
-    fn into(self) -> Value {
+impl From<GesturesValues> for Value {
+    fn from(val: GesturesValues) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("item_id".to_string(), Value::String(self.item_id));
-        map.insert("asset_id".to_string(), Value::String(self.asset_id));
+        map.insert("item_id".to_string(), Value::String(val.item_id));
+        map.insert("asset_id".to_string(), Value::String(val.asset_id));
         Value::Struct(map)
     }
 }
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BuddyListValues {
@@ -584,15 +576,12 @@ pub struct BuddyListValues {
     pub buddy_rights_given: FriendsRights,
     pub buddy_rights_has: FriendsRights,
 }
-impl Into<Value> for BuddyListValues {
-    fn into(self) -> Value {
+impl From<BuddyListValues> for Value {
+    fn from(val: BuddyListValues) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("buddy_id".to_string(), Value::String(self.buddy_id));
-        map.insert(
-            "buddy_rights_given".to_string(),
-            self.buddy_rights_given.into(),
-        );
-        map.insert("buddy_rights_has".to_string(), self.buddy_rights_has.into());
+        map.insert("buddy_id".to_string(), Value::String(val.buddy_id));
+        map.insert("buddy_rights_given".to_string(), val.buddy_rights_given.into());
+        map.insert("buddy_rights_has".to_string(), val.buddy_rights_has.into());
         Value::Struct(map)
     }
 }
@@ -605,21 +594,12 @@ pub struct FriendsRights {
     pub can_see_on_map: bool,
     pub can_modify_objects: bool,
 }
-impl Into<Value> for FriendsRights {
-    fn into(self) -> Value {
+impl From<FriendsRights> for Value {
+    fn from(val: FriendsRights) -> Self {
         let mut map = BTreeMap::new();
-        map.insert(
-            "can_see_online".to_string(),
-            Value::Bool(self.can_see_online),
-        );
-        map.insert(
-            "can_see_on_map".to_string(),
-            Value::Bool(self.can_see_on_map),
-        );
-        map.insert(
-            "can_modify_objects".to_string(),
-            Value::Bool(self.can_modify_objects),
-        );
+        map.insert("can_see_online".to_string(), Value::Bool(val.can_see_online));
+        map.insert("can_see_on_map".to_string(), Value::Bool(val.can_see_on_map));
+        map.insert("can_modify_objects".to_string(), Value::Bool(val.can_modify_objects));
         Value::Struct(map)
     }
 }
@@ -636,19 +616,17 @@ pub struct InventorySkeletonValues {
     pub type_default: InventoryType,
     pub version: i32,
 }
-
-impl Into<Value> for InventorySkeletonValues {
-    fn into(self) -> Value {
+impl From<InventorySkeletonValues> for Value {
+    fn from(val: InventorySkeletonValues) -> Self {
         let mut map = BTreeMap::new();
-        map.insert("folder_id".to_string(), Value::String(self.folder_id));
-        map.insert("parent_id".to_string(), Value::String(self.parent_id));
-        map.insert("name".to_string(), Value::String(self.name));
-        map.insert("type_default".to_string(), self.type_default.into());
-        map.insert("version".to_string(), Value::Int(self.version));
+        map.insert("folder_id".to_string(), Value::String(val.folder_id));
+        map.insert("parent_id".to_string(), Value::String(val.parent_id));
+        map.insert("name".to_string(), Value::String(val.name));
+        map.insert("type_default".to_string(), val.type_default.into());
+        map.insert("version".to_string(), Value::Int(val.version));
         Value::Struct(map)
     }
 }
-
 /// enum for agent access levels
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AgentAccess {
@@ -657,9 +635,9 @@ pub enum AgentAccess {
     PG,
     General,
 }
-impl Into<Value> for AgentAccess {
-    fn into(self) -> Value {
-        let access_str = match self {
+impl From<AgentAccess> for Value {
+    fn from(val: AgentAccess) -> Self {
+        let access_str = match val {
             AgentAccess::Mature => "M",
             AgentAccess::Adult => "A",
             AgentAccess::PG => "PG",
@@ -668,7 +646,6 @@ impl Into<Value> for AgentAccess {
         Value::String(access_str.to_string())
     }
 }
-
 /// Inventory item types
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InventoryType {
@@ -690,9 +667,9 @@ pub enum InventoryType {
     Gesture,
     Mesh,
 }
-impl Into<Value> for InventoryType {
-    fn into(self) -> Value {
-        let value = match self {
+impl From<InventoryType> for Value {
+    fn from(val: InventoryType) -> Self {
+        let value = match val {
             InventoryType::Unknown => -1,
             InventoryType::Texture => 0,
             InventoryType::Sound => 2,
@@ -727,35 +704,36 @@ pub struct HomeValues {
     pub position: (String, String, String),
     pub look_at: (String, String, String),
 }
-impl Into<Value> for HomeValues {
-    fn into(self) -> Value {
+impl From<HomeValues> for Value {
+    fn from(val: HomeValues) -> Self {
         let mut map = BTreeMap::new();
         map.insert(
             "region_handle".to_string(),
             Value::Array(vec![
-                Value::String(self.region_handle.0),
-                Value::String(self.region_handle.1),
+                Value::String(val.region_handle.0),
+                Value::String(val.region_handle.1),
             ]),
         );
         map.insert(
             "position".to_string(),
             Value::Array(vec![
-                Value::String(self.position.0),
-                Value::String(self.position.1),
-                Value::String(self.position.2),
+                Value::String(val.position.0),
+                Value::String(val.position.1),
+                Value::String(val.position.2),
             ]),
         );
         map.insert(
             "look_at".to_string(),
             Value::Array(vec![
-                Value::String(self.look_at.0),
-                Value::String(self.look_at.1),
-                Value::String(self.look_at.2),
+                Value::String(val.look_at.0),
+                Value::String(val.look_at.1),
+                Value::String(val.look_at.2),
             ]),
         );
         Value::Struct(map)
     }
 }
+
 
 // TODO: all of these parse functions should be Into functions.
 

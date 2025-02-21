@@ -1,11 +1,13 @@
+
 [workspace]
+resolver = "2"
 members = [
 	"crates/session",
 	"crates/messages",
-  "crates/instantiator", 
-  "crates/utils", "crates/ui"]
-
+  "crates/utils", 
+  "crates/instantiator",
+  "crates/ui"]
 
 [patch.crates-io]
 # needed in order to accept data from osgrid servers
-xmlrpc_benthic = {git = "https://github.com/benthic-mmo/xml-rpc-rs"}
+#xmlrpc_benthic = {git = "https://github.com/benthic-mmo/xml-rpc-rs"}

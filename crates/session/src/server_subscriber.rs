@@ -1,47 +1,83 @@
-use log::{error, info};
+use log::{info, warn};
 use metaverse_messages::circuit_code::CircuitCodeData;
 use metaverse_messages::complete_agent_movement::CompleteAgentMovementData;
-use metaverse_messages::login::errors::{LoginError, Reason};
-use metaverse_messages::login::login::{login, Login};
-use metaverse_messages::login::login_response::LoginResponse;
-use metaverse_messages::login::simulator_login_protocol::SimulatorLoginProtocol;
+use metaverse_messages::login_system::errors::{LoginError, Reason};
+use metaverse_messages::login_system::login::{login, Login};
+use metaverse_messages::login_system::login_response::LoginResponse;
+use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
-use crate::errors::{CircuitCodeError, CompleteAgentMovementError, SendFailReason, SessionError};
-use crate::mailbox::{Mailbox, Session, TriggerSend};
+use crate::errors::{CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError};
+use crate::mailbox::{Mailbox, Session, UiMessage};
 
-pub async fn listen(socket_path: PathBuf, mailbox_addr: actix::Addr<Mailbox>) {
+/// This is used for the server to listen to messages coming in from the UI. 
+/// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
+/// would be sent to and from the server. 
+/// all of these packets and their byte representations are defined by the spec here. 
+/// https://wiki.secondlife.com/wiki/Category:Messages
+/// Messages are sent to the server using UDS. 
+///
+/// Once this is running, users can send messages like 
+/// ```rust 
+/// use metaverse_messages::packet::Packet;
+/// use metaverse_messages::login::login::Login;
+/// use std::os::unix::net::UnixDatagram;
+/// use tempfile::NamedTempFile;
+///
+/// let packet = Packet::new_login_packet(Login {
+///            first: "default".to_string(),
+///            last: "user".to_string(),
+///            passwd: "password".to_string(),
+///            start: "home".to_string(),
+///            channel: "benthic".to_string(),
+///            agree_to_tos: true,
+///            read_critical: true,
+///            url: "http://127.0.0.1:9000".to_string(),
+///        })
+///        .to_bytes();
+///
+/// let client_socket = UnixDatagram::unbound().unwrap();
+/// let ui_to_server_socket = NamedTempFile::new()
+///     .expect("Failed to create temp file")
+///     .path()
+///     .to_path_buf();
+/// match client_socket.send_to(&packet, &ui_to_server_socket) {
+///     Ok(_) => println!("Login sent from UI"),
+///     Err(e) => println!("Error sending login from UI {:?}", e),
+/// };
+///
+/// ```
+///
+///
+pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::Addr<Mailbox>) {
     let socket = UnixDatagram::bind(socket_path.clone()).unwrap();
-    info!(
-        "Incoming message handler listening on UDS: {:?}",
-        socket_path
-    );
+    info!("Server listening for UI events on UDS: {:?}", socket_path);
 
     loop {
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf).await {
             Ok((n, _)) => {
-                info!("Incoming Message Handler receiving data {}", n);
+                info!("Server receiving event from UI: {}", n);
                 let packet = match Packet::from_bytes(&buf[..n]) {
                     Ok(packet) => packet,
                     Err(e) => {
-                        error!("Incoming Message Handler Failed to parse packet {:?}", e);
+                        warn!("Server failed to receive event from UI: {:?}", e);
                         continue;
                     }
                 };
                 if let Some(login) = packet.body.as_any().downcast_ref::<Login>() {
                     match handle_login((*login).clone(), &mailbox_addr).await {
                         Ok(_) => info!("Successfully logged in"),
-                        Err(e) => error!("Failed to log in {:?}", e),
+                        Err(e) => warn!("Failed to log in {:?}", e),
                     };
                 } else {
                     mailbox_addr.do_send(packet);
                 }
             }
             Err(e) => {
-                error!("Failed to read buffer {}", e)
+                warn!("Server failed to read buffer sent from UI {}", e)
             }
         }
     }
@@ -71,7 +107,7 @@ async fn handle_login(
         Ok(response) => {
             let serialized = serde_json::to_string(&response).unwrap();
             if let Err(e) = mailbox_addr
-                .send(TriggerSend {
+                .send(UiMessage {
                     message_type: "LoginResponse".to_string(),
                     total_packet_number: 0,
                     sequence_number: 0,
@@ -80,10 +116,11 @@ async fn handle_login(
                 })
                 .await
             {
-                error!("Failed to send LoginResponse to Mailbox {:?}", e)
+                warn!("Failed to send LoginResponse to Mailbox {:?}", e)
             };
             response
         }
+        // returns the session error created by the login_with_creds function
         Err(error) => return Err(error),
     };
 
@@ -97,11 +134,7 @@ async fn handle_login(
         })
         .await
     {
-        let error = SessionError::CircuitCode(CircuitCodeError::new(
-            SendFailReason::Timeout,
-            format!("THIS IS A PLACEHOLDER ERROR IT'S NOT RIGHT PLEASE FIX{}", e),
-        ));
-        return Err(error);
+        return Err(SessionError::Mailbox(MailboxError::new(format!("{}", e))));
     };
 
     if let Err(e) = mailbox_addr
@@ -112,11 +145,10 @@ async fn handle_login(
         }))
         .await
     {
-        let error = SessionError::CircuitCode(CircuitCodeError::new(
-            SendFailReason::Timeout,
-            format!("{}", e),
-        ));
-        return Err(error);
+        return Err(SessionError::CircuitCode(CircuitCodeError::new(format!(
+            "{}",
+            e
+        ))));
     };
 
     if let Err(e) = mailbox_addr
@@ -129,11 +161,9 @@ async fn handle_login(
         ))
         .await
     {
-        let error = SessionError::CompleteAgentMovement(CompleteAgentMovementError::new(
-            SendFailReason::Timeout,
-            format!("{}", e),
+        return Err(SessionError::CompleteAgentMovement(
+            CompleteAgentMovementError::new(format!("{}", e)),
         ));
-        return Err(error);
     };
     Ok(())
 }

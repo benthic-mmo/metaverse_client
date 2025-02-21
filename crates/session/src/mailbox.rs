@@ -1,7 +1,7 @@
 use actix::prelude::*;
 use log::{error, info};
-use metaverse_messages::client_update_data::ClientUpdateData;
-use metaverse_messages::packet::{MessageType, Packet};
+use metaverse_messages::packet::MessageType;
+use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -16,72 +16,99 @@ use uuid::Uuid;
 
 use super::errors::{AckError, SessionError};
 
+const ACK_ATTEMPTS: i8 = 3;
+const ACK_TIMEOUT: Duration = Duration::from_secs(1);
+
+/// This is the mailbox for handling packets and sessions in the client
 #[derive(Debug)]
 pub struct Mailbox {
+    /// the client socket for UDP connections
     pub client_socket: u16,
-    pub outgoing_socket: Option<OutgoingSocket>,
+    /// UDS socket for connecting mailbox to the UI
+    pub server_to_ui_socket: Option<ServerToUiSocket>,
 
+    /// queue of ack packets to handle
     pub ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    pub update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
 
+    /// global number of received packets
     pub packet_sequence_number: Arc<Mutex<u32>>,
+    /// state of the mailbox. If it is running or not.
     pub state: Arc<Mutex<ServerState>>,
+    /// notify for etablishing when it begins running
     pub notify: Arc<Notify>,
+    /// Session information for after login
     pub session: Option<Session>,
 }
 
+/// Session of the user
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct Session {
+    /// url of the server where the UDP session is connected to
     pub url: String,
+    /// socket of the server where the UDP session is connected to
     pub server_socket: u16,
+    /// agent ID of the user
     pub agent_id: Uuid,
+    /// session ID of the user
     pub session_id: Uuid,
+    /// the running UDP socket attached to the session  
     pub socket: Option<Arc<UdpSocket>>,
 }
 
+/// UDS socket for communicating from the server to the UI
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct OutgoingSocket {
+pub struct ServerToUiSocket {
+    /// the path of the UDS socket on the machine
     pub socket_path: PathBuf,
 }
 
-// this is a debug method that triggers a message send from the mailbox
+/// Format for sending a serialized message from the mailbox to the UI.
 #[derive(Debug, Message, Serialize, Deserialize)]
 #[rtype(result = "()")]
-pub struct TriggerSend {
+pub struct UiMessage {
+    /// Type of message, for decoding in the UI
     pub message_type: String,
+    /// Encoding of message body, for decoding in the UI
     pub encoding: String,
+    /// Which number in a series of messages is it
     pub sequence_number: u16,
+    /// how mant messages are there in total
     pub total_packet_number: u16,
+    /// the encoded message to be decoded by the UI
     pub message: String,
 }
-impl TriggerSend {
+impl UiMessage {
     /// Convert the struct into bytes using JSON serialization
     pub fn as_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("Failed to serialize TriggerSend")
+        serde_json::to_vec(self).expect("Failed to serialize UiMessage")
     }
 
-    /// Convert bytes back into a `TriggerSend` struct
+    /// Convert bytes back into a `UiMessage` struct
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, serde_json::Error> {
         serde_json::from_slice(bytes)
     }
 }
 
-const ACK_ATTEMPTS: i8 = 3;
-const ACK_TIMEOUT: Duration = Duration::from_secs(1);
+/// The state of the Mailbox
+#[derive(Debug, Clone, PartialEq)]
+pub enum ServerState {
+    /// The mailbox starts in the Starting state
+    Starting,
+    /// The mailbox is running
+    Running,
+    /// The mailbox is preparing to stop
+    Stopping,
+    /// the mailbox is stopped 
+    Stopped,
+}
+
 
 impl Mailbox {
-    // this is for reading packets coming from the external server
+    /// Start_udp_read is for reading packets coming from the external server
     async fn start_udp_read(
         ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        command_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        data_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        event_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        request_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        error_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        outgoing_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        update_stream: Arc<Mutex<Vec<ClientUpdateData>>>,
         sock: Arc<UdpSocket>,
         mailbox_address: Addr<Mailbox>,
     ) {
@@ -109,56 +136,23 @@ impl Mailbox {
                             Err(_) => println!("ack failed to send"),
                         };
                     }
-                    match packet.body.message_type() {
-                        MessageType::Login => {
-                            packet
-                                .body
-                                .on_receive(ack_queue.clone(), update_stream.clone())
-                                .await;
+
+                    // if the packet is an Ack packet, handle it
+                    if let MessageType::Acknowledgment = packet.body.message_type() {
+                            if let Some(packet_ack) =
+                                packet.body.as_any().downcast_ref::<PacketAck>()
+                            {
+                                let mut queue = ack_queue.lock().unwrap();
+                                for id in packet_ack.packet_ids.clone() {
+                                    if let Some(sender) = queue.remove(&id) {
+                                        let _ = sender.send(());
+                                    } else {
+                                        println!("No pending ack found for request ID: {}", id);
+                                    }
+                                }
+                            }
                         }
-                        MessageType::Acknowledgment => {
-                            packet
-                                .body
-                                .on_receive(ack_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Command => {
-                            packet
-                                .body
-                                .on_receive(command_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Data => {
-                            packet
-                                .body
-                                .on_receive(data_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Event => {
-                            packet
-                                .body
-                                .on_receive(event_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Request => {
-                            packet
-                                .body
-                                .on_receive(request_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Error => {
-                            packet
-                                .body
-                                .on_receive(error_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                        MessageType::Outgoing => {
-                            packet
-                                .body
-                                .on_receive(outgoing_queue.clone(), update_stream.clone())
-                                .await;
-                        }
-                    };
+                    packet.body.on_receive().await;
                     info!("packet received: {:?}", packet);
                 }
                 Err(e) => {
@@ -182,14 +176,6 @@ impl Mailbox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ServerState {
-    Starting,
-    Running,
-    Stopping,
-    Stopped,
-}
-
 impl Actor for Mailbox {
     type Context = Context<Self>;
 
@@ -200,10 +186,10 @@ impl Actor for Mailbox {
     }
 }
 
-impl Handler<TriggerSend> for Mailbox {
+impl Handler<UiMessage> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: TriggerSend, _: &mut Self::Context) -> Self::Result {
-        if let Some(outgoing_socket) = &self.outgoing_socket {
+    fn handle(&mut self, msg: UiMessage, _: &mut Self::Context) -> Self::Result {
+        if let Some(socket) = &self.server_to_ui_socket {
             let max_message_size = 1024;
             // json inflates the size of packages by adding braces and escape characters.
             // This shouldn't change too much unless we change the struct
@@ -223,16 +209,10 @@ impl Handler<TriggerSend> for Mailbox {
                     + total_packet_number_len
                     + json_overhead);
 
-            // Ensure we have enough space for the actual message
-            if available_size <= 0 {
-                println!("Error: Message is too large to fit within the 1024 byte limit.");
-                return;
-            }
-
             // Split the message content if it's larger than the available size
             let message = msg.message;
             let message_bytes = message.as_bytes();
-            let total_chunks = (message_bytes.len() + available_size - 1) / available_size;
+            let total_chunks = message_bytes.len().div_ceil(available_size);
 
             // Loop through each chunk and send it
             for chunk_index in 0..total_chunks {
@@ -244,7 +224,7 @@ impl Handler<TriggerSend> for Mailbox {
                 let sequence_number = msg.sequence_number + chunk_index as u16;
 
                 // Create a new message with the chunked data
-                let chunked_message = TriggerSend {
+                let chunked_message = UiMessage {
                     message_type: msg.message_type.clone(),
                     encoding: msg.encoding.clone(),
                     sequence_number,
@@ -255,7 +235,7 @@ impl Handler<TriggerSend> for Mailbox {
                 // Send the chunk using the UnixDatagram socket
                 let client_socket = UnixDatagram::unbound().unwrap();
                 if let Err(e) =
-                    client_socket.send_to(&chunked_message.as_bytes(), &outgoing_socket.socket_path)
+                    client_socket.send_to(&chunked_message.as_bytes(), &socket.socket_path)
                 {
                     error!(
                         "Error sending chunk {} of {} from mailbox: {:?}",
@@ -267,10 +247,10 @@ impl Handler<TriggerSend> for Mailbox {
     }
 }
 
-impl Handler<OutgoingSocket> for Mailbox {
+impl Handler<ServerToUiSocket> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: OutgoingSocket, _: &mut Self::Context) -> Self::Result {
-        self.outgoing_socket = Some(msg);
+    fn handle(&mut self, msg: ServerToUiSocket, _: &mut Self::Context) -> Self::Result {
+        self.server_to_ui_socket = Some(msg);
     }
 }
 
@@ -289,35 +269,19 @@ impl Handler<Session> for Mailbox {
                 let addr = format!("127.0.0.1:{}", self.client_socket);
 
                 let addr_clone = addr.clone();
-                let ack_queue_clone = self.ack_queue.clone();
-                let command_queue_clone = self.ack_queue.clone();
-                let data_queue_clone = self.ack_queue.clone();
-                let event_queue_clone = self.ack_queue.clone();
-                let request_queue_clone = self.ack_queue.clone();
-                let error_queue_clone = self.ack_queue.clone();
-                let outgoing_queue_clone = self.ack_queue.clone();
-                let update_stream_clone = self.update_stream.clone();
                 let mailbox_addr = ctx.address();
 
                 println!("session established, starting UDP processing");
+                let ack_queue = self.ack_queue.clone();
 
                 let fut = async move {
                     match UdpSocket::bind(&addr).await {
                         Ok(sock) => {
                             println!("Successfully bound to {}", &addr);
-
                             let sock = Arc::new(sock);
-
                             // Spawn a new Tokio task for reading from the socket
                             tokio::spawn(Mailbox::start_udp_read(
-                                ack_queue_clone,
-                                command_queue_clone,
-                                data_queue_clone,
-                                event_queue_clone,
-                                request_queue_clone,
-                                error_queue_clone,
-                                outgoing_queue_clone,
-                                update_stream_clone,
+                                ack_queue,
                                 sock.clone(),
                                 mailbox_addr,
                             ));

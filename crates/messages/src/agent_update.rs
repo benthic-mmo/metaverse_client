@@ -1,13 +1,10 @@
 use glam::{Quat, Vec3};
 use std::any::Any;
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::oneshot::Sender;
+use std::sync::Arc;
 
 use uuid::Uuid;
 
 use super::{
-    client_update_data::ClientUpdateData,
     header::{Header, PacketFrequency},
     packet::{MessageType, Packet, PacketData},
 };
@@ -418,13 +415,8 @@ impl PacketData for AgentUpdate {
         bytes
     }
 
-    fn on_receive(
-        &self,
-        _: Arc<Mutex<HashMap<u32, Sender<()>>>>,
-        _: Arc<Mutex<Vec<ClientUpdateData>>>,
-    ) -> futures::future::BoxFuture<'static, ()> {
+    fn on_receive(&self) -> futures::future::BoxFuture<'static, ()> {
         Box::pin(async move {
-            // Implement the actual logic here later
             println!("agent_update on_receive is not yet implemented.");
         })
     }

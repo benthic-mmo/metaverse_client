@@ -1,134 +1,99 @@
-use metaverse_messages::login::errors::LoginError;
-use std::{error::Error, fmt};
+use metaverse_messages::login_system::errors::LoginError;
+use thiserror::Error;
 
-#[derive(Clone, Debug)]
-pub enum SessionError {
-    CircuitCode(CircuitCodeError),
-    CompleteAgentMovement(CompleteAgentMovementError),
-    Login(LoginError),
-    AckError(AckError), // Add other error types here
-}
-
-impl SessionError {
-    pub fn new_login_error(login_error: LoginError) -> Self {
-        SessionError::Login(login_error)
-    }
-    pub fn new(error: impl Into<SessionError>) -> Self {
-        error.into()
-    }
-}
-impl fmt::Display for SessionError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SessionError::CircuitCode(err) => write!(f, "CircuitCodeError: {}", err),
-            SessionError::Login(err) => write!(f, "LoginError: {}", err),
-            SessionError::CompleteAgentMovement(err) => write!(f, "CompleteAgentMovement: {}", err),
-            SessionError::AckError(err) => write!(f, "AckError: {}", err),
-        }
-    }
-}
-
-impl Error for SessionError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            SessionError::CircuitCode(err) => Some(err),
-            SessionError::Login(err) => Some(err),
-            SessionError::CompleteAgentMovement(err) => Some(err),
-            SessionError::AckError(err) => Some(err),
-        }
-    }
-}
-
-impl SessionError {
-    pub fn as_boxed_error(&self) -> Box<dyn Error + Send + Sync> {
-        match self {
-            SessionError::CircuitCode(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
-            SessionError::Login(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
-            SessionError::CompleteAgentMovement(err) => {
-                Box::new(err.clone()) as Box<dyn Error + Send + Sync>
-            }
-            SessionError::AckError(err) => Box::new(err.clone()) as Box<dyn Error + Send + Sync>,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum SendFailReason {
-    Timeout,
-    Unknown,
-}
-impl fmt::Display for SendFailReason {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let msg = match self {
-            SendFailReason::Timeout => "Timeout",
-            SendFailReason::Unknown => "Unknown",
-        };
-        write!(f, "{}", msg)
-    }
-}
-
-#[derive(Clone, Debug)]
+/// This represents the errors that can arise from CircuitCodes failing.
+/// The CircuitCode is what the server returns after a successful login.
+/// https://wiki.secondlife.com/wiki/UseCircuitCode
+#[derive(Debug, Clone, Error)]
+#[error("{message}")]
 pub struct CircuitCodeError {
-    pub reason: SendFailReason,
+    /// String message that contains error information
     pub message: String,
 }
-impl fmt::Display for CircuitCodeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.reason)
-    }
-}
-impl Error for CircuitCodeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-}
-
 impl CircuitCodeError {
-    pub fn new(reason: SendFailReason, message: String) -> Self {
-        Self { reason, message }
+    /// Function for creating a new CircuitCodeError
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
     }
 }
 
-#[derive(Clone, Debug)]
+/// This represents errors that can arise from a CompleteAgentMovment event failing.
+/// The CompleteAgentMovement packet is sent to finalize login.
+/// https://wiki.secondlife.com/wiki/CompleteAgentMovement
+#[derive(Debug, Clone, Error)]
+#[error("{message}")]
 pub struct CompleteAgentMovementError {
-    pub reason: SendFailReason,
+    /// String message that contains error information
     pub message: String,
 }
-
 impl CompleteAgentMovementError {
-    pub fn new(reason: SendFailReason, message: String) -> Self {
-        Self { reason, message }
-    }
-}
-impl fmt::Display for CompleteAgentMovementError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.reason)
-    }
-}
-impl Error for CompleteAgentMovementError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
+    /// Function for creating a new CompleteAgentMovementError
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
     }
 }
 
-#[derive(Clone, Debug)]
+/// This represents errors that can arise from Acks failing.
+/// Acks are sent to and from the server to verify packages got to their destination.
+/// https://wiki.secondlife.com/wiki/PacketAck
+#[derive(Debug, Clone, Error)]
+#[error("{message}")]
 pub struct AckError {
+    /// String message that contains error information
     pub message: String,
 }
 impl AckError {
-    pub fn new(message: String) -> Self {
-        Self { message }
+    /// Function for creating a new AckError
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
     }
 }
 
-impl fmt::Display for AckError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.message)
+/// This represents errors that can arise from the mailbox failing to connect.
+/// The mailbox is part of the client that handles packet IO and other logic to pass to the UI.
+#[derive(Debug, Clone, Error)]
+#[error("{message}")]
+pub struct MailboxError {
+    /// String message that contains error information
+    pub message: String,
+}
+impl MailboxError {
+    /// Function for creating a new MailboxError
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
     }
 }
 
-impl Error for AckError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
+/// Represents errors that arise from failures within the session
+#[derive(Clone, Debug, Error)]
+pub enum SessionError {
+    /// this is sent when the CircuitCode that establishes the login fails.
+    #[error("CircuitCodeError: {0}")]
+    CircuitCode(#[from] CircuitCodeError),
+    /// This is sent when the CompleteAgentMovement event fails
+    #[error("CompleteAgentMovementError: {0}")]
+    CompleteAgentMovement(#[from] CompleteAgentMovementError),
+    /// This is sent when the Login event fails
+    #[error("LoginError: {0}")]
+    Login(#[from] LoginError),
+    /// This is for when the mailbox fails to establish a session
+    #[error("MailboxError: {0}")]
+    Mailbox(#[from] MailboxError),
+    /// This is sent when Acknowledgement packets fail
+    #[error("AckError: {0}")]
+    AckError(#[from] AckError),
+}
+impl SessionError {
+    /// Create a new LoginError from the message's login error
+    pub fn new_login_error(login_error: LoginError) -> Self {
+        SessionError::Login(login_error)
     }
 }
