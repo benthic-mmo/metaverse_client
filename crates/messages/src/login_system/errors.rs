@@ -3,6 +3,7 @@ use std::error::Error;
 /// the type for the conversionerror, thrown when failing to convert a login response to a struct
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 use xmlrpc::Value;
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ impl fmt::Display for ConversionError {
 
 impl Error for ConversionError {}
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct LoginError {
     pub reason: Reason,
     pub message: String,
@@ -58,7 +59,7 @@ impl fmt::Debug for LoginError {
         )
     }
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Reason {
     Key,
     Presence,

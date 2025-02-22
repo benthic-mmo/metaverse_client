@@ -11,8 +11,6 @@
 #![warn(missing_docs)]
 /// This module is for running in your client to subscribe to the server events
 pub mod client_subscriber;
-/// This module contains the errors for the project
-pub mod errors;
 /// This module initializes the mailbox
 pub mod initialize;
 /// This module handles packet IO and logic

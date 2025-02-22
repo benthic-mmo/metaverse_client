@@ -1,5 +1,5 @@
 use core::fmt;
-use crate::{login_system::login_response::LoginResponse, packet::PacketData};
+use crate::{errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData};
 
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,7 @@ use crate::{chat_from_simulator::ChatFromSimulator, coarse_location_update::Coar
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UiEventTypes {
     LoginResponseEvent,
+    Error,
     ChatEvent,
     CoarseLocationUpdateEvent,
     DisableSimulatorEvent,
@@ -22,6 +23,11 @@ pub fn packet_type_from_bytes(&self, data: &Vec<u8>) -> Option<PacketType> {
                 .ok()
                 .map(|packet| PacketType::LoginResponse(Box::new(packet)))
         }
+        UiEventTypes::Error => {
+                SessionError::from_bytes(data)
+                .map(|packet| PacketType::Error(Box::new(packet)))   
+            }
+
         UiEventTypes::ChatEvent => {
             ChatFromSimulator::from_bytes(data)
                 .ok()
@@ -32,6 +38,7 @@ pub fn packet_type_from_bytes(&self, data: &Vec<u8>) -> Option<PacketType> {
                 .ok()
                 .map(|packet| PacketType::CoarseLocationUpdate(Box::new(packet)))
         }
+       
         _ => None, // Handle unimplemented cases
     }
 }
@@ -45,6 +52,7 @@ impl fmt::Display for UiEventTypes {
             UiEventTypes::CoarseLocationUpdateEvent => write!(f, "CoarseLocationUpdateEvent"),
             UiEventTypes::DisableSimulatorEvent => write!(f, "DisableSimulatorEvent"),
             UiEventTypes::None => write!(f, "None"),
+            UiEventTypes::Error => write!(f, "Error"),
         }
     }
 }

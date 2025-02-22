@@ -1,5 +1,6 @@
 use futures::future::BoxFuture;
 
+use crate::errors::SessionError;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
@@ -35,6 +36,7 @@ pub enum PacketType {
     // client. 
     Login(Box<Login>),
     LoginResponse(Box<LoginResponse>),
+    Error(Box<SessionError>),
 }
 impl PacketType {
     pub fn message_type(&self) -> MessageType {
@@ -51,7 +53,8 @@ impl PacketType {
             PacketType::PacketAck(_) => MessageType::Acknowledgment,
 
             PacketType::Login(_) => MessageType::Login,
-            PacketType::LoginResponse(_) => MessageType::Login, 
+            PacketType::LoginResponse(_) => MessageType::Login,
+            PacketType::Error(_) => MessageType::Error,
         }
     }
     pub fn ui_event(&self) -> UiEventTypes {
@@ -74,6 +77,7 @@ impl PacketType {
             PacketType::ChatFromViewer(data) => data.to_bytes(),
             PacketType::Login(data) => data.to_bytes(),
             PacketType::LoginResponse(_) => Vec::new(),
+            PacketType::Error(data) => data.to_bytes(),
         }
     }
 
@@ -90,6 +94,9 @@ impl PacketType {
             PacketType::Login(data) => data.on_receive(),
             PacketType::LoginResponse(_) => {Box::pin(async move {
                 println!("LoginResponse on_recieve not yet implemented");
+            })}
+            PacketType::Error(_) => {Box::pin(async move {
+                println!("Error on_recieve not yet implemented");
             })}
         }
     }
@@ -111,6 +118,7 @@ impl PacketType {
                     bytes,
                 )?))),
                 id => Err(io::Error::new(
+              
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),
                 )),

@@ -1,10 +1,11 @@
-use metaverse_messages::login_system::errors::LoginError;
+use crate::login_system::errors::LoginError;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// This represents the errors that can arise from CircuitCodes failing.
 /// The CircuitCode is what the server returns after a successful login.
 /// https://wiki.secondlife.com/wiki/UseCircuitCode
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct CircuitCodeError {
     /// String message that contains error information
@@ -22,7 +23,7 @@ impl CircuitCodeError {
 /// This represents errors that can arise from a CompleteAgentMovment event failing.
 /// The CompleteAgentMovement packet is sent to finalize login.
 /// https://wiki.secondlife.com/wiki/CompleteAgentMovement
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct CompleteAgentMovementError {
     /// String message that contains error information
@@ -40,7 +41,7 @@ impl CompleteAgentMovementError {
 /// This represents errors that can arise from Acks failing.
 /// Acks are sent to and from the server to verify packages got to their destination.
 /// https://wiki.secondlife.com/wiki/PacketAck
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct AckError {
     /// String message that contains error information
@@ -57,7 +58,7 @@ impl AckError {
 
 /// This represents errors that can arise from the mailbox failing to connect.
 /// The mailbox is part of the client that handles packet IO and other logic to pass to the UI.
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct MailboxError {
     /// String message that contains error information
@@ -73,7 +74,7 @@ impl MailboxError {
 }
 
 /// Represents errors that arise from failures within the session
-#[derive(Clone, Debug, Error)]
+#[derive(Clone, Debug, Error, Serialize, Deserialize)]
 pub enum SessionError {
     /// this is sent when the CircuitCode that establishes the login fails.
     #[error("CircuitCodeError: {0}")]
@@ -95,5 +96,14 @@ impl SessionError {
     /// Create a new LoginError from the message's login error
     pub fn new_login_error(login_error: LoginError) -> Self {
         SessionError::Login(login_error)
+    }
+
+    /// to_bytes function for sending error from server to UI
+    pub fn to_bytes(&self)-> Vec<u8>{
+        bincode::serialize(self).expect("Failed to serialize SessionError")
+    }
+    /// from_bytes for sending error from server to UI 
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        bincode::deserialize(bytes).ok()
     }
 }

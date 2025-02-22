@@ -11,3 +11,4 @@ pub mod packet;
 pub mod packet_ack;
 pub mod packet_types;
 pub mod ui_events;
+pub mod errors;

@@ -89,14 +89,17 @@ fn handle_queue(
         match event {
             PacketType::LoginResponse(login_response) => {
                 ev_loginresponse.send(LoginResponseEvent{_value: *login_response});
-                println!("got LoginResponse")
+                info!("got LoginResponse")
             }
             PacketType::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.send(CoarseLocationUpdateEvent{_value: *coarse_location_update});
-                println!("got CoarseLocationUpdate")
+                info!("got CoarseLocationUpdate")
+            }
+            PacketType::Error(error) => {
+                error!("got error from server {:?}", error)
             }
             _ => {
-                println!("awawaa")
+                info!("unknown event coming from server")
             }
         };
     }

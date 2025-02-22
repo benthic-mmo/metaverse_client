@@ -17,7 +17,7 @@ use tokio::sync::{oneshot, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-use super::errors::{AckError, SessionError};
+use metaverse_messages::errors::{AckError, SessionError};
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);
