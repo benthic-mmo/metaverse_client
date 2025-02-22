@@ -1,11 +1,11 @@
 use actix::Actor;
+use metaverse_messages::errors::{SessionError, MailboxError};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
-use crate::errors::{MailboxError, SessionError};
 use crate::mailbox::ServerState;
 use crate::mailbox::{Mailbox, ServerToUiSocket};
 use crate::server_subscriber::listen_for_ui_messages;

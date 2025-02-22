@@ -11,7 +11,7 @@ use metaverse_messages::ui_events::UiEventTypes;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
-use crate::errors::{CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError};
+use metaverse_messages::errors::{CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError};
 use crate::mailbox::{Mailbox, Session, UiMessage};
 
 /// This is used for the server to listen to messages coming in from the UI.
@@ -72,7 +72,13 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
                 if let PacketType::Login(login) = packet.body {
                     match handle_login((*login).clone(), &mailbox_addr).await {
                         Ok(_) => info!("Successfully logged in"),
-                        Err(e) => warn!("Failed to log in {:?}", e),
+                        Err(e) => {
+                            // send the error to the UI to handle
+                            mailbox_addr.do_send(UiMessage::new(
+                                UiEventTypes::Error,
+                                e.to_bytes()
+                            ));
+                        },
                     };
                 } else {
                     mailbox_addr.do_send(packet);
