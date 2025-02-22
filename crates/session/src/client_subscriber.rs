@@ -1,10 +1,5 @@
 use crossbeam_channel::Sender;
-use log::error;
-use metaverse_messages::chat_from_simulator::ChatFromSimulator;
-use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
-use metaverse_messages::login_system::login_response::LoginResponse;
-use metaverse_messages::packet::PacketData;
-use metaverse_messages::ui_events::UiEventTypes;
+use metaverse_messages::packet_types::PacketType;
 use std::os::unix::net::UnixDatagram;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -53,11 +48,19 @@ pub struct PacketStore {
 ///
 ///fn handle_queue(receiver: Receiver) {
 ///    while let Ok(event) = receiver.try_recv() {
-///         somefunction(event)
+///         match event{
+///             PacketType::LoginResponse(login_response) => {
+///                 // handle the login response
+///             }
+///             PacketType::CoarseLocationUpdate(coarse_location_update) => {
+///                 // handle the coarse location update 
+///             }
+///             // etc for the rest of the event packets
+///         }
 ///     }
 ///}
 ///```
-pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<LoginResponse>) {
+pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<PacketType>) {
     let socket = UnixDatagram::bind(socket_path).unwrap();
     let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
 
@@ -89,50 +92,16 @@ pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<Login
                                 return;
                             }
                         }
-                        match received_chunk.message_type {
-                            UiEventTypes::LoginResponseEvent => {
-                                match serde_json::from_str::<LoginResponse>(
-                                    &String::from_utf8(full_message).unwrap(),
-                                ) {
-                                    Ok(login_response) => {
-                                        {
-                                            match sender.send(login_response) {
-                                                    Ok(()) => info!("sent LoginResponse event to the login response handler"),
-                                                    Err(e) => warn!("failed to send to mspc {:?}", e)
-                                                };
-                                        };
-                                    }
-                                    Err(e) => {
-                                        warn!(
-                                        "UI failed to deserialize LoginResponse from server: {:?}",
-                                        e
-                                    );
-                                    }
-                                }
-                            }
-                            UiEventTypes::ChatEvent => {
-                                let _packet = match ChatFromSimulator::from_bytes(&full_message) {
-                                    Ok(packet) => info!("parsed packet: {:?}", packet),
-                                    Err(e) => {
-                                        error!("failed to parse packet {:?}", e);
-                                        continue;
-                                    }
-                                };
-                            }
-                            UiEventTypes::CoarseLocationUpdateEvent => {
-                                let _packet = match CoarseLocationUpdate::from_bytes(&full_message)
-                                {
-                                    Ok(packet) => info!("parsed packet: {:?}", packet),
-                                    Err(e) => {
-                                        error!("failed to parse packet {:?}", e);
-                                        continue;
-                                    }
-                                };
-                            }
-                            event => {
-                                info!("{:?} not implemented yet", event)
-                            }
-                        }
+                        // get the packet type and send that to the sender
+                        if let Some(packet) = received_chunk.message_type.packet_type_from_bytes(&full_message){
+                            if let Err(e) = sender.send(packet) {
+                                warn!("Failed to send packet to UI: {:?}", e)
+                            };
+                        }else {
+                            warn!("Client failed to send packet to UI")
+                        };
+
+
                     }
                 } else {
                     warn!("UI failed to deserialize the packet chunk from server")

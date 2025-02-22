@@ -30,6 +30,7 @@ pub fn ui_login_system(
     egui::SidePanel::left("Login")
         .default_width(200.0)
         .show(ctx, |ui| {
+
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {

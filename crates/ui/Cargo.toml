@@ -16,6 +16,9 @@ bevy_egui = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
 crossbeam-channel = "0.5.14"
 serde_json = "1.0"
+egui_xml = "0.1.4"
+egui_extras = "0.31.0"
+egui = "0.31.0"
 [dependencies.uuid]
 version = "1.13.1"
 features = [

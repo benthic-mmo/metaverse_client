@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use actix_rt::System;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
+use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login_system::login_response::LoginResponse;
+use metaverse_messages::packet_types::PacketType;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use tempfile::NamedTempFile;
 
@@ -20,13 +22,17 @@ struct Sockets {
 
 #[derive(Resource)]
 struct EventChannel {
-    sender: Sender<LoginResponse>,
-    receiver: Receiver<LoginResponse>,
+    sender: Sender<PacketType>,
+    receiver: Receiver<PacketType>,
 }
 
 #[derive(Event)]
 struct LoginResponseEvent {
     _value: LoginResponse,
+}
+#[derive(Event)]
+struct CoarseLocationUpdateEvent{
+    _value: CoarseLocationUpdate,
 }
 
 fn main() {
@@ -59,7 +65,9 @@ fn main() {
         .add_systems(Startup, start_client)
         .add_systems(Startup, start_listener)
         .add_systems(Update, handle_queue)
+
         .add_event::<LoginResponseEvent>()
+        .add_event:: <CoarseLocationUpdateEvent>()
         .run();
 }
 
@@ -73,12 +81,24 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
 fn handle_queue(
     event_channel: Res<EventChannel>,
     mut ev_loginresponse: EventWriter<LoginResponseEvent>,
+    mut ev_coarselocationupdate: EventWriter<CoarseLocationUpdateEvent>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
     while let Ok(event) = receiver.try_recv() {
-        info!("EVENT RECEIVED");
-        ev_loginresponse.send(LoginResponseEvent { _value: event });
+        match event {
+            PacketType::LoginResponse(login_response) => {
+                ev_loginresponse.send(LoginResponseEvent{_value: *login_response});
+                println!("got LoginResponse")
+            }
+            PacketType::CoarseLocationUpdate(coarse_location_update) => {
+                ev_coarselocationupdate.send(CoarseLocationUpdateEvent{_value: *coarse_location_update});
+                println!("got CoarseLocationUpdate")
+            }
+            _ => {
+                println!("awawaa")
+            }
+        };
     }
 }
 
