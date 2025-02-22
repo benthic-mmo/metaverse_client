@@ -9,7 +9,7 @@ use crate::{chat_from_simulator::ChatFromSimulator, coarse_location_update::Coar
 pub enum UiEventTypes {
     LoginResponseEvent,
     Error,
-    ChatEvent,
+    ChatFromSimulatorEvent,
     CoarseLocationUpdateEvent,
     DisableSimulatorEvent,
     // for packets that are not events
@@ -28,7 +28,7 @@ pub fn packet_type_from_bytes(&self, data: &Vec<u8>) -> Option<PacketType> {
                 .map(|packet| PacketType::Error(Box::new(packet)))   
             }
 
-        UiEventTypes::ChatEvent => {
+        UiEventTypes::ChatFromSimulatorEvent => {
             ChatFromSimulator::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::ChatFromSimulator(Box::new(packet)))
@@ -48,7 +48,7 @@ impl fmt::Display for UiEventTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UiEventTypes::LoginResponseEvent => write!(f, "LoginResponseEvent"),
-            UiEventTypes::ChatEvent => write!(f, "ChatEvent"),
+            UiEventTypes::ChatFromSimulatorEvent => write!(f, "ChatFromSimulatorEvent"),
             UiEventTypes::CoarseLocationUpdateEvent => write!(f, "CoarseLocationUpdateEvent"),
             UiEventTypes::DisableSimulatorEvent => write!(f, "DisableSimulatorEvent"),
             UiEventTypes::None => write!(f, "None"),

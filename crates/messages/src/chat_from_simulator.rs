@@ -143,6 +143,10 @@ impl PacketData for ChatFromSimulator {
         let mut cursor = Cursor::new(bytes);
 
         // FromName
+        // skip one byte of prefix
+        // TODO: IF EVERYTHING BREAKS WHEN CONNECTING TO A REAL SERVER
+        // THIS IS WHY. YOUR SENDCHATFROMVIEWER IS BROKEN
+        // AND SO IS THIS
         let mut from_name_bytes = Vec::new();
         cursor.read_until(0, &mut from_name_bytes)?; // Read until null terminator
         let from_name =
@@ -182,9 +186,15 @@ impl PacketData for ChatFromSimulator {
             z: cursor.read_f32::<byteorder::LittleEndian>()?,
         };
 
+
+        // skip two bytes of size prefix
+        cursor.set_position(cursor.position() + 1);
         // Message
         let mut message_bytes = Vec::new();
         cursor.read_to_end(&mut message_bytes)?;
+        if !message_bytes.is_empty() {
+            message_bytes.pop();
+        }
         let message = String::from_utf8(message_bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
@@ -203,10 +213,10 @@ impl PacketData for ChatFromSimulator {
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        // Convert `from_name` to bytes (length-prefixed)
+        // Convert `from_name` to bytes (null-terminated)
         let name_bytes = self.from_name.as_bytes();
-        bytes.extend_from_slice(&(name_bytes.len() as u32).to_le_bytes());
-        bytes.extend_from_slice(name_bytes);
+        bytes.extend_from_slice(&name_bytes);
+        bytes.push(0); 
 
         // Convert `source_id` and `owner_id` to bytes
         bytes.extend_from_slice(self.source_id.as_bytes());
@@ -222,10 +232,10 @@ impl PacketData for ChatFromSimulator {
         bytes.extend_from_slice(&self.position.y.to_le_bytes());
         bytes.extend_from_slice(&self.position.z.to_le_bytes());
 
-        // Convert `message` to bytes (length-prefixed)
+        // Convert `message` to bytes (null-terminated)
         let message_bytes = self.message.as_bytes();
-        bytes.extend_from_slice(&(message_bytes.len() as u32).to_le_bytes());
         bytes.extend_from_slice(message_bytes);
+        bytes.push(0);
 
         bytes
     }

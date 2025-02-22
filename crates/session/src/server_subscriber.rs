@@ -74,6 +74,7 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
                         Ok(_) => info!("Successfully logged in"),
                         Err(e) => {
                             // send the error to the UI to handle
+                            warn!("Error logging in: {:?}", e);
                             mailbox_addr.do_send(UiMessage::new(
                                 UiEventTypes::Error,
                                 e.to_bytes()
