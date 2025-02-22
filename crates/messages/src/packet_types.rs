@@ -1,6 +1,7 @@
 use futures::future::BoxFuture;
 
 use crate::login_system::login::Login;
+use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
 use crate::ui_events::UiEventTypes;
 
@@ -30,7 +31,10 @@ pub enum PacketType {
     AgentUpdate(Box<AgentUpdate>),
     ChatFromSimulator(Box<ChatFromSimulator>),
     ChatFromViewer(Box<ChatFromViewer>),
+    // these do not exist in the packet spec! Used as utilities for communicating with server and
+    // client. 
     Login(Box<Login>),
+    LoginResponse(Box<LoginResponse>),
 }
 impl PacketType {
     pub fn message_type(&self) -> MessageType {
@@ -47,6 +51,7 @@ impl PacketType {
             PacketType::PacketAck(_) => MessageType::Acknowledgment,
 
             PacketType::Login(_) => MessageType::Login,
+            PacketType::LoginResponse(_) => MessageType::Login, 
         }
     }
     pub fn ui_event(&self) -> UiEventTypes {
@@ -68,8 +73,10 @@ impl PacketType {
             PacketType::ChatFromSimulator(data) => data.to_bytes(),
             PacketType::ChatFromViewer(data) => data.to_bytes(),
             PacketType::Login(data) => data.to_bytes(),
+            PacketType::LoginResponse(_) => Vec::new(),
         }
     }
+
     pub fn on_receive(&self) -> BoxFuture<'static, ()> {
         match self {
             PacketType::CircuitCode(data) => data.on_receive(),
@@ -81,6 +88,9 @@ impl PacketType {
             PacketType::ChatFromSimulator(data) => data.on_receive(),
             PacketType::ChatFromViewer(data) => data.on_receive(),
             PacketType::Login(data) => data.on_receive(),
+            PacketType::LoginResponse(_) => {Box::pin(async move {
+                println!("LoginResponse on_recieve not yet implemented");
+            })}
         }
     }
 }
