@@ -41,13 +41,13 @@ pub enum PacketType {
 impl PacketType {
     pub fn message_type(&self) -> MessageType {
         match self {
-            PacketType::ChatFromViewer(_) => MessageType::Event,
+            PacketType::ChatFromSimulator(_) => MessageType::Event,
             PacketType::CoarseLocationUpdate(_) => MessageType::Event,
             PacketType::DisableSimulator(_) => MessageType::Event,
 
             PacketType::AgentUpdate(_) => MessageType::Outgoing,
             PacketType::CompleteAgentMovementData(_) => MessageType::Outgoing,
-            PacketType::ChatFromSimulator(_) => MessageType::Outgoing,
+            PacketType::ChatFromViewer(_) => MessageType::Outgoing,
             PacketType::CircuitCode(_) => MessageType::Outgoing,
 
             PacketType::PacketAck(_) => MessageType::Acknowledgment,
@@ -59,7 +59,7 @@ impl PacketType {
     }
     pub fn ui_event(&self) -> UiEventTypes {
         match self {
-            PacketType::ChatFromViewer(_) => UiEventTypes::ChatEvent,
+            PacketType::ChatFromSimulator(_) => UiEventTypes::ChatFromSimulatorEvent,
             PacketType::CoarseLocationUpdate(_) => UiEventTypes::CoarseLocationUpdateEvent,
             PacketType::DisableSimulator(_) => UiEventTypes::DisableSimulatorEvent,
             _ => UiEventTypes::None,

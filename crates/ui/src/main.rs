@@ -1,10 +1,14 @@
 mod login;
+mod loading; 
+mod chat;
+
 use std::path::PathBuf;
 
 use actix_rt::System;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
 use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
+use metaverse_messages::errors::SessionError;
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_session::client_subscriber::listen_for_server_events;
@@ -95,8 +99,25 @@ fn handle_queue(
                 ev_coarselocationupdate.send(CoarseLocationUpdateEvent{_value: *coarse_location_update});
                 info!("got CoarseLocationUpdate")
             }
-            PacketType::Error(error) => {
-                error!("got error from server {:?}", error)
+            PacketType::Error(error) => match *error{
+                    SessionError::Login(e) => {
+                        info!("LoginError {:?}", e)
+                    }
+                    SessionError::Mailbox(e) => {
+                        info!("MailboxError {:?}", e)
+                    }
+                    SessionError::AckError(e) => {
+                        info!("AckError {:?}", e)
+                    }
+                    SessionError::CircuitCode(e) => {
+                        info!("CircuitcodeError {:?}", e)
+                    }
+                    SessionError::CompleteAgentMovement(e) => {
+                        info!("CompleteAgentMovmentError {:?}", e)
+                    }
+            }
+            PacketType::ChatFromSimulator(chat_from_simulator) => {
+                info!("received chat: {:?}", chat_from_simulator)
             }
             _ => {
                 info!("unknown event coming from server")

@@ -59,11 +59,11 @@ pub fn ui_login_system(
         });
     if login {
         let grid = if login_data.grid == "localhost" {
-            build_url("http://127.0.0.1", 9000)
+            format!("{}:{}", "http://127.0.0.1", 9000)
         } else {
-            // handle the URL normally
-            "http".to_string()
+            format!("http://{}:{}", login_data.grid, 9000)
         };
+
 
         let packet = Packet::new_login_packet(Login {
             first: login_data.first_name.clone(),
@@ -85,10 +85,3 @@ pub fn ui_login_system(
     }
 }
 
-fn build_url(url: &str, port: u16) -> String {
-    let mut url_string = "".to_owned();
-    url_string.push_str(url);
-    url_string.push(':');
-    url_string.push_str(&port.to_string());
-    url_string
-}

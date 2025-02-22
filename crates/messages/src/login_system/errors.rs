@@ -36,13 +36,13 @@ impl fmt::Display for LoginError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let err_msg = match self.reason {
             Reason::Presence => {
-                "Login failed because you are already logged in. Wait a few minutes and try again."
+                "Login failed because you are already logged in. Wait a few minutes and try again"
             }
             Reason::Key => "Username or password incorrect",
-            Reason::Unknown => "Unknown error occured.",
-            Reason::Connection => "Failed to connect to the server",
+            Reason::Unknown => "Unknown error occured",
+            Reason::Connection => "Connection error",
         };
-        write!(f, "{}", err_msg)
+        write!(f, "{} : {}", err_msg, self.message)
     }
 }
 impl Error for LoginError {

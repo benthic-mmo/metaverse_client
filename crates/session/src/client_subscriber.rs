@@ -100,8 +100,6 @@ pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<Packe
                         }else {
                             warn!("Client failed to send packet to UI")
                         };
-
-
                     }
                 } else {
                     warn!("UI failed to deserialize the packet chunk from server")
