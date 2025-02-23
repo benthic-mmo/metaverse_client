@@ -14,7 +14,6 @@ use std::fs::File;
 extern crate sys_info;
 use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
-use futures::future::BoxFuture;
 use std::io::{self, BufRead, Read};
 
 #[derive(Debug, Clone)]
@@ -206,12 +205,6 @@ impl PacketData for Login {
         bytes.extend(self.url.as_bytes());
         bytes.push(0);
         bytes
-    }
-
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("Login on_recieve not yet implemented");
-        })
     }
 }
 

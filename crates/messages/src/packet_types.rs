@@ -1,4 +1,3 @@
-use futures::future::BoxFuture;
 
 use crate::errors::SessionError;
 use crate::login_system::login::Login;
@@ -13,8 +12,8 @@ use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
     disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
-    packet_ack::PacketAck,
-};
+    packet_ack::PacketAck, start_ping_check::StartPingCheck, complete_ping_check::CompletePingCheck
+ };
 use std::io;
 
 // IntoArc provides a macro that allows all of these to be contained within arcs
@@ -32,6 +31,8 @@ pub enum PacketType {
     AgentUpdate(Box<AgentUpdate>),
     ChatFromSimulator(Box<ChatFromSimulator>),
     ChatFromViewer(Box<ChatFromViewer>),
+    StartPingCheck(Box<StartPingCheck>),
+    CompletePingCheck(Box<CompletePingCheck>),
     // these do not exist in the packet spec! Used as utilities for communicating with server and
     // client. 
     Login(Box<Login>),
@@ -49,6 +50,9 @@ impl PacketType {
             PacketType::CompleteAgentMovementData(_) => MessageType::Outgoing,
             PacketType::ChatFromViewer(_) => MessageType::Outgoing,
             PacketType::CircuitCode(_) => MessageType::Outgoing,
+
+            PacketType::StartPingCheck(_) => MessageType::Request,
+            PacketType::CompletePingCheck(_) => MessageType::Request,
 
             PacketType::PacketAck(_) => MessageType::Acknowledgment,
 
@@ -76,28 +80,12 @@ impl PacketType {
             PacketType::ChatFromSimulator(data) => data.to_bytes(),
             PacketType::ChatFromViewer(data) => data.to_bytes(),
             PacketType::Login(data) => data.to_bytes(),
-            PacketType::LoginResponse(_) => Vec::new(),
             PacketType::Error(data) => data.to_bytes(),
-        }
-    }
+            PacketType::StartPingCheck(data) => data.to_bytes(),
+            PacketType::CompletePingCheck(data) => data.to_bytes(), 
 
-    pub fn on_receive(&self) -> BoxFuture<'static, ()> {
-        match self {
-            PacketType::CircuitCode(data) => data.on_receive(),
-            PacketType::DisableSimulator(data) => data.on_receive(),
-            PacketType::PacketAck(data) => data.on_receive(),
-            PacketType::CoarseLocationUpdate(data) => data.on_receive(),
-            PacketType::CompleteAgentMovementData(data) => data.on_receive(),
-            PacketType::AgentUpdate(data) => data.on_receive(),
-            PacketType::ChatFromSimulator(data) => data.on_receive(),
-            PacketType::ChatFromViewer(data) => data.on_receive(),
-            PacketType::Login(data) => data.on_receive(),
-            PacketType::LoginResponse(_) => {Box::pin(async move {
-                println!("LoginResponse on_recieve not yet implemented");
-            })}
-            PacketType::Error(_) => {Box::pin(async move {
-                println!("Error on_recieve not yet implemented");
-            })}
+            PacketType::LoginResponse(_) => Vec::new(),
+            
         }
     }
 }
@@ -133,6 +121,12 @@ impl PacketType {
                 )),
             },
             PacketFrequency::Low => match id {
+                1 => Ok(PacketType::StartPingCheck(Box::new(
+                    StartPingCheck::from_bytes(bytes)?,
+                ))),
+                2 => Ok(PacketType::CompletePingCheck(Box::new(
+                    CompletePingCheck::from_bytes(bytes)?,
+                ))),
                 3 => Ok(PacketType::CircuitCode(Box::new(
                     CircuitCodeData::from_bytes(bytes)?,
                 ))),

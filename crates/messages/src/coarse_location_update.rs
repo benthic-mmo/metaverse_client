@@ -1,6 +1,5 @@
 use super::packet::PacketData;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use futures::future::BoxFuture;
 use std::io::{self, Cursor, Write};
 
 /// ID: 6
@@ -76,10 +75,5 @@ impl PacketData for CoarseLocationUpdate {
         bytes.write_i16::<LittleEndian>(self.prey).unwrap();
 
         bytes
-    }
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("coarse_location_update on_receive is not yet implemented.");
-        })
     }
 }

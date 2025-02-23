@@ -1,5 +1,4 @@
 use super::packet::PacketData;
-use futures::future::BoxFuture;
 use std::io;
 
 // ID: 152
@@ -14,10 +13,5 @@ impl PacketData for DisableSimulator {
     }
     fn to_bytes(&self) -> Vec<u8> {
         vec![]
-    }
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("disable_simulator on_receive is not yet implemented.");
-        })
     }
 }

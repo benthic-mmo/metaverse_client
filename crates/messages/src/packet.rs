@@ -1,7 +1,6 @@
 use super::packet_types::PacketType;
 use crate::header::Header;
 use actix::prelude::*;
-use futures::future::BoxFuture;
 use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
@@ -34,7 +33,6 @@ pub trait PacketData: std::fmt::Debug + Send + Sync + 'static + Any {
     where
         Self: Sized;
     fn to_bytes(&self) -> Vec<u8>;
-    fn on_receive(&self) -> BoxFuture<'static, ()>;
 }
 
 impl Packet {

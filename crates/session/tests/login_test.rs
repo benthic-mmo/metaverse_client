@@ -1,16 +1,13 @@
 use actix::System;
 use crossbeam_channel::{unbounded, Sender};
 use log::{error, info, LevelFilter};
-use metaverse_messages::login_system::login_response;
 use metaverse_messages::packet_types::PacketType;
 use tempfile::NamedTempFile;
 
-use metaverse_messages::chat_from_viewer::{ChatFromViewer, ClientChatType};
 use metaverse_messages::login_system::login::Login;
 use metaverse_messages::packet::Packet;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use metaverse_session::initialize::initialize;
-use uuid::Uuid;
 
 use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;

@@ -5,7 +5,6 @@ use super::{
     packet::{Packet, PacketData},
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use futures::future::BoxFuture;
 use std::io::Read;
 use std::io::{self, Cursor};
 use uuid::Uuid;
@@ -128,11 +127,5 @@ impl PacketData for ChatFromViewer {
         bytes.push(0);
 
         bytes
-    }
-
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("chat_from_viewer on_receive is not yet implemented.");
-        })
     }
 }
