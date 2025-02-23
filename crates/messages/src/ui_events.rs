@@ -19,7 +19,7 @@ impl UiEventTypes{
 pub fn packet_type_from_bytes(&self, data: &Vec<u8>) -> Option<PacketType> {
     match self {
         UiEventTypes::LoginResponseEvent => {
-            serde_json::from_str::<LoginResponse>(&String::from_utf8(data.to_vec()).unwrap())
+            serde_json::from_str::<LoginResponse>(core::str::from_utf8(data).unwrap())
                 .ok()
                 .map(|packet| PacketType::LoginResponse(Box::new(packet)))
         }

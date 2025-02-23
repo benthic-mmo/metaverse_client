@@ -1,6 +1,7 @@
 use actix::prelude::*;
 use bincode;
 use log::{error, info, warn};
+use metaverse_messages::complete_ping_check::CompletePingCheck;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
@@ -137,10 +138,11 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(_) => {
-                            //error!("failed to parse packet: {:?}", e);
                             continue;
                         }
                     };
+                    info!("received packet: {:?}, {:?}", packet.header.id, packet.header.frequency);
+
                     if packet.header.reliable {
                         match mailbox_address
                             .send(Packet::new_packet_ack(PacketAck {
@@ -152,11 +154,9 @@ impl Mailbox {
                             Err(_) => println!("ack failed to send"),
                         };
                     }
-                    packet.body.on_receive().await;
-                    // if the packet is an Ack packet, handle it
-                    match packet.body.message_type() {
-                        MessageType::Acknowledgment => {
-                            if let PacketType::PacketAck(data) = packet.body.clone() {
+
+                    match &packet.body {
+                        PacketType::PacketAck(data) => {
                                 let mut queue = ack_queue.lock().unwrap();
                                 for id in data.packet_ids.clone() {
                                     if let Some(sender) = queue.remove(&id) {
@@ -165,25 +165,32 @@ impl Mailbox {
                                         println!("No pending ack found for request ID: {}", id);
                                     }
                                 }
+                        }
+                        PacketType::StartPingCheck(data) => {
+                            if let Err(e) = mailbox_address.send(
+                                Packet::new_complete_ping_check(CompletePingCheck{
+                                    ping_id: data.ping_id
+                                })
+                            ).await{
+                                warn!("Failed to respond to ping {:?}", e)
                             }
                         }
-
+                        _ => {}
+                    }
+                    match &packet.body.message_type() {
                         MessageType::Event => {
-                            match mailbox_address
+                            if let Err(e) = mailbox_address
                                 .send(UiMessage::new(
                                     packet.body.ui_event(),
                                     packet.body.to_bytes(),
                                 ))
                                 .await
                             {
-                                Ok(()) => info!("event sent to UI"),
-                                Err(e) => warn!("failed to send to ui: {:?}", e),
+                                warn!("failed to send to ui: {:?}", e)
                             };
                         }
                         _ => {}
                     }
-                    packet.body.on_receive().await;
-                    info!("packet received: {:?}", packet);
                 }
                 Err(e) => {
                     eprintln!("Failed to receive data: {}", e);

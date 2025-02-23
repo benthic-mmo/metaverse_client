@@ -54,9 +54,4 @@ impl PacketData for CompleteAgentMovementData {
         bytes.extend(self.circuit_code.to_le_bytes());
         bytes
     }
-    fn on_receive(&self) -> futures::future::BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("complete_agent_movement on_receive is not yet implemented.");
-        })
-    }
 }

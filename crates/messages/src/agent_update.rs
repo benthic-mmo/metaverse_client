@@ -414,10 +414,4 @@ impl PacketData for AgentUpdate {
 
         bytes
     }
-
-    fn on_receive(&self) -> futures::future::BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("agent_update on_receive is not yet implemented.");
-        })
-    }
 }

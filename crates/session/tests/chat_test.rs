@@ -51,12 +51,9 @@ fn test_chat() {
     // get the login response from the server
     let mut outer_login_response : Option<LoginResponse> = None; 
     while let Ok(event) = receiver.try_recv() {
-        match event{
-            PacketType::LoginResponse(login_response) => {
-                // if the test receives a LoginResponse, then it passes
-                outer_login_response = Some(*login_response);
-            }
-            _ => {}
+        if let PacketType::LoginResponse(login_response) = event {
+            // if the test receives a LoginResponse, then it passes
+            outer_login_response = Some(*login_response);
         }
     }
 

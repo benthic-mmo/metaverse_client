@@ -7,4 +7,4 @@ members = [
   "crates/ui"]
 [patch.crates-io]
 # needed in order to accept data from osgrid servers
-#xmlrpc_benthic = {git = "https://github.com/benthic-mmo/xml-rpc-rs"}
+xmlrpc_benthic = {git = "https://github.com/benthic-mmo/xml-rpc-rs"}

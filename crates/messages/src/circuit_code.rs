@@ -1,7 +1,6 @@
 use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
 use crate::packet_types::PacketType;
-use futures::future::BoxFuture;
 use std::io;
 use uuid::Uuid;
 
@@ -49,10 +48,5 @@ impl PacketData for CircuitCodeData {
         bytes.extend(self.session_id.as_bytes());
         bytes.extend(self.id.as_bytes());
         bytes
-    }
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("circuit_code on_receive is not yet implemented.");
-        })
     }
 }

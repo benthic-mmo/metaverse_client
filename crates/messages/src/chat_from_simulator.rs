@@ -5,7 +5,6 @@ use super::{
     packet::{Packet, PacketData},
 };
 use byteorder::ReadBytesExt;
-use futures::future::BoxFuture;
 use glam::Vec3;
 use std::io::Read;
 use std::io::{self, BufRead, Cursor};
@@ -215,7 +214,7 @@ impl PacketData for ChatFromSimulator {
 
         // Convert `from_name` to bytes (null-terminated)
         let name_bytes = self.from_name.as_bytes();
-        bytes.extend_from_slice(&name_bytes);
+        bytes.extend_from_slice(name_bytes);
         bytes.push(0); 
 
         // Convert `source_id` and `owner_id` to bytes
@@ -240,9 +239,4 @@ impl PacketData for ChatFromSimulator {
         bytes
     }
 
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("chat_from_simulator on_receive is not yet implemented.");
-        })
-    }
 }

@@ -5,7 +5,6 @@ use super::{
     packet::{Packet, PacketData},
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use futures::future::BoxFuture;
 use std::io::{self, Cursor};
 
 impl Packet {
@@ -57,11 +56,5 @@ impl PacketData for PacketAck {
         }
 
         bytes
-    }
-
-    fn on_receive(&self) -> BoxFuture<'static, ()> {
-        Box::pin(async move {
-            println!("packet_ack on_receive is not yet implemented.");
-        })
     }
 }
