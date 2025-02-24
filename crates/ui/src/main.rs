@@ -41,11 +41,11 @@ struct SessionData {
 
 #[derive(Resource)]
 struct ChatMessages {
-    messages: Vec<ChatFromClientMessage>
+    messages: Vec<ChatFromClientMessage>,
 }
 
-struct ChatFromClientMessage{
-    user: String, 
+struct ChatFromClientMessage {
+    user: String,
     message: String,
 }
 
@@ -85,8 +85,12 @@ fn main() {
         .add_systems(Startup, configure_visuals_system)
         // initial state of viewer is default, which is Login
         .init_state::<ViewerState>()
-        .insert_resource(SessionData{login_response:None})
-        .insert_resource(ChatMessages{messages: Vec::new()})
+        .insert_resource(SessionData {
+            login_response: None,
+        })
+        .insert_resource(ChatMessages {
+            messages: Vec::new(),
+        })
         .insert_resource(Sockets {
             ui_to_server_socket,
             server_to_ui_socket,
@@ -97,16 +101,13 @@ fn main() {
             sender: s1,
             receiver: r1,
         })
-        
         //TODO: these should be in a plugin
         .add_systems(Startup, start_client)
         .add_systems(Startup, start_listener)
         .add_systems(Update, handle_queue)
-
         .add_systems(Update, handle_login_response)
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
-        
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
         .add_systems(
             Update,
@@ -119,14 +120,14 @@ fn main() {
 fn handle_login_response(
     mut ev_loginresponse: EventReader<LoginResponseEvent>,
     mut viewer_state: ResMut<NextState<ViewerState>>,
-    mut session_data: ResMut<SessionData>
+    mut session_data: ResMut<SessionData>,
 ) {
     for response in ev_loginresponse.read() {
         match response.value.as_ref() {
             Ok(login_response) => {
                 viewer_state.set(ViewerState::Chat);
                 session_data.login_response = Some(login_response.clone());
-            },
+            }
             Err(_) => viewer_state.set(ViewerState::Login),
         }
     }
@@ -143,7 +144,7 @@ fn handle_queue(
     event_channel: Res<EventChannel>,
     mut ev_loginresponse: EventWriter<LoginResponseEvent>,
     mut ev_coarselocationupdate: EventWriter<CoarseLocationUpdateEvent>,
-    mut chat_messages: ResMut<ChatMessages>
+    mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
@@ -179,7 +180,7 @@ fn handle_queue(
                 }
             },
             PacketType::ChatFromSimulator(chat_from_simulator) => {
-                chat_messages.messages.push(ChatFromClientMessage{
+                chat_messages.messages.push(ChatFromClientMessage {
                     user: chat_from_simulator.from_name,
                     message: chat_from_simulator.message,
                 });

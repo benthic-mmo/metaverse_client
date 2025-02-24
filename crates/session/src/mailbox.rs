@@ -1,7 +1,7 @@
 use actix::prelude::*;
+use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
-use metaverse_messages::complete_ping_check::CompletePingCheck;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
@@ -46,6 +46,8 @@ pub struct Mailbox {
 
     /// the global number of packets that have been sent to the UI
     pub sent_packet_count: u16,
+
+    pub ping_info: PingInfo,
 }
 
 /// Session of the user
@@ -110,6 +112,21 @@ impl UiMessage {
     }
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct PingInfo {
+    pub ping_number: u8,
+    pub ping_latency: Duration,
+    pub last_ping: time::Instant,
+}
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct Ping;
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct Pong;
+
 /// The state of the Mailbox
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerState {
@@ -170,32 +187,23 @@ impl Mailbox {
                                 }
                             }
                         }
-                        PacketType::CompletePingCheck(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(Packet::new_start_ping_check(StartPingCheck {
-                                    ping_id: data.ping_id,
-                                    oldest_unacked: 0,
-                                }))
-                                .await
-                            {
-                                warn!("Failed to respond to ping {:?}", e)
-                            }
-                        }
-                        _ => {}
-                    }
-                    match &packet.body.message_type() {
-                        MessageType::Event => {
-                            if let Err(e) = mailbox_address
-                                .send(UiMessage::new(
-                                    packet.body.ui_event(),
-                                    packet.body.to_bytes(),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send to ui: {:?}", e)
+                        PacketType::CompletePingCheck(_) => {
+                            if let Err(e) = mailbox_address.send(Pong).await{
+                                warn!("failed to handle pong {:?}", e)
                             };
                         }
                         _ => {}
+                    }
+                    if let MessageType::Event = &packet.body.message_type() {
+                        if let Err(e) = mailbox_address
+                            .send(UiMessage::new(
+                                packet.body.ui_event(),
+                                packet.body.to_bytes(),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send to ui: {:?}", e)
+                        };
                     }
                 }
                 Err(e) => {
@@ -226,6 +234,35 @@ impl Actor for Mailbox {
         info!("Actix Mailbox has started");
 
         self.set_state(ServerState::Running, ctx);
+    }
+}
+
+impl Handler<Ping> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: Ping, ctx: &mut Self::Context) -> Self::Result {
+        let packet_number = *self.packet_sequence_number.lock().unwrap();
+        ctx.address()
+            .do_send(Packet::new_start_ping_check(StartPingCheck {
+                ping_id: self.ping_info.ping_number,
+                oldest_unacked: packet_number,
+            }));
+        self.ping_info.ping_number += 1;
+        self.ping_info.last_ping = time::Instant::now();
+        info!("PING SENT")
+    }
+}
+
+impl Handler<Pong> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: Pong, ctx: &mut Self::Context) -> Self::Result {
+        let packet_number = *self.packet_sequence_number.lock().unwrap();
+        ctx.address()
+            .do_send(Packet::new_start_ping_check(StartPingCheck {
+                ping_id: self.ping_info.ping_number,
+                oldest_unacked: packet_number,
+            }));
+        self.ping_info.ping_latency = time::Instant::now() - self.ping_info.last_ping;
+        info!("PONG RECEIVED")
     }
 }
 
@@ -439,7 +476,7 @@ async fn send_ack(
                 received_ack = true;
             },
             _ = tokio::time::sleep(ACK_TIMEOUT) => {
-                println!("Attempt {} failed to receive acknowledgment", attempts);
+                println!("Attempt {} receive acknowledgment", attempts);
                 attempts += 1;
                 if !received_ack && attempts >= ACK_ATTEMPTS {
                     // Remove from queue after final attempt
