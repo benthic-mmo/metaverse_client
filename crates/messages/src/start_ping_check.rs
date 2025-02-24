@@ -1,37 +1,36 @@
-use crate::packet_types::PacketType;
 use super::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
 };
+use crate::packet_types::PacketType;
 
-impl Packet{
-    pub fn new_start_ping_chck(start_ping_check: StartPingCheck) -> Self{
-        Packet{
-            header: Header{
+impl Packet {
+    pub fn new_start_ping_check(start_ping_check: StartPingCheck) -> Self {
+        Packet {
+            header: Header {
                 id: 1,
-                reliable: false, 
-                resent: false, 
-                zerocoded: false, 
-                appended_acks: false, 
-                sequence_number: 0, 
-                frequency: PacketFrequency::Low, 
-                ack_list: None, 
+                reliable: false,
+                resent: false,
+                zerocoded: false,
+                appended_acks: false,
+                sequence_number: 0,
+                frequency: PacketFrequency::Low,
+                ack_list: None,
                 size: None,
             },
-            body: PacketType::StartPingCheck(Box::new(start_ping_check))
+            body: PacketType::StartPingCheck(Box::new(start_ping_check)),
         }
-
-    }    
+    }
 }
 
-#[derive (Debug, Clone)]
-pub struct StartPingCheck{
+#[derive(Debug, Clone)]
+pub struct StartPingCheck {
     pub ping_id: u8,
-    pub oldest_unacked: u32
+    pub oldest_unacked: u32,
 }
 
-impl PacketData for StartPingCheck{
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self>{
+impl PacketData for StartPingCheck {
+    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
         let ping_id = bytes[0];
         let oldest_unacked = u32::from_le_bytes(bytes[1..5].try_into().unwrap());
 

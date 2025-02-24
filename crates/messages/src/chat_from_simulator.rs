@@ -185,7 +185,6 @@ impl PacketData for ChatFromSimulator {
             z: cursor.read_f32::<byteorder::LittleEndian>()?,
         };
 
-
         // skip two bytes of size prefix
         cursor.set_position(cursor.position() + 1);
         // Message
@@ -215,7 +214,7 @@ impl PacketData for ChatFromSimulator {
         // Convert `from_name` to bytes (null-terminated)
         let name_bytes = self.from_name.as_bytes();
         bytes.extend_from_slice(name_bytes);
-        bytes.push(0); 
+        bytes.push(0);
 
         // Convert `source_id` and `owner_id` to bytes
         bytes.extend_from_slice(self.source_id.as_bytes());
@@ -238,5 +237,4 @@ impl PacketData for ChatFromSimulator {
 
         bytes
     }
-
 }

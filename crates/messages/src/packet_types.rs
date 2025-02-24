@@ -1,4 +1,3 @@
-
 use crate::errors::SessionError;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
@@ -11,9 +10,10 @@ use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
     circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
-    disable_simulator::DisableSimulator, header::PacketFrequency, packet::PacketData,
-    packet_ack::PacketAck, start_ping_check::StartPingCheck, complete_ping_check::CompletePingCheck
- };
+    complete_ping_check::CompletePingCheck, disable_simulator::DisableSimulator,
+    header::PacketFrequency, packet::PacketData, packet_ack::PacketAck,
+    start_ping_check::StartPingCheck,
+};
 use std::io;
 
 // IntoArc provides a macro that allows all of these to be contained within arcs
@@ -34,7 +34,7 @@ pub enum PacketType {
     StartPingCheck(Box<StartPingCheck>),
     CompletePingCheck(Box<CompletePingCheck>),
     // these do not exist in the packet spec! Used as utilities for communicating with server and
-    // client. 
+    // client.
     Login(Box<Login>),
     LoginResponse(Box<LoginResponse>),
     Error(Box<SessionError>),
@@ -82,10 +82,9 @@ impl PacketType {
             PacketType::Login(data) => data.to_bytes(),
             PacketType::Error(data) => data.to_bytes(),
             PacketType::StartPingCheck(data) => data.to_bytes(),
-            PacketType::CompletePingCheck(data) => data.to_bytes(), 
+            PacketType::CompletePingCheck(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
-            
         }
     }
 }
@@ -106,7 +105,6 @@ impl PacketType {
                     bytes,
                 )?))),
                 id => Err(io::Error::new(
-              
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),
                 )),

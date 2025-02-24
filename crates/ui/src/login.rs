@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use metaverse_messages::{login_system::login::Login, packet::Packet};
 
-use crate::Sockets;
+use crate::{Sockets, ViewerState};
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
@@ -14,10 +14,11 @@ pub struct LoginData {
     grid: String,
 }
 
-pub fn ui_login_system(
+pub fn login_screen(
     mut login_data: ResMut<LoginData>,
     mut is_initialized: Local<bool>,
     mut contexts: EguiContexts,
+    mut viewer_state: ResMut<NextState<ViewerState>>,
     sockets: Res<Sockets>,
 ) {
     if !*is_initialized {
@@ -30,7 +31,6 @@ pub fn ui_login_system(
     egui::SidePanel::left("Login")
         .default_width(200.0)
         .show(ctx, |ui| {
-
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
@@ -58,12 +58,14 @@ pub fn ui_login_system(
             });
         });
     if login {
+        // display loading screen after login
+        viewer_state.set(ViewerState::Loading);
+
         let grid = if login_data.grid == "localhost" {
             format!("{}:{}", "http://127.0.0.1", 9000)
         } else {
             format!("http://{}:{}", login_data.grid, 9000)
         };
-
 
         let packet = Packet::new_login_packet(Login {
             first: login_data.first_name.clone(),
@@ -76,7 +78,6 @@ pub fn ui_login_system(
             url: grid,
         })
         .to_bytes();
-
         let client_socket = UnixDatagram::unbound().unwrap();
         match client_socket.send_to(&packet, &sockets.ui_to_server_socket) {
             Ok(_) => println!("Login sent from UI"),
@@ -84,4 +85,3 @@ pub fn ui_login_system(
         };
     }
 }
-

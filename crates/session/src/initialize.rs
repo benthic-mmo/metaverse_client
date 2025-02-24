@@ -1,5 +1,5 @@
 use actix::Actor;
-use metaverse_messages::errors::{SessionError, MailboxError};
+use metaverse_messages::errors::{MailboxError, SessionError};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::{path::PathBuf, sync::Arc};
