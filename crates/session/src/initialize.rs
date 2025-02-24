@@ -1,13 +1,15 @@
 use actix::Actor;
+use actix_rt::time;
 use metaverse_messages::errors::{MailboxError, SessionError};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
-use crate::mailbox::ServerState;
 use crate::mailbox::{Mailbox, ServerToUiSocket};
+use crate::mailbox::{PingInfo, ServerState};
 use crate::server_subscriber::listen_for_ui_messages;
 
 /// This starts the mailbox, and blocks forever.
@@ -62,6 +64,11 @@ pub async fn initialize(
         notify: notify.clone(),
         session: None,
         sent_packet_count: 0,
+        ping_info: PingInfo {
+            ping_number: 0,
+            ping_latency: Duration::new(0, 0),
+            last_ping: time::Instant::now(),
+        },
     }
     .start();
     // wait until the mailbox starts
