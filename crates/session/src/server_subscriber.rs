@@ -7,12 +7,15 @@ use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
-use metaverse_messages::errors::{CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError};
 use crate::mailbox::{Mailbox, Session, UiMessage};
+use metaverse_messages::errors::{
+    CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
+};
 
 /// This is used for the server to listen to messages coming in from the UI.
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
@@ -75,11 +78,8 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
                         Err(e) => {
                             // send the error to the UI to handle
                             warn!("Error logging in: {:?}", e);
-                            mailbox_addr.do_send(UiMessage::new(
-                                UiEventTypes::Error,
-                                e.to_bytes()
-                            ));
-                        },
+                            mailbox_addr.do_send(UiMessage::new(UiEventTypes::Error, e.to_bytes()));
+                        }
                     };
                 } else {
                     mailbox_addr.do_send(packet);
@@ -170,6 +170,18 @@ async fn handle_login(
         return Err(SessionError::CompleteAgentMovement(
             CompleteAgentMovementError::new(format!("{}", e)),
         ));
+    };
+
+    if let Err(_) = mailbox_addr
+        .send(Packet::new_start_ping_check(StartPingCheck {
+            ping_id: 0,
+            oldest_unacked: 0,
+        }))
+        .await
+    {
+        return Err(SessionError::Mailbox(MailboxError {
+            message: "asdf{}".to_string(),
+        }));
     };
     Ok(())
 }

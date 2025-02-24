@@ -20,10 +20,10 @@ fn test_login() {
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    
+
     let (sender, receiver) = unbounded();
     init_tests(incoming_socket_path.clone(), sender);
-    
+
     // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
@@ -45,7 +45,7 @@ fn test_login() {
 
     sleep(Duration::from_secs(3));
     while let Ok(event) = receiver.try_recv() {
-        match event{
+        match event {
             PacketType::LoginResponse(_) => {
                 // if the test receives a LoginResponse, then it passes
                 info!("received Login Response");
@@ -67,10 +67,10 @@ fn test_empty_login() {
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    
+
     let (sender, receiver) = unbounded();
     init_tests(incoming_socket_path.clone(), sender);
-    
+
     // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
@@ -92,7 +92,7 @@ fn test_empty_login() {
 
     sleep(Duration::from_secs(3));
     while let Ok(event) = receiver.try_recv() {
-        match event{
+        match event {
             PacketType::LoginResponse(_) => {
                 // if the test receives a LoginResponse, then it passes
                 info!("received Login Response");
@@ -114,10 +114,10 @@ fn test_invalid_password_login() {
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    
+
     let (sender, receiver) = unbounded();
     init_tests(incoming_socket_path.clone(), sender);
-    
+
     // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
@@ -139,7 +139,7 @@ fn test_invalid_password_login() {
 
     sleep(Duration::from_secs(3));
     while let Ok(event) = receiver.try_recv() {
-        match event{
+        match event {
             PacketType::LoginResponse(_) => {
                 assert!(false)
             }
@@ -159,10 +159,10 @@ fn test_already_present_login() {
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    
+
     let (sender, receiver) = unbounded();
     init_tests(incoming_socket_path.clone(), sender);
-    
+
     // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
     let message = Packet::new_login_packet(Login {
@@ -181,7 +181,7 @@ fn test_already_present_login() {
         Ok(_) => println!("message sent to mailbox"),
         Err(e) => println!("error sending to mailbox {:?}", e),
     };
-    
+
     let client_socket = UnixDatagram::unbound().unwrap();
     match client_socket.send_to(&message, &incoming_socket_path) {
         Ok(_) => println!("message sent to mailbox"),
@@ -205,7 +205,7 @@ fn test_already_present_login() {
     };
     sleep(Duration::from_secs(3));
     while let Ok(event) = receiver.try_recv() {
-        match event{
+        match event {
             PacketType::LoginResponse(_) => {
                 assert!(false)
             }
@@ -220,7 +220,7 @@ fn test_already_present_login() {
 }
 
 fn init_tests(incoming_socket_path: PathBuf, sender: Sender<PacketType>) {
- init_logger();
+    init_logger();
     let outgoing_socket_path = NamedTempFile::new()
         .expect("Failed to create temp file")
         .path()

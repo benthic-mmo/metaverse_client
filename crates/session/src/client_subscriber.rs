@@ -53,7 +53,7 @@ pub struct PacketStore {
 ///                 // handle the login response
 ///             }
 ///             PacketType::CoarseLocationUpdate(coarse_location_update) => {
-///                 // handle the coarse location update 
+///                 // handle the coarse location update
 ///             }
 ///             // etc for the rest of the event packets
 ///         }
@@ -93,11 +93,14 @@ pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<Packe
                             }
                         }
                         // get the packet type and send that to the sender
-                        if let Some(packet) = received_chunk.message_type.packet_type_from_bytes(&full_message){
+                        if let Some(packet) = received_chunk
+                            .message_type
+                            .packet_type_from_bytes(&full_message)
+                        {
                             if let Err(e) = sender.send(packet) {
                                 warn!("Failed to send packet to UI: {:?}", e)
                             };
-                        }else {
+                        } else {
                             warn!("Client failed to send packet to UI")
                         };
                     }

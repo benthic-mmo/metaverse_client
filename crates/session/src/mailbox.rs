@@ -6,6 +6,7 @@ use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -141,7 +142,10 @@ impl Mailbox {
                             continue;
                         }
                     };
-                    info!("received packet: {:?}, {:?}", packet.header.id, packet.header.frequency);
+                    info!(
+                        "received packet: {:?}, {:?}",
+                        packet.header.id, packet.header.frequency
+                    );
 
                     if packet.header.reliable {
                         match mailbox_address
@@ -157,21 +161,23 @@ impl Mailbox {
 
                     match &packet.body {
                         PacketType::PacketAck(data) => {
-                                let mut queue = ack_queue.lock().unwrap();
-                                for id in data.packet_ids.clone() {
-                                    if let Some(sender) = queue.remove(&id) {
-                                        let _ = sender.send(());
-                                    } else {
-                                        println!("No pending ack found for request ID: {}", id);
-                                    }
+                            let mut queue = ack_queue.lock().unwrap();
+                            for id in data.packet_ids.clone() {
+                                if let Some(sender) = queue.remove(&id) {
+                                    let _ = sender.send(());
+                                } else {
+                                    println!("No pending ack found for request ID: {}", id);
                                 }
+                            }
                         }
-                        PacketType::StartPingCheck(data) => {
-                            if let Err(e) = mailbox_address.send(
-                                Packet::new_complete_ping_check(CompletePingCheck{
-                                    ping_id: data.ping_id
-                                })
-                            ).await{
+                        PacketType::CompletePingCheck(data) => {
+                            if let Err(e) = mailbox_address
+                                .send(Packet::new_start_ping_check(StartPingCheck {
+                                    ping_id: data.ping_id,
+                                    oldest_unacked: 0,
+                                }))
+                                .await
+                            {
                                 warn!("Failed to respond to ping {:?}", e)
                             }
                         }
@@ -328,6 +334,7 @@ impl Handler<Session> for Mailbox {
                         }
                     }
                 };
+
                 // wait for the socket to be successfully bound and then assign it
                 ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
                     Ok(sock) => {

@@ -22,10 +22,10 @@ fn test_chat() {
         .expect("Failed to create temp file")
         .path()
         .to_path_buf();
-    
+
     let (sender, receiver) = unbounded();
     init_tests(incoming_socket_path.clone(), sender);
-    
+
     // wait for the mailbox to be ready. This can be done in a better way.
     sleep(Duration::from_secs(2));
 
@@ -49,7 +49,7 @@ fn test_chat() {
     sleep(Duration::from_secs(3));
 
     // get the login response from the server
-    let mut outer_login_response : Option<LoginResponse> = None; 
+    let mut outer_login_response: Option<LoginResponse> = None;
     while let Ok(event) = receiver.try_recv() {
         if let PacketType::LoginResponse(login_response) = event {
             // if the test receives a LoginResponse, then it passes
@@ -58,28 +58,28 @@ fn test_chat() {
     }
 
     // send a chat message
-    if let Some(response) = outer_login_response{
-        let message = Packet::new_chat_from_viewer(ChatFromViewer{
+    if let Some(response) = outer_login_response {
+        let message = Packet::new_chat_from_viewer(ChatFromViewer {
             agent_id: response.agent_id.unwrap(),
             session_id: response.session_id.unwrap(),
             channel: 0,
             message_type: ClientChatType::Normal,
-            message: "hello".to_string()
-        }).to_bytes();
-    let client_socket = UnixDatagram::unbound().unwrap();
-    match client_socket.send_to(&message, &incoming_socket_path) {
-        Ok(_) => println!("chat message sent to mailbox"),
-        Err(e) => println!("error sending to mailbox {:?}", e),
-    };
-    }else{
+            message: "hello".to_string(),
+        })
+        .to_bytes();
+        let client_socket = UnixDatagram::unbound().unwrap();
+        match client_socket.send_to(&message, &incoming_socket_path) {
+            Ok(_) => println!("chat message sent to mailbox"),
+            Err(e) => println!("error sending to mailbox {:?}", e),
+        };
+    } else {
         error!("Failed to login, didn't send chat");
     }
     sleep(Duration::from_secs(1));
 }
 
-
 fn init_tests(incoming_socket_path: PathBuf, sender: Sender<PacketType>) {
- init_logger();
+    init_logger();
     let outgoing_socket_path = NamedTempFile::new()
         .expect("Failed to create temp file")
         .path()
