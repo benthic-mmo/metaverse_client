@@ -64,7 +64,7 @@ pub fn login_screen(
         let grid = if login_data.grid == "localhost" {
             format!("{}:{}", "http://127.0.0.1", 9000)
         } else {
-            format!("http://{}:{}", login_data.grid, 9000)
+            format!("http://{}", login_data.grid)
         };
 
         let packet = Packet::new_login_packet(Login {

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
 use uuid::Uuid;
-use xmlrpc::Value;
+use xmlrpc_benthic::{self as xmlrpc, Value};
 
 /// This is the full response struct of a successful opensimulator login.
 /// you can find more information about it at http://opensimulator.org/wiki/SimulatorLoginProtocol

@@ -6,6 +6,7 @@ use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -104,7 +105,6 @@ impl UiMessage {
         UiMessage {
             message_type,
             message,
-            // these will get handled later
             sequence_number: 0,
             total_packet_number: 0,
             packet_number: 0,
@@ -112,17 +112,19 @@ impl UiMessage {
     }
 }
 
+/// contains information about pings sent to the server
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct PingInfo {
+    /// the number of the ping
     pub ping_number: u8,
+    /// how long the latency is. Currently not doing anything.
     pub ping_latency: Duration,
+    /// time of last ping
     pub last_ping: time::Instant,
 }
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct Ping;
 
+/// this is a simple message that gets sent when receiving the CompletePingcheck
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct Pong;
@@ -188,7 +190,7 @@ impl Mailbox {
                             }
                         }
                         PacketType::CompletePingCheck(_) => {
-                            if let Err(e) = mailbox_address.send(Pong).await{
+                            if let Err(e) = mailbox_address.send(Pong).await {
                                 warn!("failed to handle pong {:?}", e)
                             };
                         }
@@ -234,21 +236,6 @@ impl Actor for Mailbox {
         info!("Actix Mailbox has started");
 
         self.set_state(ServerState::Running, ctx);
-    }
-}
-
-impl Handler<Ping> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, _: Ping, ctx: &mut Self::Context) -> Self::Result {
-        let packet_number = *self.packet_sequence_number.lock().unwrap();
-        ctx.address()
-            .do_send(Packet::new_start_ping_check(StartPingCheck {
-                ping_id: self.ping_info.ping_number,
-                oldest_unacked: packet_number,
-            }));
-        self.ping_info.ping_number += 1;
-        self.ping_info.last_ping = time::Instant::now();
-        info!("PING SENT")
     }
 }
 
@@ -345,7 +332,7 @@ impl Handler<Session> for Mailbox {
         // if the session doesn't already have a UDP socket to watch, create one
         if let Some(session) = self.session.as_ref() {
             if session.socket.is_none() {
-                let addr = format!("127.0.0.1:{}", self.client_socket);
+                let addr = format!("0.0.0.0:{}", self.client_socket);
 
                 let addr_clone = addr.clone();
                 let mailbox_addr = ctx.address();
@@ -468,6 +455,8 @@ async fn send_ack(
         let data = packet_clone.to_bytes().clone();
         let addr_clone = addr.clone();
         let sock_clone = socket.clone();
+        info!("ADDR_CLONE IS {:?}", addr_clone);
+        info!("SOCKET IS: {:?}", sock_clone);
         if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
             error!("Failed to send Ack: {}", e);
         }

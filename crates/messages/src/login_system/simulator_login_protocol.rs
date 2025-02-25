@@ -1,3 +1,5 @@
+use xmlrpc_benthic::{self as xmlrpc};
+
 ///SimulatorLoginProtocol- the struct for creating a login call
 ///implemented from the protocol as defined by <http://opensimulator.org/wiki/SimulatorLoginProtocol>
 ///
