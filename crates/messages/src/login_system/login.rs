@@ -1,4 +1,4 @@
-use crate::login_system::errors::{create_login_error_from_message, LoginError, Reason};
+use crate::login_system::errors::{LoginError, Reason};
 use crate::login_system::login_response::LoginResponse;
 use crate::login_system::simulator_login_protocol::{
     SimulatorLoginOptions, SimulatorLoginProtocol,
@@ -7,14 +7,19 @@ use crate::packet_types::PacketType;
 use std::env;
 use std::error::Error;
 
+use std::io::Cursor;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
+use reqwest::Client;
 use std::fs::File;
 
 extern crate sys_info;
 use crate::header::{Header, PacketFrequency};
 use crate::packet::{Packet, PacketData};
+use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT};
 use std::io::{self, BufRead, Read};
+
+use super::errors::create_login_error_from_message;
 
 #[derive(Debug, Clone)]
 pub struct Login {
@@ -61,18 +66,48 @@ pub struct Login {
 ///    }
 /// });
 /// ```
-pub fn login(login_data: SimulatorLoginProtocol, url: String) -> Result<LoginResponse, LoginError> {
+pub async fn login(
+    login_data: SimulatorLoginProtocol,
+    url: String,
+) -> Result<LoginResponse, LoginError> {
     let req = xmlrpc::Request::new("login_to_simulator").arg(login_data);
-    let request = match req.call_url(url) {
-        Ok(request) => request,
-        Err(e) => return Err(LoginError::new(Reason::Connection, &e.to_string())),
+    let client = Client::new();
+
+    let mut body = Vec::new();
+    let mut login_response = Vec::new();
+    req.write_as_xml(&mut body).unwrap();
+
+    let mut response = match client
+        .post(url)
+        .header(USER_AGENT, "benthic")
+        .header(CONTENT_TYPE, "text/xml; charset=utf-8")
+        .header(CONTENT_LENGTH, body.len())
+        .body(body)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => return Err(LoginError::new(Reason::Connection, &format!("1{:?}", e))),
     };
 
-    if let Ok(login_response) = LoginResponse::try_from(request.clone()) {
-        return Ok(login_response);
+    while let Some(chunk) = response.chunk().await.map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?{
+        login_response.extend_from_slice(&chunk);
     }
+ 
+    let mut reader = Cursor::new(login_response);
+    let parsed_data = match xmlrpc::parser::parse_response(&mut reader){
+        Ok(data) => match data {
+            Ok(data) => data,
+            Err(e) => return Err(LoginError::new(Reason::Connection, &format!("{:?}", e)))
+        },
+        Err(e) => {return Err(LoginError::new(Reason::Connection, &format!("{:?}", e)))}
+    };
 
-    Err(create_login_error_from_message(request))
+    let parsed_data_clone = parsed_data.clone();
+    match LoginResponse::try_from(parsed_data) {
+        Ok(login_response) => Ok(login_response),
+        Err(_) => Err(create_login_error_from_message(parsed_data_clone))
+    }
 }
 
 ///Generates a SimulatorLoginProtocol based on user supplied values

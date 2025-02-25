@@ -53,8 +53,7 @@ pub async fn initialize(
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let mailbox = Mailbox {
-        // setting the port to 0 lets the OS choose an open port.
-        client_socket: 0,
+        client_socket: 4567,
         server_to_ui_socket: None,
         packet_sequence_number: Arc::new(Mutex::new(0u32)),
 

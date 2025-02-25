@@ -1,7 +1,6 @@
 use log::{info, warn};
 use metaverse_messages::circuit_code::CircuitCodeData;
 use metaverse_messages::complete_agent_movement::CompleteAgentMovementData;
-use metaverse_messages::login_system::errors::{LoginError, Reason};
 use metaverse_messages::login_system::login::{login, Login};
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
@@ -11,7 +10,7 @@ use metaverse_messages::ui_events::UiEventTypes;
 use std::path::PathBuf;
 use tokio::net::UnixDatagram;
 
-use crate::mailbox::{Mailbox, Ping, Session, UiMessage};
+use crate::mailbox::{Mailbox, Session, UiMessage};
 use metaverse_messages::errors::{
     CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
 };
@@ -92,19 +91,11 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
 }
 
 async fn login_with_creds(login_data: Login) -> Result<LoginResponse, SessionError> {
-    let login_result = tokio::task::spawn_blocking(|| {
         let url = login_data.url.clone();
-        login(SimulatorLoginProtocol::new(login_data), url)
-    });
-
-    match login_result.await {
-        Ok(Ok(response)) => Ok(response),
-        Ok(Err(e)) => Err(SessionError::new_login_error(e)),
-        Err(e) => Err(SessionError::new_login_error(LoginError::new(
-            Reason::Unknown,
-            &format!("join error: {}", e),
-        ))),
-    }
+        match login(SimulatorLoginProtocol::new(login_data), url).await {
+            Ok(login_result) => Ok(login_result),
+            Err(e) => Err(SessionError::new_login_error(e))
+        }
 }
 
 async fn handle_login(

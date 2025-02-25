@@ -6,7 +6,6 @@ use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use metaverse_messages::packet_types::PacketType;
-use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -47,6 +46,7 @@ pub struct Mailbox {
     /// the global number of packets that have been sent to the UI
     pub sent_packet_count: u16,
 
+    /// the global ping information
     pub ping_info: PingInfo,
 }
 
@@ -336,6 +336,7 @@ impl Handler<ServerToUiSocket> for Mailbox {
 impl Handler<Session> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Session, ctx: &mut Self::Context) -> Self::Result {
+        info!("SESSION IS: {:?}", msg);
         if let Some(session) = self.session.as_ref() {
             msg.socket = session.socket.clone();
         }
@@ -349,13 +350,13 @@ impl Handler<Session> for Mailbox {
                 let addr_clone = addr.clone();
                 let mailbox_addr = ctx.address();
 
-                println!("session established, starting UDP processing");
+                info!("session established, starting UDP processing");
                 let ack_queue = self.ack_queue.clone();
 
                 let fut = async move {
                     match UdpSocket::bind(&addr).await {
                         Ok(sock) => {
-                            println!("Successfully bound to {}", &addr);
+                            info!("Successfully bound to {}", &addr);
                             let sock = Arc::new(sock);
                             // Spawn a new Tokio task for reading from the socket
                             tokio::spawn(Mailbox::start_udp_read(
@@ -393,6 +394,7 @@ impl Handler<Packet> for Mailbox {
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref session) = self.session {
             let addr = format!("{}:{}", session.url, session.server_socket);
+            info!("address of packet to send is {:?}", addr);
             {
                 let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
@@ -467,7 +469,7 @@ async fn send_ack(
         let addr_clone = addr.clone();
         let sock_clone = socket.clone();
         if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
-            error!("Failed to send data: {}", e);
+            error!("Failed to send Ack: {}", e);
         }
 
         tokio::select! {
