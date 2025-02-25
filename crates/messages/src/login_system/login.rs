@@ -19,6 +19,8 @@ use crate::packet::{Packet, PacketData};
 use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT};
 use std::io::{self, BufRead, Read};
 
+use xmlrpc_benthic::{self as xmlrpc};
+
 use super::errors::create_login_error_from_message;
 
 #[derive(Debug, Clone)]

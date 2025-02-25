@@ -8,8 +8,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-xmlrpc = {path = "../../../xml-rpc-rs"}
-#xmlrpc = "0.15.1"
+xmlrpc_benthic = "0.0.1"
 byteorder = "1.5.0"
 mac_address = "1.1.8"
 sys-info = "0.9.1"

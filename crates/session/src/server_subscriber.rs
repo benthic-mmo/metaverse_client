@@ -91,11 +91,11 @@ pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::A
 }
 
 async fn login_with_creds(login_data: Login) -> Result<LoginResponse, SessionError> {
-        let url = login_data.url.clone();
-        match login(SimulatorLoginProtocol::new(login_data), url).await {
-            Ok(login_result) => Ok(login_result),
-            Err(e) => Err(SessionError::new_login_error(e))
-        }
+    let url = login_data.url.clone();
+    match login(SimulatorLoginProtocol::new(login_data), url).await {
+        Ok(login_result) => Ok(login_result),
+        Err(e) => Err(SessionError::new_login_error(e)),
+    }
 }
 
 async fn handle_login(
@@ -162,10 +162,5 @@ async fn handle_login(
         ));
     };
 
-    if let Err(_) = mailbox_addr.send(Ping {}).await {
-        return Err(SessionError::Mailbox(MailboxError {
-            message: "asdf{}".to_string(),
-        }));
-    };
     Ok(())
 }
