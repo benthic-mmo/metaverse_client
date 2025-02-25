@@ -1,6 +1,6 @@
 
 # Metaverse Messages
-![last-commit-badge] ![open-pr-badge] ![open-issues-badge]
+[![last-commit][last-commit-badge]][last-commit] [![open-pr][open-pr-badge]][open-pr] [![open-issues][open-issues-badge]][open-issues]
 
 ### Messages 
  [![crates.io-messages][crates.io-messages-badge]][crates.io-messages] [![docs.rs-messages][docs.rs-badge]][docs.rs-messages]
@@ -24,5 +24,11 @@ Will run the tests.
 [docs.rs-messages]: https://docs.rs/metaverse_messages/latest/metaverse_session/
 
 [last-commit-badge]:https://img.shields.io/github/last-commit/benthic-mmo/metaverse_client?logo=github&style=flat-square
+[last-commit]: https://github.com/benthic-mmo/metaverse_client/commits/main/
+
 [open-pr-badge]:https://img.shields.io/github/issues-pr/benthic-mmo/metaverse_client?logo=github&style=flat-square
+[open-pr]: https://github.com/benthic-mmo/metaverse_client/pulls
+
 [open-issues-badge]:https://img.shields.io/github/issues-raw/benthic-mmo/metaverse_client?logo=github&style=flat-square
+[open-issues]: https://github.com/benthic-mmo/metaverse_client/issues
+
