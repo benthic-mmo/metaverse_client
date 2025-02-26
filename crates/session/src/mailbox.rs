@@ -6,6 +6,10 @@ use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::region_handshake::RegionInfo;
+use metaverse_messages::region_handshake_reply::AgentData;
+use metaverse_messages::region_handshake_reply::RegionHandshakeReply;
+use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
 use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
@@ -129,6 +133,10 @@ pub struct PingInfo {
 #[rtype(result = "()")]
 pub struct Pong;
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct RegionHandshakeMessage;
+
 /// The state of the Mailbox
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerState {
@@ -194,6 +202,12 @@ impl Mailbox {
                                 warn!("failed to handle pong {:?}", e)
                             };
                         }
+                        PacketType::RegionHandshake(_) => {
+                            match mailbox_address.send(RegionHandshakeMessage {}).await {
+                                Ok(_) => {}
+                                Err(e) => error!("error: {:?}", e),
+                            }
+                        }
                         _ => {}
                     }
                     if let MessageType::Event = &packet.body.message_type() {
@@ -236,6 +250,20 @@ impl Actor for Mailbox {
         info!("Actix Mailbox has started");
 
         self.set_state(ServerState::Running, ctx);
+    }
+}
+
+impl Handler<RegionHandshakeMessage> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: RegionHandshakeMessage, ctx: &mut Self::Context) -> Self::Result {
+        ctx.address()
+            .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
+                agent_data: AgentData {
+                    session_id: self.session.as_ref().unwrap().session_id,
+                    agent_id: self.session.as_ref().unwrap().agent_id,
+                },
+                region_info: ReplyRegionInfo { flags: 0 },
+            }));
     }
 }
 

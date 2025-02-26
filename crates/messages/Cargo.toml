@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
+env_logger = "0.11"
 xmlrpc_benthic = "0.0.1"
 byteorder = "1.5.0"
 mac_address = "1.1.8"

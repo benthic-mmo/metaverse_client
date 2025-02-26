@@ -138,8 +138,7 @@ fn test_invalid_password_login() {
     sleep(Duration::from_secs(3));
     while let Ok(event) = receiver.try_recv() {
         match event {
-            PacketType::LoginResponse(_) => {
-            }
+            PacketType::LoginResponse(_) => {}
             PacketType::Error(error) => {
                 error!("Received error: {:?}", error)
             }
