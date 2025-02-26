@@ -12,5 +12,9 @@ pub mod login_system;
 pub mod packet;
 pub mod packet_ack;
 pub mod packet_types;
+pub mod region_handshake;
+pub mod region_handshake_reply;
 pub mod start_ping_check;
 pub mod ui_events;
+
+pub mod utils;

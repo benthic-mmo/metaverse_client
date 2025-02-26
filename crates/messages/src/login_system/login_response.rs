@@ -4,7 +4,10 @@
 /// unless it breaks.
 /// I wrote this a long time ago, but it still works, and the less time you spend thinking about
 /// xml-rpc as used in this project, the better.
-use crate::login_system::errors::ConversionError;
+use crate::{
+    login_system::errors::ConversionError,
+    utils::agent_access::{parse_agent_access, AgentAccess},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -646,25 +649,6 @@ impl From<InventorySkeletonValues> for Value {
         Value::Struct(map)
     }
 }
-/// enum for agent access levels
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum AgentAccess {
-    Adult,
-    Mature,
-    PG,
-    General,
-}
-impl From<AgentAccess> for Value {
-    fn from(val: AgentAccess) -> Self {
-        let access_str = match val {
-            AgentAccess::Mature => "M",
-            AgentAccess::Adult => "A",
-            AgentAccess::PG => "PG",
-            AgentAccess::General => "G",
-        };
-        Value::String(access_str.to_string())
-    }
-}
 /// Inventory item types
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InventoryType {
@@ -751,19 +735,6 @@ impl From<HomeValues> for Value {
         );
         Value::Struct(map)
     }
-}
-
-// TODO: all of these parse functions should be Into functions.
-
-/// converts xmlrpc to agent_access enums
-fn parse_agent_access(agent_access: Option<&xmlrpc::Value>) -> Option<AgentAccess> {
-    agent_access.map(|x| match x.clone().as_str().unwrap() {
-        "M" => AgentAccess::Mature,
-        "A" => AgentAccess::Adult,
-        "PG" => AgentAccess::PG,
-        "G" => AgentAccess::General,
-        _ => AgentAccess::General,
-    })
 }
 
 // converts xmlrpc to inventory type enum

@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use xmlrpc_benthic::{Value};
+use xmlrpc_benthic::Value;
 
 #[derive(Debug)]
 pub struct ConversionError(pub &'static str);

@@ -1,4 +1,5 @@
 use core::fmt;
+use log::info;
 use std::io;
 
 // TODO: change the flags to bitflags
@@ -69,7 +70,7 @@ impl Header {
         } else {
             None
         };
-
+        //info!("HEADER: id:{:?}, frequency:{:?}", id, frequency);
         let header = Header {
             appended_acks,
             reliable,

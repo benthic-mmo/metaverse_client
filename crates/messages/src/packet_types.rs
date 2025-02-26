@@ -2,6 +2,8 @@ use crate::errors::SessionError;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
+use crate::region_handshake::RegionHandshake;
+use crate::region_handshake_reply::RegionHandshakeReply;
 use crate::ui_events::UiEventTypes;
 
 use super::agent_update::AgentUpdate;
@@ -33,12 +35,16 @@ pub enum PacketType {
     ChatFromViewer(Box<ChatFromViewer>),
     StartPingCheck(Box<StartPingCheck>),
     CompletePingCheck(Box<CompletePingCheck>),
+    RegionHandshake(Box<RegionHandshake>),
+    RegionHandshakeReply(Box<RegionHandshakeReply>),
     // these do not exist in the packet spec! Used as utilities for communicating with server and
     // client.
     Login(Box<Login>),
     LoginResponse(Box<LoginResponse>),
     Error(Box<SessionError>),
 }
+// I think I should remove MessageTypes entirely. They don't exist in the spec
+// I think I was using a different project's design and didn't think it through.
 impl PacketType {
     pub fn message_type(&self) -> MessageType {
         match self {
@@ -53,6 +59,8 @@ impl PacketType {
 
             PacketType::StartPingCheck(_) => MessageType::Request,
             PacketType::CompletePingCheck(_) => MessageType::Request,
+            PacketType::RegionHandshake(_) => MessageType::Request,
+            PacketType::RegionHandshakeReply(_) => MessageType::Request,
 
             PacketType::PacketAck(_) => MessageType::Acknowledgment,
 
@@ -83,6 +91,8 @@ impl PacketType {
             PacketType::Error(data) => data.to_bytes(),
             PacketType::StartPingCheck(data) => data.to_bytes(),
             PacketType::CompletePingCheck(data) => data.to_bytes(),
+            PacketType::RegionHandshake(data) => data.to_bytes(),
+            PacketType::RegionHandshakeReply(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
         }
@@ -128,9 +138,16 @@ impl PacketType {
                 3 => Ok(PacketType::CircuitCode(Box::new(
                     CircuitCodeData::from_bytes(bytes)?,
                 ))),
+                148 => Ok(PacketType::RegionHandshake(Box::new(
+                    RegionHandshake::from_bytes(bytes)?,
+                ))),
+                149 => Ok(PacketType::RegionHandshakeReply(Box::new(
+                    RegionHandshakeReply::from_bytes(bytes)?,
+                ))),
                 152 => Ok(PacketType::DisableSimulator(Box::new(
                     DisableSimulator::from_bytes(bytes)?,
                 ))),
+
                 249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
                     CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),

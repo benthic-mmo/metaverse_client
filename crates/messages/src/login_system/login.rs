@@ -7,11 +7,11 @@ use crate::packet_types::PacketType;
 use std::env;
 use std::error::Error;
 
-use std::io::Cursor;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use reqwest::Client;
 use std::fs::File;
+use std::io::Cursor;
 
 extern crate sys_info;
 use crate::header::{Header, PacketFrequency};
@@ -92,23 +92,27 @@ pub async fn login(
         Err(e) => return Err(LoginError::new(Reason::Connection, &format!("1{:?}", e))),
     };
 
-    while let Some(chunk) = response.chunk().await.map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?{
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?
+    {
         login_response.extend_from_slice(&chunk);
     }
- 
+
     let mut reader = Cursor::new(login_response);
-    let parsed_data = match xmlrpc::parser::parse_response(&mut reader){
+    let parsed_data = match xmlrpc::parser::parse_response(&mut reader) {
         Ok(data) => match data {
             Ok(data) => data,
-            Err(e) => return Err(LoginError::new(Reason::Connection, &format!("{:?}", e)))
+            Err(e) => return Err(LoginError::new(Reason::Connection, &format!("{:?}", e))),
         },
-        Err(e) => {return Err(LoginError::new(Reason::Connection, &format!("{:?}", e)))}
+        Err(e) => return Err(LoginError::new(Reason::Connection, &format!("{:?}", e))),
     };
 
     let parsed_data_clone = parsed_data.clone();
     match LoginResponse::try_from(parsed_data) {
         Ok(login_response) => Ok(login_response),
-        Err(_) => Err(create_login_error_from_message(parsed_data_clone))
+        Err(_) => Err(create_login_error_from_message(parsed_data_clone)),
     }
 }
 

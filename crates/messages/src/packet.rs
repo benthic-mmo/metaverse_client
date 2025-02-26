@@ -1,6 +1,7 @@
 use super::packet_types::PacketType;
-use crate::header::Header;
+use crate::header::{Header, PacketFrequency};
 use actix::prelude::*;
+use log::warn;
 use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
@@ -44,14 +45,19 @@ impl Packet {
         } else {
             &[]
         };
-
         let body_bytes = if header.zerocoded {
             zero_decode(body)
         } else {
             body.to_vec() // Convert slice to Vec<u8>
         };
-        let body = PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?;
 
+        let body = match PacketType::from_id(header.id, header.frequency, body_bytes.as_slice()) {
+            Ok(parsed_body) => parsed_body, // If parsing succeeds, use the parsed body
+            Err(e) => {
+                warn!("Failed to parse packet id: {:?}, frequency: {:?}", header.id, header.frequency);
+                return Err(e); 
+            }
+        };
         Ok(Self { header, body })
     }
 
