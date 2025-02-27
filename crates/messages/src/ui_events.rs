@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
-    packet_types::PacketType, disable_simulator::DisableSimulator,
+    disable_simulator::DisableSimulator, packet_types::PacketType,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -21,7 +21,7 @@ pub enum UiEventTypes {
     None,
 }
 impl UiEventTypes {
-    pub fn packet_type_from_bytes(&self, data: &Vec<u8>) -> Option<PacketType> {
+    pub fn packet_type_from_bytes(&self, data: &[u8]) -> Option<PacketType> {
         match self {
             UiEventTypes::LoginResponseEvent => {
                 serde_json::from_str::<LoginResponse>(core::str::from_utf8(data).unwrap())
@@ -37,7 +37,9 @@ impl UiEventTypes {
             UiEventTypes::CoarseLocationUpdateEvent => CoarseLocationUpdate::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::CoarseLocationUpdate(Box::new(packet))),
-            UiEventTypes::DisableSimulatorEvent => Some(PacketType::DisableSimulator(Box::new(DisableSimulator {}))),
+            UiEventTypes::DisableSimulatorEvent => {
+                Some(PacketType::DisableSimulator(Box::new(DisableSimulator {})))
+            }
             _ => None, // Handle unimplemented cases
         }
     }

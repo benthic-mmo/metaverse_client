@@ -163,8 +163,6 @@ fn handle_queue(
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
     while let Ok(event) = receiver.try_recv() {
-
-        info!("event {:?}", event);
         match event {
             PacketType::LoginResponse(login_response) => {
                 ev_loginresponse.send(LoginResponseEvent {

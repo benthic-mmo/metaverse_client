@@ -1,5 +1,4 @@
 use crate::errors::SessionError;
-use log::info;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;

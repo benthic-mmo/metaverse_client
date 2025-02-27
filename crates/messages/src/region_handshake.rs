@@ -48,16 +48,16 @@ impl RegionHandshake {
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
 
-        let region_info = RegionInfo::from_bytes(&cursor.get_ref())?;
+        let region_info = RegionInfo::from_bytes(cursor.get_ref())?;
         cursor.set_position(cursor.position() + region_info.to_bytes().len() as u64);
 
-        let region_info_2 = RegionInfo::from_bytes(&cursor.get_ref())?;
+        let region_info_2 = RegionInfo::from_bytes(cursor.get_ref())?;
         cursor.set_position(cursor.position() + region_info_2.to_bytes().len() as u64);
 
-        let region_info_3 = RegionInfo::from_bytes(&cursor.get_ref())?;
+        let region_info_3 = RegionInfo::from_bytes(cursor.get_ref())?;
         cursor.set_position(cursor.position() + region_info_3.to_bytes().len() as u64);
 
-        let region_info_4 = RegionInfo::from_bytes(&cursor.get_ref())?;
+        let region_info_4 = RegionInfo::from_bytes(cursor.get_ref())?;
 
         Ok(Self {
             region_info,

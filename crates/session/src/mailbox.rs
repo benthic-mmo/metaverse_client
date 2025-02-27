@@ -2,7 +2,7 @@ use actix::prelude::*;
 use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
-use metaverse_messages::disable_simulator::DisableSimulator;
+use metaverse_messages::complete_ping_check::CompletePingCheck;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
@@ -10,7 +10,6 @@ use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::region_handshake_reply::AgentData;
 use metaverse_messages::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
-use metaverse_messages::start_ping_check::StartPingCheck;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -131,7 +130,9 @@ pub struct PingInfo {
 /// this is a simple message that gets sent when receiving the CompletePingcheck
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct Pong;
+pub struct Ping {
+    ping_id: u8,
+}
 
 /// message to send when receiving a RegionHandshake
 #[derive(Debug, Message)]
@@ -193,8 +194,13 @@ impl Mailbox {
                                 }
                             }
                         }
-                        PacketType::CompletePingCheck(_) => {
-                            if let Err(e) = mailbox_address.send(Pong).await {
+                        PacketType::StartPingCheck(data) => {
+                            if let Err(e) = mailbox_address
+                                .send(Ping {
+                                    ping_id: data.ping_id,
+                                })
+                                .await
+                            {
                                 warn!("failed to handle pong {:?}", e)
                             };
                         }
@@ -205,7 +211,14 @@ impl Mailbox {
                             }
                         }
                         PacketType::DisableSimulator(_) => {
-                            if let Err(e) = mailbox_address.send(UiMessage::new(UiEventTypes::DisableSimulatorEvent{}, vec![])).await{
+                            warn!("Simulator shutting down...");
+                            if let Err(e) = mailbox_address
+                                .send(UiMessage::new(
+                                    UiEventTypes::DisableSimulatorEvent {},
+                                    vec![],
+                                ))
+                                .await
+                            {
                                 warn!("failed to send to ui: {:?}", e)
                             }
                             break;
@@ -269,17 +282,14 @@ impl Handler<RegionHandshakeMessage> for Mailbox {
     }
 }
 
-impl Handler<Pong> for Mailbox {
+impl Handler<Ping> for Mailbox {
     type Result = ();
-    fn handle(&mut self, _: Pong, ctx: &mut Self::Context) -> Self::Result {
-        let packet_number = *self.packet_sequence_number.lock().unwrap();
+    fn handle(&mut self, msg: Ping, ctx: &mut Self::Context) -> Self::Result {
         ctx.address()
-            .do_send(Packet::new_start_ping_check(StartPingCheck {
-                ping_id: self.ping_info.ping_number,
-                oldest_unacked: packet_number,
+            .do_send(Packet::new_complete_ping_check(CompletePingCheck {
+                ping_id: msg.ping_id,
             }));
         self.ping_info.ping_latency = time::Instant::now() - self.ping_info.last_ping;
-        info!("PONG RECEIVED")
     }
 }
 
@@ -317,7 +327,6 @@ impl Handler<UiMessage> for Mailbox {
                 // Increment the sequence number for each chunk
                 let sequence_number = msg.sequence_number + chunk_index as u16;
 
-                info!("SENDING MESSAGE TYPE: {:?}", msg.message_type.clone());
                 // Create a new message with the chunked data
                 let chunked_message = UiMessage {
                     message_type: msg.message_type.clone(),
@@ -459,10 +468,6 @@ async fn send_ack(
     let mut attempts = 0;
     let mut received_ack = false;
     let packet_id = packet.header.sequence_number;
-
-    println!("PACKET IS: {:?}", packet);
-    println!("SENDING ACK FOR PACKET ID: {}", packet_id);
-
     while attempts < ACK_ATTEMPTS && !received_ack {
         let (tx, rx) = oneshot::channel();
         let mut packet_clone = packet.clone();
@@ -475,8 +480,6 @@ async fn send_ack(
         {
             let mut queue = ack_queue.lock().unwrap();
             queue.insert(packet_id, tx);
-
-            println!("QUEUE IS: {:?}", queue);
         }
         // Send the packet
 
