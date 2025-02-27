@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
-    packet_types::PacketType,
+    packet_types::PacketType, disable_simulator::DisableSimulator,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -31,14 +31,13 @@ impl UiEventTypes {
             UiEventTypes::Error => {
                 SessionError::from_bytes(data).map(|packet| PacketType::Error(Box::new(packet)))
             }
-
             UiEventTypes::ChatFromSimulatorEvent => ChatFromSimulator::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::ChatFromSimulator(Box::new(packet))),
             UiEventTypes::CoarseLocationUpdateEvent => CoarseLocationUpdate::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::CoarseLocationUpdate(Box::new(packet))),
-
+            UiEventTypes::DisableSimulatorEvent => Some(PacketType::DisableSimulator(Box::new(DisableSimulator {}))),
             _ => None, // Handle unimplemented cases
         }
     }

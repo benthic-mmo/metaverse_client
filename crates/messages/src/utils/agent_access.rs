@@ -5,7 +5,7 @@ use xmlrpc_benthic::{self as xmlrpc, Value};
 pub enum AgentAccess {
     Adult,
     Mature,
-    Down, 
+    Down,
     NonExistent,
     Trial,
     General,
@@ -29,7 +29,7 @@ impl AgentAccess {
         match bytes {
             2 => AgentAccess::General,
             7 => AgentAccess::Trial,
-            13 => AgentAccess::PG, 
+            13 => AgentAccess::PG,
             21 => AgentAccess::Mature,
             42 => AgentAccess::Adult,
             254 => AgentAccess::Down,
@@ -59,7 +59,7 @@ pub fn parse_agent_access(agent_access: Option<&xmlrpc::Value>) -> Option<AgentA
         "A" => AgentAccess::Adult,
         "PG" => AgentAccess::PG,
         "G" => AgentAccess::General,
-        "" => AgentAccess::NonExistent, 
+        "" => AgentAccess::NonExistent,
         "Down" => AgentAccess::Down,
         "T" => AgentAccess::Trial,
         _ => AgentAccess::Unknown,

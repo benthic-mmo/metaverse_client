@@ -1,5 +1,4 @@
 use core::fmt;
-use log::info;
 use std::io;
 
 // TODO: change the flags to bitflags

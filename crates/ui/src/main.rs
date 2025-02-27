@@ -58,6 +58,9 @@ struct CoarseLocationUpdateEvent {
     _value: CoarseLocationUpdate,
 }
 
+#[derive(Event)]
+struct DisableSimulatorEvent;
+
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum ViewerState {
     #[default]
@@ -106,8 +109,12 @@ fn main() {
         .add_systems(Startup, start_listener)
         .add_systems(Update, handle_queue)
         .add_systems(Update, handle_login_response)
+        .add_systems(Update, handle_disconnect)
+        
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
+        .add_event::<DisableSimulatorEvent>()
+
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
         .add_systems(
             Update,
@@ -133,6 +140,12 @@ fn handle_login_response(
     }
 }
 
+fn handle_disconnect(mut ev_disable_simulator: EventReader<DisableSimulatorEvent>, mut viewer_state: ResMut<NextState<ViewerState>>) {
+    for _ in ev_disable_simulator.read() {
+        viewer_state.set(ViewerState::Login);
+    }
+}
+
 fn configure_visuals_system(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_visuals(egui::Visuals {
         window_rounding: 0.0.into(),
@@ -144,11 +157,14 @@ fn handle_queue(
     event_channel: Res<EventChannel>,
     mut ev_loginresponse: EventWriter<LoginResponseEvent>,
     mut ev_coarselocationupdate: EventWriter<CoarseLocationUpdateEvent>,
+    mut ev_disable_simulator: EventWriter<DisableSimulatorEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
     while let Ok(event) = receiver.try_recv() {
+
+        info!("event {:?}", event);
         match event {
             PacketType::LoginResponse(login_response) => {
                 ev_loginresponse.send(LoginResponseEvent {
@@ -184,6 +200,9 @@ fn handle_queue(
                     user: chat_from_simulator.from_name,
                     message: chat_from_simulator.message,
                 });
+            },
+            PacketType::DisableSimulator(_) => {
+                ev_disable_simulator.send(DisableSimulatorEvent {});
             }
             _ => {
                 info!("unknown event coming from server")

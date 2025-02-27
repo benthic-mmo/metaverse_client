@@ -1,4 +1,5 @@
 use crate::errors::SessionError;
+use log::info;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
@@ -111,6 +112,12 @@ impl PacketType {
         // Data.
         match frequency {
             PacketFrequency::High => match id {
+                1 => Ok(PacketType::StartPingCheck(Box::new(
+                    StartPingCheck::from_bytes(bytes)?,
+                ))),
+                2 => Ok(PacketType::CompletePingCheck(Box::new(
+                    CompletePingCheck::from_bytes(bytes)?,
+                ))),
                 4 => Ok(PacketType::AgentUpdate(Box::new(AgentUpdate::from_bytes(
                     bytes,
                 )?))),
@@ -129,12 +136,6 @@ impl PacketType {
                 )),
             },
             PacketFrequency::Low => match id {
-                1 => Ok(PacketType::StartPingCheck(Box::new(
-                    StartPingCheck::from_bytes(bytes)?,
-                ))),
-                2 => Ok(PacketType::CompletePingCheck(Box::new(
-                    CompletePingCheck::from_bytes(bytes)?,
-                ))),
                 3 => Ok(PacketType::CircuitCode(Box::new(
                     CircuitCodeData::from_bytes(bytes)?,
                 ))),
@@ -147,7 +148,6 @@ impl PacketType {
                 152 => Ok(PacketType::DisableSimulator(Box::new(
                     DisableSimulator::from_bytes(bytes)?,
                 ))),
-
                 249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
                     CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),

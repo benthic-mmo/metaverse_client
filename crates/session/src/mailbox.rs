@@ -2,11 +2,11 @@ use actix::prelude::*;
 use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
+use metaverse_messages::disable_simulator::DisableSimulator;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_ack::PacketAck;
 use metaverse_messages::packet_types::PacketType;
-use metaverse_messages::region_handshake::RegionInfo;
 use metaverse_messages::region_handshake_reply::AgentData;
 use metaverse_messages::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
@@ -133,6 +133,7 @@ pub struct PingInfo {
 #[rtype(result = "()")]
 pub struct Pong;
 
+/// message to send when receiving a RegionHandshake
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RegionHandshakeMessage;
@@ -169,11 +170,6 @@ impl Mailbox {
                             continue;
                         }
                     };
-                    info!(
-                        "received packet: {:?}, {:?}",
-                        packet.header.id, packet.header.frequency
-                    );
-
                     if packet.header.reliable {
                         match mailbox_address
                             .send(Packet::new_packet_ack(PacketAck {
@@ -207,6 +203,12 @@ impl Mailbox {
                                 Ok(_) => {}
                                 Err(e) => error!("error: {:?}", e),
                             }
+                        }
+                        PacketType::DisableSimulator(_) => {
+                            if let Err(e) = mailbox_address.send(UiMessage::new(UiEventTypes::DisableSimulatorEvent{}, vec![])).await{
+                                warn!("failed to send to ui: {:?}", e)
+                            }
+                            break;
                         }
                         _ => {}
                     }
@@ -304,7 +306,7 @@ impl Handler<UiMessage> for Mailbox {
 
             // Split the message content if it's larger than the available size
             let message = msg.message;
-            let total_chunks = message.len().div_ceil(available_size);
+            let total_chunks = usize::max(1, message.len().div_ceil(available_size));
 
             // Loop through each chunk and send it
             for chunk_index in 0..total_chunks {
@@ -315,6 +317,7 @@ impl Handler<UiMessage> for Mailbox {
                 // Increment the sequence number for each chunk
                 let sequence_number = msg.sequence_number + chunk_index as u16;
 
+                info!("SENDING MESSAGE TYPE: {:?}", msg.message_type.clone());
                 // Create a new message with the chunked data
                 let chunked_message = UiMessage {
                     message_type: msg.message_type.clone(),
@@ -409,11 +412,9 @@ impl Handler<Packet> for Mailbox {
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref session) = self.session {
             let addr = format!("{}:{}", session.url, session.server_socket);
-            info!("address of packet to send is {:?}", addr);
             {
                 let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
-                println!("PACKET NUMBER IS: {}", *sequence_number);
             }
 
             if msg.header.reliable {
@@ -438,7 +439,6 @@ impl Handler<Packet> for Mailbox {
                     if let Err(e) = socket_clone.send_to(&data, &addr).await {
                         error!("Failed to send data: {}", e);
                     }
-                    info!("sent data to {}", addr)
                 };
                 ctx.spawn(fut.into_actor(self));
             };
