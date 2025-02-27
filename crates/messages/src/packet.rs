@@ -1,5 +1,4 @@
 use super::packet_types::PacketType;
-use log::info;
 use crate::header::Header;
 use actix::prelude::*;
 use log::warn;

@@ -73,7 +73,7 @@ pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<Packe
                     let packet_store =
                         message_store
                             .entry(received_chunk.packet_number)
-                            .or_insert(PacketStore{
+                            .or_insert(PacketStore {
                                 chunks: HashMap::new(),
                             });
 
@@ -97,8 +97,6 @@ pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<Packe
                             .message_type
                             .packet_type_from_bytes(&full_message)
                         {
-
-                            warn!("PACKET IS {:?}", packet);
                             if let Err(e) = sender.send(packet) {
                                 warn!("Failed to send packet to UI: {:?}", e)
                             };
