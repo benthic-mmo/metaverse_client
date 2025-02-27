@@ -1,4 +1,3 @@
-use log::info;
 use std::io::{self, Cursor, Read};
 use uuid::Uuid;
 
@@ -120,14 +119,13 @@ impl RegionInfo {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
-        info!("FROM_BYTES BYTES: {:?}", bytes);
         let mut cursor = Cursor::new(bytes);
 
         // these region flags are almost certainly super messed up
         let mut region_flags = [0u8; 4];
         cursor.read_exact(&mut region_flags)?;
-        let region_flags =  u32::from_le_bytes(region_flags);
-        
+        let region_flags = u32::from_le_bytes(region_flags);
+
         // I am not sure what this byte does but it ruins the whole thing if you leave it in :/
         let current_position = cursor.position();
         cursor.set_position(current_position + 1);
@@ -136,14 +134,12 @@ impl RegionInfo {
         cursor.read_exact(&mut sim_access)?;
         let sim_access = AgentAccess::from_bytes(&sim_access[0]);
 
-
         let mut name_len = [0u8; 1];
         cursor.read_exact(&mut name_len)?;
         let name_len = u8::from_le_bytes(name_len) as usize;
         let mut name_bytes = vec![0u8; name_len];
         cursor.read_exact(&mut name_bytes)?;
         let sim_name = String::from_utf8(name_bytes).unwrap();
-        info!("sim_name {:?}", sim_name);
 
         let mut uuid_bytes = [0u8; 16];
         cursor.read_exact(&mut uuid_bytes)?;

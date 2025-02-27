@@ -14,7 +14,7 @@ impl Packet {
                 zerocoded: false,
                 appended_acks: false,
                 sequence_number: 0,
-                frequency: PacketFrequency::Low,
+                frequency: PacketFrequency::High,
                 ack_list: None,
                 size: None,
             },
