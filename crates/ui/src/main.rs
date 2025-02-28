@@ -23,8 +23,8 @@ use metaverse_session::initialize::initialize;
 
 #[derive(Resource)]
 struct Sockets {
-    ui_to_server_socket: String,
-    server_to_ui_socket: String,
+    ui_to_server_socket: u16,
+    server_to_ui_socket: u16,
 }
 
 #[derive(Resource)]
@@ -71,8 +71,8 @@ enum ViewerState {
 fn main() {
     // create temporary files
     
-    let ui_to_server_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
-    let server_to_ui_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
+    let ui_to_server_socket = pick_unused_port().unwrap();
+    let server_to_ui_socket = pick_unused_port().unwrap();
     let (s1, r1) = unbounded();
 
     App::new()
@@ -208,7 +208,7 @@ fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
     let sender = event_queue.sender.clone();
 
     thread_pool
-        .spawn(async move { listen_for_server_events(outgoing_socket, sender).await })
+        .spawn(async move { listen_for_server_events(format!("127.0.0.1:{}", outgoing_socket), sender).await })
         .detach();
 }
 
@@ -216,7 +216,7 @@ fn start_client(sockets: Res<Sockets>) {
     let server_to_ui_socket = sockets.server_to_ui_socket.clone();
     let ui_to_server_socket = sockets.ui_to_server_socket.clone();
     // start the actix process, and do not close the system until everything is finished
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
         System::new().block_on(async {
             match initialize(ui_to_server_socket, server_to_ui_socket).await {
                 Ok(handle) => {

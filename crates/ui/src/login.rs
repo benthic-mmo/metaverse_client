@@ -77,7 +77,6 @@ pub fn login_screen(
         })
         .to_bytes();
         let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        info!("LOGIN SENT TO: {}", &sockets.ui_to_server_socket);
         match client_socket.send_to(&packet, format!("127.0.0.1:{}", &sockets.ui_to_server_socket)) {
             Ok(_) => println!("Login sent from UI"),
             Err(e) => println!("Error sending login from UI {:?}", e),

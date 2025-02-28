@@ -24,8 +24,8 @@ use tokio::net::UdpSocket;
 /// ```rust
 /// use metaverse_messages::packet::Packet;
 /// use metaverse_messages::login::login::Login;
-/// use std::os::unix::net::UnixDatagram;
-/// use tempfile::NamedTempFile;
+/// use std::os::net::UdpSocket;
+/// use portpicker::pick_unused_port;
 ///
 /// let packet = Packet::new_login_packet(Login {
 ///            first: "default".to_string(),
@@ -39,12 +39,9 @@ use tokio::net::UdpSocket;
 ///        })
 ///        .to_bytes();
 ///
-/// let client_socket = UnixDatagram::unbound().unwrap();
-/// let ui_to_server_socket = NamedTempFile::new()
-///     .expect("Failed to create temp file")
-///     .path()
-///     .to_path_buf();
-/// match client_socket.send_to(&packet, &ui_to_server_socket) {
+/// let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+/// let ui_to_server_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
+/// match client_socket.send_to(&packet, format!("127.0.0.1:{}", ui_to_server_socket)) {
 ///     Ok(_) => println!("Login sent from UI"),
 ///     Err(e) => println!("Error sending login from UI {:?}", e),
 /// };
@@ -53,9 +50,9 @@ use tokio::net::UdpSocket;
 ///
 ///
 pub async fn listen_for_ui_messages(ui_to_server_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
-    let socket = UdpSocket::bind(format!("127.0.0.1:{}", ui_to_server_socket)).await.expect("Failed to bind to UDP socket");
+    let socket = UdpSocket::bind(ui_to_server_socket).await.expect("Failed to bind to UDP socket");
     loop {
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf).await {
             Ok((n, _)) => {
                 let packet = match Packet::from_bytes(&buf[..n]) {

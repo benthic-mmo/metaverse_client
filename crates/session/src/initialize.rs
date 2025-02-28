@@ -8,9 +8,10 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
-use crate::mailbox::{Mailbox, ServerToUiSocket};
+use crate::mailbox::Mailbox;
 use crate::mailbox::{PingInfo, ServerState};
 use crate::server_subscriber::listen_for_ui_messages;
+use portpicker::pick_unused_port;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
@@ -46,14 +47,14 @@ use crate::server_subscriber::listen_for_ui_messages;
 ///});
 ///```
 pub async fn initialize(
-    ui_to_server_socket: String,
-    server_to_ui_socket: String,
+    ui_to_server_socket: u16,
+    server_to_ui_socket: u16,
 ) -> Result<JoinHandle<()>, SessionError> {
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let mailbox = Mailbox {
-        client_socket: 4567,
+        client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
         packet_sequence_number: Arc::new(Mutex::new(0u32)),
 
@@ -78,17 +79,8 @@ pub async fn initialize(
         }));
     };
 
-    let server_to_ui_socket = ServerToUiSocket {
-        socket: server_to_ui_socket
-    };
-    if let Err(e) = mailbox.send(server_to_ui_socket).await {
-        return Err(SessionError::Mailbox(MailboxError {
-            message: (format!("Failed to bind to outgoing UDS. {:?}", e)),
-        }));
-    };
-
     let handle = actix::spawn(async move {
-        listen_for_ui_messages(ui_to_server_socket, mailbox).await;
+        listen_for_ui_messages(format!("127.0.0.1:{}", ui_to_server_socket), mailbox).await;
     });
 
     Ok(handle)
