@@ -31,7 +31,7 @@ const ACK_TIMEOUT: Duration = Duration::from_secs(1);
 pub struct Mailbox {
     /// the client socket for UDP connections
     pub client_socket: u16,
-    /// UDS socket for connecting mailbox to the UI
+    /// UDP socket for connecting mailbox to the UI
     pub server_to_ui_socket: String,
 
     /// queue of ack packets to handle
@@ -67,14 +67,6 @@ pub struct Session {
     pub session_id: Uuid,
     /// the running UDP socket attached to the session  
     pub socket: Option<Arc<UdpSocket>>,
-}
-
-/// UDS socket for communicating from the server to the UI
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct ServerToUiSocket {
-    /// the path of the UDS socket on the machine
-    pub socket: String,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.
@@ -158,7 +150,7 @@ impl Mailbox {
         sock: Arc<UdpSocket>,
         mailbox_address: Addr<Mailbox>,
     ) {
-        let mut buf = [0; 1024];
+        let mut buf = [0; 1500];
         loop {
             match sock.recv_from(&mut buf).await {
                 Ok((size, _addr)) => {
@@ -171,14 +163,13 @@ impl Mailbox {
                         }
                     };
                     if packet.header.reliable {
-                        match mailbox_address
+                        if let Err(e) = mailbox_address
                             .send(Packet::new_packet_ack(PacketAck {
                                 packet_ids: vec![packet.header.sequence_number],
                             }))
                             .await
                         {
-                            Ok(_) => println!("ack sent"),
-                            Err(_) => println!("ack failed to send"),
+                            warn!("Ack failed to send {:?}", e)
                         };
                     }
 
@@ -188,9 +179,7 @@ impl Mailbox {
                             for id in data.packet_ids.clone() {
                                 if let Some(sender) = queue.remove(&id) {
                                     let _ = sender.send(());
-                                } else {
-                                    println!("No pending ack found for request ID: {}", id);
-                                }
+                                } 
                             }
                         }
                         PacketType::StartPingCheck(data) => {
@@ -237,7 +226,7 @@ impl Mailbox {
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to receive data: {}", e);
+                    error!("Failed to receive data: {}", e);
                     break;
                 }
             }
@@ -335,8 +324,10 @@ impl Handler<UiMessage> for Mailbox {
 
                 let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
                 if let Err(e) =
-                    client_socket.send_to(&chunked_message.as_bytes(), format!("127.0.0.1:{}", &self.server_to_ui_socket))
+                    client_socket.send_to(&chunked_message.as_bytes(), &self.server_to_ui_socket)
                 {
+
+                    info!("sending to: {}", self.server_to_ui_socket);
                     error!(
                         "Error sending chunk {} of {} from mailbox: {:?}",
                         sequence_number, total_chunks, e
@@ -345,13 +336,6 @@ impl Handler<UiMessage> for Mailbox {
             }
             self.sent_packet_count += 1;
         }
-}
-
-impl Handler<ServerToUiSocket> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: ServerToUiSocket, _: &mut Self::Context) -> Self::Result {
-        self.server_to_ui_socket = msg.socket;
-    }
 }
 
 // set the session to initialized.

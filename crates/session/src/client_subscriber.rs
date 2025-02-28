@@ -24,17 +24,16 @@ pub struct PacketStore {
 /// use crossbeam_channel::{unbounded, Receiver, Sender};
 /// use std::thread::spawn;
 /// use tokio::runtime::Runtime;
-/// use tempfile::NamedTempFile;
+/// use portpicker::pick_unused_port;
 ///
-/// let (sender, receiver) = unbounded();
-/// let outgoing_socket_path = NamedTempFile::new()
-///     .expect("Failed to create temp file")
-///     .path()
-///     .to_path_buf();
+///
+///
+/// let server_to_ui_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
+///
 /// spawn(move || {
 ///     let rt = Runtime::new().expect("Failed to create Tokio runtime");
 ///     rt.block_on(async {
-///         listen_for_server_events(outgoing_socket_path, sender).await;
+///         listen_for_server_events(server_to_ui_socket, sender).await;
 ///     });
 /// });
 /// ```
@@ -61,12 +60,12 @@ pub struct PacketStore {
 ///}
 ///```
 pub async fn listen_for_server_events(server_to_ui_socket: String, sender: Sender<PacketType>) {
-    let socket = UdpSocket::bind(format!("127.0.0.1:{}", server_to_ui_socket)).expect("Failed to bind UDP socket");
+    let socket = UdpSocket::bind(server_to_ui_socket).expect("Failed to bind UDP socket");
     let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
 
     info!("UI listening for server events on UDP: {:?}", socket);
     loop {
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf){
             Ok((n, _)) => {
                 if let Some(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
