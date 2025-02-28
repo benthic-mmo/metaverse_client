@@ -1,7 +1,7 @@
 use crossbeam_channel::Sender;
 use metaverse_messages::packet_types::PacketType;
-use std::os::unix::net::UnixDatagram;
-use std::{collections::HashMap, path::PathBuf};
+use std::net::UdpSocket;
+use std::collections::HashMap;
 
 use log::{info, warn};
 
@@ -60,14 +60,14 @@ pub struct PacketStore {
 ///     }
 ///}
 ///```
-pub async fn listen_for_server_events(socket_path: PathBuf, sender: Sender<PacketType>) {
-    let socket = UnixDatagram::bind(socket_path).unwrap();
+pub async fn listen_for_server_events(server_to_ui_socket: String, sender: Sender<PacketType>) {
+    let socket = UdpSocket::bind(format!("127.0.0.1:{}", server_to_ui_socket)).expect("Failed to bind UDP socket");
     let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
 
-    info!("UI listening for server events on UDS: {:?}", socket);
+    info!("UI listening for server events on UDP: {:?}", socket);
     loop {
         let mut buf = [0u8; 1024];
-        match socket.recv_from(&mut buf) {
+        match socket.recv_from(&mut buf){
             Ok((n, _)) => {
                 if let Some(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
                     let packet_store =

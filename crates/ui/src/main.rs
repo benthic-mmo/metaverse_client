@@ -2,7 +2,6 @@ mod chat;
 mod loading;
 mod login;
 
-use std::path::PathBuf;
 
 use actix_rt::System;
 use chat::chat_screen;
@@ -16,7 +15,7 @@ use metaverse_messages::login_system::errors::LoginError;
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_session::client_subscriber::listen_for_server_events;
-use tempfile::NamedTempFile;
+use portpicker::pick_unused_port;
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
@@ -24,8 +23,8 @@ use metaverse_session::initialize::initialize;
 
 #[derive(Resource)]
 struct Sockets {
-    ui_to_server_socket: PathBuf,
-    server_to_ui_socket: PathBuf,
+    ui_to_server_socket: String,
+    server_to_ui_socket: String,
 }
 
 #[derive(Resource)]
@@ -71,15 +70,9 @@ enum ViewerState {
 
 fn main() {
     // create temporary files
-    let ui_to_server_socket = NamedTempFile::new()
-        .expect("Failed to create temp file")
-        .path()
-        .to_path_buf();
-    let server_to_ui_socket = NamedTempFile::new()
-        .expect("Failed to create temp file")
-        .path()
-        .to_path_buf();
-
+    
+    let ui_to_server_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
+    let server_to_ui_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
     let (s1, r1) = unbounded();
 
     App::new()

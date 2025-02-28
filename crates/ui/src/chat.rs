@@ -1,4 +1,4 @@
-use std::os::unix::net::UnixDatagram;
+use std::net::UdpSocket;
 
 use bevy::ecs::system::{Res, ResMut, Resource};
 use bevy_egui::{egui, EguiContexts};
@@ -59,8 +59,8 @@ pub fn chat_screen(
             message_type: ClientChatType::Normal,
         })
         .to_bytes();
-        let client_socket = UnixDatagram::unbound().unwrap();
-        match client_socket.send_to(&packet, &sockets.ui_to_server_socket) {
+        let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+        match client_socket.send_to(&packet, format!("127.0.0.1:{}", sockets.ui_to_server_socket)) {
             Ok(_) => println!("Chat message sent from UI"),
             Err(e) => println!("Error sending chat from UI {:?}", e),
         };

@@ -7,13 +7,11 @@ use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginPr
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui_events::UiEventTypes;
-use std::path::PathBuf;
-use tokio::net::UnixDatagram;
-
 use crate::mailbox::{Mailbox, Session, UiMessage};
 use metaverse_messages::errors::{
     CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
 };
+use tokio::net::UdpSocket;
 
 /// This is used for the server to listen to messages coming in from the UI.
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
@@ -54,15 +52,12 @@ use metaverse_messages::errors::{
 /// ```
 ///
 ///
-pub async fn listen_for_ui_messages(socket_path: PathBuf, mailbox_addr: actix::Addr<Mailbox>) {
-    let socket = UnixDatagram::bind(socket_path.clone()).unwrap();
-    info!("Server listening for UI events on UDS: {:?}", socket_path);
-
+pub async fn listen_for_ui_messages(ui_to_server_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
+    let socket = UdpSocket::bind(format!("127.0.0.1:{}", ui_to_server_socket)).await.expect("Failed to bind to UDP socket");
     loop {
         let mut buf = [0u8; 1024];
         match socket.recv_from(&mut buf).await {
             Ok((n, _)) => {
-                info!("Server receiving event from UI: {}", n);
                 let packet = match Packet::from_bytes(&buf[..n]) {
                     Ok(packet) => packet,
                     Err(e) => {
