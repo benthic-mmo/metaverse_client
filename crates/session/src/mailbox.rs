@@ -13,11 +13,10 @@ use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::os::unix::net::UnixDatagram;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
+use std::net::UdpSocket as SyncUdpSocket;
 use tokio::sync::{oneshot, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
@@ -33,7 +32,7 @@ pub struct Mailbox {
     /// the client socket for UDP connections
     pub client_socket: u16,
     /// UDS socket for connecting mailbox to the UI
-    pub server_to_ui_socket: Option<ServerToUiSocket>,
+    pub server_to_ui_socket: String,
 
     /// queue of ack packets to handle
     pub ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
@@ -75,7 +74,7 @@ pub struct Session {
 #[rtype(result = "()")]
 pub struct ServerToUiSocket {
     /// the path of the UDS socket on the machine
-    pub socket_path: PathBuf,
+    pub socket: String,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.
@@ -263,7 +262,6 @@ impl Actor for Mailbox {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Mailbox has started");
-
         self.set_state(ServerState::Running, ctx);
     }
 }
@@ -296,7 +294,6 @@ impl Handler<Ping> for Mailbox {
 impl Handler<UiMessage> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: UiMessage, _: &mut Self::Context) -> Self::Result {
-        if let Some(socket) = &self.server_to_ui_socket {
             let max_message_size = 1024;
             // leave a little room at the end
             let overhead = 2;
@@ -336,10 +333,9 @@ impl Handler<UiMessage> for Mailbox {
                     packet_number: self.sent_packet_count,
                 };
 
-                // Send the chunk using the UnixDatagram socket
-                let client_socket = UnixDatagram::unbound().unwrap();
+                let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
                 if let Err(e) =
-                    client_socket.send_to(&chunked_message.as_bytes(), &socket.socket_path)
+                    client_socket.send_to(&chunked_message.as_bytes(), format!("127.0.0.1:{}", &self.server_to_ui_socket))
                 {
                     error!(
                         "Error sending chunk {} of {} from mailbox: {:?}",
@@ -349,13 +345,12 @@ impl Handler<UiMessage> for Mailbox {
             }
             self.sent_packet_count += 1;
         }
-    }
 }
 
 impl Handler<ServerToUiSocket> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: ServerToUiSocket, _: &mut Self::Context) -> Self::Result {
-        self.server_to_ui_socket = Some(msg);
+        self.server_to_ui_socket = msg.socket;
     }
 }
 
@@ -363,7 +358,6 @@ impl Handler<ServerToUiSocket> for Mailbox {
 impl Handler<Session> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Session, ctx: &mut Self::Context) -> Self::Result {
-        info!("SESSION IS: {:?}", msg);
         if let Some(session) = self.session.as_ref() {
             msg.socket = session.socket.clone();
         }
@@ -486,19 +480,15 @@ async fn send_ack(
         let data = packet_clone.to_bytes().clone();
         let addr_clone = addr.clone();
         let sock_clone = socket.clone();
-        info!("ADDR_CLONE IS {:?}", addr_clone);
-        info!("SOCKET IS: {:?}", sock_clone);
         if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
             error!("Failed to send Ack: {}", e);
         }
 
         tokio::select! {
             _ = rx => {
-                println!("RECEIVED ACK FOR {}", packet_id);
                 received_ack = true;
             },
             _ = tokio::time::sleep(ACK_TIMEOUT) => {
-                println!("Attempt {} receive acknowledgment", attempts);
                 attempts += 1;
                 if !received_ack && attempts >= ACK_ATTEMPTS {
                     // Remove from queue after final attempt

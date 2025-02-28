@@ -4,7 +4,7 @@ use metaverse_messages::errors::{MailboxError, SessionError};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
@@ -46,15 +46,15 @@ use crate::server_subscriber::listen_for_ui_messages;
 ///});
 ///```
 pub async fn initialize(
-    ui_to_server_socket: PathBuf,
-    server_to_ui_socket: PathBuf,
+    ui_to_server_socket: String,
+    server_to_ui_socket: String,
 ) -> Result<JoinHandle<()>, SessionError> {
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let mailbox = Mailbox {
         client_socket: 4567,
-        server_to_ui_socket: None,
+        server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
         packet_sequence_number: Arc::new(Mutex::new(0u32)),
 
         ack_queue: Arc::new(Mutex::new(HashMap::new())),
@@ -79,7 +79,7 @@ pub async fn initialize(
     };
 
     let server_to_ui_socket = ServerToUiSocket {
-        socket_path: server_to_ui_socket,
+        socket: server_to_ui_socket
     };
     if let Err(e) = mailbox.send(server_to_ui_socket).await {
         return Err(SessionError::Mailbox(MailboxError {
