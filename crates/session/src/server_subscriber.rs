@@ -1,16 +1,16 @@
+use crate::mailbox::{Mailbox, Session, UiMessage};
 use log::{info, warn};
 use metaverse_messages::circuit_code::CircuitCodeData;
 use metaverse_messages::complete_agent_movement::CompleteAgentMovementData;
+use metaverse_messages::errors::{
+    CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
+};
 use metaverse_messages::login_system::login::{login, Login};
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui_events::UiEventTypes;
-use crate::mailbox::{Mailbox, Session, UiMessage};
-use metaverse_messages::errors::{
-    CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
-};
 use tokio::net::UdpSocket;
 
 /// This is used for the server to listen to messages coming in from the UI.
@@ -49,8 +49,13 @@ use tokio::net::UdpSocket;
 /// ```
 ///
 ///
-pub async fn listen_for_ui_messages(ui_to_server_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
-    let socket = UdpSocket::bind(ui_to_server_socket).await.expect("Failed to bind to UDP socket");
+pub async fn listen_for_ui_messages(
+    ui_to_server_socket: String,
+    mailbox_addr: actix::Addr<Mailbox>,
+) {
+    let socket = UdpSocket::bind(ui_to_server_socket)
+        .await
+        .expect("Failed to bind to UDP socket");
     loop {
         let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf).await {

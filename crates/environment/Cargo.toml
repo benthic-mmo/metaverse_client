@@ -1,0 +1,7 @@
+[package]
+name = "metaverse_environment"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+metaverse_messages = {path = "../messages/"}

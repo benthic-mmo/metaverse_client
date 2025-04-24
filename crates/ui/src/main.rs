@@ -2,7 +2,6 @@ mod chat;
 mod loading;
 mod login;
 
-
 use actix_rt::System;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
@@ -70,7 +69,7 @@ enum ViewerState {
 
 fn main() {
     // create temporary files
-    
+
     let ui_to_server_socket = pick_unused_port().unwrap();
     let server_to_ui_socket = pick_unused_port().unwrap();
     let (s1, r1) = unbounded();
@@ -103,11 +102,9 @@ fn main() {
         .add_systems(Update, handle_queue)
         .add_systems(Update, handle_login_response)
         .add_systems(Update, handle_disconnect)
-        
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
         .add_event::<DisableSimulatorEvent>()
-
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
         .add_systems(
             Update,
@@ -133,7 +130,10 @@ fn handle_login_response(
     }
 }
 
-fn handle_disconnect(mut ev_disable_simulator: EventReader<DisableSimulatorEvent>, mut viewer_state: ResMut<NextState<ViewerState>>) {
+fn handle_disconnect(
+    mut ev_disable_simulator: EventReader<DisableSimulatorEvent>,
+    mut viewer_state: ResMut<NextState<ViewerState>>,
+) {
     for _ in ev_disable_simulator.read() {
         viewer_state.set(ViewerState::Login);
     }
@@ -191,7 +191,7 @@ fn handle_queue(
                     user: chat_from_simulator.from_name,
                     message: chat_from_simulator.message,
                 });
-            },
+            }
             PacketType::DisableSimulator(_) => {
                 ev_disable_simulator.send(DisableSimulatorEvent {});
             }
@@ -208,7 +208,9 @@ fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
     let sender = event_queue.sender.clone();
 
     thread_pool
-        .spawn(async move { listen_for_server_events(format!("127.0.0.1:{}", outgoing_socket), sender).await })
+        .spawn(async move {
+            listen_for_server_events(format!("127.0.0.1:{}", outgoing_socket), sender).await
+        })
         .detach();
 }
 

@@ -1,4 +1,5 @@
 use crate::errors::SessionError;
+use crate::layer_data::LayerData;
 use crate::login_system::login::Login;
 use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
@@ -37,6 +38,7 @@ pub enum PacketType {
     CompletePingCheck(Box<CompletePingCheck>),
     RegionHandshake(Box<RegionHandshake>),
     RegionHandshakeReply(Box<RegionHandshakeReply>),
+    LayerData(Box<LayerData>),
     // these do not exist in the packet spec! Used as utilities for communicating with server and
     // client.
     Login(Box<Login>),
@@ -51,6 +53,7 @@ impl PacketType {
             PacketType::ChatFromSimulator(_) => MessageType::Event,
             PacketType::CoarseLocationUpdate(_) => MessageType::Event,
             PacketType::DisableSimulator(_) => MessageType::Event,
+            PacketType::LayerData(_) => MessageType::Event,
 
             PacketType::AgentUpdate(_) => MessageType::Outgoing,
             PacketType::CompleteAgentMovementData(_) => MessageType::Outgoing,
@@ -93,6 +96,7 @@ impl PacketType {
             PacketType::CompletePingCheck(data) => data.to_bytes(),
             PacketType::RegionHandshake(data) => data.to_bytes(),
             PacketType::RegionHandshakeReply(data) => data.to_bytes(),
+            PacketType::LayerData(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
         }
@@ -118,6 +122,9 @@ impl PacketType {
                     CompletePingCheck::from_bytes(bytes)?,
                 ))),
                 4 => Ok(PacketType::AgentUpdate(Box::new(AgentUpdate::from_bytes(
+                    bytes,
+                )?))),
+                11 => Ok(PacketType::LayerData(Box::new(LayerData::from_bytes(
                     bytes,
                 )?))),
                 id => Err(io::Error::new(
