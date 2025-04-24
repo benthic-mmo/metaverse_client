@@ -2,6 +2,7 @@ use actix::prelude::*;
 use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
+
 use metaverse_messages::complete_ping_check::CompletePingCheck;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
@@ -13,15 +14,18 @@ use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
 use metaverse_messages::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::UdpSocket as SyncUdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
-use std::net::UdpSocket as SyncUdpSocket;
 use tokio::sync::{oneshot, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
 
 use metaverse_messages::errors::{AckError, SessionError};
+
+#[cfg(feature = "environment")]
+use metaverse_environment::generate_terrain::generate_terrain;
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);
@@ -179,7 +183,7 @@ impl Mailbox {
                             for id in data.packet_ids.clone() {
                                 if let Some(sender) = queue.remove(&id) {
                                     let _ = sender.send(());
-                                } 
+                                }
                             }
                         }
                         PacketType::StartPingCheck(data) => {
@@ -210,6 +214,12 @@ impl Mailbox {
                                 warn!("failed to send to ui: {:?}", e)
                             }
                             break;
+                        }
+                        #[cfg(feature = "environment")]
+                        PacketType::LayerData(data) => {
+                            generate_terrain(data);
+                            // once the terrain is generated, send a message to the UI to render
+                            // the generated terrain
                         }
                         _ => {}
                     }
@@ -283,59 +293,58 @@ impl Handler<Ping> for Mailbox {
 impl Handler<UiMessage> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: UiMessage, _: &mut Self::Context) -> Self::Result {
-            let max_message_size = 1024;
-            // leave a little room at the end
-            let overhead = 2;
+        let max_message_size = 1024;
+        // leave a little room at the end
+        let overhead = 2;
 
-            let message_type_len = msg.message_type.to_string().len();
-            let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
-            let total_packet_number_len = std::mem::size_of::<u16>();
-            let packet_number_len = std::mem::size_of::<u16>();
+        let message_type_len = msg.message_type.to_string().len();
+        let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
+        let total_packet_number_len = std::mem::size_of::<u16>();
+        let packet_number_len = std::mem::size_of::<u16>();
 
-            // Calculate the maximum size available for the actual message content
-            let available_size = max_message_size
-                - (message_type_len
-                    + sequence_number_len
-                    + total_packet_number_len
-                    + packet_number_len
-                    + overhead);
+        // Calculate the maximum size available for the actual message content
+        let available_size = max_message_size
+            - (message_type_len
+                + sequence_number_len
+                + total_packet_number_len
+                + packet_number_len
+                + overhead);
 
-            // Split the message content if it's larger than the available size
-            let message = msg.message;
-            let total_chunks = usize::max(1, message.len().div_ceil(available_size));
+        // Split the message content if it's larger than the available size
+        let message = msg.message;
+        let total_chunks = usize::max(1, message.len().div_ceil(available_size));
 
-            // Loop through each chunk and send it
-            for chunk_index in 0..total_chunks {
-                let start = chunk_index * available_size;
-                let end = usize::min(start + available_size, message.len());
-                let chunk = &message[start..end];
+        // Loop through each chunk and send it
+        for chunk_index in 0..total_chunks {
+            let start = chunk_index * available_size;
+            let end = usize::min(start + available_size, message.len());
+            let chunk = &message[start..end];
 
-                // Increment the sequence number for each chunk
-                let sequence_number = msg.sequence_number + chunk_index as u16;
+            // Increment the sequence number for each chunk
+            let sequence_number = msg.sequence_number + chunk_index as u16;
 
-                // Create a new message with the chunked data
-                let chunked_message = UiMessage {
-                    message_type: msg.message_type.clone(),
-                    sequence_number,
-                    total_packet_number: total_chunks as u16, // Add total number of chunks
-                    message: chunk.to_vec(),
-                    packet_number: self.sent_packet_count,
-                };
+            // Create a new message with the chunked data
+            let chunked_message = UiMessage {
+                message_type: msg.message_type.clone(),
+                sequence_number,
+                total_packet_number: total_chunks as u16, // Add total number of chunks
+                message: chunk.to_vec(),
+                packet_number: self.sent_packet_count,
+            };
 
-                let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
-                if let Err(e) =
-                    client_socket.send_to(&chunked_message.as_bytes(), &self.server_to_ui_socket)
-                {
-
-                    info!("sending to: {}", self.server_to_ui_socket);
-                    error!(
-                        "Error sending chunk {} of {} from mailbox: {:?}",
-                        sequence_number, total_chunks, e
-                    )
-                }
+            let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
+            if let Err(e) =
+                client_socket.send_to(&chunked_message.as_bytes(), &self.server_to_ui_socket)
+            {
+                info!("sending to: {}", self.server_to_ui_socket);
+                error!(
+                    "Error sending chunk {} of {} from mailbox: {:?}",
+                    sequence_number, total_chunks, e
+                )
             }
-            self.sent_packet_count += 1;
         }
+        self.sent_packet_count += 1;
+    }
 }
 
 // set the session to initialized.

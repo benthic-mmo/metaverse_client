@@ -2,9 +2,9 @@ use actix::Actor;
 use actix_rt::time;
 use metaverse_messages::errors::{MailboxError, SessionError};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::sync::Arc;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 

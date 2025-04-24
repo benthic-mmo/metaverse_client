@@ -1,7 +1,7 @@
 use crossbeam_channel::Sender;
 use metaverse_messages::packet_types::PacketType;
-use std::net::UdpSocket;
 use std::collections::HashMap;
+use std::net::UdpSocket;
 
 use log::{info, warn};
 
@@ -66,7 +66,7 @@ pub async fn listen_for_server_events(server_to_ui_socket: String, sender: Sende
     info!("UI listening for server events on UDP: {:?}", socket);
     loop {
         let mut buf = [0u8; 1500];
-        match socket.recv_from(&mut buf){
+        match socket.recv_from(&mut buf) {
             Ok((n, _)) => {
                 if let Some(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
                     let packet_store =

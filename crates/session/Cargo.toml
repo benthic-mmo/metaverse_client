@@ -6,10 +6,10 @@ description = "metaverse session handler"
 license = "AGPL-3.0-or-later"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 metaverse_messages = {path = "../messages/"}
+metaverse_environment = {path = "../environment/", optional = true}
 tokio = { version = "1.43.0", features = ["full"] }
 env_logger = "0.11"
 tempfile = "3.17.1"
@@ -30,3 +30,10 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
+
+# allow for compiling a barebones viewer
+[features]
+default = ["environment"]
+
+# allow for compiling the viewer without any environment rendering
+environment = ["dep:metaverse_environment"]
