@@ -20,6 +20,7 @@ egui_xml = "0.1.4"
 egui_extras = "0.31.0"
 egui = "0.31.0"
 portpicker = "0.1.1"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 [dependencies.uuid]
 version = "1.13.1"
 features = [

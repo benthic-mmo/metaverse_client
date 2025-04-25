@@ -2,10 +2,15 @@ mod chat;
 mod loading;
 mod login;
 
+use std::fs;
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use actix_rt::System;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
+use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
 use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
@@ -67,12 +72,52 @@ enum ViewerState {
     Chat,
 }
 
-fn main() {
-    // create temporary files
+pub const CONFIG_FILE: &str = ".login_conf.json";
+pub const VIEWER_NAME: &str = "BenthicViewer";
 
+fn main() {
     let ui_to_server_socket = pick_unused_port().unwrap();
     let server_to_ui_socket = pick_unused_port().unwrap();
     let (s1, r1) = unbounded();
+
+    // read stored username from cache and retrieve keyring password
+    let login_data = match PathBuf::from_str(CONFIG_FILE) {
+        Ok(path) => match fs::read_to_string(path) {
+            Ok(content) => match Entry::new(VIEWER_NAME, &content) {
+                Ok(keyring) => match keyring.get_password() {
+                    Ok(password) => {
+                        let mut parts = content.split_whitespace();
+                        let first_name = parts.next().unwrap_or_default().to_string();
+                        let last_name = parts.next().unwrap_or_default().to_string();
+                        let grid = parts.next().unwrap_or_default().to_string();
+                        login::LoginData {
+                            first_name,
+                            last_name,
+                            grid,
+                            remember_me: true,
+                            password,
+                        }
+                    }
+                    Err(e) => {
+                        println!("failed to get password from keyring: {:?}", e);
+                        login::LoginData::default()
+                    }
+                },
+                Err(e) => {
+                    println!("failed to open keyring: {:?}", e);
+                    login::LoginData::default()
+                }
+            },
+            Err(e) => {
+                println!("failed to read cached user data: {:?}", e);
+                login::LoginData::default()
+            }
+        },
+        Err(e) => {
+            println!("failed to open cached user data {:?}", e);
+            login::LoginData::default()
+        }
+    };
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -90,7 +135,7 @@ fn main() {
             ui_to_server_socket,
             server_to_ui_socket,
         })
-        .insert_resource(login::LoginData::default())
+        .insert_resource(login_data)
         .insert_resource(chat::ChatMessage::default())
         .insert_resource(EventChannel {
             sender: s1,
