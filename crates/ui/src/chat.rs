@@ -1,7 +1,10 @@
 use std::net::UdpSocket;
 
 use bevy::ecs::system::{Res, ResMut, Resource};
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{
+    egui::{self, TextEdit},
+    EguiContexts,
+};
 use metaverse_messages::{
     chat_from_viewer::{ChatFromViewer, ClientChatType},
     packet::Packet,
@@ -23,30 +26,42 @@ pub fn chat_screen(
 ) {
     let ctx = contexts.ctx_mut();
     let mut send = false;
-    egui::TopBottomPanel::bottom("Chat Bar").show(ctx, |ui| {
-        ui.vertical(|ui| {
+
+    egui::Window::new("Chat")
+        .default_width(300.0)
+        .resizable(true)
+        .collapsible(true)
+        .show(ctx, |ui| {
             egui::ScrollArea::vertical()
+                .stick_to_bottom(true)
+                .max_height(300.0)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
+                    ui.allocate_space(egui::vec2(ui.available_width(), 300.0));
                     for (i, message) in chat_messages.messages.iter().enumerate() {
                         ui.push_id(i, |ui| {
-                            ui.label(format!(
-                                "{}: {}",
-                                message.user.clone(),
-                                message.message.clone()
-                            )); // Display the message
+                            ui.label(format!("{}: {}", message.user, message.message));
                         });
                     }
                 });
-        });
-        egui::Frame::default().inner_margin(4.0).show(ui, |ui| {
+
+            ui.separator();
+
+            // Chat input area
             ui.horizontal(|ui| {
                 ui.label("Chat:");
-                ui.text_edit_singleline(&mut chat_message.message);
-                send = ui.button("Send").clicked();
+                let text_edit_response = ui.text_edit_singleline(&mut chat_message.message);
+                if text_edit_response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                {
+                    text_edit_response.request_focus();
+                    send = true;
+                }
+                if ui.button("Send").clicked() {
+                    send = true;
+                }
             });
         });
-    });
+
     if send {
         let message = chat_message.message.clone();
         chat_message.message = "".to_string();

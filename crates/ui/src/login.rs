@@ -1,15 +1,17 @@
-use crate::{Sockets, ViewerState};
+use crate::{Sockets, ViewerState, CONFIG_FILE, VIEWER_NAME};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use keyring::Entry;
 use metaverse_messages::{login_system::login::Login, packet::Packet};
-use std::net::UdpSocket;
+use std::{fs, net::UdpSocket, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
-    first_name: String,
-    last_name: String,
-    password: String,
-    grid: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub password: String,
+    pub grid: String,
+    pub remember_me: bool,
 }
 
 pub fn login_screen(
@@ -29,7 +31,7 @@ pub fn login_screen(
     egui::SidePanel::left("Login")
         .default_width(200.0)
         .show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Login");
 
             ui.horizontal(|ui| {
                 ui.label("First Name: ");
@@ -50,6 +52,10 @@ pub fn login_screen(
                 ui.text_edit_singleline(&mut login_data.grid);
             });
 
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut login_data.remember_me, "Remember Me");
+            });
+
             ui.allocate_space(egui::Vec2::new(1.0, 100.0));
             ui.horizontal(|ui| {
                 login = ui.button("Login").clicked();
@@ -58,6 +64,40 @@ pub fn login_screen(
     if login {
         // display loading screen after login
         viewer_state.set(ViewerState::Loading);
+
+        let path = PathBuf::from(CONFIG_FILE);
+        let username = format!(
+            "{} {} {}",
+            login_data.first_name, login_data.last_name, login_data.grid
+        );
+
+        if login_data.remember_me {
+            println!("{}", username);
+            match Entry::new(VIEWER_NAME, &username) {
+                Ok(entry) => {
+                    if let Err(e) = entry.set_password(&login_data.password) {
+                        eprintln!("failed to store password {:?}", e)
+                    }
+                }
+                Err(e) => println!("failed to create new keyring entry {:?}", e),
+            }
+
+            if let Err(e) = fs::create_dir_all(path.parent().unwrap()) {
+                eprintln!("Error creating directory: {}", e);
+            }
+            if let Err(e) = fs::write(&path, &username) {
+                eprintln!("Error writing file: {}", e);
+            }
+        } else {
+            if let Err(e) =
+                Entry::new(VIEWER_NAME, &username).and_then(|entry| entry.delete_credential())
+            {
+                eprintln!("Failed to store password: {:?}", e);
+            }
+            if let Err(e) = fs::remove_file(path) {
+                eprintln!("Failed to remove stored data {:?}", e)
+            };
+        }
 
         let grid = if login_data.grid == "localhost" {
             format!("{}:{}", "http://127.0.0.1", 9000)
