@@ -1,7 +1,6 @@
 use super::packet_types::PacketType;
 use crate::header::Header;
 use actix::prelude::*;
-use log::warn;
 use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
@@ -18,14 +17,8 @@ pub struct Packet {
 pub struct Initialize {}
 
 pub enum MessageType {
-    Acknowledgment,
-    Request,
     Event,
-    Command,
-    Error,
-    Data,
-    Outgoing,
-    Login, // special type for login
+    Default,
 }
 
 // this is the trait that allows for serializing and deserializing the packet's data
@@ -51,17 +44,9 @@ impl Packet {
             body.to_vec() // Convert slice to Vec<u8>
         };
 
-        println!(
-            "header id: {:?}, header frequency: {:?}",
-            header.id, header.frequency
-        );
         let body = match PacketType::from_id(header.id, header.frequency, body_bytes.as_slice()) {
             Ok(parsed_body) => parsed_body, // If parsing succeeds, use the parsed body
             Err(e) => {
-                warn!(
-                    "Failed to parse packet id: {:?}, frequency: {:?}",
-                    header.id, header.frequency
-                );
                 return Err(e);
             }
         };

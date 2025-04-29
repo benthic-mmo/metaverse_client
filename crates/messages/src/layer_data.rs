@@ -13,7 +13,7 @@ impl Packet {
         Packet {
             header: Header {
                 id: 11,
-                reliable: false,
+                reliable: true,
                 resent: false,
                 zerocoded: false,
                 appended_acks: false,
@@ -27,9 +27,8 @@ impl Packet {
     }
 }
 
-/// add your struct fields here
 #[derive(Debug, Clone)]
-pub struct LayerData { 
+pub struct LayerData {
     pub layer_type: LayerType,
     pub stride: u16,
     pub patch_size: u8,
@@ -84,15 +83,17 @@ impl PacketData for LayerData {
         let layer_type_bytes = cursor.read_u8()?;
         let layer_type = LayerType::from_bytes(layer_type_bytes);
 
-        // skip these two unused bytes
-        let _unused_bytes_1 = cursor.read_u16::<LittleEndian>()?;
+        //These bytes tell the parser how long the Data block is
+        //was used to construct the size of the Data array
+        //These are currently unused
+        let _data_size = cursor.read_u16::<LittleEndian>()?;
 
         let stride = cursor.read_u16::<LittleEndian>()?;
-
         let patch_size = cursor.read_u8()?;
 
-        // the redundant layer type
-        let _unused_bytes_2 = cursor.read_u8();
+        // redundant layer type
+        // could be used for validation
+        let _layer_type = cursor.read_u8();
 
         let mut layer_content = Vec::new();
         cursor.read_to_end(&mut layer_content)?;
@@ -107,8 +108,6 @@ impl PacketData for LayerData {
     }
     // TOOD: fix this to_bytes function
     fn to_bytes(&self) -> Vec<u8> {
-        let bytes = Vec::new();
-        // push your data into the new vector
-        bytes
+        Vec::new()
     }
 }

@@ -248,7 +248,7 @@ fn handle_queue(
 }
 
 fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
-    let outgoing_socket = sockets.server_to_ui_socket.clone();
+    let outgoing_socket = sockets.server_to_ui_socket;
     let thread_pool = AsyncComputeTaskPool::get();
     let sender = event_queue.sender.clone();
 
@@ -260,8 +260,8 @@ fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
 }
 
 fn start_client(sockets: Res<Sockets>) {
-    let server_to_ui_socket = sockets.server_to_ui_socket.clone();
-    let ui_to_server_socket = sockets.ui_to_server_socket.clone();
+    let server_to_ui_socket = sockets.server_to_ui_socket;
+    let ui_to_server_socket = sockets.ui_to_server_socket;
     // start the actix process, and do not close the system until everything is finished
     std::thread::spawn(move || {
         System::new().block_on(async {
