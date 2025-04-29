@@ -53,23 +53,7 @@ impl PacketType {
             PacketType::ChatFromSimulator(_) => MessageType::Event,
             PacketType::CoarseLocationUpdate(_) => MessageType::Event,
             PacketType::DisableSimulator(_) => MessageType::Event,
-            PacketType::LayerData(_) => MessageType::Event,
-
-            PacketType::AgentUpdate(_) => MessageType::Outgoing,
-            PacketType::CompleteAgentMovementData(_) => MessageType::Outgoing,
-            PacketType::ChatFromViewer(_) => MessageType::Outgoing,
-            PacketType::CircuitCode(_) => MessageType::Outgoing,
-
-            PacketType::StartPingCheck(_) => MessageType::Request,
-            PacketType::CompletePingCheck(_) => MessageType::Request,
-            PacketType::RegionHandshake(_) => MessageType::Request,
-            PacketType::RegionHandshakeReply(_) => MessageType::Request,
-
-            PacketType::PacketAck(_) => MessageType::Acknowledgment,
-
-            PacketType::Login(_) => MessageType::Login,
-            PacketType::LoginResponse(_) => MessageType::Login,
-            PacketType::Error(_) => MessageType::Error,
+            _ => MessageType::Default, 
         }
     }
     pub fn ui_event(&self) -> UiEventTypes {
@@ -105,14 +89,6 @@ impl PacketType {
 
 impl PacketType {
     pub fn from_id(id: u16, frequency: PacketFrequency, bytes: &[u8]) -> io::Result<Self> {
-        // the packets are organized by frquency.
-        // I really don't like it, but there's nothing I can do about it
-        // I will eventually organize these by type
-        // Acknowledgements,
-        // Requests,
-        // Commands,
-        // Errors,
-        // Data.
         match frequency {
             PacketFrequency::High => match id {
                 1 => Ok(PacketType::StartPingCheck(Box::new(

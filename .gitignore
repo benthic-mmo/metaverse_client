@@ -21,3 +21,5 @@ Cargo.lock
 crates/instantiator/sims/
 crates/session/sims/
 crates/login/sims/
+
+*.login_conf.json

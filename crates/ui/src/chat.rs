@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 
 use bevy::ecs::system::{Res, ResMut, Resource};
 use bevy_egui::{
-    egui::{self, TextEdit},
+    egui::self,
     EguiContexts,
 };
 use metaverse_messages::{
