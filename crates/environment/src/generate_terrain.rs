@@ -3,7 +3,7 @@ use log::{info, error, warn};
 
 use glam::{u16, u32, usize, U16Vec2};
 use metaverse_messages::layer_data::{LayerData, LayerType};
-use crate::constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16};
+use crate::{constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16}, generate_mesh::generate_land_mesh};
 
 // This handles receiving and parsing LayerData packets. 
 // The LayerData packet system is very poorly documented.
@@ -169,10 +169,13 @@ impl Land {
             // this decompresses the data using JPEG type decompression 
             let heightmap = HeightmapData::from_bytes(&mut reader, &terrain_header)?;
             
-            patches.push(Land {
+            let patch = Land{
                 terrain_header,
-                heightmap,
-            })
+                heightmap
+            };
+
+            generate_land_mesh(&patch);
+            patches.push(patch)
         }
         Ok(patches)
     }
