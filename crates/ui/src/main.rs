@@ -2,9 +2,8 @@ mod chat;
 mod loading;
 mod login;
 
-use std::fs;
+use std::fs::{self, create_dir_all};
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use actix_rt::System;
 use chat::chat_screen;
@@ -22,7 +21,7 @@ use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{EguiContexts, EguiPlugin, egui};
 use metaverse_session::initialize::initialize;
 
 #[derive(Resource)]
@@ -45,6 +44,11 @@ struct SessionData {
 #[derive(Resource)]
 struct ChatMessages {
     messages: Vec<ChatFromClientMessage>,
+}
+
+#[derive(Resource)]
+struct ShareDir{
+    path: Option<PathBuf>
 }
 
 struct ChatFromClientMessage {
@@ -72,17 +76,26 @@ enum ViewerState {
     Chat,
 }
 
-pub const CONFIG_FILE: &str = ".login_conf.json";
+pub const CONFIG_FILE: &str = "login_conf.json";
 pub const VIEWER_NAME: &str = "BenthicViewer";
 
 fn main() {
     let ui_to_server_socket = pick_unused_port().unwrap();
     let server_to_ui_socket = pick_unused_port().unwrap();
     let (s1, r1) = unbounded();
-
-    // read stored username from cache and retrieve keyring password
-    let login_data = match PathBuf::from_str(CONFIG_FILE) {
-        Ok(path) => match fs::read_to_string(path) {
+    let mut share_path = None;
+    let mut login_data = login::LoginData::default();
+    if let Some(data_dir) = dirs::data_dir() {
+        let local_share_dir = data_dir.join("benthic");
+        if !local_share_dir.exists() {
+            if let Err(e) = create_dir_all(&local_share_dir) {
+                warn!("Failed to create local share benthic : {}", e);
+            };
+            info!("Created Directory: {:?}", local_share_dir);
+        }
+        let file_path = local_share_dir.join(format!("login_conf.json",));
+        share_path = Some(file_path.clone());
+        login_data = match fs::read_to_string(file_path) {
             Ok(content) => match Entry::new(VIEWER_NAME, &content) {
                 Ok(keyring) => match keyring.get_password() {
                     Ok(password) => {
@@ -112,12 +125,8 @@ fn main() {
                 println!("failed to read cached user data: {:?}", e);
                 login::LoginData::default()
             }
-        },
-        Err(e) => {
-            println!("failed to open cached user data {:?}", e);
-            login::LoginData::default()
-        }
-    };
+        };
+    }
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -135,6 +144,7 @@ fn main() {
             ui_to_server_socket,
             server_to_ui_socket,
         })
+        .insert_resource(ShareDir{path: share_path})
         .insert_resource(login_data)
         .insert_resource(chat::ChatMessage::default())
         .insert_resource(EventChannel {

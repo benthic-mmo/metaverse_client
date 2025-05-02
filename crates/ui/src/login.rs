@@ -1,9 +1,13 @@
-use crate::{Sockets, ViewerState, CONFIG_FILE, VIEWER_NAME};
+use crate::{ShareDir, Sockets, ViewerState, CONFIG_FILE, VIEWER_NAME};
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
 use keyring::Entry;
 use metaverse_messages::{login_system::login::Login, packet::Packet};
-use std::{fs, net::UdpSocket, path::PathBuf};
+use std::{
+    fs::self,
+    net::UdpSocket,
+    path::PathBuf,
+};
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
@@ -20,6 +24,7 @@ pub fn login_screen(
     mut contexts: EguiContexts,
     mut viewer_state: ResMut<NextState<ViewerState>>,
     sockets: Res<Sockets>,
+    share_dir: ResMut<ShareDir>,
 ) {
     if !*is_initialized {
         *is_initialized = true;
@@ -81,13 +86,12 @@ pub fn login_screen(
                 }
                 Err(e) => println!("failed to create new keyring entry {:?}", e),
             }
+            if let Some(file_path) = &share_dir.path{
+                if let Err(e) = fs::write(file_path, &username) {
+                    eprintln!("Error writing file: {}", e);
+               }
+            }
 
-            if let Err(e) = fs::create_dir_all(path.parent().unwrap()) {
-                eprintln!("Error creating directory: {}", e);
-            }
-            if let Err(e) = fs::write(&path, &username) {
-                eprintln!("Error writing file: {}", e);
-            }
         } else {
             if let Err(e) =
                 Entry::new(VIEWER_NAME, &username).and_then(|entry| entry.delete_credential())
