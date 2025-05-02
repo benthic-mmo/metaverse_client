@@ -3,7 +3,7 @@ name = "metaverse_instantiator"
 version = "0.0.4"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "open metaverse simulator instantiator"
-edition = "2021"
+edition = "2024"
 license = "AGPL-3.0-or-later"
 keywords = ["open_metaverse", "opensimulator"]
 

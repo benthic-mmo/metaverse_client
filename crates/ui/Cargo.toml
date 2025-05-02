@@ -1,7 +1,7 @@
 [package]
 name = "ui"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 resolver = "2"
 
 [dependencies]
@@ -11,18 +11,18 @@ metaverse_messages = {path = "../messages/"}
 tokio = { version = "1", features = ["full"] }
 actix-rt = "2.10.0"
 accesskit = "0.17.1"
-tempfile = "3.17.1"
+tempfile = "3.19.1"
 bevy_egui = "0.32.0"
 serde = { version = "1.0", features = ["derive"] }
-crossbeam-channel = "0.5.14"
+crossbeam-channel = "0.5.15"
 serde_json = "1.0"
-egui_xml = "0.1.4"
-egui_extras = "0.31.0"
-egui = "0.31.0"
+egui_xml = "0.1.5"
+egui_extras = "0.31.1"
+egui = "0.31.1"
 portpicker = "0.1.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 [dependencies.uuid]
-version = "1.13.1"
+version = "1.16.0"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
