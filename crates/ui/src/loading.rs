@@ -1,4 +1,4 @@
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
 
 pub fn loading_screen(mut contexts: EguiContexts) {
     let ctx = contexts.ctx_mut();

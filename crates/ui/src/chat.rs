@@ -1,10 +1,7 @@
 use std::net::UdpSocket;
 
 use bevy::ecs::system::{Res, ResMut, Resource};
-use bevy_egui::{
-    egui::self,
-    EguiContexts,
-};
+use bevy_egui::{EguiContexts, egui};
 use metaverse_messages::{
     chat_from_viewer::{ChatFromViewer, ClientChatType},
     packet::Packet,

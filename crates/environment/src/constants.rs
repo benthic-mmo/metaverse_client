@@ -1,32 +1,29 @@
-
-
 use once_cell::sync::Lazy;
-
 
 pub static COSINE_TABLE_16: Lazy<[f32; 256]> = Lazy::new(setup_cosines16);
 const OO_SQRT2: f32 = 1.0 / std::f32::consts::SQRT_2;
 
-/// The LayerData is encoded in a way that is similar to JPEG compression. 
+/// The LayerData is encoded in a way that is similar to JPEG compression.
 /// Instead of storing data in rows, it stores it in a zig-zag pattern.
-/// build_copy_matrix stores where those values are in the zigzag. 
+/// build_copy_matrix stores where those values are in the zigzag.
 ///
-/// for example: 
-/// I have unencoded data 
+/// for example:
+/// I have unencoded data
 /// a   b   c   d   e   f   g   h   i   j   k...
 /// 0   1   2   3   4   5   6   7   8   9   10...
 ///
-/// this would be encoded as 
+/// this would be encoded as
 /// a   b   f   g   n   o   aa  bb  rr  ss ...
 /// 0   1   5   6   14  15  27  28  44  45 ...
 ///
-/// the copy matrix contains the unencoded data's location. 
-/// encoded[3] would be g 
-/// copy_matrix[3] would be 6 
+/// the copy matrix contains the unencoded data's location.
+/// encoded[3] would be g
+/// copy_matrix[3] would be 6
 ///
 /// by reading through the encoded data and the copy matrix at the same time, the data's original
-/// locations can be determined and reconstructed. 
+/// locations can be determined and reconstructed.
 /// This matrix is identical for each xy value it is calculated for, and is created once at compile
-/// time. 
+/// time.
 pub const fn build_copy_matrix16() -> [usize; 256] {
     let mut matrix = [0usize; 256];
     let mut diag = false;
@@ -87,13 +84,13 @@ pub const fn build_copy_matrix16() -> [usize; 256] {
     matrix
 }
 
-/// This is similar to how JPEGs are handled. 
+/// This is similar to how JPEGs are handled.
 /// The LayerData packets are quantized and compressed. Before being sent from the server, they were
-/// divided by a certain factorin order to make the bytes small enough to send with the packet. 
+/// divided by a certain factorin order to make the bytes small enough to send with the packet.
 /// sending floating point f32s would create an enormous packet, so the server divides each point by a
 /// factor defined by the quantize table, which is the same on the client and server side.
 /// by multiplying the point by its corresponding factor, you can return the compressed data back
-/// to its f32 representation. 
+/// to its f32 representation.
 pub const fn build_dequantize_table16() -> [f32; 256] {
     let mut table = [0.0f32; 256];
     let mut j = 0;
@@ -109,7 +106,7 @@ pub const fn build_dequantize_table16() -> [f32; 256] {
 }
 
 /// this is used for the Inverse Discrete Cosine Transforms
-/// DCT is a form of compression that uses cosines to encode larger data 
+/// DCT is a form of compression that uses cosines to encode larger data
 pub fn setup_cosines16() -> [f32; 256] {
     let hposz: f32 = std::f32::consts::PI * 0.5 / 16.0;
     let mut cosine_table = [0.0f32; 256];
