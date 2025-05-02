@@ -17,6 +17,7 @@ use metaverse_messages::login_system::errors::LoginError;
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
+use metaverse_messages::ui::custom::layer_update::LayerUpdate;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
 
@@ -159,6 +160,7 @@ fn main() {
         .add_systems(Update, handle_disconnect)
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
+        .add_event::<LayerUpdateEvent>()
         .add_event::<DisableSimulatorEvent>()
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
         .add_systems(
@@ -217,6 +219,9 @@ fn handle_queue(
                     value: Ok(*login_response),
                 });
                 info!("got LoginResponse")
+            }
+            PacketType::LayerUpdate(layer_update) => {
+                info!("Layer update is: {:?}", layer_update)
             }
             PacketType::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.send(CoarseLocationUpdateEvent {
