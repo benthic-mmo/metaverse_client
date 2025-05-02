@@ -6,7 +6,7 @@
 /// xml-rpc as used in this project, the better.
 use crate::{
     login_system::errors::ConversionError,
-    utils::agent_access::{parse_agent_access, AgentAccess},
+    utils::agent_access::{AgentAccess, parse_agent_access},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -1013,7 +1013,7 @@ impl From<xmlrpc::Value> for HomeValues {
                         "Invalid value".to_string(),
                         "Invalid value".to_string(),
                     ),
-                }
+                };
             }
         };
 

@@ -53,7 +53,7 @@ impl PacketType {
             PacketType::ChatFromSimulator(_) => MessageType::Event,
             PacketType::CoarseLocationUpdate(_) => MessageType::Event,
             PacketType::DisableSimulator(_) => MessageType::Event,
-            _ => MessageType::Default, 
+            _ => MessageType::Default,
         }
     }
     pub fn ui_event(&self) -> UiEventTypes {

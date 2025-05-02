@@ -5,7 +5,7 @@ use metaverse_messages::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::errors::{
     CircuitCodeError, CompleteAgentMovementError, MailboxError, SessionError,
 };
-use metaverse_messages::login_system::login::{login, Login};
+use metaverse_messages::login_system::login::{Login, login};
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
