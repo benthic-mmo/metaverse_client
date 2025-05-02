@@ -5,16 +5,18 @@ use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
 use crate::region_handshake::RegionHandshake;
 use crate::region_handshake_reply::RegionHandshakeReply;
+use crate::ui::custom::layer_update::LayerUpdate;
 
 use super::agent_update::AgentUpdate;
-use super::ui::{chat_from_simulator::ChatFromSimulator, ui_events::UiEventTypes, coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator };
 use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
+use super::ui::{
+    chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
+    disable_simulator::DisableSimulator, ui_events::UiEventTypes,
+};
 use super::{
-    circuit_code::CircuitCodeData,
-    complete_ping_check::CompletePingCheck,
-    header::PacketFrequency, packet::PacketData, packet_ack::PacketAck,
-    start_ping_check::StartPingCheck,
+    circuit_code::CircuitCodeData, complete_ping_check::CompletePingCheck, header::PacketFrequency,
+    packet::PacketData, packet_ack::PacketAck, start_ping_check::StartPingCheck,
 };
 use std::io;
 
@@ -43,6 +45,7 @@ pub enum PacketType {
     Login(Box<Login>),
     LoginResponse(Box<LoginResponse>),
     Error(Box<SessionError>),
+    LayerUpdate(Box<LayerUpdate>),
 }
 // I think I should remove MessageTypes entirely. They don't exist in the spec
 // I think I was using a different project's design and didn't think it through.
@@ -73,8 +76,6 @@ impl PacketType {
             PacketType::AgentUpdate(data) => data.to_bytes(),
             PacketType::ChatFromSimulator(data) => data.to_bytes(),
             PacketType::ChatFromViewer(data) => data.to_bytes(),
-            PacketType::Login(data) => data.to_bytes(),
-            PacketType::Error(data) => data.to_bytes(),
             PacketType::StartPingCheck(data) => data.to_bytes(),
             PacketType::CompletePingCheck(data) => data.to_bytes(),
             PacketType::RegionHandshake(data) => data.to_bytes(),
@@ -82,6 +83,9 @@ impl PacketType {
             PacketType::LayerData(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
+            PacketType::Login(data) => data.to_bytes(),
+            PacketType::Error(data) => data.to_bytes(),
+            PacketType::LayerUpdate(data) => data.to_bytes(),
         }
     }
 }

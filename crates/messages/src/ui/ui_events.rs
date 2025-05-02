@@ -1,12 +1,15 @@
 use crate::{
-    errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData, packet_types::PacketType,
+    errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData,
+    packet_types::PacketType,
 };
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use super::{chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator};
-
+use super::{
+    chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
+    custom::layer_update::LayerUpdate, disable_simulator::DisableSimulator,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UiEventTypes {
@@ -31,6 +34,9 @@ impl UiEventTypes {
             UiEventTypes::Error => {
                 SessionError::from_bytes(data).map(|packet| PacketType::Error(Box::new(packet)))
             }
+
+            UiEventTypes::LayerUpdateEvent => LayerUpdate::from_bytes(data)
+                .map(|packet| PacketType::LayerUpdate(Box::new(packet))),
             UiEventTypes::ChatFromSimulatorEvent => ChatFromSimulator::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::ChatFromSimulator(Box::new(packet))),

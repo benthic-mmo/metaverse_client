@@ -218,8 +218,16 @@ impl Mailbox {
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
                             if let Some(layer_info) = parse_layer_data(data) {
-                                for layer in layer_info{
-                                    println!("layer is: {:?}", layer);
+                                for layer in layer_info {
+                                    if let Err(e) = mailbox_address
+                                        .send(UiMessage::new(
+                                            UiEventTypes::LayerUpdateEvent,
+                                            layer.to_bytes(),
+                                        ))
+                                        .await
+                                    {
+                                        warn!("Failed to send layer info to ui {}", e)
+                                    };
                                 }
                             };
                         }

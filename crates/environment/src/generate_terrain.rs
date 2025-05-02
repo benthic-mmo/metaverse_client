@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use log::{error, warn};
@@ -10,7 +8,7 @@ use crate::{
     generate_mesh::generate_land_mesh,
 };
 use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::layer_data::{LayerData, LayerType};
+use metaverse_messages::{layer_data::{LayerData, LayerType}, ui::custom::layer_update::LayerUpdate};
 
 // This handles receiving and parsing LayerData packets.
 // The LayerData packet system is very poorly documented.
@@ -27,7 +25,7 @@ static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
 static DEQUANTIZE_TABLE_16: [f32; 256] = build_dequantize_table16();
 
 /// This parses the incoming LayerData packet into its proper type.
-pub fn parse_layer_data(data: &LayerData) -> Option<Vec<LayerInfo>> {
+pub fn parse_layer_data(data: &LayerData) -> Option<Vec<LayerUpdate>> {
     match data.layer_type {
         LayerType::Land => match Land::from_packet(data, false) {
             Ok(layer_info) => Some(layer_info),
@@ -60,16 +58,6 @@ pub fn parse_layer_data(data: &LayerData) -> Option<Vec<LayerInfo>> {
             None
         }
     }
-}
-
-/// This is the simple struct that will be sent back to the UI, with the filepath of the decoded gltf
-/// file, and the position of where it goes on the grid.
-#[derive(Debug, Clone)]
-pub struct LayerInfo {
-    /// the path of the generated gltf file
-    pub filepath: PathBuf,
-    /// the position of where it goes on the grid
-    pub position: U16Vec2,
 }
 
 /// This is the header that begins each new terrain patch, containing information required for
@@ -182,7 +170,7 @@ pub struct Land {
 }
 impl Land {
     /// creates a Land object from a LayerData packet
-    pub fn from_packet(data: &LayerData, extended: bool) -> Result<Vec<LayerInfo>, BitReaderError> {
+    pub fn from_packet(data: &LayerData, extended: bool) -> Result<Vec<LayerUpdate>, BitReaderError> {
         let mut patches = Vec::new();
         let mut reader = BitReader::new(&data.layer_content);
         // each Layerdata packet can contain several patches. This loops through each sub-patch.
@@ -226,9 +214,9 @@ impl Land {
             let heightmap = decompress_patch(&terrain_header, &patch);
 
             match generate_land_mesh(&terrain_header, heightmap) {
-                Ok(filepath) => {
-                    patches.push(LayerInfo {
-                        filepath,
+                Ok(path) => {
+                    patches.push(LayerUpdate {
+                        path,
                         position: terrain_header.location.clone(),
                     });
                 }
