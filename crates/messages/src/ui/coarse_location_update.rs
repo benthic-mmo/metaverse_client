@@ -1,6 +1,7 @@
-use super::packet::PacketData;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Write};
+
+use crate::packet::PacketData;
 
 /// ID: 6
 /// Frequency: Medium

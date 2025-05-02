@@ -10,7 +10,7 @@ use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::login_system::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::packet::Packet;
 use metaverse_messages::packet_types::PacketType;
-use metaverse_messages::ui_events::UiEventTypes;
+use metaverse_messages::ui::ui_events::UiEventTypes;
 use tokio::net::UdpSocket;
 
 /// This is used for the server to listen to messages coming in from the UI.

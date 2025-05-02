@@ -1,9 +1,7 @@
-use crate::packet_types::PacketType;
+use crate::header::Header;
+use crate::packet::{Packet, PacketData};
+use crate::{header::PacketFrequency, packet_types::PacketType};
 
-use super::{
-    header::Header,
-    packet::{Packet, PacketData},
-};
 use byteorder::ReadBytesExt;
 use glam::Vec3;
 use std::io::Read;
@@ -18,7 +16,7 @@ impl Packet {
         Packet {
             header: Header {
                 id: 139,
-                frequency: super::header::PacketFrequency::Low,
+                frequency: PacketFrequency::Low,
                 reliable: false,
                 sequence_number: 0,
                 appended_acks: false,

@@ -1,11 +1,10 @@
 pub mod agent_update;
-pub mod chat_from_simulator;
+pub mod ui;
+
 pub mod chat_from_viewer;
 pub mod circuit_code;
-pub mod coarse_location_update;
 pub mod complete_agent_movement;
 pub mod complete_ping_check;
-pub mod disable_simulator;
 pub mod errors;
 pub mod header;
 pub mod layer_data;
@@ -16,6 +15,5 @@ pub mod packet_types;
 pub mod region_handshake;
 pub mod region_handshake_reply;
 pub mod start_ping_check;
-pub mod ui_events;
 
 pub mod utils;

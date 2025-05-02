@@ -12,11 +12,11 @@ use crossbeam_channel::{Receiver, Sender};
 use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
-use metaverse_messages::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::errors::SessionError;
 use metaverse_messages::login_system::errors::LoginError;
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::packet_types::PacketType;
+use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
 
