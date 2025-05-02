@@ -1,14 +1,12 @@
 use crate::{
-    errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData,
+    errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData, packet_types::PacketType,
 };
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
-    disable_simulator::DisableSimulator, packet_types::PacketType,
-};
+use super::{chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator};
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UiEventTypes {
@@ -17,6 +15,8 @@ pub enum UiEventTypes {
     ChatFromSimulatorEvent,
     CoarseLocationUpdateEvent,
     DisableSimulatorEvent,
+    LayerUpdateEvent,
+
     // for packets that are not events
     None,
 }
@@ -52,6 +52,7 @@ impl fmt::Display for UiEventTypes {
             UiEventTypes::ChatFromSimulatorEvent => write!(f, "ChatFromSimulatorEvent"),
             UiEventTypes::CoarseLocationUpdateEvent => write!(f, "CoarseLocationUpdateEvent"),
             UiEventTypes::DisableSimulatorEvent => write!(f, "DisableSimulatorEvent"),
+            UiEventTypes::LayerUpdateEvent => write!(f, "LayerUpdateEvent"),
             UiEventTypes::None => write!(f, "None"),
             UiEventTypes::Error => write!(f, "Error"),
         }

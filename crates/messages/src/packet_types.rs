@@ -5,15 +5,14 @@ use crate::login_system::login_response::LoginResponse;
 use crate::packet::MessageType;
 use crate::region_handshake::RegionHandshake;
 use crate::region_handshake_reply::RegionHandshakeReply;
-use crate::ui_events::UiEventTypes;
 
 use super::agent_update::AgentUpdate;
-use super::chat_from_simulator::ChatFromSimulator;
+use super::ui::{chat_from_simulator::ChatFromSimulator, ui_events::UiEventTypes, coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator };
 use super::chat_from_viewer::ChatFromViewer;
 use super::complete_agent_movement::CompleteAgentMovementData;
 use super::{
-    circuit_code::CircuitCodeData, coarse_location_update::CoarseLocationUpdate,
-    complete_ping_check::CompletePingCheck, disable_simulator::DisableSimulator,
+    circuit_code::CircuitCodeData,
+    complete_ping_check::CompletePingCheck,
     header::PacketFrequency, packet::PacketData, packet_ack::PacketAck,
     start_ping_check::StartPingCheck,
 };

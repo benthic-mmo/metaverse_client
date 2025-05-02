@@ -11,7 +11,7 @@ use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::region_handshake_reply::AgentData;
 use metaverse_messages::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::region_handshake_reply::ReplyRegionInfo;
-use metaverse_messages::ui_events::UiEventTypes;
+use metaverse_messages::ui::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;

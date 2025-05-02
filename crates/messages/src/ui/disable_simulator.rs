@@ -1,5 +1,6 @@
-use super::packet::PacketData;
 use std::io;
+
+use crate::packet::PacketData;
 
 // ID: 152
 // Frequency: Low
