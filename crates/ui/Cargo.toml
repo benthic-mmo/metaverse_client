@@ -5,7 +5,7 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
-bevy = "0.15"
+bevy = {version = "0.15", features=["bevy_gltf"]}
 metaverse_session = {path = "../session/"}
 metaverse_messages = {path = "../messages/"}
 tokio = { version = "1", features = ["full"] }
