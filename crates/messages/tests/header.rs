@@ -20,9 +20,11 @@ fn test_header_for_acks() {
 
 #[test]
 fn test_header_for_circuit_code() {
-    let test_packet = match Vec::from_hex("000000000000ffff000389c0e85824cd791211bf4b3ba4697896a707864a9dc18bb1044f4c68906b2cb608b2e197"){
+    let test_packet = match Vec::from_hex(
+        "000000000000ffff000389c0e85824cd791211bf4b3ba4697896a707864a9dc18bb1044f4c68906b2cb608b2e197",
+    ) {
         Ok(bytes) => bytes,
-        Err(_) => panic!("failed")
+        Err(_) => panic!("failed"),
     };
     println!("packet bytes are: {:?}", test_packet);
     let test_header = Header::try_from_bytes(&test_packet).unwrap();

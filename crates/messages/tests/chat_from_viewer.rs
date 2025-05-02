@@ -7,7 +7,9 @@ use uuid::uuid;
 
 #[test]
 fn test_chat_from_viewer() {
-    let test_packet = match Vec::from_hex("400000110600ffff0050320dff8a7a594720a0f75a8df3698d9a224ecaea372d4d318b644805966418e5020061000100000000") {
+    let test_packet = match Vec::from_hex(
+        "400000110600ffff0050320dff8a7a594720a0f75a8df3698d9a224ecaea372d4d318b644805966418e5020061000100000000",
+    ) {
         Ok(bytes) => bytes,
         Err(_) => panic!("failed"),
     };
@@ -28,5 +30,7 @@ fn create_chat_from_viewer() {
     });
     println!("{:?}", packet);
     println!("{:?}", hex::encode(packet.to_bytes()));
-    println!("\"400000110600ffff0050320dff8a7a594720a0f75a8df3698d9a224ecaea372d4d318b644805966418e5020061000100000000\"")
+    println!(
+        "\"400000110600ffff0050320dff8a7a594720a0f75a8df3698d9a224ecaea372d4d318b644805966418e5020061000100000000\""
+    )
 }

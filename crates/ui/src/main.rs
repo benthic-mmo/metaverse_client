@@ -47,8 +47,8 @@ struct ChatMessages {
 }
 
 #[derive(Resource)]
-struct ShareDir{
-    path: Option<PathBuf>
+struct ShareDir {
+    path: Option<PathBuf>,
 }
 
 struct ChatFromClientMessage {
@@ -144,7 +144,7 @@ fn main() {
             ui_to_server_socket,
             server_to_ui_socket,
         })
-        .insert_resource(ShareDir{path: share_path})
+        .insert_resource(ShareDir { path: share_path })
         .insert_resource(login_data)
         .insert_resource(chat::ChatMessage::default())
         .insert_resource(EventChannel {

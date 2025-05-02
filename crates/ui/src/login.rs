@@ -1,13 +1,9 @@
-use crate::{ShareDir, Sockets, ViewerState, CONFIG_FILE, VIEWER_NAME};
+use crate::{CONFIG_FILE, ShareDir, Sockets, VIEWER_NAME, ViewerState};
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 use keyring::Entry;
 use metaverse_messages::{login_system::login::Login, packet::Packet};
-use std::{
-    fs::self,
-    net::UdpSocket,
-    path::PathBuf,
-};
+use std::{fs, net::UdpSocket, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
@@ -86,12 +82,11 @@ pub fn login_screen(
                 }
                 Err(e) => println!("failed to create new keyring entry {:?}", e),
             }
-            if let Some(file_path) = &share_dir.path{
+            if let Some(file_path) = &share_dir.path {
                 if let Err(e) = fs::write(file_path, &username) {
                     eprintln!("Error writing file: {}", e);
-               }
+                }
             }
-
         } else {
             if let Err(e) =
                 Entry::new(VIEWER_NAME, &username).and_then(|entry| entry.delete_credential())

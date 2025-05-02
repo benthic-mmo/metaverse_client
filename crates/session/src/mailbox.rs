@@ -18,7 +18,7 @@ use std::net::UdpSocket as SyncUdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
-use tokio::sync::{oneshot, Notify};
+use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
@@ -217,9 +217,11 @@ impl Mailbox {
                         }
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
-                            parse_layer_data(data);
-                            // once the terrain is generated, send a message to the UI to render
-                            // the generated terrain
+                            if let Some(layer_info) = parse_layer_data(data) {
+                                for layer in layer_info{
+                                    println!("layer is: {:?}", layer);
+                                }
+                            };
                         }
                         _ => {}
                     }

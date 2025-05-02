@@ -1,6 +1,6 @@
 use actix::System;
-use crossbeam_channel::{unbounded, Sender};
-use log::{error, info, LevelFilter};
+use crossbeam_channel::{Sender, unbounded};
+use log::{LevelFilter, error, info};
 use metaverse_messages::packet_types::PacketType;
 use tempfile::NamedTempFile;
 

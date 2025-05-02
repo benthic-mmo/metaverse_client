@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use bitreader::{BitReader, BitReaderError};
-use log::{error, info, warn};
-use twox_hash::XxHash32;
 use bytemuck::cast_slice;
+use log::{error, warn};
+use twox_hash::XxHash32;
 
 use crate::{
     constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16},
@@ -25,21 +27,49 @@ static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
 static DEQUANTIZE_TABLE_16: [f32; 256] = build_dequantize_table16();
 
 /// This parses the incoming LayerData packet into its proper type.
-pub fn parse_layer_data(data: &LayerData) {
+pub fn parse_layer_data(data: &LayerData) -> Option<Vec<LayerInfo>> {
     match data.layer_type {
         LayerType::Land => match Land::from_packet(data, false) {
-            Ok(_) => info!("Received Land Packet"),
-            Err(e) => error!("Error parsing Land packet: {}", e),
+            Ok(layer_info) => Some(layer_info),
+            Err(e) => {
+                error!("Error parsing Land packet: {}", e);
+                None
+            }
         },
         LayerType::LandExtended => match Land::from_packet(data, true) {
-            Ok(_) => info!("Received LandExtended Packet"),
-            Err(e) => error!("Error parsing LandExtended packet: {}", e),
+            Ok(layer_info) => Some(layer_info),
+            Err(e) => {
+                error!("Error parsing LandExtended packet: {}", e);
+                None
+            }
         },
-        LayerType::Wind | LayerType::WindExtended => println!("wind"),
-        LayerType::Water | LayerType::WaterExtended => println!("water"),
-        LayerType::Cloud | LayerType::CloudExtended => println!("cloud"),
-        LayerType::Unknown => println!("unknown"),
+        LayerType::Wind | LayerType::WindExtended => {
+            println!("wind");
+            None
+        }
+        LayerType::Water | LayerType::WaterExtended => {
+            println!("water");
+            None
+        }
+        LayerType::Cloud | LayerType::CloudExtended => {
+            println!("cloud");
+            None
+        }
+        LayerType::Unknown => {
+            println!("unknown");
+            None
+        }
     }
+}
+
+/// This is the simple struct that will be sent back to the UI, with the filepath of the decoded gltf
+/// file, and the position of where it goes on the grid.
+#[derive(Debug, Clone)]
+pub struct LayerInfo {
+    /// the path of the generated gltf file
+    pub filepath: PathBuf,
+    /// the position of where it goes on the grid
+    pub position: U16Vec2,
 }
 
 /// This is the header that begins each new terrain patch, containing information required for
@@ -64,7 +94,7 @@ pub struct TerrainHeader {
     pub stride: u16,
     /// The size of the patch. Should always be 16.
     pub patch_size: u8,
-    /// this is the filename of the terrain object, for what will be rendered by the UI. 
+    /// this is the filename of the terrain object, for what will be rendered by the UI.
     /// this is formatted x_y_<hash>
     pub filename: String,
 }
@@ -152,7 +182,7 @@ pub struct Land {
 }
 impl Land {
     /// creates a Land object from a LayerData packet
-    pub fn from_packet(data: &LayerData, extended: bool) -> Result<Vec<Self>, BitReaderError> {
+    pub fn from_packet(data: &LayerData, extended: bool) -> Result<Vec<LayerInfo>, BitReaderError> {
         let mut patches = Vec::new();
         let mut reader = BitReader::new(&data.layer_content);
         // each Layerdata packet can contain several patches. This loops through each sub-patch.
@@ -181,25 +211,31 @@ impl Land {
             }
 
             // read the heightmap bits
-            let patch= parse_heightmap(&mut reader, &terrain_header)?;
-            
+            let patch = parse_heightmap(&mut reader, &terrain_header)?;
+
             // this hashes the read bits. Patches that have the same geometry will have the same
-            // hash, allowing you to easily check if there has been an update to the terrain. 
+            // hash, allowing you to easily check if there has been an update to the terrain.
             // this will be useful for caching and clearing the cache later.
             let hash = XxHash32::oneshot(1234, cast_slice(&patch));
-            terrain_header.filename = format!("{}_{}_{}", terrain_header.location.x, terrain_header.location.y, hash);
+            terrain_header.filename = format!(
+                "{}_{}_{}",
+                &terrain_header.location.x, &terrain_header.location.y, hash
+            );
 
             // this decompresses the data using JPEG type decompression
             let heightmap = decompress_patch(&terrain_header, &patch);
-            let patch = Land {
-                terrain_header,
-                heightmap,
-            };
 
-            if let Err(e) = generate_land_mesh(&patch){
-                warn!("Failed to generate land mesh: {:?}", e);
+            match generate_land_mesh(&terrain_header, heightmap) {
+                Ok(filepath) => {
+                    patches.push(LayerInfo {
+                        filepath,
+                        position: terrain_header.location.clone(),
+                    });
+                }
+                Err(e) => {
+                    warn!("Failed to generate land mesh: {:?}", e);
+                }
             };
-            patches.push(patch)
         }
         Ok(patches)
     }
