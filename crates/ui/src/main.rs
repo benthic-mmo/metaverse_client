@@ -1,4 +1,5 @@
 mod chat;
+mod environment;
 mod loading;
 mod login;
 
@@ -9,6 +10,7 @@ use actix_rt::System;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
+use environment::{check_model_loaded, handle_layer_update, setup_environment, LayerUpdateEvent};
 use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
@@ -17,7 +19,6 @@ use metaverse_messages::login_system::errors::LoginError;
 use metaverse_messages::login_system::login_response::LoginResponse;
 use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
-use metaverse_messages::ui::custom::layer_update::LayerUpdate;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
 
@@ -61,6 +62,8 @@ struct ChatFromClientMessage {
 struct LoginResponseEvent {
     value: Result<LoginResponse, LoginError>,
 }
+
+
 #[derive(Event)]
 struct CoarseLocationUpdateEvent {
     _value: CoarseLocationUpdate,
@@ -132,6 +135,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
+        .add_systems(Startup, setup_environment)
         .add_systems(Startup, configure_visuals_system)
         // initial state of viewer is default, which is Login
         .init_state::<ViewerState>()
@@ -158,6 +162,7 @@ fn main() {
         .add_systems(Update, handle_queue)
         .add_systems(Update, handle_login_response)
         .add_systems(Update, handle_disconnect)
+        .add_systems(Update, handle_layer_update)
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
         .add_event::<LayerUpdateEvent>()
@@ -167,6 +172,7 @@ fn main() {
             Update,
             loading_screen.run_if(in_state(ViewerState::Loading)),
         )
+        .add_systems(Update, check_model_loaded)
         .add_systems(Update, chat_screen.run_if(in_state(ViewerState::Chat)))
         .run();
 }
@@ -208,6 +214,7 @@ fn handle_queue(
     mut ev_loginresponse: EventWriter<LoginResponseEvent>,
     mut ev_coarselocationupdate: EventWriter<CoarseLocationUpdateEvent>,
     mut ev_disable_simulator: EventWriter<DisableSimulatorEvent>,
+    mut ev_layer_update: EventWriter<LayerUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
@@ -221,7 +228,9 @@ fn handle_queue(
                 info!("got LoginResponse")
             }
             PacketType::LayerUpdate(layer_update) => {
-                info!("Layer update is: {:?}", layer_update)
+                ev_layer_update.send(LayerUpdateEvent {
+                    value: *layer_update,
+                });
             }
             PacketType::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.send(CoarseLocationUpdateEvent {
@@ -294,3 +303,5 @@ fn start_client(sockets: Res<Sockets>) {
         });
     });
 }
+
+   

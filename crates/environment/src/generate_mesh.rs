@@ -66,6 +66,7 @@ pub fn generate_land_mesh(
         }
     }
 
+    let (min, max) = bounding_coords(&triangles);
     let mut root = gltf_json::Root::default();
     let buffer_length = triangles.len() * mem::size_of::<f32>() * 3;
 
@@ -96,8 +97,8 @@ pub fn generate_land_mesh(
         extensions: Default::default(),
         extras: Default::default(),
         type_: Valid(gltf_json::accessor::Type::Vec3),
-        min: None,
-        max: None,
+        min: Some(gltf_json::Value::from(Vec::from(min))),
+        max: Some(gltf_json::Value::from(Vec::from(max))),
         name: None,
         normalized: false,
         sparse: None,
@@ -181,3 +182,18 @@ fn to_padded_byte_vector<T: bytemuck::NoUninit>(data: &[T]) -> Vec<u8> {
 
     new_vec
 }
+
+fn bounding_coords(points: &[Vertex]) -> ([f32; 3], [f32; 3]) {
+    let mut min = [f32::MAX, f32::MAX, f32::MAX];
+    let mut max = [f32::MIN, f32::MIN, f32::MIN];
+
+    for point in points {
+        let p = point.position;
+        for i in 0..3 {
+            min[i] = f32::min(min[i], p[i]);
+            max[i] = f32::max(max[i], p[i]);
+        }
+    }
+    (min, max)
+}
+

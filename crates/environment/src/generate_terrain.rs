@@ -8,7 +8,10 @@ use crate::{
     generate_mesh::generate_land_mesh,
 };
 use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::{layer_data::{LayerData, LayerType}, ui::custom::layer_update::LayerUpdate};
+use metaverse_messages::{
+    layer_data::{LayerData, LayerType},
+    ui::custom::layer_update::LayerUpdate,
+};
 
 // This handles receiving and parsing LayerData packets.
 // The LayerData packet system is very poorly documented.
@@ -170,7 +173,10 @@ pub struct Land {
 }
 impl Land {
     /// creates a Land object from a LayerData packet
-    pub fn from_packet(data: &LayerData, extended: bool) -> Result<Vec<LayerUpdate>, BitReaderError> {
+    pub fn from_packet(
+        data: &LayerData,
+        extended: bool,
+    ) -> Result<Vec<LayerUpdate>, BitReaderError> {
         let mut patches = Vec::new();
         let mut reader = BitReader::new(&data.layer_content);
         // each Layerdata packet can contain several patches. This loops through each sub-patch.
