@@ -16,6 +16,10 @@ The server accepts messages in the form of packets as defined by the [spec](http
 This is the protocol spec. This contains all of the information about messages that can be sent to and from the server. The goal is to keep this general enough to be able to implement this for both client and server projects. More information on the spec can be found [here](https://wiki.secondlife.com/wiki/Category:Messages). 
 ### Ui
 This is a debug UI. Written in bevy and bevy-egui, it is not expected to get very polished. The more user-friendly UI can be found at [benthic_viewer](https://github.com/benthic-mmo/benthic_viewer). 
+
+https://github.com/user-attachments/assets/80d14817-2224-4adc-a4c3-ec30eee408ed
+
+
 ## Getting Started 
 ``cargo run``
 Will run the debug UI.
