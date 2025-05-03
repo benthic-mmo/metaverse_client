@@ -9,7 +9,7 @@ use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
-use environment::{LayerUpdateEvent, check_model_loaded, handle_layer_update, setup_environment};
+use environment::{check_model_loaded, handle_layer_update, setup_environment, LayerUpdateEvent, PendingLayers};
 use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
@@ -162,6 +162,9 @@ fn main() {
         .insert_resource(EventChannel {
             sender: s1,
             receiver: r1,
+        })
+        .insert_resource(PendingLayers{
+            items: vec![]
         })
         //TODO: these should be in a plugin
         .add_systems(Startup, start_client)

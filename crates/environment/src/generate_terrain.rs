@@ -273,9 +273,8 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
     let ooq = 1.0f32 / quantize as f32;
     let mult = ooq * terrain_header.range as f32;
     let addval = mult * (1 << (prequant - 1)) as f32 + terrain_header.dc_offset;
-
     if terrain_header.patch_size == 16 {
-        for i in 0..block.len() - 1 {
+        for i in 0..block.len(){
             block[i] = patch[COPY_MATRIX_16[i]] * DEQUANTIZE_TABLE_16[i];
         }
         let mut temp: Vec<f32> = vec![0.0; 16 * 16];
@@ -288,7 +287,7 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
     } else {
         println!("patch size unsupported")
     }
-    for i in 0..block.len() - 1 {
+    for i in 0..block.len() {
         output[i] = block[i] * mult + addval;
     }
     output

@@ -32,7 +32,7 @@ pub const fn build_copy_matrix16() -> [usize; 256] {
     let mut j = 0;
     let mut count = 0;
 
-    while i < 16 && j < 16 {
+    while count < 16 * 16 {
         matrix[j * 16 + i] = count;
         count += 1;
 

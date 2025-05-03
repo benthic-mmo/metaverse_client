@@ -13,18 +13,24 @@ pub struct PendingLayer {
     pub position: Vec3,
 }
 
+#[derive(Resource)]
+pub struct PendingLayers {
+    pub items: Vec<PendingLayer>,
+}
+
 pub fn setup_environment(mut commands: Commands) {
     commands.spawn((
         PointLight {
-            shadows_enabled: true,
+            shadows_enabled: false,
+            intensity: 3000.0,
+            range: 4000.0,
             ..default()
         },
-        Transform::from_xyz(-54.0, 297.0, -33.0),
+        Transform::from_xyz(0.0, 20.0, 0.0),
     ));
     commands.spawn((
         Transform {
-            translation: Vec3::new(-54.91, 297.45, -33.25),
-            rotation: Quat::from_xyzw(0.24934214, 0.7405695, 0.44497907, -0.43163628),
+            translation: Vec3::new(678.0, 471.0, 962.0),
             ..default()
         },
         PanOrbitCamera::default(),
@@ -33,16 +39,15 @@ pub fn setup_environment(mut commands: Commands) {
 
 pub fn handle_layer_update(
     mut ev_layer_update: EventReader<LayerUpdateEvent>,
-    mut commands: Commands,
+    mut pending_layers: ResMut<PendingLayers>,
     asset_server: Res<AssetServer>,
 ) {
-    let factor = 4;
+    let factor = 16;
     for layer_update in ev_layer_update.read() {
-        println!("Placing layer at {:?}", layer_update.value.position);
         let x = layer_update.value.position.x * factor;
         let y = layer_update.value.position.y * factor;
         let handle: Handle<Gltf> = asset_server.load(layer_update.value.path.clone());
-        commands.insert_resource(PendingLayer {
+        pending_layers.items.push(PendingLayer {
             handle,
             position: Vec3::new(x as f32, 0.0, y as f32),
         });
@@ -51,22 +56,32 @@ pub fn handle_layer_update(
 
 pub fn check_model_loaded(
     mut commands: Commands,
-    pending: Option<Res<PendingLayer>>,
+    mut pending_layers: ResMut<PendingLayers>,
     layer_assets: Res<Assets<Gltf>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if let Some(pending_layer) = pending {
-        if let Some(gltf) = layer_assets.get(&pending_layer.handle) {
+    let mut ready = vec![];
+    for (i, layer) in pending_layers.items.iter().enumerate(){
+        if let Some(gltf) = layer_assets.get(&layer.handle) {
             let white_material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 ..Default::default()
             });
             commands.spawn((
                 SceneRoot(gltf.scenes[0].clone()),
-                Transform::from_translation(pending_layer.position),
+                Transform::from_translation(layer.position),
                 MeshMaterial3d::from(white_material.clone()),
             ));
-            commands.remove_resource::<PendingLayer>();
+            ready.push(i)
         }
+    }
+    for i in ready.iter().rev() {
+        pending_layers.items.remove(*i);
+    }
+}
+
+pub fn _log_camera_position_system(query: Query<&Transform, With<Camera>>) {
+    for transform in query.iter() {
+        println!("Camera position: {:?}", transform.translation);
     }
 }
