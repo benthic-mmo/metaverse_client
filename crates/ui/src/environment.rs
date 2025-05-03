@@ -19,7 +19,7 @@ pub fn setup_environment(mut commands: Commands) {
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform::from_xyz(-54.0, 297.0, -33.0),
     ));
     commands.spawn((
         Transform {
@@ -38,6 +38,7 @@ pub fn handle_layer_update(
 ) {
     let factor = 4;
     for layer_update in ev_layer_update.read() {
+        println!("Placing layer at {:?}", layer_update.value.position);
         let x = layer_update.value.position.x * factor;
         let y = layer_update.value.position.y * factor;
         let handle: Handle<Gltf> = asset_server.load(layer_update.value.path.clone());
@@ -56,7 +57,6 @@ pub fn check_model_loaded(
 ) {
     if let Some(pending_layer) = pending {
         if let Some(gltf) = layer_assets.get(&pending_layer.handle) {
-            println!("spawning gltf");
             let white_material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 ..Default::default()
@@ -70,5 +70,3 @@ pub fn check_model_loaded(
         }
     }
 }
-
-

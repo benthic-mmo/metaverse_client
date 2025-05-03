@@ -206,7 +206,6 @@ impl Land {
 
             // read the heightmap bits
             let patch = parse_heightmap(&mut reader, &terrain_header)?;
-
             // this hashes the read bits. Patches that have the same geometry will have the same
             // hash, allowing you to easily check if there has been an update to the terrain.
             // this will be useful for caching and clearing the cache later.
@@ -218,7 +217,6 @@ impl Land {
 
             // this decompresses the data using JPEG type decompression
             let heightmap = decompress_patch(&terrain_header, &patch);
-
             match generate_land_mesh(&terrain_header, heightmap) {
                 Ok(path) => {
                     patches.push(LayerUpdate {
@@ -235,13 +233,14 @@ impl Land {
     }
 }
 
-fn parse_heightmap(
+pub fn parse_heightmap(
     reader: &mut BitReader,
     terrain_header: &TerrainHeader,
 ) -> Result<Vec<f32>, BitReaderError> {
     let patch_size = terrain_header.patch_size as usize;
     let total = patch_size * patch_size;
     let mut patch: Vec<f32> = vec![0.0; total];
+
     for i in 0..total {
         if reader.read_bool()? {
             if reader.read_bool()? {
@@ -268,7 +267,7 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
     let patch_size = terrain_header.patch_size as usize;
     let mut block: Vec<f32> = vec![0.0; patch_size * patch_size];
     let mut output: Vec<f32> = vec![0.0; patch_size * patch_size];
-    let prequant = terrain_header.quantized_world_bits >> (4 + 2);
+    let prequant = (terrain_header.quantized_world_bits >> 4) + 2;
     let prequant = if prequant > 0 { prequant } else { 1 };
     let quantize = 1 << prequant;
     let ooq = 1.0f32 / quantize as f32;
