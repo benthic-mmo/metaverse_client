@@ -25,7 +25,7 @@ use uuid::Uuid;
 use metaverse_messages::errors::{AckError, SessionError};
 
 #[cfg(feature = "environment")]
-use metaverse_environment::generate_terrain::parse_layer_data;
+use metaverse_environment::layer_handler::parse_layer_data;
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);

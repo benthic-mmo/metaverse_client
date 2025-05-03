@@ -16,7 +16,7 @@ pub struct SimulatorLoginProtocol {
     /// "home" - start in the user's home location
     /// "last" - start in the location where the user last logged out
     /// a specific location - in the format
-    /// uri:<region-name>&<x-coord>&<y-coord>&<z-coord>
+    /// uri:`<region-name>&<x-coord>&<y-coord>&<z-coord>`
     /// for example, the string "uri:test&128&128&0" says the user
     /// should log in to the center of the region named test, and
     /// the avatar should be placed on the ground if the

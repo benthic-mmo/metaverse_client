@@ -1,5 +1,7 @@
 use once_cell::sync::Lazy;
 
+/// The cosine table is a vector of precalculated cosines that are used when decompressing
+/// This is calculated as a constant and never changed.
 pub static COSINE_TABLE_16: Lazy<[f32; 256]> = Lazy::new(setup_cosines16);
 const OO_SQRT2: f32 = 1.0 / std::f32::consts::SQRT_2;
 
@@ -17,8 +19,8 @@ const OO_SQRT2: f32 = 1.0 / std::f32::consts::SQRT_2;
 /// 0   1   5   6   14  15  27  28  44  45 ...
 ///
 /// the copy matrix contains the unencoded data's location.
-/// encoded[3] would be g
-/// copy_matrix[3] would be 6
+/// encoded\[3\] would be g
+/// copy_matrix\[3\] would be 6
 ///
 /// by reading through the encoded data and the copy matrix at the same time, the data's original
 /// locations can be determined and reconstructed.

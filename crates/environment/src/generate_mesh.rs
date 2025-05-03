@@ -1,4 +1,4 @@
-use crate::generate_terrain::TerrainHeader;
+use crate::layer_handler::TerrainHeader;
 use gltf_json::validation::{Checked::Valid, USize64};
 use log::info;
 use std::{
@@ -10,10 +10,17 @@ use std::{
 
 #[derive(Copy, Clone, Debug, bytemuck::NoUninit)]
 #[repr(C)]
+/// a simple struct for storing the vertex
 struct Vertex {
+    /// the position of the struct
     position: [f32; 3],
 }
 
+/// Generates the mesh for land layers from the heightmap. 
+/// exports as gltf files in the share dir, labeled `x_y_<hash>.glb` 
+///
+/// heavily referenced from 
+/// <https://github.com/gltf-rs/gltf/blob/main/examples/export/main.rs>
 pub fn generate_land_mesh(
     terrain_header: &TerrainHeader,
     heightmap: Vec<f32>,
@@ -169,9 +176,12 @@ pub fn generate_land_mesh(
     }
 }
 
+/// realigns the data to a mutiple of four 
 fn align_to_multiple_of_four(n: &mut usize) {
     *n = (*n + 3) & !3;
 }
+
+/// Converts a byte vector to a vector aligned to a mutiple of 4
 fn to_padded_byte_vector<T: bytemuck::NoUninit>(data: &[T]) -> Vec<u8> {
     let byte_slice: &[u8] = bytemuck::cast_slice(data);
     let mut new_vec: Vec<u8> = byte_slice.to_owned();
@@ -183,6 +193,7 @@ fn to_padded_byte_vector<T: bytemuck::NoUninit>(data: &[T]) -> Vec<u8> {
     new_vec
 }
 
+/// determines the highest and lowest points on the mesh to store as min and max
 fn bounding_coords(points: &[Vertex]) -> ([f32; 3], [f32; 3]) {
     let mut min = [f32::MAX, f32::MAX, f32::MAX];
     let mut max = [f32::MIN, f32::MIN, f32::MIN];
