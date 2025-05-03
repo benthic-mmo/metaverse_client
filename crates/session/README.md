@@ -18,12 +18,8 @@ Will run tests with debug mode on.
 [docs.rs-badge]: https://img.shields.io/badge/docs-Docs.rs-red?&style=flat-square
 
 [crates.io-session-badge]: https://img.shields.io/crates/v/metaverse_session?logo=rust&logoColor=white&style=flat-square
-[crates.io-session]: https://crates.io/crates/metaverse_messages
+[crates.io-session]: https://crates.io/crates/metaverse_session
 [docs.rs-session]: https://docs.rs/metaverse_session/latest/metaverse_session/
-
-[crates.io-messages-badge]: https://img.shields.io/crates/v/metaverse_messages?logo=rust&logoColor=white&style=flat-square
-[crates.io-messages]: https://crates.io/crates/metaverse_messages
-[docs.rs-messages]: https://docs.rs/metaverse_messages/latest/metaverse_session/
 
 [last-commit-badge]:https://img.shields.io/github/last-commit/benthic-mmo/metaverse_client?logo=github&style=flat-square
 [last-commit]: https://github.com/benthic-mmo/metaverse_client/commits/main/
