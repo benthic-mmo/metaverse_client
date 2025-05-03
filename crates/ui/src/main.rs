@@ -3,14 +3,13 @@ mod environment;
 mod loading;
 mod login;
 
-use std::fs::{self, create_dir_all};
-use std::path::PathBuf;
-use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use actix_rt::System;
+use bevy::asset::UnapprovedPathMode;
+use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
-use environment::{check_model_loaded, handle_layer_update, setup_environment, LayerUpdateEvent};
+use environment::{LayerUpdateEvent, check_model_loaded, handle_layer_update, setup_environment};
 use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
@@ -21,7 +20,8 @@ use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
-use bevy::asset::UnapprovedPathMode;
+use std::fs::{self, create_dir_all};
+use std::path::PathBuf;
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{EguiContexts, EguiPlugin, egui};
@@ -63,7 +63,6 @@ struct ChatFromClientMessage {
 struct LoginResponseEvent {
     value: Result<LoginResponse, LoginError>,
 }
-
 
 #[derive(Event)]
 struct CoarseLocationUpdateEvent {
@@ -134,18 +133,15 @@ fn main() {
     }
 
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(AssetPlugin {
-                file_path: "assets".into(),
-                unapproved_path_mode: UnapprovedPathMode::Allow,
-                ..default()
-            }),
-        ))
-        .add_plugins(EguiPlugin{
+        .add_plugins((DefaultPlugins.set(AssetPlugin {
+            file_path: "assets".into(),
+            unapproved_path_mode: UnapprovedPathMode::Allow,
+            ..default()
+        }),))
+        .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false,
         })
         .add_plugins(PanOrbitCameraPlugin)
-
         .add_systems(Startup, setup_environment)
         .add_systems(Startup, configure_visuals_system)
         // initial state of viewer is default, which is Login
@@ -313,5 +309,3 @@ fn start_client(sockets: Res<Sockets>) {
         });
     });
 }
-
-   
