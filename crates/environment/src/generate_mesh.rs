@@ -196,4 +196,3 @@ fn bounding_coords(points: &[Vertex]) -> ([f32; 3], [f32; 3]) {
     }
     (min, max)
 }
-
