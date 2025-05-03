@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_session"
-version = "0.0.4"
+version = "0.1.1"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "metaverse session handler"
 license = "AGPL-3.0-or-later"
@@ -8,8 +8,8 @@ edition = "2024"
 
 
 [dependencies]
-metaverse_messages = {path = "../messages/"}
-metaverse_environment = {path = "../environment/", optional = true}
+metaverse_messages = "0.1.1"
+metaverse_environment = {version = "0.0.2", optional = true}
 tokio = { version = "1.44.2", features = ["full"] }
 env_logger = "0.11"
 tempfile = "3.19.1"
