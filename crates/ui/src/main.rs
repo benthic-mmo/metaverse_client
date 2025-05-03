@@ -5,7 +5,7 @@ mod login;
 
 use std::fs::{self, create_dir_all};
 use std::path::PathBuf;
-
+use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use actix_rt::System;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
@@ -21,6 +21,7 @@ use metaverse_messages::packet_types::PacketType;
 use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
 use metaverse_session::client_subscriber::listen_for_server_events;
 use portpicker::pick_unused_port;
+use bevy::asset::UnapprovedPathMode;
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{EguiContexts, EguiPlugin, egui};
@@ -133,8 +134,18 @@ fn main() {
     }
 
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin)
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                file_path: "assets".into(),
+                unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            }),
+        ))
+        .add_plugins(EguiPlugin{
+            enable_multipass_for_primary_context: false,
+        })
+        .add_plugins(PanOrbitCameraPlugin)
+
         .add_systems(Startup, setup_environment)
         .add_systems(Startup, configure_visuals_system)
         // initial state of viewer is default, which is Login
@@ -204,7 +215,6 @@ fn handle_disconnect(
 
 fn configure_visuals_system(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_visuals(egui::Visuals {
-        window_rounding: 0.0.into(),
         ..Default::default()
     });
 }
@@ -222,25 +232,25 @@ fn handle_queue(
     while let Ok(event) = receiver.try_recv() {
         match event {
             PacketType::LoginResponse(login_response) => {
-                ev_loginresponse.send(LoginResponseEvent {
+                ev_loginresponse.write(LoginResponseEvent {
                     value: Ok(*login_response),
                 });
                 info!("got LoginResponse")
             }
             PacketType::LayerUpdate(layer_update) => {
-                ev_layer_update.send(LayerUpdateEvent {
+                ev_layer_update.write(LayerUpdateEvent {
                     value: *layer_update,
                 });
             }
             PacketType::CoarseLocationUpdate(coarse_location_update) => {
-                ev_coarselocationupdate.send(CoarseLocationUpdateEvent {
+                ev_coarselocationupdate.write(CoarseLocationUpdateEvent {
                     _value: *coarse_location_update,
                 });
                 info!("got CoarseLocationUpdate")
             }
             PacketType::Error(error) => match *error {
                 SessionError::Login(e) => {
-                    ev_loginresponse.send(LoginResponseEvent { value: Err(e) });
+                    ev_loginresponse.write(LoginResponseEvent { value: Err(e) });
                 }
                 SessionError::Mailbox(e) => {
                     info!("MailboxError {:?}", e)
@@ -262,7 +272,7 @@ fn handle_queue(
                 });
             }
             PacketType::DisableSimulator(_) => {
-                ev_disable_simulator.send(DisableSimulatorEvent {});
+                ev_disable_simulator.write(DisableSimulatorEvent {});
             }
             _ => {
                 info!("unknown event coming from server")
