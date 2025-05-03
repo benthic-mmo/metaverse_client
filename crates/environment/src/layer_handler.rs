@@ -86,7 +86,7 @@ pub struct TerrainHeader {
     /// The size of the patch. Should always be 16.
     pub patch_size: u8,
     /// this is the filename of the terrain object, for what will be rendered by the UI.
-    /// this is formatted x_y_<hash>
+    /// this is formatted `x_y_<hash>`
     pub filename: String,
 }
 impl TerrainHeader {
@@ -168,7 +168,10 @@ impl TerrainHeader {
 /// The land struct. Can contain both LandExtended and Land.
 #[derive(Debug, Clone)]
 pub struct Land {
+    /// The terrain header, the struct that contains information useful for decoding and
+    /// decompression
     pub terrain_header: TerrainHeader,
+    /// The generated heightmap. This contains the array of decoded height values. 
     pub heightmap: Vec<f32>,
 }
 impl Land {
@@ -232,7 +235,9 @@ impl Land {
         Ok(patches)
     }
 }
-
+/// parse_heightmap takes the bitreader, and the terrain header. 
+/// this runs an algorithm to retrieve the raw data from the packet, which will be later
+/// decompressed.
 pub fn parse_heightmap(
     reader: &mut BitReader,
     terrain_header: &TerrainHeader,
@@ -294,27 +299,7 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
 }
 
 /// This handles the big-endianness of the bit parsing
-/// you might have raw data that looks like this after removing the headers from the packet
-/// 0 0 0 164 65 1 0 8 96.....
-/// | |_______|  |_| |__| [8, 96] are the bytes containing x and y.
-/// |         |    |    | Read as u8s, the values are
-/// |         |    |    | 8          96
-/// |         |    |    | 00001000   01100000
-/// |         |    |    | To handle 10 bytes, you read the whole of the first value, and the first
-/// |         |    |    | two bits of the second.
-/// |         |    |    | 00001000  01
-/// |         |    |    | Because it is big-endian, you have to move the two bits to the beginning
-/// |         |    |    | of the data and then parse as a u32.
-/// |         |    |    | 0100001000
-/// |         |    |    | When getting x and y using masks this comes out to:
-/// |         |    |    | 01000 01000
-/// |         |    |    | x: 8, y: 8
-/// |         |    |    | This is the same case for 32 bytes, though a little easier to see.
-/// |         |    |
-/// |         |    |[1,0] u16 value of the range
-/// |         | [0, 0, 164, 65] f32 value of the dc_offset_bits
-/// | u8 value of the quantized_world_bits
-///
+/// see [Explanation](crate#bit-packing-information) for why this needs to be done.
 pub fn bits_to_big_endian(bits: &[u32], chunk_size: usize) -> u32 {
     let mut value: u32 = 0;
     for chunk in bits.chunks(chunk_size).rev() {
@@ -325,7 +310,8 @@ pub fn bits_to_big_endian(bits: &[u32], chunk_size: usize) -> u32 {
     value
 }
 
-// a simple bit reader that returns a vec of u32s of the bits.
+/// a simple bit reader that returns a vec of u32s of the bits.
+/// BitReader won't work for this, due to the weird way the binary is being handled. 
 pub fn read_bits(reader: &mut BitReader, bit_count: u32) -> Result<Vec<u32>, BitReaderError> {
     let mut bits = Vec::with_capacity(bit_count as usize);
     for _ in 0..bit_count {

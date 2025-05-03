@@ -17,7 +17,7 @@ use tokio::net::UdpSocket;
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
 /// would be sent to and from the server.
 /// all of these packets and their byte representations are defined by the spec here.
-/// https://wiki.secondlife.com/wiki/Category:Messages
+/// <https://wiki.secondlife.com/wiki/Category:Messages>
 /// Messages are sent to the server using UDS.
 ///
 /// Once this is running, users can send messages like

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 /// This represents the errors that can arise from CircuitCodes failing.
 /// The CircuitCode is what the server returns after a successful login.
-/// https://wiki.secondlife.com/wiki/UseCircuitCode
+/// <https://wiki.secondlife.com/wiki/UseCircuitCode>
 #[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct CircuitCodeError {
@@ -22,7 +22,7 @@ impl CircuitCodeError {
 
 /// This represents errors that can arise from a CompleteAgentMovment event failing.
 /// The CompleteAgentMovement packet is sent to finalize login.
-/// https://wiki.secondlife.com/wiki/CompleteAgentMovement
+/// <https://wiki.secondlife.com/wiki/CompleteAgentMovement>
 #[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct CompleteAgentMovementError {
@@ -40,7 +40,7 @@ impl CompleteAgentMovementError {
 
 /// This represents errors that can arise from Acks failing.
 /// Acks are sent to and from the server to verify packages got to their destination.
-/// https://wiki.secondlife.com/wiki/PacketAck
+/// <https://wiki.secondlife.com/wiki/PacketAck>
 #[derive(Debug, Clone, Error, Serialize, Deserialize)]
 #[error("{message}")]
 pub struct AckError {

@@ -15,5 +15,5 @@ pub mod client_subscriber;
 pub mod initialize;
 /// This module handles packet IO and logic
 pub mod mailbox;
-/// This module is to allowe the server to receive messages from the UI.
+/// This module is to allow the server to receive messages from the UI.
 pub mod server_subscriber;

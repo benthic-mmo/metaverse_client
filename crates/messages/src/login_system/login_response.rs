@@ -15,7 +15,7 @@ use uuid::Uuid;
 use xmlrpc_benthic::{self as xmlrpc, Value};
 
 /// This is the full response struct of a successful opensimulator login.
-/// you can find more information about it at http://opensimulator.org/wiki/SimulatorLoginProtocol
+/// you can find more information about it at <http://opensimulator.org/wiki/SimulatorLoginProtocol>
 /// these types should be considered unstable until a 1.0.0 release of the login, due to the fact
 /// that I may realize some of thse are not optional.
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -696,10 +696,10 @@ impl From<InventoryType> for Value {
 }
 
 /// The home location of the user. In the format
-/// This is in the format "{'region_handle':[r<x-grid-coord>,r<y-grid-coord>],
-///     'position':[r<x-region-coord>,r<y-region-coord>,r<z-region-coord>],
-///     'look_at':[r<x-coord>,r<y-coord>,r<z-coord>]} in the XML
-/// For example "{'region_handle':[r256000,r256000], 'position':[r50,r100,r200], 'look_at':[r1,r0,r0]}".
+/// This is in the format `"{'region_handle':[r<x-grid-coord>,r<y-grid-coord>]`,
+///     'position':`[r<x-region-coord>,r<y-region-coord>,r<z-region-coord>]`,
+///     'look_at':`[r<x-coord>,r<y-coord>,r<z-coord>]`} in the XML
+/// For example `"{'region_handle':[r256000,r256000], 'position':[r50,r100,r200], 'look_at':[r1,r0,r0]}"`.
 /// sent back to the client as a string instead of a struct for some reason :(
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HomeValues {
