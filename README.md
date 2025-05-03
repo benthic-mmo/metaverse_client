@@ -16,6 +16,12 @@ The server accepts messages in the form of packets as defined by the [spec](http
  [![crates.io-messages][crates.io-messages-badge]][crates.io-messages] [![docs.rs-messages][docs.rs-badge]][docs.rs-messages]
 
 This is the protocol spec. This contains all of the information about messages that can be sent to and from the server. The goal is to keep this general enough to be able to implement this for both client and server projects. More information on the spec can be found [here](https://wiki.secondlife.com/wiki/Category:Messages). 
+
+### Environment
+[![crates.io-environment][crates.io-environment-badge]][crates.io-environment] [![docs.rs-environment][docs.rs-badge]][docs.rs-environment]
+
+Provides a straightforward way of handling incoming Layer Data information being sent from an open metaverse server. This is intended to handle all of the hard parts of working with 3d data, allowing frontend applications to simply access the generated 3d files and render them where they need to go. 
+
 ### Ui
 This is a debug UI. Written in bevy and bevy-egui, it is not expected to get very polished. The more user-friendly UI can be found at [benthic_viewer](https://github.com/benthic-mmo/benthic_viewer). 
 
@@ -25,10 +31,6 @@ Will run the debug UI.
 ``cargo test`` 
 Will run the tests. 
 
-## Environment
-[![crates.io-environment][crates.io-environment-badge]][crates.io-environment] [![docs.rs-environment][docs.rs-badge]][docs.rs-environment]
-
-Provides a straightforward way of handling incoming Layer Data information being sent from an open metaverse server. This is intended to handle all of the hard parts of working with 3d data, allowing frontend applications to simply access the generated 3d files and render them where they need to go. 
 
 
 [docs.rs-badge]: https://img.shields.io/badge/docs-Docs.rs-red?&style=flat-square
