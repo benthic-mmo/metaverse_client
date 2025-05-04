@@ -1,17 +1,13 @@
+use std::collections::HashMap;
+
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use log::{error, warn};
 use twox_hash::XxHash32;
 
-use crate::{
-    constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16},
-    generate_mesh::generate_land_mesh,
-};
+use crate::constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16};
 use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::{
-    layer_data::{LayerData, LayerType},
-    ui::custom::layer_update::LayerUpdate,
-};
+use metaverse_messages::layer_data::{LayerData, LayerType};
 
 // This handles receiving and parsing LayerData packets.
 // The LayerData packet system is very poorly documented.
@@ -28,19 +24,20 @@ static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
 static DEQUANTIZE_TABLE_16: [f32; 256] = build_dequantize_table16();
 
 /// This parses the incoming LayerData packet into its proper type.
-pub fn parse_layer_data(data: &LayerData) -> Option<Vec<LayerUpdate>> {
+pub fn parse_layer_data(data: &LayerData) -> Option<HashMap<U16Vec2, Land>> {
     match data.layer_type {
         LayerType::Land => match Land::from_packet(data, false) {
-            Ok(layer_info) => Some(layer_info),
+            Ok(land) => Some(land),
             Err(e) => {
-                error!("Error parsing Land packet: {}", e);
+                error!("Failed to decompress land {:?}", e);
                 None
             }
         },
         LayerType::LandExtended => match Land::from_packet(data, true) {
-            Ok(layer_info) => Some(layer_info),
+            Ok(land) => Some(land),
+
             Err(e) => {
-                error!("Error parsing LandExtended packet: {}", e);
+                error!("Failed to decompress land {:?}", e);
                 None
             }
         },
@@ -171,7 +168,7 @@ pub struct Land {
     /// The terrain header, the struct that contains information useful for decoding and
     /// decompression
     pub terrain_header: TerrainHeader,
-    /// The generated heightmap. This contains the array of decoded height values. 
+    /// The generated heightmap. This contains the array of decoded height values.
     pub heightmap: Vec<f32>,
 }
 impl Land {
@@ -179,8 +176,8 @@ impl Land {
     pub fn from_packet(
         data: &LayerData,
         extended: bool,
-    ) -> Result<Vec<LayerUpdate>, BitReaderError> {
-        let mut patches = Vec::new();
+    ) -> Result<HashMap<U16Vec2, Land>, BitReaderError> {
+        let mut patch_map = HashMap::new();
         let mut reader = BitReader::new(&data.layer_content);
         // each Layerdata packet can contain several patches. This loops through each sub-patch.
         loop {
@@ -220,22 +217,18 @@ impl Land {
 
             // this decompresses the data using JPEG type decompression
             let heightmap = decompress_patch(&terrain_header, &patch);
-            match generate_land_mesh(&terrain_header, heightmap) {
-                Ok(path) => {
-                    patches.push(LayerUpdate {
-                        path,
-                        position: terrain_header.location.clone(),
-                    });
-                }
-                Err(e) => {
-                    warn!("Failed to generate land mesh: {:?}", e);
-                }
-            };
+            patch_map.insert(
+                terrain_header.location,
+                Land {
+                    terrain_header,
+                    heightmap,
+                },
+            );
         }
-        Ok(patches)
+        Ok(patch_map)
     }
 }
-/// parse_heightmap takes the bitreader, and the terrain header. 
+/// parse_heightmap takes the bitreader, and the terrain header.
 /// this runs an algorithm to retrieve the raw data from the packet, which will be later
 /// decompressed.
 pub fn parse_heightmap(
@@ -279,7 +272,7 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
     let mult = ooq * terrain_header.range as f32;
     let addval = mult * (1 << (prequant - 1)) as f32 + terrain_header.dc_offset;
     if terrain_header.patch_size == 16 {
-        for i in 0..block.len(){
+        for i in 0..block.len() {
             block[i] = patch[COPY_MATRIX_16[i]] * DEQUANTIZE_TABLE_16[i];
         }
         let mut temp: Vec<f32> = vec![0.0; 16 * 16];
@@ -311,7 +304,7 @@ pub fn bits_to_big_endian(bits: &[u32], chunk_size: usize) -> u32 {
 }
 
 /// a simple bit reader that returns a vec of u32s of the bits.
-/// BitReader won't work for this, due to the weird way the binary is being handled. 
+/// BitReader won't work for this, due to the weird way the binary is being handled.
 pub fn read_bits(reader: &mut BitReader, bit_count: u32) -> Result<Vec<u32>, BitReaderError> {
     let mut bits = Vec::with_capacity(bit_count as usize);
     for _ in 0..bit_count {

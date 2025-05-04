@@ -61,7 +61,7 @@ pub fn check_model_loaded(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut ready = vec![];
-    for (i, layer) in pending_layers.items.iter().enumerate(){
+    for (i, layer) in pending_layers.items.iter().enumerate() {
         if let Some(gltf) = layer_assets.get(&layer.handle) {
             let white_material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,

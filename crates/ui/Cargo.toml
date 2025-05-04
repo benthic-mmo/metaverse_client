@@ -1,16 +1,13 @@
 [package]
-name = "metaverse_debug_viewer"
-version = "0.0.1"
+name = "ui"
+version = "0.1.1"
 edition = "2024"
-authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
-description = "a simple metaverse client using Bevy"
-license = "AGPL-3.0-or-later"
 resolver = "2"
 
 [dependencies]
 bevy = {version = "0.16", features=["bevy_gltf"]}
-metaverse_session = "0.1.1"
-metaverse_messages = "0.1.1"
+metaverse_session = {path = "../session/"}
+metaverse_messages = {path = "../messages/"}
 tokio = { version = "1", features = ["full"] }
 actix-rt = "2.10.0"
 accesskit = "0.17.1"
