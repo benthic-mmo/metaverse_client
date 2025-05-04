@@ -1,4 +1,4 @@
-use crate::layer_handler::TerrainHeader;
+use crate::layer_handler::Land;
 use gltf_json::validation::{Checked::Valid, USize64};
 use log::info;
 use std::{
@@ -16,19 +16,15 @@ struct Vertex {
     position: [f32; 3],
 }
 
-/// Generates the mesh for land layers from the heightmap. 
-/// exports as gltf files in the share dir, labeled `x_y_<hash>.glb` 
-///
-/// heavily referenced from 
-/// <https://github.com/gltf-rs/gltf/blob/main/examples/export/main.rs>
-pub fn generate_land_mesh(
-    terrain_header: &TerrainHeader,
-    heightmap: Vec<f32>,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn generate_triangles(
+    layer: &Land,
+    north_layer: &Land,
+    east_layer: &Land,
+    top_corner: &Land,
+) -> Vec<Vertex> {
     let scale = 1.0;
     let mut triangles: Vec<Vertex> = Vec::new();
-
-    let grid_size = terrain_header.patch_size;
+    let grid_size = layer.terrain_header.patch_size;
     for row in 0..grid_size - 1 {
         for col in 0..grid_size - 1 {
             let top_left = row * grid_size + col;
@@ -37,19 +33,19 @@ pub fn generate_land_mesh(
             let bottom_right = bottom_left + 1;
 
             let x0 = col as f32 * scale;
-            let y0 = heightmap[top_left as usize] * scale;
+            let y0 = layer.heightmap[top_left as usize] * scale;
             let z0 = row as f32 * scale;
 
             let x1 = (col + 1) as f32 * scale;
-            let y1 = heightmap[top_right as usize] * scale;
+            let y1 = layer.heightmap[top_right as usize] * scale;
             let z1 = row as f32 * scale;
 
             let x2 = col as f32 * scale;
-            let y2 = heightmap[bottom_left as usize] * scale;
+            let y2 = layer.heightmap[bottom_left as usize] * scale;
             let z2 = (row + 1) as f32 * scale;
 
             let x3 = (col + 1) as f32 * scale;
-            let y3 = heightmap[bottom_right as usize] * scale;
+            let y3 = layer.heightmap[bottom_right as usize] * scale;
             let z3 = (row + 1) as f32 * scale;
 
             triangles.push(Vertex {
@@ -70,9 +66,154 @@ pub fn generate_land_mesh(
             triangles.push(Vertex {
                 position: [x3, y3, z3],
             });
+            // create the stitch geometry
+            stitch_patches(
+                layer,
+                north_layer,
+                east_layer,
+                top_corner,
+                &mut triangles,
+                col,
+                row,
+                scale,
+            );
         }
     }
+    triangles
+}
 
+fn stitch_patches(
+    layer: &Land,
+    north_layer: &Land,
+    east_layer: &Land,
+    top_corner: &Land,
+    triangles: &mut Vec<Vertex>,
+    col: u8,
+    row: u8,
+    scale: f32,
+) {
+    let grid_size = layer.terrain_header.patch_size;
+    let top_left = row * grid_size + col;
+    let top_right = top_left + 1;
+    let bottom_left = (row + 1) * grid_size + col;
+    let bottom_right = bottom_left + 1;
+
+    let x0 = col as f32 * scale;
+    let y0 = layer.heightmap[top_left as usize] * scale;
+    let z0 = row as f32 * scale;
+
+    let x1 = (col + 1) as f32 * scale;
+    let y1 = layer.heightmap[top_right as usize] * scale;
+    let z1 = row as f32 * scale;
+
+    let x3 = (col + 1) as f32 * scale;
+    let y3 = layer.heightmap[bottom_right as usize] * scale;
+    let z3 = (row + 1) as f32 * scale;
+
+    let top_left_north = (grid_size - 1) * grid_size + col;
+    let top_right_north = top_left_north + 1;
+
+    let north_x0 = col as f32 * scale;
+    let north_y0 = north_layer.heightmap[top_left_north as usize] * scale;
+    let north_z0 = (row as f32 - 1.0) * scale;
+
+    let north_x1 = (col + 1) as f32 * scale;
+    let north_y1 = north_layer.heightmap[top_right_north as usize] * scale;
+    let north_z1 = (row as f32 - 1.0) * scale;
+    let top_left_east = grid_size * row;
+    let bottom_left_east = grid_size * (row + 1);
+
+    let east_x0 = (col as f32 + 2.0) * scale;
+    let east_y0 = east_layer.heightmap[top_left_east as usize] * scale;
+    let east_z0 = row as f32 * scale;
+
+    let east_x1 = (col as f32 + 2.0) * scale;
+    let east_y1 = east_layer.heightmap[bottom_left_east as usize] * scale;
+    let east_z1 = (row + 1) as f32 * scale;
+
+    let top_corner_coord = grid_size * (grid_size - 1);
+    let top_corner_x0 = (col as f32 + 2.0) * scale;
+    let top_corner_y0 = top_corner.heightmap[top_corner_coord as usize] * scale;
+    let top_corner_z0 = (row as f32 - 1.0) * scale;
+
+    if row == 0 {
+        triangles.push(Vertex {
+            position: [north_x0, north_y0, north_z0],
+        });
+        triangles.push(Vertex {
+            position: [x0, y0, z0],
+        });
+        triangles.push(Vertex {
+            position: [north_x1, north_y1, north_z1],
+        });
+
+        triangles.push(Vertex {
+            position: [north_x1, north_y1, north_z1],
+        });
+        triangles.push(Vertex {
+            position: [x0, y0, z0],
+        });
+        triangles.push(Vertex {
+            position: [x1, y1, z1],
+        });
+    }
+    if col == grid_size - 2 {
+        triangles.push(Vertex {
+            position: [x1, y1, z1],
+        });
+        triangles.push(Vertex {
+            position: [x3, y3, z3],
+        });
+        triangles.push(Vertex {
+            position: [east_x0, east_y0, east_z0],
+        });
+
+        triangles.push(Vertex {
+            position: [east_x0, east_y0, east_z0],
+        });
+        triangles.push(Vertex {
+            position: [x3, y3, z3],
+        });
+        triangles.push(Vertex {
+            position: [east_x1, east_y1, east_z1],
+        });
+    }
+
+    if col == grid_size - 2 && row == 0 {
+        triangles.push(Vertex {
+            position: [north_x1, north_y1, north_z1],
+        });
+        triangles.push(Vertex {
+            position: [x1, y1, z1],
+        });
+        triangles.push(Vertex {
+            position: [top_corner_x0, top_corner_y0, top_corner_z0],
+        });
+
+        triangles.push(Vertex {
+            position: [top_corner_x0, top_corner_y0, top_corner_z0],
+        });
+        triangles.push(Vertex {
+            position: [x1, y1, z1],
+        });
+        triangles.push(Vertex {
+            position: [east_x0, east_y0, east_z0],
+        });
+    }
+}
+
+/// Generates the mesh for land layers from the heightmap.
+/// exports as gltf files in the share dir, labeled `x_y_<hash>.glb`
+///
+/// heavily referenced from
+/// <https://github.com/gltf-rs/gltf/blob/main/examples/export/main.rs>
+pub fn generate_land_mesh(
+    layer: &Land,
+    north_layer: &Land,
+    east_layer: &Land,
+    top_corner: &Land,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let triangles = generate_triangles(layer, north_layer, east_layer, top_corner);
     let (min, max) = bounding_coords(&triangles);
     let mut root = gltf_json::Root::default();
     let buffer_length = triangles.len() * mem::size_of::<f32>() * 3;
@@ -164,7 +305,7 @@ pub fn generate_land_mesh(
             create_dir_all(&land_dir)?;
             info!("Created Directory: {:?}", land_dir);
         }
-        let file_path = land_dir.join(format!("{}.glb", terrain_header.filename));
+        let file_path = land_dir.join(format!("{}.glb", layer.terrain_header.filename));
         let writer = File::create(&file_path)?;
         glb.to_writer(writer)?;
         Ok(file_path)
@@ -176,7 +317,7 @@ pub fn generate_land_mesh(
     }
 }
 
-/// realigns the data to a mutiple of four 
+/// realigns the data to a mutiple of four
 fn align_to_multiple_of_four(n: &mut usize) {
     *n = (*n + 3) & !3;
 }

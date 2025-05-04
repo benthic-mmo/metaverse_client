@@ -3,6 +3,10 @@ use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
 
+use crate::environment::generate_patch;
+#[cfg(feature = "environment")]
+use metaverse_environment::layer_handler::parse_layer_data;
+
 use metaverse_messages::complete_ping_check::CompletePingCheck;
 use metaverse_messages::packet::MessageType;
 use metaverse_messages::packet::Packet;
@@ -23,9 +27,6 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 use metaverse_messages::errors::{AckError, SessionError};
-
-#[cfg(feature = "environment")]
-use metaverse_environment::layer_handler::parse_layer_data;
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);
@@ -155,6 +156,11 @@ impl Mailbox {
         mailbox_address: Addr<Mailbox>,
     ) {
         let mut buf = [0; 1500];
+
+        #[cfg(feature = "environment")]
+        let mut patch_queue = HashMap::new();
+        let mut total_patches = HashMap::new();
+
         loop {
             match sock.recv_from(&mut buf).await {
                 Ok((size, _addr)) => {
@@ -217,19 +223,40 @@ impl Mailbox {
                         }
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
-                            if let Some(layer_info) = parse_layer_data(data) {
-                                for layer in layer_info {
-                                    if let Err(e) = mailbox_address
-                                        .send(UiMessage::new(
-                                            UiEventTypes::LayerUpdateEvent,
-                                            layer.to_bytes(),
-                                        ))
-                                        .await
-                                    {
-                                        warn!("Failed to send layer info to ui {}", e)
-                                    };
+                            if let Some(land_data) = parse_layer_data(data) {
+                                for (location, land) in land_data {
+                                    total_patches.insert(location, land.clone());
+                                    let mut layer_updates = generate_patch(
+                                        land,
+                                        location,
+                                        &mut patch_queue,
+                                        &total_patches,
+                                    );
+                                    let queue_save = patch_queue.clone();
+                                    for (location, land) in queue_save {
+                                        layer_updates.extend(generate_patch(
+                                            land,
+                                            location,
+                                            &mut patch_queue,
+                                            &total_patches,
+                                        ));
+                                    }
+                                    for layer in layer_updates {
+                                        if let Err(e) = mailbox_address
+                                            .send(UiMessage::new(
+                                                UiEventTypes::LayerUpdateEvent,
+                                                layer.to_bytes(),
+                                            ))
+                                            .await
+                                        {
+                                            println!(
+                                                "Failed to send LayerUpdate event to UI {:?}",
+                                                e
+                                            );
+                                        }
+                                    }
                                 }
-                            };
+                            }
                         }
                         _ => {}
                     }

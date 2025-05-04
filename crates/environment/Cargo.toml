@@ -15,6 +15,6 @@ glam = {version="0.30.3", features=["serde"]}
 gltf = "1.4.1"
 gltf-json = "1.4.1"
 log = "0.4.27"
-metaverse_messages = "0.1.1"
+metaverse_messages = {path = "../messages/"}
 once_cell = "1.21.3"
 twox-hash = "2.1.0"
