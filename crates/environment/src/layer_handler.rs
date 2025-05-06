@@ -1,63 +1,81 @@
 use std::collections::HashMap;
 
 use bitreader::{BitReader, BitReaderError};
-use bytemuck::cast_slice;
-use log::{error, warn};
-use twox_hash::XxHash32;
 
-use crate::constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16};
+use crate::{
+    cloud::Cloud,
+    constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16},
+    error::PatchError,
+    land::Land,
+    water::Water,
+    wind::Wind,
+};
 use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::layer_data::{LayerData, LayerType};
+use metaverse_messages::{
+    layer_data::{LayerData, LayerType},
+    ui::custom::layer_update::LayerUpdate,
+};
 
-// This handles receiving and parsing LayerData packets.
-// The LayerData packet system is very poorly documented.
-//
-/// When these bytes are read as the quantized_world_bits, it signifies the end of the patches
-/// contained within the LayerData packet.
-const END_OF_PATCHES: u8 = 97;
-/// This is the default size of the patch
-const PATCHES_PER_EDGE: u16 = 16;
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
 /// This is the dequantize table that is used to multiply the compressed data by a factor it was
 /// divided by, returning it to a f32 after compression.
 static DEQUANTIZE_TABLE_16: [f32; 256] = build_dequantize_table16();
+/// When these bytes are read as the quantized_world_bits, it signifies the end of the patches
+/// contained within the LayerData packet.
+pub const END_OF_PATCHES: u8 = 97;
 
-/// This parses the incoming LayerData packet into its proper type.
-pub fn parse_layer_data(data: &LayerData) -> Option<HashMap<U16Vec2, Land>> {
+/// This is the enum so I can use a generic type for the vector the parse layer data function
+/// returns. 
+pub enum PatchLayer {
+    /// a vector of lands
+    Land(Vec<Land>),
+    /// a vector of winds
+    Wind(Vec<Wind>),
+    /// a vector of waters 
+    Water(Vec<Water>),
+    /// a vector of clouds
+    Cloud(Vec<Cloud>),
+}
+
+
+/// Handles the LayerData packet after parsing its headers
+pub fn parse_layer_data(data: &LayerData) -> Result<PatchLayer, PatchError> {
     match data.layer_type {
-        LayerType::Land => match Land::from_packet(data, false) {
-            Ok(land) => Some(land),
-            Err(e) => {
-                error!("Failed to decompress land {:?}", e);
-                None
-            }
-        },
-        LayerType::LandExtended => match Land::from_packet(data, true) {
-            Ok(land) => Some(land),
-
-            Err(e) => {
-                error!("Failed to decompress land {:?}", e);
-                None
-            }
-        },
+        LayerType::Land | LayerType::LandExtended => {
+            let extended = matches!(data.layer_type, LayerType::LandExtended);
+            let result = Land::from_packet(data, extended)?;
+            Ok(PatchLayer::Land(result))
+        }
         LayerType::Wind | LayerType::WindExtended => {
-            println!("wind");
-            None
+            let extended = matches!(data.layer_type, LayerType::WindExtended);
+            let result = Wind::from_packet(data, extended)?;
+            Ok(PatchLayer::Wind(result))
         }
         LayerType::Water | LayerType::WaterExtended => {
-            println!("water");
-            None
+            let extended = matches!(data.layer_type, LayerType::WaterExtended);
+            let result = Water::from_packet(data, extended)?;
+            Ok(PatchLayer::Water(result))
         }
-        LayerType::Cloud | LayerType::CloudExtended => {
-            println!("cloud");
-            None
-        }
-        LayerType::Unknown => {
-            println!("unknown");
-            None
+        LayerType::Cloud | LayerType::CloudExtended | LayerType::Unknown => {
+            let extended = !matches!(data.layer_type, LayerType::Cloud);
+            let result = Cloud::from_packet(data, extended)?;
+            Ok(PatchLayer::Cloud(result))
         }
     }
+}
+
+/// The PatchData trait, used for all of the patch data. 
+pub trait PatchData: Sized {
+    /// from_packet converts the LayerData packet into a vector of self
+    fn from_packet(packet: &LayerData, extended: bool) -> Result<Vec<Self>, PatchError>;
+    
+    /// generate_ui_event generates a vector of LayerUpdate for the UI to handle
+    fn generate_ui_event(
+        self: Self,
+        retry_queue: &mut HashMap<U16Vec2, Self>,
+        total_patches: &HashMap<U16Vec2, Self>,
+    ) -> Vec<LayerUpdate>;
 }
 
 /// This is the header that begins each new terrain patch, containing information required for
@@ -160,104 +178,6 @@ impl TerrainHeader {
             filename: "".to_string(),
         })
     }
-}
-
-/// The land struct. Can contain both LandExtended and Land.
-#[derive(Debug, Clone)]
-pub struct Land {
-    /// The terrain header, the struct that contains information useful for decoding and
-    /// decompression
-    pub terrain_header: TerrainHeader,
-    /// The generated heightmap. This contains the array of decoded height values.
-    pub heightmap: Vec<f32>,
-}
-impl Land {
-    /// creates a Land object from a LayerData packet
-    pub fn from_packet(
-        data: &LayerData,
-        extended: bool,
-    ) -> Result<HashMap<U16Vec2, Land>, BitReaderError> {
-        let mut patch_map = HashMap::new();
-        let mut reader = BitReader::new(&data.layer_content);
-        // each Layerdata packet can contain several patches. This loops through each sub-patch.
-        loop {
-            // create the header from bytes
-            let mut terrain_header = match TerrainHeader::from_bytes(&mut reader, extended) {
-                Ok(mut header) => {
-                    header.stride = data.stride;
-                    header.patch_size = data.patch_size;
-                    header
-                }
-                Err(e) => return Err(e),
-            };
-
-            // quick check to see if the data is valid
-            if !extended
-                && (terrain_header.location.x >= PATCHES_PER_EDGE
-                    || terrain_header.location.y >= PATCHES_PER_EDGE)
-            {
-                warn!("Invalid LayerData packet {:?}", terrain_header);
-            }
-
-            // If the quantized_world_bits is 97, that is the signal to quit parsing.
-            if terrain_header.quantized_world_bits == END_OF_PATCHES {
-                break;
-            }
-
-            // read the heightmap bits
-            let patch = parse_heightmap(&mut reader, &terrain_header)?;
-            // this hashes the read bits. Patches that have the same geometry will have the same
-            // hash, allowing you to easily check if there has been an update to the terrain.
-            // this will be useful for caching and clearing the cache later.
-            let hash = XxHash32::oneshot(1234, cast_slice(&patch));
-            terrain_header.filename = format!(
-                "{}_{}_{}",
-                &terrain_header.location.x, &terrain_header.location.y, hash
-            );
-
-            // this decompresses the data using JPEG type decompression
-            let heightmap = decompress_patch(&terrain_header, &patch);
-            patch_map.insert(
-                terrain_header.location,
-                Land {
-                    terrain_header,
-                    heightmap,
-                },
-            );
-        }
-        Ok(patch_map)
-    }
-}
-/// parse_heightmap takes the bitreader, and the terrain header.
-/// this runs an algorithm to retrieve the raw data from the packet, which will be later
-/// decompressed.
-pub fn parse_heightmap(
-    reader: &mut BitReader,
-    terrain_header: &TerrainHeader,
-) -> Result<Vec<f32>, BitReaderError> {
-    let patch_size = terrain_header.patch_size as usize;
-    let total = patch_size * patch_size;
-    let mut patch: Vec<f32> = vec![0.0; total];
-
-    for i in 0..total {
-        if reader.read_bool()? {
-            if reader.read_bool()? {
-                let is_negative = reader.read_bool()?;
-                let bits = read_bits(reader, terrain_header.world_bits)?;
-                let magnitude = bits_to_big_endian(&bits, 8) as f32;
-                patch[i] = if is_negative { -magnitude } else { magnitude };
-            } else {
-                for j in patch.iter_mut().take(total).skip(i) {
-                    *j = 0.0;
-                }
-                break;
-            }
-        } else {
-            patch[i] = 0.0;
-            continue;
-        }
-    }
-    Ok(patch)
 }
 
 /// Decompresss the heightmap data using JPEG like decompression

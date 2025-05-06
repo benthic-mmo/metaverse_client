@@ -81,7 +81,19 @@
 #![warn(missing_docs)]
 /// This module contains constants used for decompression
 pub mod constants;
+/// error definitions
+pub mod error;
 /// This module handles generating the gltf files that will be rendered by the UI.
 pub mod generate_mesh;
 /// This module handles parsing and decoding LayerData packets
 pub mod layer_handler;
+
+/// Contains information and handling for land patches
+pub mod land;
+
+/// TODO: unimplemented
+pub mod cloud;
+/// TODO: unimplemented
+pub mod water;
+/// TODO: unimplemented
+pub mod wind;
