@@ -18,15 +18,17 @@ pub struct PendingLayers {
     pub items: Vec<PendingLayer>,
 }
 
-pub fn setup_environment(mut commands: Commands) {
-    commands.spawn((
+pub fn setup_environment(
+    mut commands: Commands, 
+) {
+        commands.spawn((
         PointLight {
-            shadows_enabled: false,
-            intensity: 3000.0,
-            range: 4000.0,
+            shadows_enabled: true,
+            intensity: 100000000.0,
+            range: 1000.0,
             ..default()
         },
-        Transform::from_xyz(0.0, 20.0, 0.0),
+        Transform::from_xyz(200.0, 100.0, 200.0),
     ));
     commands.spawn((
         Transform {
@@ -35,6 +37,8 @@ pub fn setup_environment(mut commands: Commands) {
         },
         PanOrbitCamera::default(),
     ));
+
+
 }
 
 pub fn handle_layer_update(

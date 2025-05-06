@@ -3,7 +3,6 @@ use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
 
-
 #[cfg(feature = "environment")]
 use metaverse_environment::layer_handler::{PatchData, PatchLayer, parse_layer_data};
 
