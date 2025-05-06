@@ -9,11 +9,8 @@ use crate::{error::PatchError, layer_handler::PatchData};
 #[derive(Debug, Clone)]
 pub struct Water;
 
-impl PatchData for Water{
-    fn from_packet(
-        _: &LayerData,
-        _: bool,
-    ) -> Result<Vec<Self>, PatchError> {
+impl PatchData for Water {
+    fn from_packet(_: &LayerData, _: bool) -> Result<Vec<Self>, PatchError> {
         Ok(vec![])
     }
     fn generate_ui_event(

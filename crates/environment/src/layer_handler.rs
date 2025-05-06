@@ -26,18 +26,17 @@ static DEQUANTIZE_TABLE_16: [f32; 256] = build_dequantize_table16();
 pub const END_OF_PATCHES: u8 = 97;
 
 /// This is the enum so I can use a generic type for the vector the parse layer data function
-/// returns. 
+/// returns.
 pub enum PatchLayer {
     /// a vector of lands
     Land(Vec<Land>),
     /// a vector of winds
     Wind(Vec<Wind>),
-    /// a vector of waters 
+    /// a vector of waters
     Water(Vec<Water>),
     /// a vector of clouds
     Cloud(Vec<Cloud>),
 }
-
 
 /// Handles the LayerData packet after parsing its headers
 pub fn parse_layer_data(data: &LayerData) -> Result<PatchLayer, PatchError> {
@@ -65,11 +64,11 @@ pub fn parse_layer_data(data: &LayerData) -> Result<PatchLayer, PatchError> {
     }
 }
 
-/// The PatchData trait, used for all of the patch data. 
+/// The PatchData trait, used for all of the patch data.
 pub trait PatchData: Sized {
     /// from_packet converts the LayerData packet into a vector of self
     fn from_packet(packet: &LayerData, extended: bool) -> Result<Vec<Self>, PatchError>;
-    
+
     /// generate_ui_event generates a vector of LayerUpdate for the UI to handle
     fn generate_ui_event(
         self: Self,
