@@ -1,4 +1,3 @@
-use crate::layer_handler::Land;
 use gltf_json::validation::{Checked::Valid, USize64};
 use log::info;
 use std::{
@@ -7,6 +6,8 @@ use std::{
     io, mem,
     path::PathBuf,
 };
+
+use crate::land::Land;
 
 #[derive(Copy, Clone, Debug, bytemuck::NoUninit)]
 #[repr(C)]
