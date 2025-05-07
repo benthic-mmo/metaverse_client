@@ -1,4 +1,5 @@
 #[derive(Default)]
+/// Flags describing region capabilities
 pub struct RegionFlags {
     /// Agents can take damage and be killed
     pub allow_damage: bool,

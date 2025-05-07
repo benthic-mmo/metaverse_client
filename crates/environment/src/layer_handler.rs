@@ -12,8 +12,8 @@ use crate::{
 };
 use glam::{U16Vec2, u16, u32, usize};
 use metaverse_messages::{
-    layer_data::{LayerData, LayerType},
-    ui::custom::layer_update::LayerUpdate,
+    environment::layer_data::{LayerData, LayerType},
+    ui::layer_update::LayerUpdate,
 };
 
 /// this is the copy matrix, used for decoding the encoded patch data.
@@ -95,7 +95,7 @@ pub struct TerrainHeader {
     /// the xy location of where this patch is on the grid
     pub location: U16Vec2,
     // fields from the layerData packet
-    /// stride is the length of the data for each sub-packet
+    /// stride is the length of the data for each patch
     pub stride: u16,
     /// The size of the patch. Should always be 16.
     pub patch_size: u8,

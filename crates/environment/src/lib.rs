@@ -12,23 +12,34 @@
 //! | LayerData |          |                      |                   |                     |                   |
 //! |-------|--------------|----------------------|-------------------|---------------------|-------------------|
 //! | Packet Header| id:11        | reliable: true       | zerocoded: false  |      frequency: low |                   |
-//! | Body Header  | type: 8 bytes| [^1][^2]length: 16 bytes | stride: 8 bytes   | patch size: 8 bytes | [^1]type: 8 bytes |
+//! 
+//! ## Body Header
+//! |BodyHeader |         |       |                                                     |
+//! |-----------|---------|-------|-----------------------------------------------------|
+//! | Type      | 1 byte  | [u8]  | The type of the patch. Land, Water, Wind and Cloud. | 
+//! | Length    | 4 bytes | [u16] | The length of the packet's patch data. For initializing a buffer.|
+//! | Stride    | 1 byte  | [u8]  | The length of the data for each patch.              |
+//! | Patch Size| 1 byte  | [u8]  | The size of the patches. Should always be 16.       |
+//! | Type      | 1 byte  | [u8]  | A redundant type value.                             |
+//! | Content   | variable bytes (read to end) | PatchData | Compressed patch data      | 
 //!
 //! The body header is followed by a byte array the length of the header's length field, containing several individual
 //! patches.
+//! ## Patch Spec
+//! | Patch data|                   |                                                                      |
+//! |-----------|-------------------|----------------------------------------------------------------------|
+//! | Quantized World Bits | 1 byte | [u8] | Used for checking the end of patches, and calulating read size|
+//! | DC Offset | 4 bytes  | [f32]  | Used to scale the decompressed data back to a real world value       |
+//! | Range     | 2 bytes  | [u16]  | A multiplier used for decompression                                  |
+//! | Patch IDs | 10 or 4 bytes |   | A compressed way to store the xy location of the patch    .          |
+//! | Compressed Layer Data| vriable bytes (read to end)| | compressed data                                |
+//! 
+//! For Patch IDs, If the region is extended, the first 5 bits of the 10 bit string are used for the x, and the next 5 
+//! represent the y. If the region is not extended, the first 2 bytes represent the x, and the next 2 represent 
+//! the y. Stored in big-endian format. 
+//! 
 //!
 //! # Patch Spec
-//! |Patch data|                       |                       |                |                              |
-//! |-------|--------------------------|-----------------------|----------------|------------------------------|
-//! |Patch Header | quant world bits: 8 bits | dc offset: 32 bits    | range: 16 bits | patch ids: 10 or 32 bits     |
-//! |Patch | Compressed layer data    |                       |                |                              |
-//!
-//! [^1]: These fields are unused by this implementation, but still need to be accounted for
-//! when deserializing
-//!
-//! [^2]: This represents the size of the patch data following the header. This is useful for
-//! initializing the buffer that the compressed patches will be read into.
-//!
 //! # Bit packing information
 //! Throughout this crate, occasionally bit values in the data are packed in a way that does not align them to
 //! a byte. This can be confusing, and cause for frustrating debugging.

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_messages::ui::custom::layer_update::LayerUpdate;
+use metaverse_messages::ui::layer_update::LayerUpdate;
 
 #[derive(Event)]
 pub struct LayerUpdateEvent {
@@ -18,10 +18,8 @@ pub struct PendingLayers {
     pub items: Vec<PendingLayer>,
 }
 
-pub fn setup_environment(
-    mut commands: Commands, 
-) {
-        commands.spawn((
+pub fn setup_environment(mut commands: Commands) {
+    commands.spawn((
         PointLight {
             shadows_enabled: true,
             intensity: 100000000.0,
@@ -37,8 +35,6 @@ pub fn setup_environment(
         },
         PanOrbitCamera::default(),
     ));
-
-
 }
 
 pub fn handle_layer_update(

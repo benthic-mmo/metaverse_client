@@ -1,6 +1,7 @@
 use actix::Actor;
 use actix_rt::time;
-use metaverse_messages::errors::{MailboxError, SessionError};
+use metaverse_messages::ui::errors::MailboxSessionError;
+use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -8,9 +9,9 @@ use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 
-use crate::mailbox::Mailbox;
-use crate::mailbox::{PingInfo, ServerState};
-use crate::server_subscriber::listen_for_ui_messages;
+use crate::core::Mailbox;
+use crate::core::{PingInfo, ServerState};
+use crate::core_subscriber::listen_for_ui_messages;
 use portpicker::pick_unused_port;
 
 /// This starts the mailbox, and blocks forever.
@@ -74,7 +75,7 @@ pub async fn initialize(
     // wait until the mailbox starts
     notify.notified().await;
     if *state.lock().unwrap() != ServerState::Running {
-        return Err(SessionError::Mailbox(MailboxError {
+        return Err(SessionError::MailboxSession(MailboxSessionError {
             message: ("Mailbox failed to enter state Running.".to_string()),
         }));
     };

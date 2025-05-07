@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-
-use glam::U16Vec2;
-use metaverse_messages::{layer_data::LayerData, ui::custom::layer_update::LayerUpdate};
-
 use crate::{error::PatchError, layer_handler::PatchData};
+use glam::U16Vec2;
+use metaverse_messages::{
+    environment::layer_data::LayerData, ui::layer_update::LayerUpdate,
+};
+use std::collections::HashMap;
 
 /// TODO: unimplemented
 #[derive(Debug, Clone)]
