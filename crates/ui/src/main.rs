@@ -15,12 +15,12 @@ use environment::{
 use keyring::Entry;
 use loading::loading_screen;
 use login::login_screen;
-use metaverse_messages::errors::SessionError;
-use metaverse_messages::login_system::errors::LoginError;
-use metaverse_messages::login_system::login_response::LoginResponse;
-use metaverse_messages::packet_types::PacketType;
-use metaverse_messages::ui::coarse_location_update::CoarseLocationUpdate;
-use metaverse_session::client_subscriber::listen_for_server_events;
+use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
+use metaverse_messages::login::login_errors::LoginError;
+use metaverse_messages::login::login_response::LoginResponse;
+use metaverse_messages::packet::packet_types::PacketType;
+use metaverse_messages::ui::errors::SessionError;
+use metaverse_session::ui_subscriber::listen_for_core_events;
 use portpicker::pick_unused_port;
 use std::fs::{self, create_dir_all};
 use std::path::PathBuf;
@@ -196,6 +196,7 @@ fn handle_login_response(
         match response.value.as_ref() {
             Ok(login_response) => {
                 viewer_state.set(ViewerState::Chat);
+                println!("LOGIN RESPONSE IS: {:?}", login_response);
                 session_data.login_response = Some(login_response.clone());
             }
             Err(_) => viewer_state.set(ViewerState::Login),
@@ -251,7 +252,7 @@ fn handle_queue(
                 SessionError::Login(e) => {
                     ev_loginresponse.write(LoginResponseEvent { value: Err(e) });
                 }
-                SessionError::Mailbox(e) => {
+                SessionError::MailboxSession(e) => {
                     info!("MailboxError {:?}", e)
                 }
                 SessionError::AckError(e) => {
@@ -287,7 +288,7 @@ fn start_listener(sockets: Res<Sockets>, event_queue: Res<EventChannel>) {
 
     thread_pool
         .spawn(async move {
-            listen_for_server_events(format!("127.0.0.1:{}", outgoing_socket), sender).await
+            listen_for_core_events(format!("127.0.0.1:{}", outgoing_socket), sender).await
         })
         .detach();
 }

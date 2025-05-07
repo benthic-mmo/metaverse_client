@@ -1,29 +1,35 @@
+use super::{errors::SessionError, layer_update::LayerUpdate};
 use crate::{
-    errors::SessionError, login_system::login_response::LoginResponse, packet::PacketData,
-    packet_types::PacketType,
+    agent::coarse_location_update::CoarseLocationUpdate,
+    chat::chat_from_simulator::ChatFromSimulator, core::disable_simulator::DisableSimulator,
+    login::login_response::LoginResponse, packet::packet::PacketData,
+    packet::packet_types::PacketType,
 };
 use core::fmt;
-
 use serde::{Deserialize, Serialize};
 
-use super::{
-    chat_from_simulator::ChatFromSimulator, coarse_location_update::CoarseLocationUpdate,
-    custom::layer_update::LayerUpdate, disable_simulator::DisableSimulator,
-};
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+/// Defines all of the packet types that should be handled as UI events and sent directly to the UI
+/// on receive.
 pub enum UiEventTypes {
+    /// The LoginResponseEvent, containing the login response from the server
     LoginResponseEvent,
+    /// Errors that the UI should display
     Error,
+    /// Chats sent from the simulator
     ChatFromSimulatorEvent,
+    /// Minimap update events
     CoarseLocationUpdateEvent,
+    /// Viewer disconnects
     DisableSimulatorEvent,
+    /// Render generated patches
     LayerUpdateEvent,
 
-    // for packets that are not events
+    /// for packets that are not UI events
     None,
 }
 impl UiEventTypes {
+    /// Used for getting the UI event type from bytes
     pub fn packet_type_from_bytes(&self, data: &[u8]) -> Option<PacketType> {
         match self {
             UiEventTypes::LoginResponseEvent => {
@@ -34,7 +40,6 @@ impl UiEventTypes {
             UiEventTypes::Error => {
                 SessionError::from_bytes(data).map(|packet| PacketType::Error(Box::new(packet)))
             }
-
             UiEventTypes::LayerUpdateEvent => LayerUpdate::from_bytes(data)
                 .map(|packet| PacketType::LayerUpdate(Box::new(packet))),
             UiEventTypes::ChatFromSimulatorEvent => ChatFromSimulator::from_bytes(data)

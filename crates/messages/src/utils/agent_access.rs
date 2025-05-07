@@ -2,17 +2,28 @@ use serde::{Deserialize, Serialize};
 use xmlrpc_benthic::{self as xmlrpc, Value};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Handles the access level of the viewer.
+/// prevents people with lower access levels from joining regions they shouldn't.
 pub enum AgentAccess {
+    /// Agent can view adult, 18+ content
     Adult,
+    /// Agent can view mature, 18+ content
     Mature,
+    /// undocumented
     Down,
+    /// undocumented
     NonExistent,
+    /// trial account
     Trial,
+    /// Agent can view general audiences content
     General,
+    /// Agent can view PG rated content
     PG,
+    /// unknown
     Unknown,
 }
 impl AgentAccess {
+    /// Maps agent access values to their byte representation. These are a little randomly chosen.
     pub fn to_bytes(&self) -> u8 {
         match self {
             AgentAccess::General => 2,
@@ -25,6 +36,7 @@ impl AgentAccess {
             _ => 0,
         }
     }
+    /// Convert from byte representation to enum
     pub fn from_bytes(bytes: &u8) -> Self {
         match bytes {
             2 => AgentAccess::General,
@@ -53,6 +65,8 @@ impl From<AgentAccess> for Value {
         Value::String(access_str.to_string())
     }
 }
+
+/// used by the login response to parse the agent access from a string.
 pub fn parse_agent_access(agent_access: Option<&xmlrpc::Value>) -> Option<AgentAccess> {
     agent_access.map(|x| match x.clone().as_str().unwrap() {
         "M" => AgentAccess::Mature,

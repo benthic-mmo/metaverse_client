@@ -4,7 +4,9 @@ use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use glam::U16Vec2;
 use log::warn;
-use metaverse_messages::{layer_data::LayerData, ui::custom::layer_update::LayerUpdate};
+use metaverse_messages::{
+    environment::layer_data::LayerData, ui::layer_update::LayerUpdate,
+};
 use twox_hash::XxHash32;
 
 use crate::{

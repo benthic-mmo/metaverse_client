@@ -2,7 +2,7 @@ use crate::{CONFIG_FILE, ShareDir, Sockets, VIEWER_NAME, ViewerState};
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 use keyring::Entry;
-use metaverse_messages::{login_system::login::Login, packet::Packet};
+use metaverse_messages::{login::login_xmlrpc::Login, packet::packet::Packet};
 use std::{fs, net::UdpSocket, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]

@@ -1,14 +1,12 @@
 use std::net::UdpSocket;
 
+use crate::{ChatMessages, SessionData, Sockets};
 use bevy::ecs::system::{Res, ResMut};
 use bevy::prelude::Resource;
 use bevy_egui::{EguiContexts, egui};
-use metaverse_messages::{
-    chat_from_viewer::{ChatFromViewer, ClientChatType},
-    packet::Packet,
-};
-
-use crate::{ChatMessages, SessionData, Sockets};
+use metaverse_messages::chat::chat_from_viewer::ChatFromViewer;
+use metaverse_messages::chat::ChatType;
+use metaverse_messages::packet::packet::Packet;
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
@@ -69,7 +67,7 @@ pub fn chat_screen(
             agent_id: data.agent_id.unwrap(),
             message,
             channel: 0,
-            message_type: ClientChatType::Normal,
+            message_type: ChatType::Normal,
         })
         .to_bytes();
         let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();

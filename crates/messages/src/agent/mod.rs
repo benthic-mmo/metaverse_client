@@ -1,0 +1,57 @@
+/// # AgentUpdate
+/// <https://wiki.secondlife.com/wiki/AgentUpdate>
+///
+/// The agent update packet. used for sending the server data about the player's curernt state.
+/// Must be sent from the viewer to the server on a regular basis in order to know the agent's position and velocity.
+/// Sent up to ten times per second
+///
+/// ## Header
+/// | AgentUpdate  |             |                |                   |                     |
+/// |--------------|-------------|----------------|-------------------|---------------------|
+/// | Packet Header| id:5        | reliable: false| zerocoded: false  |     frequency: High |
+///
+/// ## Packet Structure
+/// Each AgentUpdate packet sends an AgentData struct, containing information about what is being
+/// updated.
+/// | AgentData     |         |             |   |
+/// |---------------|---------|-------------|---|
+/// | AgentID       |16 bytes | [Uuid](uuid::Uuid) | ID of the user agent   |
+/// | SessionID     |16 bytes | [Uuid](uuid::Uuid) | ID of the user session |
+/// | BodyRotation  |16 bytes | [Quaternion](glam::Quat)  | where the user's body is facing|
+/// | HeadRotation  |16 bytes | [Quaternion](glam::Quat) | Where the user's head is facing|
+/// | State         |1 byte   | [u8]          | Typing or editing states |
+/// | CameraCenter  |12 bytes | [Vector3](glam::Vec3)[[u8]] | Location of the camera in region local coordinates|
+/// | CameraAtAxis  |12 bytes | [Vector3](glam::Vec3)[[u8]] | X rotational axis of the camera (forward) |
+/// | CameraLeftAxis|12 bytes | [Vector3](glam::Vec3)[[u8]] | Y rotational axis of the camera (Left) |
+/// | CameraUpAxis  |12 bytes | [Vector3](glam::Vec3)[[u8]] | Z rotational axis of the camera (Up) |
+/// | Far           |4 bytes  | [f32]         | Distance the viewer can see in meters |
+/// | ControlFlags  |4 bytes  | [u32]         | Events such as movement and standing up |
+/// | Flags         |1 bytes  | [u8]          | Flag for hiding group tile in nametag |
+pub mod agent_update;
+
+/// # CoarseLocationUpdate
+/// <https://wiki.secondlife.com/wiki/CoarseLocationUpdate>
+///
+/// This packet is used to populate the minimap with green indicators to represent where the agents
+/// are. Z-azis is multiplied by 4 to obtain true Z location.
+/// The "you" and "Prey" tell the client which ones in the index you are, and the person you are
+/// following, if you are following someone.
+///
+/// ## Header
+/// | CoarseLocationUpdate  |             |                |                   |                     |
+/// |--------------|-------------|----------------|-------------------|---------------------|
+/// | Packet Header| id:6        | reliable: false| zerocoded: false  | frequency: Medium   |
+///
+/// ## Packet Structure
+/// Each coarse location update packet comes with a a struct containing an XYZ location of other
+/// agents, and an index.
+///
+/// |CoarseLocationUpdateData|                  |             |                         |
+/// |------------------------|------------------|-------------|-------------------------|
+/// | Locations              | List of Locations|             |                         |
+/// | Locations\[Location\]    | 12 bytes         | [Vector3](glam::Vec3)[[u8]] | XYZ location of an agent|
+/// | You                    | 2 bytes          | [i16]         | Index of you in the list|
+/// | Prey                   | 2 bytes          | [i16]         | Index of who you are following in the list|
+pub mod coarse_location_update;
+
+pub mod avatar_appearance;
