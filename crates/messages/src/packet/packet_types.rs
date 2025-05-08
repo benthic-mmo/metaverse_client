@@ -1,7 +1,9 @@
+use std::fmt::Debug;
 use std::io;
 
 use super::header::PacketFrequency;
 use crate::agent::avatar_appearance::AvatarAppearance;
+use crate::core::object_update::ObjectUpdate;
 use crate::packet::packet::PacketData;
 use crate::ui::errors::SessionError;
 use crate::{
@@ -51,6 +53,8 @@ pub enum PacketType {
     LayerData(Box<LayerData>),
     /// AvatarAppearance packet
     AvatarAppearance(Box<AvatarAppearance>),
+    /// ObjectUpdate packet
+    ObjectUpdate(Box<ObjectUpdate>),
 
     // the following structs do not exist in the spec. These packets are only used to send data
     // back and forth from the UI.
@@ -93,6 +97,7 @@ impl PacketType {
             PacketType::RegionHandshakeReply(data) => data.to_bytes(),
             PacketType::LayerData(data) => data.to_bytes(),
             PacketType::AvatarAppearance(data) => data.to_bytes(),
+            PacketType::ObjectUpdate(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
             PacketType::Login(data) => data.to_bytes(),
@@ -121,6 +126,9 @@ impl PacketType {
                 11 => Ok(PacketType::LayerData(Box::new(LayerData::from_bytes(
                     bytes,
                 )?))),
+                12 => Ok(PacketType::ObjectUpdate(Box::new(
+                    ObjectUpdate::from_bytes(bytes)?,
+                ))),
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),

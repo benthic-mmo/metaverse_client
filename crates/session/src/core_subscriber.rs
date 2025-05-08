@@ -6,11 +6,14 @@ use metaverse_messages::{
         circuit_code::CircuitCodeData,
         complete_agent_movement::CompleteAgentMovementData,
         login_response::LoginResponse,
-        login_xmlrpc::{send_login_xmlrpc, Login},
+        login_xmlrpc::{Login, send_login_xmlrpc},
         simulator_login_protocol::SimulatorLoginProtocol,
     },
     packet::{packet::Packet, packet_types::PacketType},
-    ui::{errors::{MailboxSessionError, SessionError}, ui_events::UiEventTypes},
+    ui::{
+        errors::{MailboxSessionError, SessionError},
+        ui_events::UiEventTypes,
+    },
 };
 use tokio::net::UdpSocket;
 
@@ -50,10 +53,7 @@ use tokio::net::UdpSocket;
 /// ```
 ///
 ///
-pub async fn listen_for_ui_messages(
-    ui_to_core_socket: String,
-    mailbox_addr: actix::Addr<Mailbox>,
-) {
+pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
     let socket = UdpSocket::bind(ui_to_core_socket)
         .await
         .expect("Failed to bind to UDP socket");
@@ -128,7 +128,9 @@ async fn handle_login(
         })
         .await
     {
-        return Err(SessionError::MailboxSession(MailboxSessionError::new(format!("{}", e))));
+        return Err(SessionError::MailboxSession(MailboxSessionError::new(
+            format!("{}", e),
+        )));
     };
 
     if let Err(e) = mailbox_addr

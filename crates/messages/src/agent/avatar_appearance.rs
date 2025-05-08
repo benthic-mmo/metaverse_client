@@ -1,4 +1,4 @@
-use glam::Vec3;
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 use uuid::Uuid;
 
@@ -31,47 +31,48 @@ impl Packet {
 #[derive(Debug, Clone)]
 /// Avatar Appearance struct
 pub struct AvatarAppearance {
-    id: Uuid,
-    is_trial: bool,
-    texture_entry: String,
-    visual_params: VisualParam,
-    appearance_data: Vec<AppearanceData>,
-    hover_height: Vec3,
-}
-
-#[derive(Debug, Clone)]
-/// slider value of visual parameters
-pub struct VisualParam {}
-
-#[derive(Debug, Clone)]
-pub struct AppearanceData {
-    appearance_version: u8,
-    current_outfit_folder_version: f32,
-    flags: u32,
+    /// the ID of the user
+    pub id: Uuid,
+    /// is the user a trial user
+    pub is_trial: bool,
+    /// the bytes containing the texture data
+    pub texture_data: Vec<u8>,
+    /// the byes containing the visual param data
+    pub visual_param_data: Vec<u8>,
+    /// the bytes containing the remaining data
+    pub remaining_data: Vec<u8>,
 }
 
 impl PacketData for AvatarAppearance {
     fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        println!("avatar appearance packet received : {:?}", bytes);
         let mut cursor = Cursor::new(bytes);
+
         let mut id_bytes = [0u8; 16];
         cursor.read_exact(&mut id_bytes)?;
         let id = Uuid::from_bytes(id_bytes);
 
+        let is_trial = cursor.read_u8()? != 0;
+        let length = cursor.read_u16::<LittleEndian>()?;
+
+        let end = cursor.position() + length as u64;
+        let texture_data = cursor.get_ref()[cursor.position() as usize..end as usize].to_vec();
+        cursor.set_position(end);
+
+        let length = cursor.read_u8()?;
+        let end = cursor.position() + length as u64;
+        let visual_param_data = cursor.get_ref()[cursor.position() as usize..end as usize].to_vec();
+        cursor.set_position(end);
+
+        let mut remaining_data = Vec::new();
+        cursor.read_to_end(&mut remaining_data)?;
+
         Ok(AvatarAppearance {
             id,
-            is_trial: false,
-            texture_entry: "".to_string(),
-            visual_params: VisualParam {},
-            appearance_data: vec![AppearanceData {
-                appearance_version: 0,
-                current_outfit_folder_version: 0.0,
-                flags: 0,
-            }],
-            hover_height: Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
+            is_trial,
+            texture_data,
+            visual_param_data,
+            remaining_data,
         })
     }
 

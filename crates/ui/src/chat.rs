@@ -4,8 +4,8 @@ use crate::{ChatMessages, SessionData, Sockets};
 use bevy::ecs::system::{Res, ResMut};
 use bevy::prelude::Resource;
 use bevy_egui::{EguiContexts, egui};
-use metaverse_messages::chat::chat_from_viewer::ChatFromViewer;
 use metaverse_messages::chat::ChatType;
+use metaverse_messages::chat::chat_from_viewer::ChatFromViewer;
 use metaverse_messages::packet::packet::Packet;
 
 #[derive(Default, Resource, Clone)]

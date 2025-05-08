@@ -1,7 +1,13 @@
 use bitreader::BitReader;
 use glam::U16Vec2;
-use metaverse_environment::{land::parse_heightmap, layer_handler::{decompress_patch, TerrainHeader}};
-use metaverse_messages::{environment::layer_data::{LayerData, LayerType}, packet::packet::PacketData};
+use metaverse_environment::{
+    land::parse_heightmap,
+    layer_handler::{TerrainHeader, decompress_patch},
+};
+use metaverse_messages::{
+    environment::layer_data::{LayerData, LayerType},
+    packet::packet::PacketData,
+};
 const TEST_BYTES: [u8; 999] = [
     76, 228, 3, 8, 1, 16, 76, 139, 178, 157, 166, 65, 1, 0, 105, 122, 237, 120, 112, 49, 160, 56,
     248, 48, 88, 48, 56, 56, 16, 56, 56, 56, 64, 48, 168, 56, 128, 48, 48, 48, 40, 48, 16, 12, 2,
