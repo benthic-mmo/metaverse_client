@@ -126,3 +126,5 @@ pub mod start_ping_check;
 /// |--------|--------|------|-----|
 /// | PingID | 1 byte | [u8] | the value received during StartPingCheck. Lets server know which ping was completed. |
 pub mod complete_ping_check;
+
+pub mod object_update;

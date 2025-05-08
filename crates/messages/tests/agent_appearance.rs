@@ -1,4 +1,11 @@
-use metaverse_messages::{agent::avatar_appearance::AvatarAppearance, packet::packet::{Packet, PacketData}};
+use metaverse_messages::{
+    agent::avatar_appearance::AvatarAppearance,
+    packet::{
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
+};
+use uuid::{Uuid, uuid};
 
 const DEFAULT_USER_APPEARANCE: [u8; 326] = [
     192, 0, 0, 0, 5, 0, 255, 255, 0, 158, 157, 193, 139, 177, 4, 79, 76, 104, 144, 107, 44, 182, 8,
@@ -35,16 +42,28 @@ const TEST_USER_APPEARANCE: [u8; 361] = [
     127, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-/// test user agent id: f96360e2-883b-4ead-b86a-41bcd3e21550
-/// default user agent id: 9dc18bb1 - 044f - 4c68 - 906b - 2cb608b2e197
+const TEST_USER_ID: Uuid = uuid!("f96360e2883b4eadb86a41bcd3e21550");
+const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
+
 #[test]
 pub fn test_parse_avatar_appearance() {
-    let default_user = Packet::from_bytes(&DEFAULT_USER_APPEARANCE);
-    let test_user = Packet::from_bytes(&TEST_USER_APPEARANCE);
-    // handle the default user's appearance
-    println!(
-        "TEST USER: {:?}", test_user
-    );
-    // handle the test user's appearance
-    println!("DEFAULT USER: {:?}", default_user);
+    let default_user = Packet::from_bytes(&DEFAULT_USER_APPEARANCE).unwrap();
+    let test_user = Packet::from_bytes(&TEST_USER_APPEARANCE).unwrap();
+    match default_user.body {
+        PacketType::AvatarAppearance(avatar) => {
+            assert_eq!(avatar.id, DEFAULT_USER_ID);
+        }
+        _ => assert!(false),
+    }
+
+    match test_user.body {
+        PacketType::AvatarAppearance(avatar) => {
+            assert_eq!(avatar.id, TEST_USER_ID);
+        }
+        _ => assert!(false),
+    }
+    let test_user = AvatarAppearance::from_bytes(&TEST_USER_APPEARANCE[10..]);
+    let default_user = AvatarAppearance::from_bytes(&DEFAULT_USER_APPEARANCE[10..]);
+    println!("{:?}", test_user);
+    println!("{:?}", default_user);
 }

@@ -48,9 +48,18 @@ impl Packet {
 
         let body = match PacketType::from_id(header.id, header.frequency, body_bytes.as_slice()) {
             Ok(parsed_body) => parsed_body, // If parsing succeeds, use the parsed body
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => match e.kind() {
+                io::ErrorKind::UnexpectedEof => {
+                    println!("header: {:?}", header);
+                    println!("packet: {:?}", body_bytes);
+                    println!("packet: {:?}", bytes);
+                    println!("{:?}", e);
+                    return Err(e);
+                }
+                _ => {
+                    return Err(e);
+                }
+            },
         };
         Ok(Self { header, body })
     }

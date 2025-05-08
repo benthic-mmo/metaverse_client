@@ -9,14 +9,14 @@
 //! This isn't ready for any kind of serious use yet! Check back later for updates!
 
 #![warn(missing_docs)]
-/// This module is for running in your client to subscribe to the server events
-pub mod ui_subscriber;
-/// This module initializes the mailbox
-pub mod initialize;
 /// This module handles packet IO and logic
-/// serves as the core of the project, handling scheduling and packet processing 
+/// serves as the core of the project, handling scheduling and packet processing
 pub mod core;
 /// This module is to allow the server to receive messages from the UI.
 pub mod core_subscriber;
-/// This module stores custom error definitions 
+/// This module stores custom error definitions
 pub mod errors;
+/// This module initializes the mailbox
+pub mod initialize;
+/// This module is for running in your client to subscribe to the server events
+pub mod ui_subscriber;

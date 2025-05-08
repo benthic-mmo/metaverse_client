@@ -3,10 +3,13 @@ use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
 
+use metaverse_agent::avatar_appearance_handler::parse_texture_data;
+use metaverse_agent::avatar_appearance_handler::parse_visual_param_data;
 #[cfg(feature = "environment")]
 use metaverse_environment::layer_handler::{PatchData, PatchLayer, parse_layer_data};
 
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
+use metaverse_messages::core::object_update::ObjectType;
 use metaverse_messages::core::packet_ack::PacketAck;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::errors::errors::AckError;
@@ -219,6 +222,23 @@ impl Mailbox {
                             }
                             break;
                         }
+                        PacketType::ObjectUpdate(data) => match data.pcode {
+                            ObjectType::Tree
+                            | ObjectType::Grass
+                            | ObjectType::Prim
+                            | ObjectType::Unknown
+                            | ObjectType::ParticleSystem
+                            | ObjectType::NewTree
+                            | ObjectType::None => {
+                                #[cfg(feature = "environment")]
+
+                                println!("Environment");
+                            }
+                            ObjectType::Avatar => {
+                                #[cfg(feature = "agent")]
+                                println!("AVATAR");
+                            }
+                        },
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
                             if let Ok(patch_data) = parse_layer_data(data) {
@@ -259,6 +279,11 @@ impl Mailbox {
                                     PatchLayer::Cloud(_patches) => {}
                                 }
                             }
+                        }
+                        #[cfg(feature = "agent")]
+                        PacketType::AvatarAppearance(data) => {
+                            parse_texture_data(&data.texture_data);
+                            parse_visual_param_data(&data.visual_param_data);
                         }
                         _ => {}
                     }
@@ -310,9 +335,9 @@ impl Handler<RegionHandshakeMessage> for Mailbox {
     fn handle(&mut self, _: RegionHandshakeMessage, ctx: &mut Self::Context) -> Self::Result {
         ctx.address()
             .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
-                    session_id: self.session.as_ref().unwrap().session_id,
-                    agent_id: self.session.as_ref().unwrap().agent_id,
-                    flags: 0,
+                session_id: self.session.as_ref().unwrap().session_id,
+                agent_id: self.session.as_ref().unwrap().agent_id,
+                flags: 0,
             }));
     }
 }

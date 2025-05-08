@@ -196,7 +196,6 @@ fn handle_login_response(
         match response.value.as_ref() {
             Ok(login_response) => {
                 viewer_state.set(ViewerState::Chat);
-                println!("LOGIN RESPONSE IS: {:?}", login_response);
                 session_data.login_response = Some(login_response.clone());
             }
             Err(_) => viewer_state.set(ViewerState::Login),

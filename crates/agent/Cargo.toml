@@ -1,6 +1,9 @@
 [package]
-name = "metaverse-agent"
+name = "metaverse_agent"
 version = "0.0.1"
 edition = "2024"
 
 [dependencies]
+byteorder = "1.5.0"
+rgb = "0.8.50"
+uuid = "1.16.0"
