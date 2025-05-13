@@ -22,7 +22,8 @@ bevy = { version = "0.16", default-features = false, features = [
     "bevy_core_pipeline",
     "multi_threaded",
     "bevy_log",
-    "tonemapping_luts"
+    "tonemapping_luts",
+    "dynamic_linking"
 ]}
 
 bevy_egui = "0.34.1"
