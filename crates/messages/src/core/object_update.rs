@@ -1,5 +1,5 @@
-use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Quat, U8Vec3, U16Vec3, Vec3, Vec4};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
 use uuid::Uuid;
 
@@ -150,14 +150,14 @@ pub struct ObjectUpdate {
     /// Y location of the object in the grid region
     pub region_y: u32,
     /// The current lag from the server. Used by physics simulations to keep up with real time.
-    pub time_dilation: u16,
-    /// The region local ID of the tasks. Used for most operatiosn in lieu of the task's full UUID
+    pub time_dilation: f32,
+    /// The region local ID of the tasks. Used for most operations in lieu of the task's full UUID
     pub id: u32,
     /// unused except by grass. Used to determine species of grass.
     pub state: u8,
-    /// Full UUID of the task
+    /// Full UUID of the object
     pub full_id: Uuid,
-    /// Copied directl from each message and not checked. Used for cache.
+    /// Copied directly from each message and not checked. Used for cache.
     pub crc: u32,
     /// Type of object reperesented by the task. Includes avatars, grass, trees, etc
     pub pcode: ObjectType,
@@ -167,9 +167,8 @@ pub struct ObjectUpdate {
     pub click_action: u8,
     /// The size of the object
     pub scale: Vec3,
-    /// Variable precision set of values for the object. Can include position, velocity and
-    /// rotation.
-    pub object_data: ObjectData,
+    /// Values involving rotation, velocity and position.  
+    pub object_data: Update,
     /// The local ID of any object this oobject is a child of. Used for creation of object and
     /// attachments. 0 if not present.  
     pub parent_id: u32,
@@ -214,7 +213,7 @@ impl PacketData for ObjectUpdate {
 
         let region_x = cursor.read_u32::<LittleEndian>()?;
         let region_y = cursor.read_u32::<LittleEndian>()?;
-        let time_dilation = cursor.read_u16::<LittleEndian>()? / 65535;
+        let time_dilation = cursor.read_u16::<LittleEndian>()? as f32 / 65535.0;
 
         // unsure what this is, but this sets the correct packet alignment
         let _offset = cursor.read_u8()?;
@@ -243,7 +242,7 @@ impl PacketData for ObjectUpdate {
         let object_data_length = cursor.read_u8()?;
         let mut object_data = vec![0u8; object_data_length as usize];
         cursor.read_exact(&mut object_data)?;
-        let object_data = ObjectData::from_bytes(&object_data)?;
+        let object_data = Update::from_bytes(&object_data)?;
 
         let parent_id = cursor.read_u32::<LittleEndian>()?;
         let update_flags = cursor.read_u32::<LittleEndian>()?;
@@ -251,25 +250,24 @@ impl PacketData for ObjectUpdate {
         let mut geometry_bytes = [0u8; 23];
         cursor.read_exact(&mut geometry_bytes)?;
         let primitive_geometry = PrimitiveGeometry::from_bytes(&geometry_bytes)?;
-
         let texture_entry_length = cursor.read_u8()?;
+
         let mut texture_entry = vec![0u8; texture_entry_length as usize];
         cursor.read_exact(&mut texture_entry)?;
 
         let texture_anim_length = cursor.read_u8()?;
-
         let mut texture_anim = vec![0u8; texture_anim_length as usize];
         cursor.read_exact(&mut texture_anim)?;
 
-        let name_value_length = cursor.read_u8()?;
+        let name_value_length = cursor.read_u16::<BigEndian>()?;
         let mut name_value = vec![0u8; name_value_length as usize];
         cursor.read_exact(&mut name_value)?;
         let name_value = String::from_utf8_lossy(&name_value).to_string();
 
-        let data_length = cursor.read_u16::<LittleEndian>()?;
+        let data_length = cursor.read_u16::<BigEndian>()?;
         let mut data = vec![0u8; data_length as usize];
         cursor.read_exact(&mut data)?;
-        
+
         let text_length = cursor.read_u8()?;
         let mut text = vec![0u8; text_length as usize];
         cursor.read_exact(&mut text)?;
@@ -373,7 +371,7 @@ pub struct Sound {
     pub gain: f32,
     /// Stores flags related to attached sounds
     pub flags: u8,
-    /// Radisus from the center of the prim that the sound should be audible from
+    /// Radius from the center of the object that the sound should be audible from
     pub radius: f32,
 }
 impl Sound {
@@ -421,19 +419,19 @@ pub struct PrimitiveGeometry {
     pub path_shear_y: u8,
     /// twist applied at the end of the path. 128 is no twist.
     pub path_twist_end: i8,
-    /// twist applied at the beginning of the path. 128 ois no twist.
+    /// twist applied at the beginning of the path. 128 is no twist.
     pub path_twist_begin: i8,
     /// how much the shape's path moves away from the axis. 128 is no offset.
     pub path_radius_offset: i8,
     /// Tapers the shape from thick to thin on y axis. 128 is no taper.
     pub path_taper_y: i8,
-    /// tapers the shape from thisck to thin on x axis. 128 is no taper.
+    /// tapers the shape from thick to thin on x axis. 128 is no taper.
     pub path_taper_x: i8,
     /// number of times the shape revolves around its path. 128 is one revolution.
     pub path_revolutions: u8,
     /// skews the shape along its path. 128 is no skew.
     pub path_skew: i8,
-    /// the type of profile, (if it's a circle or a square.)
+    /// What the shape looks like from profile
     /// 0x00 is a circle
     /// 0x01 is a square
     /// 0x02 is a triangle
@@ -475,53 +473,39 @@ impl PrimitiveGeometry {
 }
 
 #[derive(Debug, Clone)]
-/// Describes all of the types of ObjectData that can be sent in the ObjectData section of an
-/// ObjectData packet.
-pub enum ObjectData {
-    /// A high precision foot collision plane
-    FootCollisionPlaneHigh(FootCollisionPlaneHigh),
-    /// A medium precision foot collision plane
-    FootCollisionPlaneMedium(FootCollisionPlaneMedium),
-    /// An object update with high precision
-    UpdateHigh(UpdateHigh),
-    /// An object update with medium precision
-    UpdateMedium(UpdateMedium),
-    /// An object update with low precision
-    UpdateLow(UpdateLow),
+/// Stores ObjectUpdate update fields
+/// This contains information about the position, velocity, acceleration and etc of the object.
+/// Stores all values as f32s, despite them coming in as variable length values.
+pub struct Update {
+    /// The collision plane for setting the user's foot angle
+    pub foot_collision_plane: Option<Vec4>,
+    /// The location of the object in the world  
+    pub position: Vec3,
+    /// The speed at which the object is moving
+    pub velocity: Vec3,
+    /// How fast the object is accelerating
+    pub acceleration: Vec3,
+    /// The roatation of the object
+    pub rotation: Quat,
+    /// The angular velocity of the object
+    pub angular_velocity: Vec3,
 }
-impl ObjectData {
-    ///Handles from bytes. Each byte length represents a different ObjectData update type.
+impl Update {
+    /// Matches the length of the data to the correct parsing function
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         match bytes.len() {
-            76 => Ok(Self::FootCollisionPlaneHigh(
-                FootCollisionPlaneHigh::from_bytes(bytes)?,
-            )),
-            60 => Ok(Self::UpdateHigh(UpdateHigh::from_bytes(bytes)?)),
-            48 => Ok(Self::FootCollisionPlaneMedium(
-                FootCollisionPlaneMedium::from_bytes(bytes)?,
-            )),
-            32 => Ok(Self::UpdateMedium(UpdateMedium::from_bytes(bytes)?)),
-            16 => Ok(Self::UpdateLow(UpdateLow::from_bytes(bytes)?)),
+            76 => Ok(Update::from_bytes_foot_collision_high(bytes)?),
+            60 => Ok(Update::from_bytes_high(bytes)?),
+            48 => Ok(Update::from_bytes_foot_collision_medium(bytes)?),
+            32 => Ok(Update::from_bytes_medium(bytes)?),
+            16 => Ok(Update::from_bytes_low(bytes)?),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Unknown ObjectData size",
             )),
         }
     }
-}
-#[derive(Debug, Clone)]
-/// High precision food collision plane
-pub struct FootCollisionPlaneHigh {
-    /// The plane of the foot collision object
-    pub collision_plane: Vec4,
-    /// information about the plane, like its position, velocity, acceleration and rotation.
-    pub update: UpdateHigh,
-}
-impl FootCollisionPlaneHigh {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes_foot_collision_high(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
         let collision_plane = Vec4::new(
             cursor.read_f32::<LittleEndian>()?,
@@ -532,28 +516,12 @@ impl FootCollisionPlaneHigh {
 
         let mut update_bytes = [0u8; 60];
         cursor.read_exact(&mut update_bytes)?;
-        let update = UpdateHigh::from_bytes(&update_bytes)?;
-
-        Ok(Self {
-            collision_plane,
-            update,
-        })
+        let mut update = Update::from_bytes_high(&update_bytes)?;
+        update.foot_collision_plane = Some(collision_plane);
+        Ok(update)
     }
-}
 
-#[derive(Debug, Clone)]
-/// A medium precision foot collision plane update
-pub struct FootCollisionPlaneMedium {
-    /// The plane of the foot collision object
-    pub collision_plane: Vec4,
-    /// medium precision information about its position, velocity aceleration and etc
-    pub update: UpdateMedium,
-}
-impl FootCollisionPlaneMedium {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes_foot_collision_medium(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
         let collision_plane = Vec4::new(
             cursor.read_f32::<LittleEndian>()?,
@@ -564,34 +532,12 @@ impl FootCollisionPlaneMedium {
 
         let mut update_bytes = [0u8; 32];
         cursor.read_exact(&mut update_bytes)?;
-        let update = UpdateMedium::from_bytes(&update_bytes)?;
-
-        Ok(Self {
-            collision_plane,
-            update,
-        })
+        let mut update = Update::from_bytes_medium(&update_bytes)?;
+        update.foot_collision_plane = Some(collision_plane);
+        Ok(update)
     }
-}
 
-#[derive(Debug, Clone)]
-/// A high precision update
-pub struct UpdateHigh {
-    /// the position of the object
-    pub position: Vec3,
-    /// the velocity of the object
-    pub velocity: Vec3,
-    /// the acceleration of the object
-    pub acceleration: Vec3,
-    /// the rotation of the object
-    pub rotation: Quat,
-    /// the angular veloctiy of the object
-    pub angular_velocity: Vec3,
-}
-impl UpdateHigh {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes_high(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
         let position = Vec3::new(
             cursor.read_f32::<LittleEndian>()?,
@@ -620,6 +566,7 @@ impl UpdateHigh {
 
         let angular_velocity = Vec3::new(0.0, 0.0, 0.0);
         Ok(Self {
+            foot_collision_plane: None,
             position,
             velocity,
             acceleration,
@@ -627,44 +574,24 @@ impl UpdateHigh {
             angular_velocity,
         })
     }
-}
-
-#[derive(Debug, Clone)]
-/// A medium precision update
-pub struct UpdateMedium {
-    /// the position of the object
-    pub position: U16Vec3,
-    /// the velocity of the object
-    pub velocity: U16Vec3,
-    /// the acceleration of the object
-    pub acceleration: U16Vec3,
-    /// the rotation of the object
-    pub rotation: Quat,
-    /// the angular velocity of the object
-    pub angular_velocity: U16Vec3,
-}
-impl UpdateMedium {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes_medium(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
-        let position = U16Vec3::new(
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
+        let position = Vec3::new(
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
         );
 
-        let velocity = U16Vec3::new(
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
+        let velocity = Vec3::new(
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
         );
 
-        let acceleration = U16Vec3::new(
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
+        let acceleration = Vec3::new(
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
         );
 
         let rotation = Quat::from_xyzw(
@@ -674,12 +601,13 @@ impl UpdateMedium {
             cursor.read_u16::<LittleEndian>()? as f32,
         );
 
-        let angular_velocity = U16Vec3::new(
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
-            cursor.read_u16::<LittleEndian>()?,
+        let angular_velocity = Vec3::new(
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
+            cursor.read_u16::<LittleEndian>()? as f32,
         );
         Ok(Self {
+            foot_collision_plane: None,
             position,
             velocity,
             acceleration,
@@ -687,33 +615,25 @@ impl UpdateMedium {
             angular_velocity,
         })
     }
-}
-
-#[derive(Debug, Clone)]
-/// A low precision update
-pub struct UpdateLow {
-    /// the position of the object
-    pub position: U8Vec3,
-    /// the velocity of the object
-    pub velocity: U8Vec3,
-    /// the acceleration of the object
-    pub acceleration: U8Vec3,
-    /// the rotation of the object
-    pub rotation: Quat,
-    /// the angular veloctiy of the object
-    pub angular_velocity: U8Vec3,
-}
-impl UpdateLow {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
+    fn from_bytes_low(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
-        let position = U8Vec3::new(cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?);
+        let position = Vec3::new(
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+        );
 
-        let velocity = U8Vec3::new(cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?);
+        let velocity = Vec3::new(
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+        );
 
-        let acceleration = U8Vec3::new(cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?);
+        let acceleration = Vec3::new(
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+        );
 
         let rotation = Quat::from_xyzw(
             cursor.read_u8()? as f32,
@@ -722,8 +642,13 @@ impl UpdateLow {
             cursor.read_u8()? as f32,
         );
 
-        let angular_velocity = U8Vec3::new(cursor.read_u8()?, cursor.read_u8()?, cursor.read_u8()?);
+        let angular_velocity = Vec3::new(
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+            cursor.read_u8()? as f32,
+        );
         Ok(Self {
+            foot_collision_plane: None,
             position,
             velocity,
             acceleration,
