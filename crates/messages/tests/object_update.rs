@@ -11,7 +11,7 @@ const PACKET: [u8; 169] = [
     32, 82, 87, 32, 83, 86, 32, 0, 77,
 ];
 
-const FAILED_PACKET: [u8; 160] = [
+const PACKET2: [u8; 160] = [
     192, 0, 0, 0, 18, 0, 12, 0, 1, 66, 39, 0, 2, 162, 40, 0, 1, 255, 255, 1, 0, 1, 88, 126, 29, 0,
     1, 254, 189, 105, 110, 131, 188, 70, 110, 171, 72, 99, 132, 234, 103, 190, 207, 134, 110, 176,
     52, 9, 3, 0, 1, 59, 168, 95, 64, 59, 168, 95, 64, 51, 55, 191, 63, 60, 78, 11, 16, 192, 97,
@@ -22,15 +22,39 @@ const FAILED_PACKET: [u8; 160] = [
     32, 0, 101,
 ];
 
+const MORE_PACKET: [u8; 172] = [
+    224, 0, 0, 0, 23, 0, 12, 0, 1, 66, 39, 0, 2, 162, 40, 0, 1, 255, 255, 1, 32, 89, 126, 29, 0, 1,
+    186, 190, 2, 243, 77, 219, 64, 74, 143, 97, 248, 182, 3, 214, 214, 63, 156, 209, 87, 54, 9, 3,
+    0, 2, 192, 188, 60, 0, 1, 38, 148, 63, 224, 226, 160, 63, 60, 57, 180, 236, 66, 213, 88, 2, 67,
+    231, 204, 12, 66, 0, 52, 208, 0, 1, 2, 0, 1, 16, 1, 0, 4, 100, 100, 0, 15, 81, 0, 1, 87, 72,
+    222, 204, 246, 41, 70, 28, 154, 54, 163, 90, 34, 31, 226, 31, 20, 55, 132, 88, 115, 227, 146,
+    70, 41, 165, 172, 251, 125, 184, 162, 66, 22, 0, 1, 128, 128, 128, 0, 4, 128, 63, 0, 3, 128,
+    63, 0, 10, 32, 0, 3, 26, 0, 30, 23, 1, 32, 0, 1, 16, 0, 3, 127, 127, 127, 255, 0, 2, 160, 64,
+    0, 4, 10, 215, 35, 60, 0, 66,
+];
+
 const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
+const TEST_FULL_ID: Uuid = uuid!("febd696e-83bc-466e-ab48-6384ea67becf");
 #[test]
 pub fn test_object_update() {
-    //let object_update = Packet::from_bytes(&PACKET).unwrap();
-
-    let object_update = Packet::from_bytes(&FAILED_PACKET).unwrap();
+   // let object_update = Packet::from_bytes(&PACKET).unwrap();
+   // match object_update.body {
+   //     PacketType::ObjectUpdate(object) => {
+   //         assert_eq!(object.full_id, DEFAULT_USER_ID)
+   //     }
+   //     _ => assert!(false),
+   // }
+   // let object_update = Packet::from_bytes(&PACKET2).unwrap();
+   // match object_update.body {
+   //     PacketType::ObjectUpdate(object) => {
+   //         assert_eq!(object.full_id, TEST_FULL_ID)
+   //     }
+   //     _ => assert!(false),
+   // }
+    let object_update = Packet::from_bytes(&MORE_PACKET).unwrap();
     match object_update.body {
         PacketType::ObjectUpdate(object) => {
-            assert_eq!(object.full_id, DEFAULT_USER_ID)
+            assert_eq!(object.full_id, TEST_FULL_ID)
         }
         _ => assert!(false),
     }
