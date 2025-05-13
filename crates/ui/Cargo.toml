@@ -8,7 +8,23 @@ resolver = "2"
 metaverse_session = {path = "../session/"}
 metaverse_messages = {path = "../messages/"}
 
-bevy = "0.16"
+#disable sound for bevy
+bevy = { version = "0.16", default-features = false, features = [
+    "bevy_winit",
+    "bevy_render",
+    "bevy_pbr",
+    "bevy_gltf",
+    "bevy_ui",
+    "bevy_text",
+    "bevy_state",
+    "bevy_picking",
+    "bevy_window",
+    "bevy_core_pipeline",
+    "multi_threaded",
+    "bevy_log",
+    "tonemapping_luts"
+]}
+
 bevy_egui = "0.34.1"
 bevy_panorbit_camera = "0.26.0"
 
@@ -25,6 +41,7 @@ serde_json = "1.0"
 portpicker = "0.1.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 dirs = "6.0.0"
+log = "0.4.27"
 [dependencies.uuid]
 version = "1.16.0"
 features = [
