@@ -8,6 +8,19 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use rgb::Rgba;
 use uuid::Uuid;
 
+pub fn parse_texture_data(bytes: &Vec<u8>) -> std::io::Result<String> {
+    let mut faces: HashMap<u32, Texture> = HashMap::new();
+    let texture_entry = Texture::from_bytes(&bytes, &mut faces)?;
+
+    println!("{:?}", faces);
+    println!("texture entry: {:?}", texture_entry);
+    Ok("hello".to_string())
+}
+
+pub fn parse_visual_param_data(_: &Vec<u8>) -> std::io::Result<String> {
+    Ok("visual param".to_string())
+}
+
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub texture_id: Uuid,
@@ -140,19 +153,6 @@ pub struct AppearanceData {
     pub appearance_version: u8,
     pub current_outfit_folder_version: f32,
     pub flags: u32,
-}
-
-pub fn parse_texture_data(bytes: &Vec<u8>) -> std::io::Result<String> {
-    let mut faces: HashMap<u32, Texture> = HashMap::new();
-    let texture_entry = Texture::from_bytes(&bytes, &mut faces)?;
-
-    println!("{:?}", faces);
-    println!("texture entry: {:?}", texture_entry);
-    Ok("hello".to_string())
-}
-
-pub fn parse_visual_param_data(bytes: &Vec<u8>) -> std::io::Result<String> {
-    Ok("visual param".to_string())
 }
 
 fn read_face_bitfield(cursor: &mut Cursor<&[u8]>) -> std::io::Result<(u32, u32)> {

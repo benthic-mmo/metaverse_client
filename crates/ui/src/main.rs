@@ -5,6 +5,8 @@ mod login;
 
 use actix_rt::System;
 use bevy::asset::UnapprovedPathMode;
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
+use bevy_egui::{EguiContexts, EguiPlugin, egui};
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
@@ -14,20 +16,18 @@ use environment::{
 };
 use keyring::Entry;
 use loading::loading_screen;
+use log::{error, info, warn};
 use login::login_screen;
 use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login::login_errors::LoginError;
 use metaverse_messages::login::login_response::LoginResponse;
 use metaverse_messages::packet::packet_types::PacketType;
 use metaverse_messages::ui::errors::SessionError;
+use metaverse_session::initialize::initialize;
 use metaverse_session::ui_subscriber::listen_for_core_events;
 use portpicker::pick_unused_port;
 use std::fs::{self, create_dir_all};
 use std::path::PathBuf;
-
-use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
-use bevy_egui::{EguiContexts, EguiPlugin, egui};
-use metaverse_session::initialize::initialize;
 
 #[derive(Resource)]
 struct Sockets {

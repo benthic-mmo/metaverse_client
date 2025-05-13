@@ -37,20 +37,20 @@ const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
 const TEST_FULL_ID: Uuid = uuid!("febd696e-83bc-466e-ab48-6384ea67becf");
 #[test]
 pub fn test_object_update() {
-   // let object_update = Packet::from_bytes(&PACKET).unwrap();
-   // match object_update.body {
-   //     PacketType::ObjectUpdate(object) => {
-   //         assert_eq!(object.full_id, DEFAULT_USER_ID)
-   //     }
-   //     _ => assert!(false),
-   // }
-   // let object_update = Packet::from_bytes(&PACKET2).unwrap();
-   // match object_update.body {
-   //     PacketType::ObjectUpdate(object) => {
-   //         assert_eq!(object.full_id, TEST_FULL_ID)
-   //     }
-   //     _ => assert!(false),
-   // }
+    // let object_update = Packet::from_bytes(&PACKET).unwrap();
+    // match object_update.body {
+    //     PacketType::ObjectUpdate(object) => {
+    //         assert_eq!(object.full_id, DEFAULT_USER_ID)
+    //     }
+    //     _ => assert!(false),
+    // }
+    // let object_update = Packet::from_bytes(&PACKET2).unwrap();
+    // match object_update.body {
+    //     PacketType::ObjectUpdate(object) => {
+    //         assert_eq!(object.full_id, TEST_FULL_ID)
+    //     }
+    //     _ => assert!(false),
+    // }
     let object_update = Packet::from_bytes(&MORE_PACKET).unwrap();
     match object_update.body {
         PacketType::ObjectUpdate(object) => {
