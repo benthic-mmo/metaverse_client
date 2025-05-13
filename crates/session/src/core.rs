@@ -3,6 +3,9 @@ use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
 
+use metaverse_agent::avatar_appearance_handler::parse_texture_data;
+use metaverse_agent::avatar_appearance_handler::parse_visual_param_data;
+use metaverse_agent::object_update_handler::handle_object_update;
 #[cfg(feature = "environment")]
 use metaverse_environment::layer_handler::{PatchData, PatchLayer, parse_layer_data};
 
@@ -233,6 +236,10 @@ impl Mailbox {
                                 println!("Environment");
                             }
                             ObjectType::Avatar => {
+                                #[cfg(feature = "agent")]
+                                if let Err(e) = handle_object_update(data){
+                                    warn!("Error handling avatar {:?}", e);
+                                };
                             }
                         },
                         #[cfg(feature = "environment")]
@@ -275,6 +282,11 @@ impl Mailbox {
                                     PatchLayer::Cloud(_patches) => {}
                                 }
                             }
+                        }
+                        #[cfg(feature = "agent")]
+                        PacketType::AvatarAppearance(data) => {
+                            parse_texture_data(&data.texture_data);
+                            parse_visual_param_data(&data.visual_param_data);
                         }
                         _ => {}
                     }
