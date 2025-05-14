@@ -4,7 +4,9 @@ mod loading;
 mod login;
 
 use actix_rt::System;
+use bevy::app::{ctrlc, TerminalCtrlCHandlerPlugin};
 use bevy::asset::UnapprovedPathMode;
+use bevy::window::WindowCloseRequested;
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{EguiContexts, EguiPlugin, egui};
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
@@ -21,12 +23,15 @@ use login::login_screen;
 use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login::login_errors::LoginError;
 use metaverse_messages::login::login_response::LoginResponse;
+use metaverse_messages::login::logout_request::LogoutRequest;
+use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::packet::packet_types::PacketType;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_session::initialize::initialize;
 use metaverse_session::ui_subscriber::listen_for_core_events;
 use portpicker::pick_unused_port;
 use std::fs::{self, create_dir_all};
+use std::net::UdpSocket;
 use std::path::PathBuf;
 
 #[derive(Resource)]
@@ -73,6 +78,9 @@ struct CoarseLocationUpdateEvent {
 
 #[derive(Event)]
 struct DisableSimulatorEvent;
+
+#[derive(Event)]
+struct LogoutRequestEvent;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum ViewerState {
@@ -135,17 +143,28 @@ fn main() {
     }
 
     App::new()
-        .add_plugins((DefaultPlugins.set(AssetPlugin {
-            file_path: "assets".into(),
-            unapproved_path_mode: UnapprovedPathMode::Allow,
-            ..default()
-        }),))
+        .add_plugins(DefaultPlugins
+            .set(AssetPlugin {
+                file_path: "assets".into(),
+                unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            })
+            .set(WindowPlugin {
+                close_when_requested: false,
+                ..default()
+            }).set(TerminalCtrlCHandlerPlugin{
+                ..default()
+            }))
+
         .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false,
         })
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup_environment)
         .add_systems(Startup, configure_visuals_system)
+        .add_systems(Update, handle_window_close)
+        .add_systems(Update, handle_logout)
+
         // initial state of viewer is default, which is Login
         .init_state::<ViewerState>()
         .insert_resource(SessionData {
@@ -177,6 +196,7 @@ fn main() {
         .add_event::<CoarseLocationUpdateEvent>()
         .add_event::<LayerUpdateEvent>()
         .add_event::<DisableSimulatorEvent>()
+        .add_event::<LogoutRequestEvent>()
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
         .add_systems(
             Update,
@@ -263,6 +283,9 @@ fn handle_queue(
                 SessionError::CompleteAgentMovement(e) => {
                     info!("CompleteAgentMovmentError {:?}", e)
                 }
+                SessionError::Capability(e) => {
+                    info!("CapabilityError {:?}", e)
+                }
             },
             PacketType::ChatFromSimulator(chat_from_simulator) => {
                 chat_messages.messages.push(ChatFromClientMessage {
@@ -311,4 +334,45 @@ fn start_client(sockets: Res<Sockets>) {
             }
         });
     });
+}
+
+fn handle_logout (
+    mut events: EventReader<LogoutRequestEvent>,
+    session_data: Res<SessionData>,
+    sockets: Res<Sockets>,
+){
+    for _ in events.read(){
+    let data = session_data.login_response.as_ref().unwrap();
+        let packet = Packet::new_logout_request(LogoutRequest{
+            session_id: data.session_id.unwrap(),
+            agent_id: data.agent_id.unwrap()
+        })
+        .to_bytes();
+        let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+        match client_socket.send_to(
+            &packet,
+            format!("127.0.0.1:{}", sockets.ui_to_server_socket),
+        ) {
+            Ok(_) => println!("Chat message sent from UI"),
+            Err(e) => println!("Error sending chat from UI {:?}", e),
+        };
+    }
+
+}
+
+fn handle_window_close(
+    mut events: EventReader<WindowCloseRequested>,
+    mut exit: EventWriter<AppExit>,
+    mut logout: EventWriter<LogoutRequestEvent>,
+    viewer_state: Res<State<ViewerState>>,
+) {
+    for _ in events.read() {
+        info!("Window close requested. Exiting...");
+        if *viewer_state == ViewerState::Chat{
+            info!("Sending Logout");
+            logout.write(LogoutRequestEvent);
+        }
+        exit.write(AppExit::Success);
+
+    }
 }

@@ -18,5 +18,7 @@ pub mod core_subscriber;
 pub mod errors;
 /// This module initializes the mailbox
 pub mod initialize;
+/// This module handles all incoming UDP packets from the server
+pub mod udp_handler;
 /// This module is for running in your client to subscribe to the server events
 pub mod ui_subscriber;

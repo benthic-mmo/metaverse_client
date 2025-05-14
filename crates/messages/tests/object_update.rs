@@ -51,7 +51,7 @@ pub fn test_object_update() {
     //     }
     //     _ => assert!(false),
     // }
-    let object_update = Packet::from_bytes(&MORE_PACKET).unwrap();
+    let object_update = Packet::from_bytes(&PACKET).unwrap();
     match object_update.body {
         PacketType::ObjectUpdate(object) => {
             assert_eq!(object.full_id, TEST_FULL_ID)

@@ -295,6 +295,7 @@ impl PacketData for ObjectUpdate {
         let extra_params_length = cursor.read_u8()?;
         let mut extra_params = vec![0u8; extra_params_length as usize];
         cursor.read_exact(&mut extra_params)?;
+        println!("extra_params :{:?}", extra_params);
 
         let mut sound_bytes = [0u8; 41];
         cursor.read_exact(&mut sound_bytes)?;
@@ -350,6 +351,7 @@ impl PacketData for ObjectUpdate {
             joint_pivot,
             joint_axis_or_anchor,
         };
+        println!("{:?}", update);
         Ok(update)
     }
 

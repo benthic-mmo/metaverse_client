@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use crate::core::{Mailbox, Session, UiMessage};
 use log::{info, warn};
 use metaverse_messages::{
-    errors::errors::{CircuitCodeError, CompleteAgentMovementError},
+    capabilities::capabilities::{Capability, CapabilityRequest},
+    errors::errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError},
     login::{
         circuit_code::CircuitCodeData,
         complete_agent_movement::CompleteAgentMovementData,
@@ -124,6 +127,8 @@ async fn handle_login(
             url: login_response.sim_ip.unwrap(),
             agent_id: login_response.agent_id.unwrap(),
             session_id: login_response.session_id.unwrap(),
+            seed_capability_url: login_response.seed_capability.unwrap(),
+            capability_urls: HashMap::new(),
             socket: None,
         })
         .await
@@ -161,6 +166,21 @@ async fn handle_login(
             CompleteAgentMovementError::new(format!("{}", e)),
         ));
     };
+
+    if let Err(e) = mailbox_addr
+        .send(CapabilityRequest::new_capability_request(vec![
+            #[cfg(any(feature = "agent", feature = "environment"))]
+            Capability::GetMesh,
+            #[cfg(feature = "agent")]
+            Capability::AvatarRenderInfo,
+        ]))
+        .await
+    {
+        return Err(SessionError::Capability(CapabilityError::new(format!(
+            "{}",
+            e
+        ))));
+    }
 
     Ok(())
 }
