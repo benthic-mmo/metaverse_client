@@ -1,5 +1,5 @@
 use crate::{
-    errors::errors::{AckError, CircuitCodeError, CompleteAgentMovementError},
+    errors::errors::{AckError, CapabilityError, CircuitCodeError, CompleteAgentMovementError},
     login::login_errors::LoginError,
 };
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,11 @@ pub enum SessionError {
     /// This is sent when Acknowledgement packets fail
     #[error("AckError: {0}")]
     AckError(#[from] AckError),
+    /// This is sent when setting the capabilities fail
+    #[error("CapabilityError: {0}")]
+    Capability(#[from] CapabilityError),
 }
+
 impl SessionError {
     /// Create a new LoginError from the message's login error
     pub fn new_login_error(login_error: LoginError) -> Self {

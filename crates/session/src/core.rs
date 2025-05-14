@@ -1,23 +1,17 @@
 use actix::prelude::*;
 use actix_rt::time;
 use bincode;
-use log::{error, info, warn};
+use log::{error, info};
 
-use metaverse_agent::avatar_appearance_handler::parse_texture_data;
-use metaverse_agent::avatar_appearance_handler::parse_visual_param_data;
-use metaverse_agent::object_update_handler::handle_object_update;
-#[cfg(feature = "environment")]
-use metaverse_environment::layer_handler::{PatchData, PatchLayer, parse_layer_data};
-
+use metaverse_messages::capabilities::capabilities::CapabilityRequest;
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
-use metaverse_messages::core::object_update::ObjectType;
-use metaverse_messages::core::packet_ack::PacketAck;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::errors::errors::AckError;
 use metaverse_messages::packet::packet::Packet;
-use metaverse_messages::packet::packet_types::PacketType;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::ui_events::UiEventTypes;
+use quick_xml::Reader;
+use quick_xml::events::Event;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;
@@ -72,6 +66,10 @@ pub struct Session {
     pub session_id: Uuid,
     /// the running UDP socket attached to the session  
     pub socket: Option<Arc<UdpSocket>>,
+    /// The URL endpoint to request more capabilities
+    pub seed_capability_url: String,
+    /// The HashMap for storing capability URLs
+    pub capability_urls: HashMap<String, String>,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.
@@ -127,13 +125,21 @@ pub struct PingInfo {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct Ping {
-    ping_id: u8,
+    /// The ID of the ping
+    pub ping_id: u8,
 }
 
 /// message to send when receiving a RegionHandshake
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RegionHandshakeMessage;
+
+/// Message to update the capability urls
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SetCapabilityUrls {
+    capability_urls: HashMap<String, String>,
+}
 
 /// The state of the Mailbox
 #[derive(Debug, Clone, PartialEq)]
@@ -146,182 +152,6 @@ pub enum ServerState {
     Stopping,
     /// the mailbox is stopped
     Stopped,
-}
-
-impl Mailbox {
-    /// Start_udp_read is for reading packets coming from the external server
-    async fn start_udp_read(
-        ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-        sock: Arc<UdpSocket>,
-        mailbox_address: Addr<Mailbox>,
-    ) {
-        let mut buf = [0; 1500];
-
-        #[cfg(feature = "environment")]
-        let mut patch_queue = HashMap::new();
-
-        #[cfg(feature = "environment")]
-        let mut total_patches = HashMap::new();
-
-        loop {
-            match sock.recv_from(&mut buf).await {
-                Ok((size, _addr)) => {
-                    //info!("Received {} bytes from {:?}", size, addr);
-
-                    let packet = match Packet::from_bytes(&buf[..size]) {
-                        Ok(packet) => packet,
-                        Err(_) => {
-                            continue;
-                        }
-                    };
-                    if packet.header.reliable {
-                        if let Err(e) = mailbox_address
-                            .send(Packet::new_packet_ack(PacketAck {
-                                packet_ids: vec![packet.header.sequence_number],
-                            }))
-                            .await
-                        {
-                            warn!("Ack failed to send {:?}", e)
-                        };
-                    }
-
-                    match &packet.body {
-                        PacketType::PacketAck(data) => {
-                            let mut queue = ack_queue.lock().unwrap();
-                            for id in data.packet_ids.clone() {
-                                if let Some(sender) = queue.remove(&id) {
-                                    let _ = sender.send(());
-                                }
-                            }
-                        }
-                        PacketType::StartPingCheck(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(Ping {
-                                    ping_id: data.ping_id,
-                                })
-                                .await
-                            {
-                                warn!("failed to handle pong {:?}", e)
-                            };
-                        }
-                        PacketType::RegionHandshake(_) => {
-                            match mailbox_address.send(RegionHandshakeMessage {}).await {
-                                Ok(_) => {}
-                                Err(e) => error!("error: {:?}", e),
-                            }
-                        }
-                        PacketType::DisableSimulator(_) => {
-                            warn!("Simulator shutting down...");
-                            if let Err(e) = mailbox_address
-                                .send(UiMessage::new(
-                                    UiEventTypes::DisableSimulatorEvent {},
-                                    vec![],
-                                ))
-                                .await
-                            {
-                                warn!("failed to send to ui: {:?}", e)
-                            }
-                            break;
-                        }
-                        PacketType::ObjectUpdate(data) => match data.pcode {
-                            ObjectType::Tree
-                            | ObjectType::Grass
-                            | ObjectType::Prim
-                            | ObjectType::Unknown
-                            | ObjectType::ParticleSystem
-                            | ObjectType::NewTree
-                            | ObjectType::None => {
-                                #[cfg(feature = "environment")]
-
-                                println!("Environment");
-                            }
-                            ObjectType::Avatar => {
-                                #[cfg(feature = "agent")]
-                                if let Err(e) = handle_object_update(data){
-                                    warn!("Error handling avatar {:?}", e);
-                                };
-                            }
-                        },
-                        #[cfg(feature = "environment")]
-                        PacketType::LayerData(data) => {
-                            if let Ok(patch_data) = parse_layer_data(data) {
-                                match patch_data {
-                                    PatchLayer::Land(patches) => {
-                                        for land in patches {
-                                            total_patches
-                                                .insert(land.terrain_header.location, land.clone());
-                                            let mut layer_updates = land.generate_ui_event(
-                                                &mut patch_queue,
-                                                &total_patches,
-                                            );
-                                            let queue_save = patch_queue.clone();
-                                            for (_location, land) in queue_save {
-                                                layer_updates.extend(land.generate_ui_event(
-                                                    &mut patch_queue,
-                                                    &total_patches,
-                                                ));
-                                            }
-                                            for layer in layer_updates {
-                                                if let Err(e) = mailbox_address
-                                                    .send(UiMessage::new(
-                                                        UiEventTypes::LayerUpdateEvent,
-                                                        layer.to_bytes(),
-                                                    ))
-                                                    .await
-                                                {
-                                                    println!(
-                                                        "Failed to send LayerUpdate event to UI {:?}",
-                                                        e
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-                                    PatchLayer::Wind(_patches) => {}
-                                    PatchLayer::Water(_patches) => {}
-                                    PatchLayer::Cloud(_patches) => {}
-                                }
-                            }
-                        }
-                        #[cfg(feature = "agent")]
-                        PacketType::AvatarAppearance(data) => {
-                            parse_texture_data(&data.texture_data);
-                            parse_visual_param_data(&data.visual_param_data);
-                        }
-                        _ => {}
-                    }
-
-                    if UiEventTypes::None != packet.body.ui_event() {
-                        if let Err(e) = mailbox_address
-                            .send(UiMessage::new(
-                                packet.body.ui_event(),
-                                packet.body.to_bytes(),
-                            ))
-                            .await
-                        {
-                            warn!("failed to send to ui: {:?}", e)
-                        };
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to receive data: {}", e);
-                    break;
-                }
-            }
-        }
-    }
-
-    fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
-        let state_clone = Arc::clone(&self.state);
-        {
-            let mut state = state_clone.lock().unwrap();
-            *state = new_state.clone();
-        }
-        // notify on start and stop
-        if new_state == ServerState::Running || new_state == ServerState::Stopped {
-            self.notify.notify_one();
-        }
-    }
 }
 
 impl Actor for Mailbox {
@@ -468,12 +298,15 @@ impl Handler<Session> for Mailbox {
         }
     }
 }
-
+/// This handles incoming packets sent to the Mailbox.
+/// this sends acks if the header is reliable, and increases the sequence number.
 impl Handler<Packet> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref session) = self.session {
+            //TODO: This should really be saved somewhere
             let addr = format!("{}:{}", session.url, session.server_socket);
+
             {
                 let sequence_number = self.packet_sequence_number.lock().unwrap();
                 msg.header.sequence_number = *sequence_number;
@@ -564,4 +397,85 @@ async fn send_ack(
             "failed to retrieve ack ".to_string(),
         )))
     }
+}
+
+impl Handler<SetCapabilityUrls> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: SetCapabilityUrls, _: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &mut self.session {
+            session.capability_urls.extend(msg.capability_urls);
+        }
+    }
+}
+
+impl Handler<CapabilityRequest> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: CapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &self.session {
+            let seed_capability_url = session.seed_capability_url.clone();
+            let address = ctx.address().clone();
+            ctx.spawn(
+                async move {
+                    let client = awc::Client::default();
+                    match client
+                        .post(seed_capability_url)
+                        .insert_header(("Content-Type", "application/llsd+xml"))
+                        .send_body(msg.capabilities)
+                        .await
+                    {
+                        Ok(mut hello) => match hello.body().await {
+                            Ok(body) => {
+                                let capability_urls =
+                                    parse_llsd(&String::from_utf8_lossy(&body).to_string());
+                                address.do_send(SetCapabilityUrls { capability_urls });
+                            }
+                            Err(e) => {
+                                error!("Failed to retrieve body of capability request {:?}", e);
+                            }
+                        },
+                        Err(e) => {
+                            error!("Failed to send with {:?}", e);
+                        }
+                    };
+                }
+                .into_actor(self),
+            );
+        } else {
+        }
+    }
+}
+
+fn parse_llsd(xml: &str) -> HashMap<String, String> {
+    let mut reader = Reader::from_str(xml);
+
+    let mut map = HashMap::new();
+    let mut current_key: Option<String> = None;
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(ref e)) => {
+                match e.name().as_ref() {
+                    b"key" => {
+                        // When we encounter <key>, we read the key text.
+                        if let Ok(Event::Text(e)) = reader.read_event() {
+                            current_key = Some(e.unescape().unwrap().to_string());
+                        }
+                    }
+                    b"string" => {
+                        // When we encounter <string>, we read the value text.
+                        if let Ok(Event::Text(e)) = reader.read_event() {
+                            if let Some(key) = current_key.take() {
+                                map.insert(key, e.unescape().unwrap().to_string());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => panic!("XML error: {}", e),
+            _ => {}
+        }
+    }
+    map
 }

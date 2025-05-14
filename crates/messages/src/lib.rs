@@ -14,6 +14,9 @@
 /// Packets related to user agents.
 /// Contains packets for updating agent location, and handling appearance, movmement and outfits.
 pub mod agent;
+/// Viewer capabilities. These are requests sent to the server to receive xml data.
+/// these are used for things like getting meshes.
+pub mod capabilities;
 /// Packets related to chat.
 /// Contains packets for sending and receiving chat messages.
 pub mod chat;

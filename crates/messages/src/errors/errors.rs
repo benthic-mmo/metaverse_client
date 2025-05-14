@@ -54,3 +54,19 @@ impl AckError {
         }
     }
 }
+
+///Thrown when capabilities fail to get set
+#[derive(Debug, Clone, Error, Serialize, Deserialize)]
+#[error("{message}")]
+pub struct CapabilityError {
+    /// String message that contains error information
+    pub message: String,
+}
+impl CapabilityError {
+    /// Function for creating a new CapabilityError
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
