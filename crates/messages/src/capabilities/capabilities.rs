@@ -10,11 +10,13 @@ pub enum Capability {
     /// Enable the viewer to get meshes.
     /// Used to retrieve the URL to get meshes from.
     GetMesh,
+    AvatarRenderInfo,
 }
 impl Display for Capability {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::GetMesh => write!(f, "GetMesh"),
+            Self::AvatarRenderInfo => write!(f, "AvatarRenderInfo"),
         }
     }
 }

@@ -2,8 +2,10 @@ use std::fmt::Debug;
 use std::io;
 
 use super::header::PacketFrequency;
+use crate::agent::agent_wearables_request::AgentWearablesRequest;
 use crate::agent::avatar_appearance::AvatarAppearance;
 use crate::core::object_update::ObjectUpdate;
+use crate::login::logout_request::LogoutRequest;
 use crate::packet::packet::PacketData;
 use crate::ui::errors::SessionError;
 use crate::{
@@ -55,6 +57,10 @@ pub enum PacketType {
     AvatarAppearance(Box<AvatarAppearance>),
     /// ObjectUpdate packet
     ObjectUpdate(Box<ObjectUpdate>),
+    /// AgentWearablesRequest packet
+    AgentWearablesRequest(Box<AgentWearablesRequest>),
+    /// Send a request to the server for a logout
+    LogoutRequest(Box<LogoutRequest>),
 
     // the following structs do not exist in the spec. These packets are only used to send data
     // back and forth from the UI.
@@ -98,6 +104,8 @@ impl PacketType {
             PacketType::LayerData(data) => data.to_bytes(),
             PacketType::AvatarAppearance(data) => data.to_bytes(),
             PacketType::ObjectUpdate(data) => data.to_bytes(),
+            PacketType::AgentWearablesRequest(data) => data.to_bytes(),
+            PacketType::LogoutRequest(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
             PacketType::Login(data) => data.to_bytes(),
@@ -168,6 +176,7 @@ impl PacketType {
                 249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
                     CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),
+                252 => Ok(PacketType::LogoutRequest(Box::new(LogoutRequest::from_bytes(bytes)?,))),
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),

@@ -49,6 +49,7 @@ pub mod login_response;
 /// Handles sending the login xml that initiates login
 pub mod login_xmlrpc;
 
+pub mod logout_request;
 /// Stores the simulator login protocol that is used for creating a login call to the server.
 ///implemented from the protocol as defined by <http://opensimulator.org/wiki/SimulatorLoginProtocol>
 pub mod simulator_login_protocol;
