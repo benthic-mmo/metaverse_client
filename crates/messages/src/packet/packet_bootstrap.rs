@@ -4,18 +4,23 @@
 /// *PacketName*    is the name of the packet like "RegionHandshake"
 /// *id*            is the ID of the packet 
 /// 
-use crate::{header::{Header, PacketFrequency}, packet::{Packet, PacketData}}
+use std::io::{self, Cursor};
+use crate::packet::{
+    header::{Header, PacketFrequency},
+    packet::{Packet, PacketData},
+    packet_types::PacketType,
+};
 
 impl Packet{
     pub fn new_*local_name*(*local_name*: *PacketName* ) -> Self{
         Packet{
             header: Header{
-                id: *id*
-                reliable: false 
+                id: *id* ,
+                reliable: false, 
                 resent: false, 
                 zerocoded: false, 
                 appended_acks: false, 
-                sequence_number: false, 
+                sequence_number: 0, 
                 frequency: PacketFrequency::Low, 
                 ack_list: None, 
                 size: None
@@ -27,7 +32,9 @@ impl Packet{
 
 /// add your struct fields here
 #[derive (Debug, Clone)]
-pub struct *PacketName*
+pub struct *PacketName*{
+
+}
 
 impl PacketData for *PacketName* {
     fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
