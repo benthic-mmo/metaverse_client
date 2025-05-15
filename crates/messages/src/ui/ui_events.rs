@@ -24,7 +24,6 @@ pub enum UiEventTypes {
     DisableSimulatorEvent,
     /// Render generated patches
     LayerUpdateEvent,
-    
 
     /// for packets that are not UI events
     None,

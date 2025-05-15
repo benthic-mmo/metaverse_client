@@ -2,18 +2,9 @@ use actix::{Addr, Context};
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::UdpSocket;
 
-#[cfg(feature = "agent")]
-use metaverse_agent::{
-    avatar_appearance_handler::{parse_texture_data, parse_visual_param_data},
-    object_update_handler::handle_object_update,
-};
-
-#[cfg(feature = "environment")]
-use metaverse_environment::layer_handler::{PatchData, PatchLayer, parse_layer_data};
-
-use log::{error, info, warn};
+use log::{error, warn};
 use metaverse_messages::{
-    core::{object_update::ObjectType, packet_ack::PacketAck},
+    core::packet_ack::PacketAck,
     packet::{packet::Packet, packet_types::PacketType},
     ui::ui_events::UiEventTypes,
 };
@@ -30,12 +21,6 @@ impl Mailbox {
     ) {
         let mut buf = [0; 1500];
 
-        #[cfg(feature = "environment")]
-        let mut patch_queue = HashMap::new();
-
-        #[cfg(feature = "environment")]
-        let mut total_patches = HashMap::new();
-
         loop {
             match sock.recv_from(&mut buf).await {
                 Ok((size, _addr)) => {
@@ -44,6 +29,7 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(_) => {
+                            //                            println!("{:?}", e);
                             continue;
                         }
                     };
@@ -95,69 +81,22 @@ impl Mailbox {
                             }
                             break;
                         }
-                        PacketType::ObjectUpdate(data) => match data.pcode {
-                            ObjectType::Tree
-                            | ObjectType::Grass
-                            | ObjectType::Prim
-                            | ObjectType::Unknown
-                            | ObjectType::ParticleSystem
-                            | ObjectType::NewTree
-                            | ObjectType::None => {
-                                #[cfg(feature = "environment")]
-                                info!("Received environment data");
-                            }
-                            ObjectType::Avatar => {
-                                #[cfg(feature = "agent")]
-                                if let Err(e) = handle_object_update(data) {
-                                    warn!("Error handling avatar {:?}", e);
-                                };
-                            }
-                        },
-                        #[cfg(feature = "environment")]
-                        PacketType::LayerData(data) => {
-                            if let Ok(patch_data) = parse_layer_data(data) {
-                                match patch_data {
-                                    PatchLayer::Land(patches) => {
-                                        for land in patches {
-                                            total_patches
-                                                .insert(land.terrain_header.location, land.clone());
-                                            let mut layer_updates = land.generate_ui_event(
-                                                &mut patch_queue,
-                                                &total_patches,
-                                            );
-                                            let queue_save = patch_queue.clone();
-                                            for (_location, land) in queue_save {
-                                                layer_updates.extend(land.generate_ui_event(
-                                                    &mut patch_queue,
-                                                    &total_patches,
-                                                ));
-                                            }
-                                            for layer in layer_updates {
-                                                if let Err(e) = mailbox_address
-                                                    .send(UiMessage::new(
-                                                        UiEventTypes::LayerUpdateEvent,
-                                                        layer.to_bytes(),
-                                                    ))
-                                                    .await
-                                                {
-                                                    println!(
-                                                        "Failed to send LayerUpdate event to UI {:?}",
-                                                        e
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-                                    PatchLayer::Wind(_patches) => {}
-                                    PatchLayer::Water(_patches) => {}
-                                    PatchLayer::Cloud(_patches) => {}
-                                }
-                            }
+                        PacketType::ObjectUpdate(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle ObjectUpdate {:?}", e)
+                            };
                         }
                         #[cfg(feature = "agent")]
-                        PacketType::AvatarAppearance(data) => {
-                            parse_texture_data(&data.texture_data);
-                            parse_visual_param_data(&data.visual_param_data);
+                        PacketType::AgentWearablesUpdate(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle AgentWearablesUpdate {:?}", e)
+                            };
+                        }
+                        #[cfg(feature = "environment")]
+                        PacketType::LayerData(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle AgentWearablesUpdate {:?}", e)
+                            };
                         }
                         _ => {}
                     }
@@ -180,7 +119,8 @@ impl Mailbox {
             }
         }
     }
-
+    /// Set the state of the mailbox. 
+    /// Determines if it's running or started or stopped. 
     pub fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
         let state_clone = Arc::clone(&self.state);
         {

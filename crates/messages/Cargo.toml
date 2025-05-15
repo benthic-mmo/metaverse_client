@@ -26,6 +26,7 @@ thiserror = "2.0.12"
 reqwest = "0.12.15"
 rgb = "0.8.50"
 actix-http = "3.11.0"
+serde-llsd = "0.3.6"
 [dependencies.uuid]
 version = "1.16.0"
 features = [

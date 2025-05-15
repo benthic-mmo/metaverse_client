@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
-use crate::core::{Mailbox, Session, UiMessage};
+use crate::core::{
+    EnvironmentCache, InventoryData, Mailbox, RefreshInventoryEvent, Session, UiMessage,
+};
 use log::{info, warn};
 use metaverse_messages::{
+    agent::agent_wearables_request::AgentWearablesRequest,
     capabilities::capabilities::{Capability, CapabilityRequest},
     errors::errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError},
     login::{
@@ -125,10 +128,24 @@ async fn handle_login(
         .send(Session {
             server_socket: login_response.sim_port.unwrap(),
             url: login_response.sim_ip.unwrap(),
-            agent_id: login_response.agent_id.unwrap(),
-            session_id: login_response.session_id.unwrap(),
+            agent_id: login_response.agent_id,
+            session_id: login_response.session_id,
             seed_capability_url: login_response.seed_capability.unwrap(),
             capability_urls: HashMap::new(),
+
+            #[cfg(feature = "environment")]
+            environment_cache: EnvironmentCache {
+                patch_queue: HashMap::new(),
+                patch_cache: HashMap::new(),
+            },
+
+            #[cfg(feature = "inventory")]
+            inventory_data: InventoryData {
+                inventory_root: login_response.inventory_root,
+                inventory_lib_root: login_response.inventory_lib_root,
+                inventory_lib_owner: login_response.inventory_lib_owner,
+                inventory_tree: None,
+            },
             socket: None,
         })
         .await
@@ -141,8 +158,8 @@ async fn handle_login(
     if let Err(e) = mailbox_addr
         .send(Packet::new_circuit_code(CircuitCodeData {
             code: login_response.circuit_code,
-            session_id: login_response.session_id.unwrap(),
-            id: login_response.agent_id.unwrap(),
+            session_id: login_response.session_id,
+            id: login_response.agent_id,
         }))
         .await
     {
@@ -156,8 +173,8 @@ async fn handle_login(
         .send(Packet::new_complete_agent_movement(
             CompleteAgentMovementData {
                 circuit_code: login_response.circuit_code,
-                session_id: login_response.session_id.unwrap(),
-                agent_id: login_response.agent_id.unwrap(),
+                session_id: login_response.session_id,
+                agent_id: login_response.agent_id,
             },
         ))
         .await
@@ -166,18 +183,42 @@ async fn handle_login(
             CompleteAgentMovementError::new(format!("{}", e)),
         ));
     };
-
+    if let Err(e) = mailbox_addr
+        .send(Packet::new_agent_wearables_request(AgentWearablesRequest {
+            agent_id: login_response.agent_id,
+            session_id: login_response.session_id,
+        }))
+        .await
+    {
+        return Err(SessionError::CompleteAgentMovement(
+            CompleteAgentMovementError::new(format!("{}", e)),
+        ));
+    };
     if let Err(e) = mailbox_addr
         .send(CapabilityRequest::new_capability_request(vec![
             #[cfg(any(feature = "agent", feature = "environment"))]
-            Capability::GetMesh,
-            #[cfg(feature = "agent")]
-            Capability::AvatarRenderInfo,
+            Capability::ViewerAsset,
+            #[cfg(feature = "inventory")]
+            Capability::FetchLibDescendents2,
+            #[cfg(feature = "inventory")]
+            Capability::FetchInventoryDescendents2,
         ]))
         .await
     {
         return Err(SessionError::Capability(CapabilityError::new(format!(
             "{}",
+            e
+        ))));
+    }
+    #[cfg(feature = "inventory")]
+    if let Err(e) = mailbox_addr
+        .send(RefreshInventoryEvent {
+            agent_id: login_response.agent_id,
+        })
+        .await
+    {
+        return Err(SessionError::Capability(CapabilityError::new(format!(
+            "failed to retrieve inventory {}",
             e
         ))));
     }

@@ -52,19 +52,19 @@ pub fn chat_screen(
                     text_edit_response.request_focus();
                     send = true;
                 }
-                if ui.button("Send").clicked() {
+                if send && !chat_message.message.trim().is_empty() {
                     send = true;
                 }
             });
         });
 
-    if send {
+    if (chat_message.message != "") && send {
         let message = chat_message.message.clone();
         chat_message.message = "".to_string();
         let data = session_data.login_response.as_ref().unwrap();
         let packet = Packet::new_chat_from_viewer(ChatFromViewer {
-            session_id: data.session_id.unwrap(),
-            agent_id: data.agent_id.unwrap(),
+            session_id: data.session_id,
+            agent_id: data.agent_id,
             message,
             channel: 0,
             message_type: ChatType::Normal,

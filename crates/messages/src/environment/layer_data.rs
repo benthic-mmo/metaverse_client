@@ -3,6 +3,7 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
+use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{self, Cursor, Read};
 
@@ -26,7 +27,8 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
 /// Layer data struct
 pub struct LayerData {
     /// Layer type. Land, Wind, Cloud and Water. Also contains extended versions.

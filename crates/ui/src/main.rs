@@ -4,7 +4,7 @@ mod loading;
 mod login;
 
 use actix_rt::System;
-use bevy::app::{ctrlc, TerminalCtrlCHandlerPlugin};
+use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
 use bevy::window::WindowCloseRequested;
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
@@ -20,6 +20,7 @@ use keyring::Entry;
 use loading::loading_screen;
 use log::{error, info, warn};
 use login::login_screen;
+use metaverse_messages::agent::agent_update::AgentUpdate;
 use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login::login_errors::LoginError;
 use metaverse_messages::login::login_response::LoginResponse;
@@ -75,6 +76,9 @@ struct LoginResponseEvent {
 struct CoarseLocationUpdateEvent {
     _value: CoarseLocationUpdate,
 }
+
+#[derive(Resource)]
+pub struct AgentUpdateTimer(Timer);
 
 #[derive(Event)]
 struct DisableSimulatorEvent;
@@ -143,19 +147,19 @@ fn main() {
     }
 
     App::new()
-        .add_plugins(DefaultPlugins
-            .set(AssetPlugin {
-                file_path: "assets".into(),
-                unapproved_path_mode: UnapprovedPathMode::Allow,
-                ..default()
-            })
-            .set(WindowPlugin {
-                close_when_requested: false,
-                ..default()
-            }).set(TerminalCtrlCHandlerPlugin{
-                ..default()
-            }))
-
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    file_path: "assets".into(),
+                    unapproved_path_mode: UnapprovedPathMode::Allow,
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    close_when_requested: false,
+                    ..default()
+                })
+                .set(TerminalCtrlCHandlerPlugin { ..default() }),
+        )
         .add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: false,
         })
@@ -164,7 +168,6 @@ fn main() {
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Update, handle_window_close)
         .add_systems(Update, handle_logout)
-
         // initial state of viewer is default, which is Login
         .init_state::<ViewerState>()
         .insert_resource(SessionData {
@@ -188,6 +191,7 @@ fn main() {
         //TODO: these should be in a plugin
         .add_systems(Startup, start_client)
         .add_systems(Startup, start_listener)
+        .add_systems(Startup, setup_timers)
         .add_systems(Update, handle_queue)
         .add_systems(Update, handle_login_response)
         .add_systems(Update, handle_disconnect)
@@ -204,7 +208,18 @@ fn main() {
         )
         .add_systems(Update, check_model_loaded)
         .add_systems(Update, chat_screen.run_if(in_state(ViewerState::Chat)))
+        .add_systems(
+            Update,
+            send_agent_update.run_if(in_state(ViewerState::Chat)),
+        )
         .run();
+}
+
+fn setup_timers(mut commands: Commands) {
+    commands.insert_resource(AgentUpdateTimer(Timer::from_seconds(
+        0.1,
+        TimerMode::Repeating,
+    )));
 }
 
 fn handle_login_response(
@@ -336,16 +351,16 @@ fn start_client(sockets: Res<Sockets>) {
     });
 }
 
-fn handle_logout (
+fn handle_logout(
     mut events: EventReader<LogoutRequestEvent>,
     session_data: Res<SessionData>,
     sockets: Res<Sockets>,
-){
-    for _ in events.read(){
-    let data = session_data.login_response.as_ref().unwrap();
-        let packet = Packet::new_logout_request(LogoutRequest{
-            session_id: data.session_id.unwrap(),
-            agent_id: data.agent_id.unwrap()
+) {
+    for _ in events.read() {
+        let data = session_data.login_response.as_ref().unwrap();
+        let packet = Packet::new_logout_request(LogoutRequest {
+            session_id: data.session_id,
+            agent_id: data.agent_id,
         })
         .to_bytes();
         let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
@@ -353,11 +368,38 @@ fn handle_logout (
             &packet,
             format!("127.0.0.1:{}", sockets.ui_to_server_socket),
         ) {
-            Ok(_) => println!("Chat message sent from UI"),
-            Err(e) => println!("Error sending chat from UI {:?}", e),
+            Ok(_) => {}
+            Err(e) => println!("Error sending logout from UI {:?}", e),
         };
     }
+}
 
+fn send_agent_update(
+    session_data: Res<SessionData>,
+    sockets: Res<Sockets>,
+    time: Res<Time>,
+    mut timer: ResMut<AgentUpdateTimer>,
+) {
+    if !timer.0.tick(time.delta()).just_finished() {
+        return;
+    }
+
+    let data = session_data.login_response.as_ref().unwrap();
+    let packet = Packet::new_agent_update(AgentUpdate {
+        agent_id: data.agent_id,
+        session_id: data.session_id,
+        ..Default::default()
+    })
+    .to_bytes();
+
+    let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+    match client_socket.send_to(
+        &packet,
+        format!("127.0.0.1:{}", sockets.ui_to_server_socket),
+    ) {
+        Ok(_) => {}
+        Err(e) => println!("Error sending agent update from UI {:?}", e),
+    };
 }
 
 fn handle_window_close(
@@ -368,11 +410,10 @@ fn handle_window_close(
 ) {
     for _ in events.read() {
         info!("Window close requested. Exiting...");
-        if *viewer_state == ViewerState::Chat{
+        if *viewer_state == ViewerState::Chat {
             info!("Sending Logout");
             logout.write(LogoutRequestEvent);
         }
         exit.write(AppExit::Success);
-
     }
 }

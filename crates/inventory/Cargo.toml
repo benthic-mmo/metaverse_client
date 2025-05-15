@@ -1,0 +1,17 @@
+[package]
+name = "metaverse_inventory"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+awc = "3.7.0"
+dirs = "6.0.0"
+log = "0.4.27"
+metaverse_messages = {path = "../messages/"}
+quick-xml = "0.37.5"
+serde = "1.0.219"
+serde-llsd = "0.3.6"
+thiserror = "2.0.12"
+uuid = "1.16.0"
+xmlwriter = "0.1.0"

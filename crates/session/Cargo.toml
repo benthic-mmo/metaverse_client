@@ -11,6 +11,7 @@ edition = "2024"
 metaverse_messages = {path = "../messages/"}
 metaverse_environment = {path = "../environment/", optional = true}
 metaverse_agent = {path = "../agent/", optional = true}
+metaverse_inventory = {path = "../inventory/", optional = true}
 
 tokio = { version = "1.45.0", features = ["full"] }
 env_logger = "0.11"
@@ -39,9 +40,11 @@ features = [
 
 # allow for compiling a barebones viewer
 [features]
-default = ["environment", "agent"]
+default = ["environment", "agent", "inventory"]
 
 # allow for compiling the viewer without any environment rendering
 environment = ["dep:metaverse_environment"]
 # allow for compiling the viewer without any agent rendering 
 agent = ["dep:metaverse_agent"]
+
+inventory = ["dep:metaverse_inventory"]

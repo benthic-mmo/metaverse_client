@@ -110,6 +110,12 @@ pub struct State {
     pub editing: bool,
 }
 impl State {
+    fn default() -> Self {
+        Self {
+            typing: false,
+            editing: false,
+        }
+    }
     /// Converts the bits containing the state information to booleans using a bitwise and
     pub fn from_bytes(bits: u8) -> Self {
         Self {
@@ -199,7 +205,44 @@ pub struct ControlFlags {
     /// undocumented
     pub ml_button_up: bool,
 }
+
 impl ControlFlags {
+    fn default() -> Self {
+        Self {
+            at_pos: false,
+            at_neg: false,
+            left_pos: false,
+            left_neg: false,
+            up_pos: false,
+            up_neg: false,
+            pitch_pos: false,
+            pitch_neg: false,
+            yaw_pos: false,
+            yaw_neg: false,
+            fast_at: false,
+            fast_left: false,
+            fast_up: false,
+            fly: false,
+            stop: false,
+            finish_anim: false,
+            stand_up: false,
+            sit_on_ground: false,
+            mouselook: false,
+            nudge_at_pos: false,
+            nudge_at_neg: false,
+            nudge_left_pos: false,
+            nudge_left_neg: false,
+            nudge_up_pos: false,
+            nudge_up_neg: false,
+            turn_left: false,
+            turn_right: false,
+            away: false,
+            l_button_down: false,
+            l_button_up: false,
+            ml_button_down: false,
+            ml_button_up: false,
+        }
+    }
     /// Converts control flags bits to bools using bitwise ands
     pub fn from_bytes(bits: u32) -> Self {
         Self {
@@ -350,6 +393,12 @@ pub struct Flags {
 }
 #[allow(clippy::bad_bit_mask)]
 impl Flags {
+    fn default() -> Self {
+        Self {
+            none: false,
+            hide_title: false,
+        }
+    }
     /// Converts from bits to boolean using bitwise and
     pub fn from_bytes(bits: u8) -> Self {
         Self {
@@ -397,6 +446,24 @@ pub struct AgentUpdate {
     pub control_flags: ControlFlags,
     /// wether or not to hide title
     pub flags: Flags,
+}
+impl Default for AgentUpdate {
+    fn default() -> Self {
+        Self {
+            agent_id: Uuid::nil(),
+            session_id: Uuid::nil(),
+            body_rotation: Quat::IDENTITY,
+            head_rotation: Quat::IDENTITY,
+            state: State::default(),
+            camera_center: Vec3::ZERO,
+            camera_at_axis: Vec3::Z,
+            camera_left_axis: Vec3::X,
+            camera_up_axis: Vec3::Y,
+            far: 200.0,
+            control_flags: ControlFlags::default(),
+            flags: Flags::default(),
+        }
+    }
 }
 
 /// Traits tha allows converting quaternions to and from bytes compatable with the protocol's
