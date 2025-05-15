@@ -22,3 +22,5 @@ pub mod initialize;
 pub mod udp_handler;
 /// This module is for running in your client to subscribe to the server events
 pub mod ui_subscriber;
+/// This module handles sending http requests to the enabled capability endpoints.
+pub mod http_handler;

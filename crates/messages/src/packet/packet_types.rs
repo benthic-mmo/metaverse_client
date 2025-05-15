@@ -3,6 +3,7 @@ use std::io;
 
 use super::header::PacketFrequency;
 use crate::agent::agent_wearables_request::AgentWearablesRequest;
+use crate::agent::agent_wearables_update::AgentWearablesUpdate;
 use crate::agent::avatar_appearance::AvatarAppearance;
 use crate::core::object_update::ObjectUpdate;
 use crate::login::logout_request::LogoutRequest;
@@ -59,6 +60,8 @@ pub enum PacketType {
     ObjectUpdate(Box<ObjectUpdate>),
     /// AgentWearablesRequest packet
     AgentWearablesRequest(Box<AgentWearablesRequest>),
+    /// AgentWearablesUpdate packet
+    AgentWearablesUpdate(Box<AgentWearablesUpdate>),
     /// Send a request to the server for a logout
     LogoutRequest(Box<LogoutRequest>),
 
@@ -106,6 +109,7 @@ impl PacketType {
             PacketType::ObjectUpdate(data) => data.to_bytes(),
             PacketType::AgentWearablesRequest(data) => data.to_bytes(),
             PacketType::LogoutRequest(data) => data.to_bytes(),
+            PacketType::AgentWearablesUpdate(data) => data.to_bytes(),
 
             PacketType::LoginResponse(_) => Vec::new(),
             PacketType::Login(data) => data.to_bytes(),
@@ -176,7 +180,12 @@ impl PacketType {
                 249 => Ok(PacketType::CompleteAgentMovementData(Box::new(
                     CompleteAgentMovementData::from_bytes(bytes)?,
                 ))),
-                252 => Ok(PacketType::LogoutRequest(Box::new(LogoutRequest::from_bytes(bytes)?,))),
+                252 => Ok(PacketType::LogoutRequest(Box::new(
+                    LogoutRequest::from_bytes(bytes)?,
+                ))),
+                382 => Ok(PacketType::AgentWearablesUpdate(Box::new(
+                    AgentWearablesUpdate::from_bytes(bytes)?,
+                ))),
                 id => Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     format!("Unknown packet ID: {}, frequency: {}", id, frequency),

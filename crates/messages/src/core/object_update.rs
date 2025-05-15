@@ -1,12 +1,16 @@
+use actix::Message;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
 use uuid::Uuid;
 
-use crate::packet::{
-    header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    packet::{
+        header::{Header, PacketFrequency},
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
+    utils::object_types::ObjectType,
 };
 use std::io::{self, Cursor, Read};
 
@@ -26,55 +30,6 @@ impl Packet {
                 size: None,
             },
             body: PacketType::ObjectUpdate(Box::new(object_update)),
-        }
-    }
-}
-#[derive(Debug, Clone)]
-/// The types of objects in OpenSimulator
-pub enum ObjectType {
-    /// None is an object that is not an object
-    None,
-    /// A primitive object. (cube, spehere, torus, etc)
-    Prim,
-    /// An avatar belonging to a user
-    Avatar,
-    /// a grass object
-    Grass,
-    /// a particle system object
-    ParticleSystem,
-    /// a tree
-    Tree,
-    /// an improved, more modern tree
-    NewTree,
-    /// unknonw type
-    Unknown,
-}
-impl ObjectType {
-    /// Maps the byte values of ObjectTypes to their correct data type
-    pub fn to_bytes(&self) -> u8 {
-        match self {
-            ObjectType::None => 0,
-            ObjectType::Prim => 9,
-            ObjectType::Avatar => 47,
-            ObjectType::Grass => 95,
-            ObjectType::ParticleSystem => 143,
-            ObjectType::Tree => 255,
-            ObjectType::NewTree => 111,
-            ObjectType::Unknown => 1,
-        }
-    }
-
-    /// convert bytes to their ObjectType representation
-    pub fn from_bytes(bytes: &u8) -> Self {
-        match bytes {
-            0 => ObjectType::None,
-            9 => ObjectType::Prim,
-            47 => ObjectType::Avatar,
-            95 => ObjectType::Grass,
-            143 => ObjectType::ParticleSystem,
-            255 => ObjectType::Tree,
-            111 => ObjectType::NewTree,
-            _ => ObjectType::Unknown,
         }
     }
 }
@@ -141,7 +96,8 @@ impl MaterialType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
 /// The object update packet. Receives object information. Is the first packet received when
 /// spawning objects into the viewer.
 pub struct ObjectUpdate {
@@ -295,7 +251,6 @@ impl PacketData for ObjectUpdate {
         let extra_params_length = cursor.read_u8()?;
         let mut extra_params = vec![0u8; extra_params_length as usize];
         cursor.read_exact(&mut extra_params)?;
-        println!("extra_params :{:?}", extra_params);
 
         let mut sound_bytes = [0u8; 41];
         cursor.read_exact(&mut sound_bytes)?;
@@ -351,7 +306,6 @@ impl PacketData for ObjectUpdate {
             joint_pivot,
             joint_axis_or_anchor,
         };
-        println!("{:?}", update);
         Ok(update)
     }
 

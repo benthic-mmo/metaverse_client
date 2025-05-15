@@ -9,8 +9,8 @@ use crate::{
     utils::agent_access::{AgentAccess, parse_agent_access},
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::error::Error;
+use std::{collections::BTreeMap, str::FromStr};
 use uuid::Uuid;
 use xmlrpc_benthic::{self as xmlrpc, Value};
 
@@ -40,7 +40,7 @@ pub struct LoginResponse {
     /// The last name of the user
     pub last_name: String,
     /// The id of the user
-    pub agent_id: Option<Uuid>,
+    pub agent_id: Uuid,
     /// The ip used to communicate with the receiving simulator
     pub sim_ip: Option<String>,
     /// The UDP port used to communicate with the receiving simulator
@@ -62,19 +62,19 @@ pub struct LoginResponse {
     /// Circuit code to use for all UDP connections
     pub circuit_code: u32,
     /// UUID of this session
-    pub session_id: Option<Uuid>,
+    pub session_id: Uuid,
     /// The secure UUID of this session
     pub secure_session_id: Option<Uuid>,
     /// The ID of the user's root folder
-    pub inventory_root: Option<Vec<InventoryRootValues>>,
+    pub inventory_root: Option<Vec<Uuid>>,
     /// Details about the child folders of the root folder
     pub inventory_skeleton: Option<Vec<InventorySkeletonValues>>,
     /// The ID of the library root folder
-    pub inventory_lib_root: Option<Vec<InventoryRootValues>>,
+    pub inventory_lib_root: Option<Vec<Uuid>>,
     /// Details about the child folders of the library root folder
     pub inventory_skeleton_lib: Option<Vec<InventorySkeletonValues>>,
     /// The ID of the user that owns the library
-    pub inventory_lib_owner: Option<Vec<AgentID>>,
+    pub inventory_lib_owner: Option<Vec<Uuid>>,
     /// URL from which to request map tiles
     pub map_server_url: Option<String>,
     /// The user's friend list. Contains an entry for each friend
@@ -143,9 +143,10 @@ impl From<LoginResponse> for Value {
         map.insert("first_name".to_string(), Value::String(val.first_name));
         map.insert("last_name".to_string(), Value::String(val.last_name));
 
-        if let Some(agent_id) = val.agent_id {
-            map.insert("agent_id".to_string(), Value::String(agent_id.to_string()));
-        }
+        map.insert(
+            "agent_id".to_string(),
+            Value::String(val.agent_id.to_string()),
+        );
         if let Some(sim_ip) = val.sim_ip {
             map.insert("sim_ip".to_string(), Value::String(sim_ip));
         }
@@ -182,12 +183,11 @@ impl From<LoginResponse> for Value {
             Value::Int(val.circuit_code as i32),
         );
 
-        if let Some(session_id) = val.session_id {
-            map.insert(
-                "session_id".to_string(),
-                Value::String(session_id.to_string()),
-            );
-        }
+        map.insert(
+            "session_id".to_string(),
+            Value::String(val.session_id.to_string()),
+        );
+
         if let Some(secure_session_id) = val.secure_session_id {
             map.insert(
                 "secure_session_id".to_string(),
@@ -198,7 +198,12 @@ impl From<LoginResponse> for Value {
         if let Some(inventory_root) = val.inventory_root {
             map.insert(
                 "inventory-root".to_string(),
-                Value::Array(inventory_root.into_iter().map(|item| item.into()).collect()),
+                Value::Array(
+                    inventory_root
+                        .into_iter()
+                        .map(|item| Value::String(item.to_string()))
+                        .collect(),
+                ),
             );
         }
         if let Some(inventory_skeleton) = val.inventory_skeleton {
@@ -218,7 +223,7 @@ impl From<LoginResponse> for Value {
                 Value::Array(
                     inventory_lib_root
                         .into_iter()
-                        .map(|item| item.into())
+                        .map(|item| Value::String(item.to_string()))
                         .collect(),
                 ),
             );
@@ -240,7 +245,7 @@ impl From<LoginResponse> for Value {
                 Value::Array(
                     inventory_lib_owner
                         .into_iter()
-                        .map(|item| item.into())
+                        .map(|item| Value::String(item.to_string()))
                         .collect(),
                 ),
             );
@@ -373,8 +378,21 @@ macro_rules! nonoptional_str_val {
         }
     };
 }
-#[macro_export]
 
+/// extracts a uuid from a xmlrpc value, where the value cannot be None
+#[macro_export]
+macro_rules! nonoptional_uuid_val {
+    ($val:expr) => {
+        match $val.as_str() {
+            Some(s) => {
+                Uuid::parse_str(s).expect(concat!("Invalid UUID in field: ", stringify!($val)))
+            }
+            None => panic!(concat!("Missing UUID field: ", stringify!($val))),
+        }
+    };
+}
+
+#[macro_export]
 /// extracts a UUID from an xmlrpc value, where the value cannot be None
 macro_rules! uuid_val {
     ($val:expr) => {
@@ -439,31 +457,6 @@ macro_rules! bool_val {
             _ => Some(false),
         }
     };
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-/// A struct to contain an AgentID. Not necessarily useful, since it only contains a String.
-pub struct AgentID {
-    /// the ID of the agent
-    pub agent_id: String,
-}
-impl From<AgentID> for Value {
-    fn from(val: AgentID) -> Self {
-        Value::String(val.agent_id)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-/// A struct to contain InventoryRootValues. Not necessarily useful since it only contains a
-/// string.  
-pub struct InventoryRootValues {
-    /// ID of the folder serving as the inventory root
-    pub folder_id: String,
-}
-impl From<InventoryRootValues> for Value {
-    fn from(val: InventoryRootValues) -> Self {
-        Value::String(val.folder_id)
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -894,32 +887,36 @@ fn parse_inventory_skeleton(
     Some(value_vec)
 }
 
-/// converts xmlrpc to an inventory_root obect
-fn parse_inventory_root(values: Option<&xmlrpc::Value>) -> Option<Vec<InventoryRootValues>> {
+/// converts xmlrpc to a UUID
+fn parse_inventory_root(values: Option<&xmlrpc::Value>) -> Option<Vec<Uuid>> {
     let mut value_vec = vec![];
     let unwrapped_values = match values {
         None => return None,
         Some(x) => x.as_array().unwrap(),
     };
     for value in unwrapped_values {
-        value_vec.push(InventoryRootValues {
-            folder_id: value["folder_id"].as_str().unwrap().to_string(),
-        });
+        if let Ok(id) = Uuid::from_str(&value["folder_id"].as_str().unwrap().to_string()) {
+            {
+                value_vec.push(id);
+            }
+        }
     }
     Some(value_vec)
 }
 
 /// converts xmlrpc to an inventory_lib_owner object
-fn parse_inventory_lib_owner(values: Option<&xmlrpc::Value>) -> Option<Vec<AgentID>> {
+fn parse_inventory_lib_owner(values: Option<&xmlrpc::Value>) -> Option<Vec<Uuid>> {
     let mut value_vec = vec![];
     let unwrapped_values = match values {
         None => return None,
         Some(x) => x.as_array().unwrap(),
     };
     for value in unwrapped_values {
-        value_vec.push(AgentID {
-            agent_id: value["agent_id"].as_str().unwrap().to_string(),
-        });
+        if let Ok(id) = Uuid::from_str(&value["agent_id"].as_str().unwrap().to_string()) {
+            {
+                value_vec.push(id);
+            }
+        }
     }
     Some(value_vec)
 }
@@ -1160,7 +1157,7 @@ impl TryFrom<xmlrpc::Value> for LoginResponse {
             seed_capability: str_val!(val["seed_capability"]),
             first_name: nonoptional_str_val!(val["first_name"])?,
             last_name: nonoptional_str_val!(val["last_name"])?,
-            agent_id: uuid_val!(val["agent_id"]),
+            agent_id: nonoptional_uuid_val!(val["agent_id"]),
             sim_ip: str_val!(val["sim_ip"]),
             sim_port: u16_val!(val["sim_port"]),
             http_port: u16_val!(val["http_port"]),
@@ -1170,7 +1167,7 @@ impl TryFrom<xmlrpc::Value> for LoginResponse {
             region_size_x: i64_val!(val["region_size_x"]),
             region_size_y: i64_val!(val["region_size_y"]),
             circuit_code: nonoptional_u32_val!(val["circuit_code"])?,
-            session_id: uuid_val!(val["session_id"]),
+            session_id: nonoptional_uuid_val!(val["session_id"]),
             secure_session_id: uuid_val!(val["secure_session_id"]),
             inventory_root: parse_inventory_root(val.get("inventory-root")),
             inventory_skeleton: parse_inventory_skeleton(val.get("inventory-skeleton")),

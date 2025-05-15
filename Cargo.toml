@@ -4,4 +4,4 @@ resolver = "2"
 members = [
 	"crates/session",
 	"crates/messages",
-  "crates/ui", "crates/environment", "crates/agent"]
+  "crates/ui", "crates/environment", "crates/agent", "crates/inventory"]

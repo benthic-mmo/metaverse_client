@@ -1,26 +1,43 @@
 use actix::prelude::*;
 use actix_rt::time;
 use bincode;
+use glam::U16Vec2;
 use log::{error, info};
 
-use metaverse_messages::capabilities::capabilities::CapabilityRequest;
+#[cfg(feature = "agent")]
+use metaverse_agent::object_update_handler::handle_object_update;
+#[cfg(feature = "environment")]
+use metaverse_environment::{
+    land::Land,
+    layer_handler::{PatchData, PatchLayer, parse_layer_data},
+};
+
+use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
+use metaverse_messages::agent::agent_wearables_update::AgentWearablesUpdate;
+use metaverse_messages::capabilities::{
+    capabilities::{Capability, CapabilityRequest},
+    folder_types::FolderNode,
+};
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
+use metaverse_messages::core::object_update::ObjectUpdate;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
+use metaverse_messages::environment::layer_data::LayerData;
 use metaverse_messages::errors::errors::AckError;
 use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::ui_events::UiEventTypes;
-use quick_xml::Reader;
-use quick_xml::events::Event;
+use metaverse_messages::utils::object_types::ObjectType;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::{collections::HashMap, path::PathBuf};
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
+
+use crate::http_handler::download_asset;
 
 const ACK_ATTEMPTS: i8 = 3;
 const ACK_TIMEOUT: Duration = Duration::from_secs(1);
@@ -69,7 +86,51 @@ pub struct Session {
     /// The URL endpoint to request more capabilities
     pub seed_capability_url: String,
     /// The HashMap for storing capability URLs
-    pub capability_urls: HashMap<String, String>,
+    pub capability_urls: HashMap<Capability, String>,
+
+    /// this stores information about the Inventory, like the rootID and the current inventory
+    /// tree in memory.
+    #[cfg(feature = "inventory")]
+    pub inventory_data: InventoryData,
+
+    /// The environment cache. Contains things for handling and generating the environment.
+    #[cfg(feature = "environment")]
+    pub environment_cache: EnvironmentCache,
+}
+
+#[cfg(feature = "environment")]
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+/// Contains the patch queue and patch cache.
+pub struct EnvironmentCache {
+    /// contains unprocessed patches that are yet to have their dependencies met.
+    /// The dependencies are the required patches that live on their three corners.
+    /// if the north, east and diagonal patches have not loaded in yet, they will remain in
+    /// the patch queue until they come in.
+    pub patch_queue: HashMap<U16Vec2, Land>,
+    /// All of the patches that been received this session.
+    pub patch_cache: HashMap<U16Vec2, Land>,
+}
+
+#[cfg(feature = "inventory")]
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+/// Contains information about the Inventory
+pub struct InventoryData {
+    /// The root of the inventory, received from the LoginResponse. This is a vector of the base
+    /// UUIDs that will be used to create the root of the inventory tree using a
+    /// FetchInventoryDescendents2 call.
+    pub inventory_root: Option<Vec<Uuid>>,
+    /// The root of the inventory lib, received from the LoginResponse. This is a vector of base
+    /// UUIDs that will be used to create the root of the inventory lib tree using a
+    /// FetchLibDescendents2 call. The library contains the public inventory for the simulator and
+    /// is used to retrieve other people's items and appearances.
+    pub inventory_lib_root: Option<Vec<Uuid>>,
+    /// The UUID of the owner of the inventory lib. Used to create the FetchLibDescendents2 call.
+    pub inventory_lib_owner: Option<Vec<Uuid>>,
+
+    /// The in-memory representation of the inventory file tree. Constructed as a tree of Folders.
+    pub inventory_tree: Option<FolderNode>,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.
@@ -138,7 +199,7 @@ pub struct RegionHandshakeMessage;
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct SetCapabilityUrls {
-    capability_urls: HashMap<String, String>,
+    capability_urls: HashMap<Capability, String>,
 }
 
 /// The state of the Mailbox
@@ -154,9 +215,19 @@ pub enum ServerState {
     Stopped,
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+/// Called when the inventory needs to be refreshed. Does a full fetch of the inventory and
+/// rebuilds the inventory folders on the disk. 
+pub struct RefreshInventoryEvent {
+    /// The agent ID for the inventory refresh. Determines which endpoint to use. If it's the
+    /// current user, fetch the FetchInventoryDescendents2. If it isn't, fetch from the
+    /// FetchLibDescendents2 endpoint.
+    pub agent_id: Uuid,
+}
+
 impl Actor for Mailbox {
     type Context = Context<Self>;
-
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Mailbox has started");
         self.set_state(ServerState::Running, ctx);
@@ -243,7 +314,6 @@ impl Handler<UiMessage> for Mailbox {
     }
 }
 
-// set the session to initialized.
 impl Handler<Session> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Session, ctx: &mut Self::Context) -> Self::Result {
@@ -298,6 +368,7 @@ impl Handler<Session> for Mailbox {
         }
     }
 }
+
 /// This handles incoming packets sent to the Mailbox.
 /// this sends acks if the header is reliable, and increases the sequence number.
 impl Handler<Packet> for Mailbox {
@@ -401,9 +472,12 @@ async fn send_ack(
 
 impl Handler<SetCapabilityUrls> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: SetCapabilityUrls, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &mut self.session {
             session.capability_urls.extend(msg.capability_urls);
+            ctx.address().do_send(RefreshInventoryEvent {
+                agent_id: session.agent_id,
+            });
         }
     }
 }
@@ -423,10 +497,9 @@ impl Handler<CapabilityRequest> for Mailbox {
                         .send_body(msg.capabilities)
                         .await
                     {
-                        Ok(mut hello) => match hello.body().await {
+                        Ok(mut get) => match get.body().await {
                             Ok(body) => {
-                                let capability_urls =
-                                    parse_llsd(&String::from_utf8_lossy(&body).to_string());
+                                let capability_urls = CapabilityRequest::response_from_llsd(&body);
                                 address.do_send(SetCapabilityUrls { capability_urls });
                             }
                             Err(e) => {
@@ -445,37 +518,207 @@ impl Handler<CapabilityRequest> for Mailbox {
     }
 }
 
-fn parse_llsd(xml: &str) -> HashMap<String, String> {
-    let mut reader = Reader::from_str(xml);
-
-    let mut map = HashMap::new();
-    let mut current_key: Option<String> = None;
-
-    loop {
-        match reader.read_event() {
-            Ok(Event::Start(ref e)) => {
-                match e.name().as_ref() {
-                    b"key" => {
-                        // When we encounter <key>, we read the key text.
-                        if let Ok(Event::Text(e)) = reader.read_event() {
-                            current_key = Some(e.unescape().unwrap().to_string());
+#[cfg(any(feature = "agent", feature = "environment"))]
+impl Handler<ObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        match msg.pcode {
+            ObjectType::Tree
+            | ObjectType::Grass
+            | ObjectType::Prim
+            | ObjectType::Unknown
+            | ObjectType::ParticleSystem
+            | ObjectType::NewTree => {
+                #[cfg(feature = "environment")]
+                info!("Received environment data");
+            }
+            ObjectType::Avatar | ObjectType::Bodypart | ObjectType::Clothing => {
+                #[cfg(feature = "agent")]
+                if let Some(session) = &self.session {
+                    let capability_urls = session.capability_urls.clone();
+                    ctx.spawn(
+                        async move {
+                            match handle_object_update(msg, capability_urls).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!("{:?}", e);
+                                }
+                            };
                         }
-                    }
-                    b"string" => {
-                        // When we encounter <string>, we read the value text.
-                        if let Ok(Event::Text(e)) = reader.read_event() {
-                            if let Some(key) = current_key.take() {
-                                map.insert(key, e.unescape().unwrap().to_string());
+                        .into_actor(self),
+                    );
+                }
+            }
+            _ => {
+                println!("other value");
+            }
+        }
+    }
+}
+
+#[cfg(feature = "agent")]
+impl Handler<AgentWearablesUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AgentWearablesUpdate, ctx: &mut Self::Context) -> Self::Result {
+        #[cfg(feature = "agent")]
+        if let Some(session) = &self.session {
+            if msg.agent_id == session.agent_id {
+                if let Some(inventory) = &session.inventory_data.inventory_tree {
+                    if let Some(outfit_folder) = inventory.children.get(&ObjectType::CurrentOutfit)
+                    {
+                        if let Some(objects) = &outfit_folder.folder.items {
+                            for object in objects {
+                                println!("{:?}", object)
                             }
                         }
                     }
-                    _ => {}
+                } else {
+                    for wearable in msg.wearables.clone() {
+                        // checks to see if the server has a ViewerAsset url to get http assets from
+                        if let Some(url) = session
+                            .capability_urls
+                            .get(&Capability::ViewerAsset)
+                            .cloned()
+                        {
+                            ctx.spawn(
+                                async move {
+                                    match download_asset(
+                                        wearable.wearable_type.category(),
+                                        wearable.asset_id,
+                                        &url,
+                                    )
+                                    .await
+                                    {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            println!("{:?}", e)
+                                        }
+                                    }
+                                }
+                                .into_actor(self),
+                            );
+                        } else {
+                            // If it doesn't, use the legacy UDP method
+                            //TODO: implement the legacy UDP method lol
+                        }
+                    }
                 }
+            } else {
+                println!("NOT ENABLED FOR FETCHING FROM LIB YET")
             }
-            Ok(Event::Eof) => break,
-            Err(e) => panic!("XML error: {}", e),
-            _ => {}
         }
     }
-    map
+}
+
+#[cfg(feature = "environment")]
+impl Handler<LayerData> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: LayerData, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            if let Ok(patch_data) = parse_layer_data(&msg) {
+                match patch_data {
+                    PatchLayer::Land(patches) => {
+                        for land in patches {
+                            session
+                                .environment_cache
+                                .patch_cache
+                                .insert(land.terrain_header.location, land.clone());
+                            let mut layer_updates = land.generate_ui_event(
+                                &mut session.environment_cache.patch_queue,
+                                &session.environment_cache.patch_cache,
+                            );
+                            let queue_save = session.environment_cache.patch_queue.clone();
+                            for (_location, land) in queue_save {
+                                layer_updates.extend(land.generate_ui_event(
+                                    &mut session.environment_cache.patch_queue,
+                                    &session.environment_cache.patch_cache,
+                                ));
+                            }
+
+                            for layer in layer_updates {
+                                ctx.address().do_send(UiMessage::new(
+                                    UiEventTypes::LayerUpdateEvent,
+                                    layer.to_bytes(),
+                                ));
+                            }
+                        }
+                    }
+                    PatchLayer::Wind(_patches) => {}
+                    PatchLayer::Water(_patches) => {}
+                    PatchLayer::Cloud(_patches) => {}
+                }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "inventory")]
+impl Handler<RefreshInventoryEvent> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &self.session {
+            let capability_url = if msg.agent_id == session.agent_id {
+                session
+                    .capability_urls
+                    .get(&Capability::FetchInventoryDescendents2)
+            } else {
+                session
+                    .capability_urls
+                    .get(&Capability::FetchLibDescendents2)
+            };
+            if let Some(url) = capability_url {
+                // good lord
+                // this is obviously wrong but it works kind of
+                // TODO please god fix this immediately
+                // people are reading this code now
+                let folder_id = session
+                    .inventory_data
+                    .inventory_root
+                    .as_ref()
+                    .and_then(|vec| vec.get(0))
+                    .copied()
+                    .unwrap_or(Uuid::nil());
+
+                let owner_id = session.agent_id.clone();
+                let addr = ctx.address();
+                let url = url.clone();
+                ctx.spawn(
+                    async move {
+                        match refresh_inventory(
+                            FolderRequest {
+                                folder_id,
+                                owner_id,
+                                fetch_folders: true,
+                                fetch_items: true,
+                                sort_order: 0,
+                            },
+                            url,
+                            PathBuf::new(),
+                        )
+                        .await
+                        {
+                            Ok(inventory_nodes) => {
+                                // set the session's inventory data in memory
+                                addr.do_send(inventory_nodes);
+                            }
+                            Err(e) => {
+                                println!("{:?}", e)
+                            }
+                        }
+                    }
+                    .into_actor(self),
+                );
+            }
+        }
+    }
+}
+
+#[cfg(feature = "inventory")]
+impl Handler<FolderNode> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: FolderNode, _: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            session.inventory_data.inventory_tree = Some(msg);
+        }
+    }
 }

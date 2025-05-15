@@ -3,10 +3,12 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
+use byteorder::ReadBytesExt;
 use std::io::{self, Cursor, Read};
 use uuid::Uuid;
 
 impl Packet {
+    /// Create a new agent wearables request
     pub fn new_agent_wearables_request(agent_wearables_request: AgentWearablesRequest) -> Self {
         Packet {
             header: Header {
@@ -26,9 +28,16 @@ impl Packet {
 }
 
 #[derive(Debug, Clone)]
+/// This is used for requesting the wearables from a user. This is actually legacy code. This has
+/// been replaced by the FetchLibDescendents endpoint. When you receive an object update from
+/// another user, you send the FetchLibDescendents endpoint a post request asking for its
+/// currently_worn folder. The server will reply with an AgentWearablesUpdate, which will usually
+/// contain no useful data.
 pub struct AgentWearablesRequest {
-    agent_id: Uuid,
-    session_id: Uuid,
+    /// The agent ID of the user you want to request wearables for
+    pub agent_id: Uuid,
+    /// your current session ID
+    pub session_id: Uuid,
 }
 
 impl PacketData for AgentWearablesRequest {
@@ -42,6 +51,9 @@ impl PacketData for AgentWearablesRequest {
         let mut session_bytes = [0u8; 16];
         cursor.read_exact(&mut session_bytes)?;
         let session_id = Uuid::from_bytes(session_bytes);
+
+        let hello = cursor.read_u8()?;
+        println!("hello {:?}", hello);
 
         Ok(AgentWearablesRequest {
             agent_id,

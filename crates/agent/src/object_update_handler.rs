@@ -1,6 +1,12 @@
-use metaverse_messages::core::object_update::ObjectUpdate;
+use std::collections::HashMap;
 
-pub fn handle_object_update(data: &ObjectUpdate) -> std::io::Result<String> {
-    println!("{:?}", data);
+use metaverse_messages::{
+    capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
+};
+
+pub async fn handle_object_update(
+    _: ObjectUpdate,
+    _: HashMap<Capability, String>,
+) -> std::io::Result<String> {
     Ok("aaa".to_string())
 }
