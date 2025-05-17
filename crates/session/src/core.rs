@@ -2,10 +2,10 @@ use actix::prelude::*;
 use actix_rt::time;
 use bincode;
 use glam::U16Vec2;
-use log::{error, info};
+use log::{error, info, warn};
 
+use metaverse_agent::generate_model::generate_model;
 #[cfg(feature = "agent")]
-use metaverse_agent::object_update_handler::handle_object_update;
 #[cfg(feature = "environment")]
 use metaverse_environment::{
     land::Land,
@@ -13,10 +13,10 @@ use metaverse_environment::{
 };
 
 use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
-use metaverse_messages::agent::agent_wearables_update::AgentWearablesUpdate;
 use metaverse_messages::capabilities::{
     capabilities::{Capability, CapabilityRequest},
     folder_types::FolderNode,
+    item_data::ItemData,
 };
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
 use metaverse_messages::core::object_update::ObjectUpdate;
@@ -218,12 +218,36 @@ pub enum ServerState {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 /// Called when the inventory needs to be refreshed. Does a full fetch of the inventory and
-/// rebuilds the inventory folders on the disk. 
+/// rebuilds the inventory folders on the disk.
 pub struct RefreshInventoryEvent {
     /// The agent ID for the inventory refresh. Determines which endpoint to use. If it's the
     /// current user, fetch the FetchInventoryDescendents2. If it isn't, fetch from the
     /// FetchLibDescendents2 endpoint.
     pub agent_id: Uuid,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct RetrieveAsset {
+    pub object_type: ObjectType,
+    pub asset_id: Uuid,
+    pub path: PathBuf,
+    pub server_endpoint: String,
+    pub kind: RetrieveAssetKind,
+}
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+enum RetrieveAssetKind {
+    Agent,
+    Environment,
+    Inventory,
+}
+
+/// Trigger the function that creates the user model, and sends the data to the UI.
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct RenderAgent {
+    pub outfit: Vec<ItemData>,
 }
 
 impl Actor for Mailbox {
@@ -472,12 +496,9 @@ async fn send_ack(
 
 impl Handler<SetCapabilityUrls> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: SetCapabilityUrls, _: &mut Self::Context) -> Self::Result {
         if let Some(session) = &mut self.session {
             session.capability_urls.extend(msg.capability_urls);
-            ctx.address().do_send(RefreshInventoryEvent {
-                agent_id: session.agent_id,
-            });
         }
     }
 }
@@ -535,76 +556,73 @@ impl Handler<ObjectUpdate> for Mailbox {
             ObjectType::Avatar | ObjectType::Bodypart | ObjectType::Clothing => {
                 #[cfg(feature = "agent")]
                 if let Some(session) = &self.session {
-                    let capability_urls = session.capability_urls.clone();
-                    ctx.spawn(
-                        async move {
-                            match handle_object_update(msg, capability_urls).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    println!("{:?}", e);
-                                }
-                            };
-                        }
-                        .into_actor(self),
-                    );
-                }
-            }
-            _ => {
-                println!("other value");
-            }
-        }
-    }
-}
-
-#[cfg(feature = "agent")]
-impl Handler<AgentWearablesUpdate> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: AgentWearablesUpdate, ctx: &mut Self::Context) -> Self::Result {
-        #[cfg(feature = "agent")]
-        if let Some(session) = &self.session {
-            if msg.agent_id == session.agent_id {
-                if let Some(inventory) = &session.inventory_data.inventory_tree {
-                    if let Some(outfit_folder) = inventory.children.get(&ObjectType::CurrentOutfit)
-                    {
-                        if let Some(objects) = &outfit_folder.folder.items {
-                            for object in objects {
-                                println!("{:?}", object)
-                            }
-                        }
-                    }
-                } else {
-                    for wearable in msg.wearables.clone() {
-                        // checks to see if the server has a ViewerAsset url to get http assets from
-                        if let Some(url) = session
-                            .capability_urls
-                            .get(&Capability::ViewerAsset)
-                            .cloned()
+                    // if the ID of the object is your agent ID, you are downloading your own
+                    // current outfit.
+                    if session.agent_id == msg.full_id {
+                        if let Some(current_outfit) = session
+                            .inventory_data
+                            .inventory_tree
+                            .as_ref()
+                            .and_then(|tree| tree.children.get(&ObjectType::CurrentOutfit))
                         {
+                            // This could have been a request item event, but I want to make
+                            // sure that the entire directory is loaded and all of the assets
+                            // are downloaded before anything starts rendering.
+                            //
+                            // this is to keep people's clothes on.
+                            let address = ctx.address().clone();
+                            let url = session
+                                .capability_urls
+                                .clone()
+                                .get(&Capability::ViewerAsset)
+                                .unwrap()
+                                .clone();
+                            let elements = current_outfit.folder.items.clone();
+                            let outfit_path = current_outfit.path.clone();
                             ctx.spawn(
                                 async move {
-                                    match download_asset(
-                                        wearable.wearable_type.category(),
-                                        wearable.asset_id,
-                                        &url,
-                                    )
-                                    .await
-                                    {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            println!("{:?}", e)
+                                    let mut items = Vec::new();
+                                    for element in elements {
+                                        if ObjectType::Link == element.item_type {
+                                            continue;
+                                        }
+                                        match download_asset(
+                                            element.item_type,
+                                            element.asset_id,
+                                            outfit_path.clone(),
+                                            &url,
+                                        )
+                                        .await
+                                        {
+                                            Ok(item) => {
+                                                items.push(item);
+                                            }
+                                            Err(e) => warn!("Failed to download asset {:?}", e),
                                         }
                                     }
+                                    if let Err(e) =
+                                        address.send(RenderAgent { outfit: items }).await
+                                    {
+                                        warn!("Failed to send render agent request {:?}", e)
+                                    };
                                 }
                                 .into_actor(self),
                             );
                         } else {
-                            // If it doesn't, use the legacy UDP method
-                            //TODO: implement the legacy UDP method lol
+                            // If you are downloading your current inventory, and your inventory is
+                            // not loaded into memory, wait until the inventory is loaded.
+                            // if the inventory never loads, this will wait forever.
+                            // TODO: this should probably timeout somehow.
+                            warn!("Inventory not yet populated. Queueing object update...");
+                            ctx.notify_later(msg, Duration::from_secs(1));
                         }
+                    } else {
+                        println!("HANDLE NON-USER UPDATE")
                     }
                 }
-            } else {
-                println!("NOT ENABLED FOR FETCHING FROM LIB YET")
+            }
+            _ => {
+                println!("other value");
             }
         }
     }
@@ -657,57 +675,62 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &self.session {
-            let capability_url = if msg.agent_id == session.agent_id {
-                session
-                    .capability_urls
-                    .get(&Capability::FetchInventoryDescendents2)
+            if session.capability_urls.is_empty() {
+                warn!("Capabilities not ready yet. Queueing inventory refresh...");
+                ctx.notify_later(msg, Duration::from_secs(1));
             } else {
-                session
-                    .capability_urls
-                    .get(&Capability::FetchLibDescendents2)
-            };
-            if let Some(url) = capability_url {
-                // good lord
-                // this is obviously wrong but it works kind of
-                // TODO please god fix this immediately
-                // people are reading this code now
-                let folder_id = session
-                    .inventory_data
-                    .inventory_root
-                    .as_ref()
-                    .and_then(|vec| vec.get(0))
-                    .copied()
-                    .unwrap_or(Uuid::nil());
+                let capability_url = if msg.agent_id == session.agent_id {
+                    session
+                        .capability_urls
+                        .get(&Capability::FetchInventoryDescendents2)
+                } else {
+                    session
+                        .capability_urls
+                        .get(&Capability::FetchLibDescendents2)
+                };
+                if let Some(url) = capability_url {
+                    // good lord
+                    // this is obviously wrong but it works kind of
+                    // TODO please god fix this immediately
+                    // people are reading this code now
+                    let folder_id = session
+                        .inventory_data
+                        .inventory_root
+                        .as_ref()
+                        .and_then(|vec| vec.get(0))
+                        .copied()
+                        .unwrap_or(Uuid::nil());
 
-                let owner_id = session.agent_id.clone();
-                let addr = ctx.address();
-                let url = url.clone();
-                ctx.spawn(
-                    async move {
-                        match refresh_inventory(
-                            FolderRequest {
-                                folder_id,
-                                owner_id,
-                                fetch_folders: true,
-                                fetch_items: true,
-                                sort_order: 0,
-                            },
-                            url,
-                            PathBuf::new(),
-                        )
-                        .await
-                        {
-                            Ok(inventory_nodes) => {
-                                // set the session's inventory data in memory
-                                addr.do_send(inventory_nodes);
-                            }
-                            Err(e) => {
-                                println!("{:?}", e)
+                    let owner_id = session.agent_id.clone();
+                    let addr = ctx.address();
+                    let url = url.clone();
+                    ctx.spawn(
+                        async move {
+                            match refresh_inventory(
+                                FolderRequest {
+                                    folder_id,
+                                    owner_id,
+                                    fetch_folders: true,
+                                    fetch_items: true,
+                                    sort_order: 0,
+                                },
+                                url,
+                                PathBuf::new(),
+                            )
+                            .await
+                            {
+                                Ok(inventory_nodes) => {
+                                    // set the session's inventory data in memory
+                                    addr.do_send(inventory_nodes);
+                                }
+                                Err(e) => {
+                                    println!("REFRESH INVENTORY EVENT {:?}", e)
+                                }
                             }
                         }
-                    }
-                    .into_actor(self),
-                );
+                        .into_actor(self),
+                    );
+                }
             }
         }
     }
@@ -720,5 +743,39 @@ impl Handler<FolderNode> for Mailbox {
         if let Some(session) = self.session.as_mut() {
             session.inventory_data.inventory_tree = Some(msg);
         }
+    }
+}
+
+impl Handler<RetrieveAsset> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: RetrieveAsset, ctx: &mut Self::Context) -> Self::Result {
+        ctx.spawn(
+            async move {
+                match download_asset(
+                    msg.object_type,
+                    msg.asset_id,
+                    msg.path,
+                    &msg.server_endpoint,
+                )
+                .await
+                {
+                    Ok(item) => match msg.kind {
+                        RetrieveAssetKind::Environment => {}
+                        RetrieveAssetKind::Agent => {}
+                        RetrieveAssetKind::Inventory => {}
+                    },
+                    Err(e) => warn!("Failed to download asset {:?}", e),
+                }
+            }
+            .into_actor(self),
+        );
+    }
+}
+
+impl Handler<RenderAgent> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: RenderAgent, _: &mut Self::Context) -> Self::Result {
+        generate_model(msg.outfit);
+        // trigger a UI update
     }
 }

@@ -30,6 +30,7 @@ glam = "0.30.3"
 actix-http = "3.11.0"
 awc = "3.7.0"
 quick-xml = "0.37.5"
+serde-llsd = "0.3.6"
 [dependencies.uuid]
 version = "1.16.0"
 features = [

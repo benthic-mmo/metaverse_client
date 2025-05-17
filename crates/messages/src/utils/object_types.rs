@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 /// The types of all objects in the simulator. Also contains types for folders.
 pub enum ObjectType {
     /// A bodypart
@@ -39,6 +39,10 @@ pub enum ObjectType {
     Trash,
     /// A material. Stone, metal glass wood flesh plastic and rubber.
     Material,
+    /// a 3d mesh
+    Mesh,
+    /// A link to another object
+    Link,
 
     /// Photo Album type. Used by the folders for the screenshot folder.
     PhotoAlbum,
@@ -56,6 +60,7 @@ pub enum ObjectType {
     ReceivedItem,
 
     /// unknown type
+    #[default]
     Unknown,
 }
 
@@ -83,6 +88,8 @@ impl ObjectType {
             ObjectType::CurrentOutfit => "current_outfit".to_string(),
             ObjectType::Avatar => "avatar".to_string(),
             ObjectType::MyOutfit => "my_outfit".to_string(),
+            ObjectType::Mesh => "mesh".to_string(),
+            ObjectType::Link => "link".to_string(),
             ObjectType::ReceivedItem => "received_item".to_string(),
             ObjectType::Setting => "setting".to_string(),
             ObjectType::Material => "material".to_string(),
@@ -112,9 +119,11 @@ impl ObjectType {
             ObjectType::Animation => 20,
             ObjectType::Gesture => 21,
             ObjectType::Favorite => 23,
+            ObjectType::Link => 24,
             ObjectType::CurrentOutfit => 46,
             ObjectType::Avatar => 47,
             ObjectType::MyOutfit => 48,
+            ObjectType::Mesh => 49,
             ObjectType::ReceivedItem => 50,
             ObjectType::Setting => 56,
             ObjectType::Material => 57,
@@ -145,9 +154,11 @@ impl ObjectType {
             20 => ObjectType::Animation,
             21 => ObjectType::Gesture,
             23 => ObjectType::Favorite,
+            24 => ObjectType::Link,
             46 => ObjectType::CurrentOutfit,
             47 => ObjectType::Avatar,
             48 => ObjectType::MyOutfit,
+            49 => ObjectType::Mesh,
             50 => ObjectType::ReceivedItem,
             56 => ObjectType::Setting,
             57 => ObjectType::Material,

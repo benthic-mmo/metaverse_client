@@ -16,11 +16,11 @@ pub mod core;
 pub mod core_subscriber;
 /// This module stores custom error definitions
 pub mod errors;
+/// This module handles sending http requests to the enabled capability endpoints.
+pub mod http_handler;
 /// This module initializes the mailbox
 pub mod initialize;
 /// This module handles all incoming UDP packets from the server
 pub mod udp_handler;
 /// This module is for running in your client to subscribe to the server events
 pub mod ui_subscriber;
-/// This module handles sending http requests to the enabled capability endpoints.
-pub mod http_handler;

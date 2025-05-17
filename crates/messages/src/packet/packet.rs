@@ -51,8 +51,8 @@ impl Packet {
             Err(e) => match e.kind() {
                 io::ErrorKind::UnexpectedEof => {
                     println!("header: {:?}", header);
-                    println!("packet: {:?}", body_bytes);
-                    println!("packet: {:?}", bytes);
+                    println!("body bytes: {:?}", body_bytes);
+                    println!("raw_packet: {:?}", bytes);
                     println!("{:?}", e);
                     return Err(e);
                 }

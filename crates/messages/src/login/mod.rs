@@ -40,10 +40,10 @@ pub mod circuit_code;
 /// | CircuitCode           | 4 bytes  | [u32]              | The CircuitCode (sent from server to client with login) |
 pub mod complete_agent_movement;
 
-/// # Logout Request 
-/// <https://wiki.secondlife.com/wiki/LogoutRequest> 
+/// # Logout Request
+/// <https://wiki.secondlife.com/wiki/LogoutRequest>
 ///
-/// Logs out user from the simulator and ends the session 
+/// Logs out user from the simulator and ends the session
 ///
 /// ## Header
 /// |CompleteAgentMovement |||||

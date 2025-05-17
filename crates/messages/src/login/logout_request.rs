@@ -8,7 +8,7 @@ use crate::packet::{
 };
 
 impl Packet {
-    /// create a new logout request 
+    /// create a new logout request
     pub fn new_logout_request(logout_request: LogoutRequest) -> Self {
         Packet {
             header: Header {
@@ -30,9 +30,9 @@ impl Packet {
 /// add your struct fields here
 #[derive(Debug, Clone)]
 pub struct LogoutRequest {
-    /// the agent ID of the user to logut 
+    /// the agent ID of the user to logut
     pub agent_id: Uuid,
-    /// the session ID to log out 
+    /// the session ID to log out
     pub session_id: Uuid,
 }
 
