@@ -1,7 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
-
+use crate::capabilities::item_types::Item;
 use actix::Message;
 use serde_llsd::LLSDValue;
+use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 use crate::utils::object_types::ObjectType;
@@ -30,7 +30,46 @@ pub struct Category {
     /// version. Used to trigger redownloading on update
     pub version: i32,
 }
-
+impl Category {
+    /// converts a Category parsed with LLSD to a local type
+    pub fn from_llsd(category: &LLSDValue) -> std::io::Result<Category> {
+        if let Some(category_info) = category.as_map() {
+            let name = match category_info.get("name") {
+                Some(LLSDValue::String(name)) => name.to_string(),
+                _ => "".to_string(),
+            };
+            let category_id = match category_info.get("category_id") {
+                Some(LLSDValue::UUID(category_id)) => *category_id,
+                _ => Uuid::nil(),
+            };
+            let type_default = match category_info.get("type_default") {
+                Some(LLSDValue::Integer(type_default)) => {
+                    ObjectType::from_bytes(&if *type_default >= 0 {
+                        *type_default as u8
+                    } else {
+                        99
+                    })
+                }
+                _ => ObjectType::Unknown,
+            };
+            let version = match category_info.get("version") {
+                Some(LLSDValue::Integer(version)) => *version,
+                _ => 0,
+            };
+            Ok(Category {
+                name,
+                category_id,
+                type_default,
+                version,
+            })
+        } else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Missing or invalid category data",
+            ));
+        }
+    }
+}
 #[derive(Debug, Clone)]
 /// The folder struct. Contains things like items and categories
 pub struct Folder {
@@ -45,31 +84,13 @@ pub struct Folder {
     /// Number of descendents the folder has
     pub descendent_count: i32,
     /// Items contained within the folder
-    pub items: Option<Vec<LLSDValue>>,
+    pub items: Vec<Item>,
     /// sub-folders within the folder
     pub categories: Vec<Category>,
 }
 impl Folder {
     /// When the server responds with
-    pub fn from_llsd(data: &[u8]) -> std::io::Result<Vec<Self>> {
-        let str_data = match std::str::from_utf8(&data) {
-            Ok(str) => str,
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Unable to parse string",
-                ));
-            }
-        };
-        let parsed_data = match serde_llsd::from_str(str_data) {
-            Ok(str) => str,
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Unable to parse string",
-                ));
-            }
-        };
+    pub fn from_llsd(parsed_data: LLSDValue) -> std::io::Result<Vec<Self>> {
         let mut folders_vec = Vec::new();
         if let Ok(data) = parsed_data.into_map() {
             if let Some(folders) = data.get("folders") {
@@ -78,131 +99,46 @@ impl Folder {
                         if let Some(folder_data) = folder.as_map() {
                             let folder_id = match folder_data.get("folder_id") {
                                 Some(LLSDValue::UUID(id)) => *id,
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid folder ID",
-                                    ));
-                                }
+                                _ => Uuid::nil(),
                             };
                             let owner_id = match folder_data.get("owner_id") {
                                 Some(LLSDValue::UUID(id)) => *id,
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid owner ID",
-                                    ));
-                                }
+                                _ => Uuid::nil(),
                             };
                             let descendent_count = match folder_data.get("descendents") {
                                 Some(LLSDValue::Integer(int)) => *int,
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid descendent count",
-                                    ));
-                                }
+                                _ => 0,
                             };
                             let version = match folder_data.get("version") {
                                 Some(LLSDValue::Integer(int)) => *int,
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid folder version",
-                                    ));
-                                }
+                                _ => 0,
                             };
 
                             let agent_id = match folder_data.get("agent_id") {
                                 Some(LLSDValue::UUID(id)) => *id,
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid agent ID",
-                                    ));
-                                }
+                                _ => Uuid::nil(),
                             };
-                            let items = match folder_data.get("items") {
-                                Some(items) => items.as_array().cloned(),
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid items",
-                                    ));
+                            let mut items_vec = Vec::new();
+                            match folder_data.get("items") {
+                                Some(items) => {
+                                    if let Some(items) = items.as_array() {
+                                        for item in items {
+                                            items_vec.push(Item::from_llsd(item)?)
+                                        }
+                                    }
                                 }
+                                _ => {}
                             };
                             let mut category_vec = Vec::new();
                             match folder_data.get("categories") {
                                 Some(categories) => {
                                     if let Some(categories) = categories.as_array() {
                                         for category in categories {
-                                            if let Some(category_info) = category.as_map() {
-                                                let name = match category_info.get("name") {
-                                                    Some(LLSDValue::String(name)) => {
-                                                        name.to_string()
-                                                    }
-                                                    _ => {
-                                                        return Err(std::io::Error::new(
-                                                            std::io::ErrorKind::InvalidData,
-                                                            "Missing or invalid category name",
-                                                        ));
-                                                    }
-                                                };
-                                                let category_id =
-                                                    match category_info.get("category_id") {
-                                                        Some(LLSDValue::UUID(category_id)) => {
-                                                            *category_id
-                                                        }
-                                                        _ => {
-                                                            return Err(std::io::Error::new(
-                                                                std::io::ErrorKind::InvalidData,
-                                                                "Missing or invalid category id",
-                                                            ));
-                                                        }
-                                                    };
-                                                let type_default =
-                                                    match category_info.get("type_default") {
-                                                        Some(LLSDValue::Integer(type_default)) => {
-                                                            ObjectType::from_bytes(
-                                                                &if *type_default >= 0 {
-                                                                    *type_default as u8
-                                                                } else {
-                                                                    99
-                                                                },
-                                                            )
-                                                        }
-                                                        _ => {
-                                                            return Err(std::io::Error::new(
-                                                                std::io::ErrorKind::InvalidData,
-                                                                "Missing or invalid category type",
-                                                            ));
-                                                        }
-                                                    };
-                                                let version = match category_info.get("version") {
-                                                    Some(LLSDValue::Integer(version)) => *version,
-                                                    _ => {
-                                                        return Err(std::io::Error::new(
-                                                            std::io::ErrorKind::InvalidData,
-                                                            "Missing or invalid category version",
-                                                        ));
-                                                    }
-                                                };
-                                                category_vec.push(Category {
-                                                    name,
-                                                    category_id,
-                                                    type_default,
-                                                    version,
-                                                });
-                                            }
+                                            category_vec.push(Category::from_llsd(category)?);
                                         }
                                     }
                                 }
-                                _ => {
-                                    return Err(std::io::Error::new(
-                                        std::io::ErrorKind::InvalidData,
-                                        "Missing or invalid items",
-                                    ));
-                                }
+                                _ => {}
                             };
                             folders_vec.push(Folder {
                                 folder_id,
@@ -210,7 +146,7 @@ impl Folder {
                                 descendent_count,
                                 version,
                                 agent_id,
-                                items,
+                                items: items_vec,
                                 categories: category_vec,
                             });
                         }

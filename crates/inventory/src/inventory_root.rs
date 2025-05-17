@@ -88,7 +88,9 @@ async fn establish_inventory_dirs(
     server_endpoint: String,
     mut current_dir: PathBuf,
 ) -> Result<FolderNode, InventoryError> {
-    let folders = Folder::from_llsd(data)?;
+    let data = String::from_utf8_lossy(data);
+    let parsed_data = serde_llsd::from_str(&data)?;
+    let folders = Folder::from_llsd(parsed_data)?;
 
     if let Some(data_dir) = dirs::data_dir() {
         let local_share_dir = data_dir.join("benthic");
@@ -108,19 +110,13 @@ async fn establish_inventory_dirs(
 
         for folder in folders {
             current_dir.push(folder.folder_id.to_string());
+            let inventory_current_dir = inventory_root.join(current_dir.clone());
             let mut root_node = FolderNode {
                 folder: folder.clone(),
-                path: current_dir.clone(),
+                path: inventory_current_dir,
                 children: HashMap::new(),
             };
 
-            let inventory_current_dir = inventory_root.join(current_dir.clone());
-            if !inventory_current_dir.exists() {
-                if let Err(e) = create_dir_all(&inventory_current_dir) {
-                    warn!("Failed to create directory {:?}", e);
-                };
-                info!("Created Directory: {:?}", inventory_current_dir);
-            }
             let mut children_nodes = HashMap::new();
             for category in folder.categories {
                 let category_request = FolderRequest {

@@ -86,12 +86,6 @@ impl Mailbox {
                                 error!("Failed to handle ObjectUpdate {:?}", e)
                             };
                         }
-                        #[cfg(feature = "agent")]
-                        PacketType::AgentWearablesUpdate(data) => {
-                            if let Err(e) = mailbox_address.send(*data.clone()).await {
-                                error!("Failed to handle AgentWearablesUpdate {:?}", e)
-                            };
-                        }
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
                             if let Err(e) = mailbox_address.send(*data.clone()).await {
@@ -119,8 +113,8 @@ impl Mailbox {
             }
         }
     }
-    /// Set the state of the mailbox. 
-    /// Determines if it's running or started or stopped. 
+    /// Set the state of the mailbox.
+    /// Determines if it's running or started or stopped.
     pub fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
         let state_clone = Arc::clone(&self.state);
         {

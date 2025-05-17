@@ -198,6 +198,8 @@ async fn handle_login(
         .send(CapabilityRequest::new_capability_request(vec![
             #[cfg(any(feature = "agent", feature = "environment"))]
             Capability::ViewerAsset,
+            Capability::GetMesh,
+            Capability::GetTexture,
             #[cfg(feature = "inventory")]
             Capability::FetchLibDescendents2,
             #[cfg(feature = "inventory")]
@@ -210,6 +212,7 @@ async fn handle_login(
             e
         ))));
     }
+
     #[cfg(feature = "inventory")]
     if let Err(e) = mailbox_addr
         .send(RefreshInventoryEvent {

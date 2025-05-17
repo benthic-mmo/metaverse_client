@@ -34,7 +34,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// the types of materials that exist in opensimulator.
 /// used for assigning textures and shaders
 pub enum MaterialType {
@@ -54,11 +54,12 @@ pub enum MaterialType {
     Rubber,
     /// Light. Deprecated
     Light,
-    /// End? Undocumented
+    /// Undocumented
     End,
-    /// Mask? Undocumented
+    /// Undocumented
     Mask,
     /// default unknown type
+    #[default]
     Unknown,
 }
 impl MaterialType {
@@ -96,7 +97,7 @@ impl MaterialType {
     }
 }
 
-#[derive(Debug, Message, Clone)]
+#[derive(Debug, Message, Clone, Default)]
 #[rtype(result = "()")]
 /// The object update packet. Receives object information. Is the first packet received when
 /// spawning objects into the viewer.
@@ -315,7 +316,7 @@ impl PacketData for ObjectUpdate {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Handles sounds attached to the object
 pub struct Sound {
     /// Asset UUID of any attached looped sounds
@@ -350,7 +351,7 @@ impl Sound {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// This contains primitive geometry information. This contains information about how a basic shape
 /// can be stretched, tapered, twisted, sheared and deformed.
 pub struct PrimitiveGeometry {
@@ -399,6 +400,9 @@ pub struct PrimitiveGeometry {
     pub profile_end: u16,
     /// Makes a hollow in the shape. EG, a hollow cylinder becomes a tube.
     pub profile_hollow: f32,
+
+    pub hollow_shape: Option<String>,
+    pub profile_shape: Option<String>,
 }
 
 impl PrimitiveGeometry {
@@ -424,11 +428,13 @@ impl PrimitiveGeometry {
             profile_begin: cursor.read_u16::<LittleEndian>()?,
             profile_end: cursor.read_u16::<LittleEndian>()?,
             profile_hollow: cursor.read_u16::<LittleEndian>()? as f32 / 500.0,
+            hollow_shape: None,
+            profile_shape: None,
         })
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// Stores ObjectUpdate update fields
 /// This contains information about the position, velocity, acceleration and etc of the object.
 /// Stores all values as f32s, despite them coming in as variable length values.
@@ -442,7 +448,7 @@ pub struct Update {
     /// How fast the object is accelerating
     pub acceleration: Vec3,
     /// The roatation of the object
-    pub rotation: Quat,
+    pub rotation: Vec3,
     /// The angular velocity of the object
     pub angular_velocity: Vec3,
 }
@@ -513,8 +519,7 @@ impl Update {
             cursor.read_f32::<LittleEndian>()?,
         );
 
-        let rotation = Quat::from_xyzw(
-            cursor.read_f32::<LittleEndian>()?,
+        let rotation = Vec3::new(
             cursor.read_f32::<LittleEndian>()?,
             cursor.read_f32::<LittleEndian>()?,
             cursor.read_f32::<LittleEndian>()?,
@@ -550,8 +555,7 @@ impl Update {
             cursor.read_u16::<LittleEndian>()? as f32,
         );
 
-        let rotation = Quat::from_xyzw(
-            cursor.read_u16::<LittleEndian>()? as f32,
+        let rotation = Vec3::new(
             cursor.read_u16::<LittleEndian>()? as f32,
             cursor.read_u16::<LittleEndian>()? as f32,
             cursor.read_u16::<LittleEndian>()? as f32,
@@ -591,8 +595,7 @@ impl Update {
             cursor.read_u8()? as f32,
         );
 
-        let rotation = Quat::from_xyzw(
-            cursor.read_u8()? as f32,
+        let rotation = Vec3::new(
             cursor.read_u8()? as f32,
             cursor.read_u8()? as f32,
             cursor.read_u8()? as f32,
