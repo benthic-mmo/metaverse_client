@@ -66,7 +66,6 @@ where
 
 impl ItemData {
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        println!("bytes {:?}", bytes);
         let text = std::str::from_utf8(bytes)
             .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
 

@@ -5,7 +5,8 @@ use std::net::UdpSocket;
 
 use log::{info, warn};
 
-use crate::core::UiMessage;
+use crate::core::session::UiMessage;
+
 
 /// This stores the packet and the chunks for deserialization
 pub struct PacketStore {

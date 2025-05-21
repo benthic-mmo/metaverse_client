@@ -3,7 +3,7 @@ use std::{
     time::SystemTime,
 };
 
-use glam::{bool, Vec3, Vec4};
+use glam::{Vec3, Vec4, bool};
 use quick_xml::{Reader, events::Event};
 use rgb::Rgba;
 use uuid::Uuid;
@@ -17,78 +17,78 @@ use super::item_types::{Item, SaleType};
 
 #[derive(Debug, Default)]
 pub struct SceneObject {
-   pub creator_id: Uuid,
-   pub folder_id: Uuid,
-   pub inventory_serial: i32,
-   pub name: String,
-   pub pass_touches: bool,
-   pub pass_collisions: bool,
-   pub region_handle: u64,
-   pub script_access_pin: u64,
-   pub group_position: Vec3,
-   pub description: String,
-   pub category: String,
-   pub color: Rgba<i32>,
-   pub touch_name: String,
-   pub link_num: i32,
-   pub rezzer_id: Uuid,
-   pub collision_sound: Uuid,
-   pub collision_sound_volume: i32,
-   pub sculpt: Sculpt,
-   pub sit_data: SitData,
-   pub item_data: Item,
-   pub object_update: ObjectUpdate,
-   pub pay_price: [i32; 5],
-   pub attached_pos: Vec3,
-   pub buoyancy: i32,
-   pub force: Vec3,
-   pub torque: Vec3,
-   pub volume_detect_active: bool,
-   pub physics_shape_type: i32,
-   pub camera_eye_offset: Vec3,
-   pub camera_at_offset: Vec3,
-   pub sound_queueing: bool,
+    pub creator_id: Uuid,
+    pub folder_id: Uuid,
+    pub inventory_serial: i32,
+    pub name: String,
+    pub pass_touches: bool,
+    pub pass_collisions: bool,
+    pub region_handle: u64,
+    pub script_access_pin: u64,
+    pub group_position: Vec3,
+    pub description: String,
+    pub category: String,
+    pub color: Rgba<i32>,
+    pub touch_name: String,
+    pub link_num: i32,
+    pub rezzer_id: Uuid,
+    pub collision_sound: Uuid,
+    pub collision_sound_volume: i32,
+    pub sculpt: Sculpt,
+    pub sit_data: SitData,
+    pub item_data: Item,
+    pub object_update: ObjectUpdate,
+    pub pay_price: [i32; 5],
+    pub attached_pos: Vec3,
+    pub buoyancy: i32,
+    pub force: Vec3,
+    pub torque: Vec3,
+    pub volume_detect_active: bool,
+    pub physics_shape_type: i32,
+    pub camera_eye_offset: Vec3,
+    pub camera_at_offset: Vec3,
+    pub sound_queueing: bool,
 }
 
 #[derive(Debug, Default)]
 pub struct Sculpt {
-   pub texture: Uuid,
-   pub sculpt_type: i32,
-   pub entry: bool,
-   pub flex: Flex,
-   pub light: Light,
-   pub state: i32,
-   pub last_attach_point: i32,
+    pub texture: Uuid,
+    pub sculpt_type: i32,
+    pub entry: bool,
+    pub flex: Flex,
+    pub light: Light,
+    pub state: i32,
+    pub last_attach_point: i32,
 }
 
 #[derive(Debug, Default)]
 pub struct Flex {
-   pub entry: bool,
-   pub softness: i32,
-   pub tension: i32,
-   pub drag: i32,
-   pub gravity: i32,
-   pub wind: i32,
-   pub force: Vec4,
+    pub entry: bool,
+    pub softness: i32,
+    pub tension: i32,
+    pub drag: i32,
+    pub gravity: i32,
+    pub wind: i32,
+    pub force: Vec4,
 }
 
 #[derive(Debug, Default)]
 pub struct SitData {
-   pub sit_name: String,
-   pub orientation: Vec3,
-   pub orientation_ll: Vec3,
-   pub position: Vec3,
-   pub position_ll: Vec3,
+    pub sit_name: String,
+    pub orientation: Vec3,
+    pub orientation_ll: Vec3,
+    pub position: Vec3,
+    pub position_ll: Vec3,
 }
 
 #[derive(Debug, Default)]
 pub struct Light {
-   pub entry: bool,
-   pub color: Rgba<i32>,
-   pub radius: i32,
-   pub cutoff: i32,
-   pub intensity: i32,
-   pub falloff: i32,
+    pub entry: bool,
+    pub color: Rgba<i32>,
+    pub radius: i32,
+    pub cutoff: i32,
+    pub intensity: i32,
+    pub falloff: i32,
 }
 
 /// An ObjectUpdate object can also be retrieved from the ?object_id ViewerAsset endpoint when
