@@ -195,12 +195,7 @@ pub struct Ping {
 #[rtype(result = "()")]
 pub struct RegionHandshakeMessage;
 
-/// Message to update the capability urls
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct SetCapabilityUrls {
-    capability_urls: HashMap<Capability, String>,
-}
+
 
 /// The state of the Mailbox
 #[derive(Debug, Clone, PartialEq)]
@@ -494,50 +489,7 @@ async fn send_ack(
     }
 }
 
-impl Handler<SetCapabilityUrls> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: SetCapabilityUrls, _: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &mut self.session {
-            session.capability_urls.extend(msg.capability_urls);
-        }
-    }
-}
 
-impl Handler<CapabilityRequest> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: CapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
-            let seed_capability_url = session.seed_capability_url.clone();
-            let address = ctx.address().clone();
-            ctx.spawn(
-                async move {
-                    let client = awc::Client::default();
-                    match client
-                        .post(seed_capability_url)
-                        .insert_header(("Content-Type", "application/llsd+xml"))
-                        .send_body(msg.capabilities)
-                        .await
-                    {
-                        Ok(mut get) => match get.body().await {
-                            Ok(body) => {
-                                let capability_urls = CapabilityRequest::response_from_llsd(&body);
-                                address.do_send(SetCapabilityUrls { capability_urls });
-                            }
-                            Err(e) => {
-                                error!("Failed to retrieve body of capability request {:?}", e);
-                            }
-                        },
-                        Err(e) => {
-                            error!("Failed to send with {:?}", e);
-                        }
-                    };
-                }
-                .into_actor(self),
-            );
-        } else {
-        }
-    }
-}
 
 #[cfg(any(feature = "agent", feature = "environment"))]
 impl Handler<ObjectUpdate> for Mailbox {
@@ -670,107 +622,6 @@ impl Handler<LayerData> for Mailbox {
     }
 }
 
-#[cfg(feature = "inventory")]
-impl Handler<RefreshInventoryEvent> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
-            if session.capability_urls.is_empty() {
-                warn!("Capabilities not ready yet. Queueing inventory refresh...");
-                ctx.notify_later(msg, Duration::from_secs(1));
-            } else {
-                let capability_url = if msg.agent_id == session.agent_id {
-                    session
-                        .capability_urls
-                        .get(&Capability::FetchInventoryDescendents2)
-                } else {
-                    session
-                        .capability_urls
-                        .get(&Capability::FetchLibDescendents2)
-                };
-                if let Some(url) = capability_url {
-                    // good lord
-                    // this is obviously wrong but it works kind of
-                    // TODO please god fix this immediately
-                    // people are reading this code now
-                    let folder_id = session
-                        .inventory_data
-                        .inventory_root
-                        .as_ref()
-                        .and_then(|vec| vec.get(0))
-                        .copied()
-                        .unwrap_or(Uuid::nil());
-
-                    let owner_id = session.agent_id.clone();
-                    let addr = ctx.address();
-                    let url = url.clone();
-                    ctx.spawn(
-                        async move {
-                            match refresh_inventory(
-                                FolderRequest {
-                                    folder_id,
-                                    owner_id,
-                                    fetch_folders: true,
-                                    fetch_items: true,
-                                    sort_order: 0,
-                                },
-                                url,
-                                PathBuf::new(),
-                            )
-                            .await
-                            {
-                                Ok(inventory_nodes) => {
-                                    // set the session's inventory data in memory
-                                    addr.do_send(inventory_nodes);
-                                }
-                                Err(e) => {
-                                    println!("REFRESH INVENTORY EVENT {:?}", e)
-                                }
-                            }
-                        }
-                        .into_actor(self),
-                    );
-                }
-            }
-        }
-    }
-}
-
-#[cfg(feature = "inventory")]
-impl Handler<FolderNode> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: FolderNode, _: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            session.inventory_data.inventory_tree = Some(msg);
-        }
-    }
-}
-
-impl Handler<RetrieveAsset> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: RetrieveAsset, ctx: &mut Self::Context) -> Self::Result {
-        ctx.spawn(
-            async move {
-                match download_asset(
-                    msg.object_type,
-                    msg.asset_id,
-                    msg.path,
-                    &msg.server_endpoint,
-                )
-                .await
-                {
-                    Ok(item) => match msg.kind {
-                        RetrieveAssetKind::Environment => {}
-                        RetrieveAssetKind::Agent => {}
-                        RetrieveAssetKind::Inventory => {}
-                    },
-                    Err(e) => warn!("Failed to download asset {:?}", e),
-                }
-            }
-            .into_actor(self),
-        );
-    }
-}
 
 impl Handler<RenderAgent> for Mailbox {
     type Result = ();

@@ -1,4 +1,4 @@
-use actix::{Addr, Context};
+use actix::Addr;
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::UdpSocket;
 
@@ -11,7 +11,7 @@ use metaverse_messages::{
 use std::sync::Mutex;
 use tokio::sync::oneshot;
 
-use crate::core::{Mailbox, Ping, RegionHandshakeMessage, ServerState, UiMessage};
+use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, UiMessage};
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
     pub async fn start_udp_read(
@@ -113,17 +113,6 @@ impl Mailbox {
             }
         }
     }
-    /// Set the state of the mailbox.
-    /// Determines if it's running or started or stopped.
-    pub fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
-        let state_clone = Arc::clone(&self.state);
-        {
-            let mut state = state_clone.lock().unwrap();
-            *state = new_state.clone();
-        }
-        // notify on start and stop
-        if new_state == ServerState::Running || new_state == ServerState::Stopped {
-            self.notify.notify_one();
-        }
-    }
+
 }
+

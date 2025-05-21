@@ -19,7 +19,7 @@ Cargo.lock
 
 .creds.toml
 crates/instantiator/sims/
-crates/session/sims/
+crates/core/sims/
 crates/login/sims/
 
 *.login_conf.json

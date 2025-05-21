@@ -5,7 +5,7 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
-metaverse_session = {path = "../session/"}
+metaverse_core = {path = "../core/"}
 metaverse_messages = {path = "../messages/"}
 
 #disable sound for bevy

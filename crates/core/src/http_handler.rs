@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use metaverse_messages::{
-    capabilities::{item_data::ItemData, scene_object::SceneObject},
+    capabilities::{item_data::ItemData, mesh_data::Mesh, scene_object::SceneObject},
     core::object_update::ObjectUpdate,
     utils::object_types::ObjectType,
 };
@@ -35,23 +35,34 @@ pub async fn download_asset(
             Ok(body_bytes) => match object_type {
                 ObjectType::Object => {
                     let scene_object = SceneObject::from_xml(&body_bytes);
-                    if let Ok(scene) = scene_object{
-                        let url = format!("{}?{}_id={}", server_endpoint, ObjectType::Mesh.to_string(), scene.sculpt.texture);
-                        match client.get(url).send().await{
-                            Ok(mut response) => match response.body().await{
+                    if let Ok(scene) = scene_object {
+                        let url = format!(
+                            "{}?{}_id={}",
+                            server_endpoint,
+                            ObjectType::Mesh.to_string(),
+                            scene.sculpt.texture
+                        );
+                        match client.get(url).send().await {
+                            Ok(mut response) => match response.body().await {
                                 Ok(body_bytes) => {
+                                    Mesh::from_bytes(&body_bytes)?;
                                     ItemData::from_bytes(&body_bytes)
                                 }
-                                Err(e) => {
-                                    Err(Error::new(ErrorKind::Other, format!("Failed to retrieve mesh {:?}", e)))
-                                }
-                            }
-                            Err(e) => {
-                                    Err(Error::new(ErrorKind::Other, format!("Failed to retrieve mesh {:?}", e)))
-                            }
+                                Err(e) => Err(Error::new(
+                                    ErrorKind::Other,
+                                    format!("Failed to retrieve mesh {:?}", e),
+                                )),
+                            },
+                            Err(e) => Err(Error::new(
+                                ErrorKind::Other,
+                                format!("Failed to retrieve mesh {:?}", e),
+                            )),
                         }
                     } else {
-                        Err(Error::new(ErrorKind::Other, format!("Failed to parse scene object")))
+                        Err(Error::new(
+                            ErrorKind::Other,
+                            format!("Failed to parse scene object"),
+                        ))
                     }
                 }
                 _ => {
