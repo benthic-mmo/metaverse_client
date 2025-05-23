@@ -1,4 +1,4 @@
-use glam::{U16Vec2, Vec3};
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -11,7 +11,15 @@ pub struct MeshUpdate {
     pub path: PathBuf,
     /// position of the mesh to render
     pub position: Vec3,
+    pub mesh_type: MeshType,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MeshType {
+    Land,
+    Avatar,
+}
+
 impl MeshUpdate {
     /// convert the layer update to bytes to send to the UI
     pub fn to_bytes(&self) -> Vec<u8> {

@@ -2,10 +2,7 @@ use glam::Vec3;
 use gltf_json::validation::Checked::Valid;
 use std::fs::File;
 use std::path::PathBuf;
-use std::{
-    borrow::Cow,
-    mem,
-};
+use std::{borrow::Cow, mem};
 
 use gltf_json::validation::USize64;
 use metaverse_messages::capabilities::mesh_data::{LevelOfDetail, Mesh};
@@ -17,21 +14,28 @@ use metaverse_messages::capabilities::mesh_data::{LevelOfDetail, Mesh};
 pub fn generate_all_lods(
     mesh: &Mesh,
     path: PathBuf,
+    name: String,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let mut paths = Vec::new();
+    println!("THIS IS THE PLAYER MESH!!!!!!!!!!!");
 
-    paths.push(generate_gltf(&mesh.high_level_of_detail, path.clone())?);
+    let high_path = path.join(format!("{}_high.gltf", name));
+    println!("high path {:?}", high_path);
+    paths.push(generate_gltf(&mesh.high_level_of_detail, high_path)?);
 
+    let medium_path = path.join(format!("{}_medium.gltf", name));
     if let Some(ref lod) = mesh.medium_level_of_detail {
-        paths.push(generate_gltf(lod, path.clone())?);
+        paths.push(generate_gltf(lod, medium_path)?);
     }
 
+    let low_path = path.join(format!("{}_low.gltf", name));
     if let Some(ref lod) = mesh.low_level_of_detail {
-        paths.push(generate_gltf(lod, path.clone())?);
+        paths.push(generate_gltf(lod, low_path)?);
     }
 
+    let lowest_path = path.join(format!("{}_lowest.gltf", name));
     if let Some(ref lod) = mesh.lowest_level_of_detail {
-        paths.push(generate_gltf(lod, path)?);
+        paths.push(generate_gltf(lod, lowest_path)?);
     }
 
     Ok(paths)
@@ -40,7 +44,9 @@ pub fn generate_all_lods(
 pub fn generate_high_lod(
     mesh: &Mesh,
     path: PathBuf,
+    name: String,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let path = path.join(format!("{}_high.gltf", name));
     Ok(generate_gltf(&mesh.high_level_of_detail, path)?)
 }
 
@@ -157,7 +163,6 @@ fn to_padded_byte_vector(data: &[Vec3]) -> Vec<u8> {
 
 /// determines the highest and lowest points on the mesh to store as min and max
 ///fn bounding_coords(points: &[Vec3]) -> ([f32; 3], [f32; 3]) {
-
 fn bounding_coords(points: &[Vec3]) -> ([f32; 3], [f32; 3]) {
     let mut min = [f32::MAX, f32::MAX, f32::MAX];
     let mut max = [f32::MIN, f32::MIN, f32::MIN];
