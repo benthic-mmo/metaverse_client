@@ -3,6 +3,7 @@ mod environment;
 mod loading;
 mod login;
 
+use crate::environment::MeshUpdateEvent;
 use actix_rt::System;
 use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
@@ -13,13 +14,13 @@ use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use chat::chat_screen;
 use crossbeam_channel::unbounded;
 use crossbeam_channel::{Receiver, Sender};
-use environment::{
-    LayerUpdateEvent, PendingLayers, check_model_loaded, handle_layer_update, setup_environment,
-};
+use environment::{PendingLayers, check_model_loaded, handle_layer_update, setup_environment};
 use keyring::Entry;
 use loading::loading_screen;
 use log::{error, info, warn};
 use login::login_screen;
+use metaverse_core::initialize::initialize;
+use metaverse_core::ui_subscriber::listen_for_core_events;
 use metaverse_messages::agent::agent_update::AgentUpdate;
 use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login::login_errors::LoginError;
@@ -28,8 +29,6 @@ use metaverse_messages::login::logout_request::LogoutRequest;
 use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::packet::packet_types::PacketType;
 use metaverse_messages::ui::errors::SessionError;
-use metaverse_core::initialize::initialize;
-use metaverse_core::ui_subscriber::listen_for_core_events;
 use portpicker::pick_unused_port;
 use std::fs::{self, create_dir_all};
 use std::net::UdpSocket;
@@ -198,7 +197,7 @@ fn main() {
         .add_systems(Update, handle_layer_update)
         .add_event::<LoginResponseEvent>()
         .add_event::<CoarseLocationUpdateEvent>()
-        .add_event::<LayerUpdateEvent>()
+        .add_event::<MeshUpdateEvent>()
         .add_event::<DisableSimulatorEvent>()
         .add_event::<LogoutRequestEvent>()
         .add_systems(Update, login_screen.run_if(in_state(ViewerState::Login)))
@@ -258,7 +257,7 @@ fn handle_queue(
     mut ev_loginresponse: EventWriter<LoginResponseEvent>,
     mut ev_coarselocationupdate: EventWriter<CoarseLocationUpdateEvent>,
     mut ev_disable_simulator: EventWriter<DisableSimulatorEvent>,
-    mut ev_layer_update: EventWriter<LayerUpdateEvent>,
+    mut ev_layer_update: EventWriter<MeshUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
@@ -271,9 +270,9 @@ fn handle_queue(
                 });
                 info!("got LoginResponse")
             }
-            PacketType::LayerUpdate(layer_update) => {
-                ev_layer_update.write(LayerUpdateEvent {
-                    value: *layer_update,
+            PacketType::MeshUpdate(mesh_update) => {
+                ev_layer_update.write(MeshUpdateEvent {
+                    value: *mesh_update,
                 });
             }
             PacketType::CoarseLocationUpdate(coarse_location_update) => {

@@ -1,5 +1,8 @@
-use std::collections::HashMap;
-use crate::core::{environment::EnvironmentCache, inventory::{InventoryData, RefreshInventoryEvent}, session::{Mailbox, Session, UiMessage}};
+use crate::core::{
+    environment::EnvironmentCache,
+    inventory::{InventoryData, RefreshInventoryEvent},
+    session::{Mailbox, Session, UiMessage},
+};
 use log::{info, warn};
 use metaverse_messages::{
     agent::agent_wearables_request::AgentWearablesRequest,
@@ -18,8 +21,8 @@ use metaverse_messages::{
         ui_events::UiEventTypes,
     },
 };
+use std::collections::HashMap;
 use tokio::net::UdpSocket;
-
 
 /// This is used for the core to listen to messages coming in from the UI.
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they

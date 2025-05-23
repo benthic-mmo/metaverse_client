@@ -22,7 +22,7 @@ use crate::{
         circuit_code::CircuitCodeData, complete_agent_movement::CompleteAgentMovementData,
         login_response::LoginResponse, login_xmlrpc::Login,
     },
-    ui::{layer_update::LayerUpdate, ui_events::UiEventTypes},
+    ui::{mesh_update::MeshUpdate, ui_events::UiEventTypes},
 };
 
 #[derive(Debug, Clone)]
@@ -74,7 +74,7 @@ pub enum PacketType {
     /// Does not exist in spec. Used to send errors to the UI.
     Error(Box<SessionError>),
     /// Does not exist in spec. Used to send Layer GTIF paths to the UI for rendering.
-    LayerUpdate(Box<LayerUpdate>),
+    MeshUpdate(Box<MeshUpdate>),
 }
 
 /// Functions for determining the type of the packet.
@@ -114,7 +114,7 @@ impl PacketType {
             PacketType::LoginResponse(_) => Vec::new(),
             PacketType::Login(data) => data.to_bytes(),
             PacketType::Error(data) => data.to_bytes(),
-            PacketType::LayerUpdate(data) => data.to_bytes(),
+            PacketType::MeshUpdate(data) => data.to_bytes(),
         }
     }
 }

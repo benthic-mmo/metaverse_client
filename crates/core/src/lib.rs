@@ -24,4 +24,3 @@ pub mod initialize;
 pub mod udp_handler;
 /// This module is for running in your client to subscribe to the server events
 pub mod ui_subscriber;
-

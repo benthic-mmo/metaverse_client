@@ -2,14 +2,16 @@ use std::{path::PathBuf, time::Duration};
 
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
-use metaverse_inventory::inventory_root::{refresh_inventory, FolderRequest};
-use metaverse_messages::{capabilities::{capabilities::Capability, folder_types::FolderNode}, utils::object_types::ObjectType};
+use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
+use metaverse_messages::{
+    capabilities::{capabilities::Capability, folder_types::FolderNode},
+    utils::object_types::ObjectType,
+};
 use uuid::Uuid;
 
 use crate::http_handler::download_asset;
 
 use super::session::Mailbox;
-
 
 #[cfg(feature = "inventory")]
 #[derive(Debug, Message)]
@@ -42,8 +44,6 @@ pub struct RefreshInventoryEvent {
     /// FetchLibDescendents2 endpoint.
     pub agent_id: Uuid,
 }
-
-
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]

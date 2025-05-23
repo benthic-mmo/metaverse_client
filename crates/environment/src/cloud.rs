@@ -1,6 +1,7 @@
 use crate::{error::PatchError, layer_handler::PatchData};
 use glam::U16Vec2;
-use metaverse_messages::{environment::layer_data::LayerData, ui::layer_update::LayerUpdate};
+use metaverse_messages::capabilities::mesh_data::Mesh;
+use metaverse_messages::environment::layer_data::LayerData;
 use std::collections::HashMap;
 
 /// TODO: unimplemented
@@ -11,11 +12,11 @@ impl PatchData for Cloud {
     fn from_packet(_: &LayerData, _: bool) -> Result<Vec<Self>, PatchError> {
         Ok(vec![])
     }
-    fn generate_ui_event(
+    fn generate_mesh(
         self: Self,
         _: &mut HashMap<U16Vec2, Self>,
         _: &HashMap<U16Vec2, Self>,
-    ) -> Vec<LayerUpdate> {
-        vec![]
+    ) -> Option<Mesh> {
+        None
     }
 }

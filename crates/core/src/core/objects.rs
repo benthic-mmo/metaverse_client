@@ -2,12 +2,14 @@ use std::time::Duration;
 
 use actix::{AsyncContext, Handler, WrapFuture};
 use log::{info, warn};
-use metaverse_messages::{capabilities::capabilities::Capability, core::object_update::ObjectUpdate, utils::object_types::ObjectType};
+use metaverse_messages::{
+    capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
+    utils::object_types::ObjectType,
+};
 
 use crate::http_handler::download_asset;
 
 use super::session::{Mailbox, RenderAgent};
-
 
 #[cfg(any(feature = "agent", feature = "environment"))]
 impl Handler<ObjectUpdate> for Mailbox {

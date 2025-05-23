@@ -1,6 +1,6 @@
+use crate::core::session::Mailbox;
 use actix::Actor;
 use actix_rt::time;
-use crate::core::session::Mailbox;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
