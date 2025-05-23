@@ -7,7 +7,6 @@ use log::{info, warn};
 
 use crate::core::session::UiMessage;
 
-
 /// This stores the packet and the chunks for deserialization
 pub struct PacketStore {
     /// the chunks that belong to that packet

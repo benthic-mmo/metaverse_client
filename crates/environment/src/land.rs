@@ -2,14 +2,15 @@ use std::collections::HashMap;
 
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
-use glam::U16Vec2;
+use glam::{U16Vec2, Vec3};
 use log::warn;
-use metaverse_messages::{environment::layer_data::LayerData, ui::layer_update::LayerUpdate};
+use metaverse_messages::capabilities::mesh_data::Mesh;
+use metaverse_messages::environment::layer_data::LayerData;
 use twox_hash::XxHash32;
 
 use crate::{
     error::PatchError,
-    generate_mesh::generate_land_mesh,
+    generate_mesh::generate_triangles,
     layer_handler::{
         END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
     },
@@ -94,13 +95,12 @@ impl PatchData for Land {
     ///
     /// This should be called in a loop against the output of Layer::parse_packet.
     /// Currently this is called from within the actix mailbox. It receives the layer
-    fn generate_ui_event(
+    fn generate_mesh(
         self: Self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Vec<LayerUpdate> {
+    ) -> Option<Mesh> {
         let location = self.terrain_header.location;
-        let mut completed_updates = Vec::new();
         let north_xy = U16Vec2 {
             x: location.x,
             y: location.y.saturating_sub(1),
@@ -119,26 +119,26 @@ impl PatchData for Land {
         let top_corner = total_patches.get(&top_corner_xy);
 
         if north_layer.is_some() && east_layer.is_some() && top_corner.is_some() {
-            if let Ok(path) = generate_land_mesh(
+            let mut layer_mesh = Mesh {
+                ..Default::default()
+            };
+            layer_mesh.high_level_of_detail.triangles = generate_triangles(
                 total_patches.get(&location).unwrap(),
                 north_layer.unwrap(),
                 east_layer.unwrap(),
                 top_corner.unwrap(),
-            ) {
-                completed_updates.push(LayerUpdate {
-                    path,
-                    position: total_patches
-                        .get(&location)
-                        .unwrap()
-                        .terrain_header
-                        .location,
-                });
-                retry_queue.remove(&location);
-            }
+            );
+            layer_mesh.position = Some(Vec3 {
+                x: self.terrain_header.location.x as f32,
+                y: self.terrain_header.location.y as f32,
+                z: 0.0,
+            });
+            retry_queue.remove(&location);
+            Some(layer_mesh)
         } else {
             retry_queue.insert(location, self);
-        };
-        completed_updates
+            None
+        }
     }
 }
 

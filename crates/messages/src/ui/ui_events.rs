@@ -1,4 +1,4 @@
-use super::{errors::SessionError, layer_update::LayerUpdate};
+use super::{errors::SessionError, mesh_update::MeshUpdate};
 use crate::{
     agent::coarse_location_update::CoarseLocationUpdate,
     chat::chat_from_simulator::ChatFromSimulator, core::disable_simulator::DisableSimulator,
@@ -22,8 +22,8 @@ pub enum UiEventTypes {
     CoarseLocationUpdateEvent,
     /// Viewer disconnects
     DisableSimulatorEvent,
-    /// Render generated patches
-    LayerUpdateEvent,
+    /// Render generated meshes
+    MeshUpdate,
 
     /// for packets that are not UI events
     None,
@@ -40,8 +40,9 @@ impl UiEventTypes {
             UiEventTypes::Error => {
                 SessionError::from_bytes(data).map(|packet| PacketType::Error(Box::new(packet)))
             }
-            UiEventTypes::LayerUpdateEvent => LayerUpdate::from_bytes(data)
-                .map(|packet| PacketType::LayerUpdate(Box::new(packet))),
+            UiEventTypes::MeshUpdate => {
+                MeshUpdate::from_bytes(data).map(|packet| PacketType::MeshUpdate(Box::new(packet)))
+            }
             UiEventTypes::ChatFromSimulatorEvent => ChatFromSimulator::from_bytes(data)
                 .ok()
                 .map(|packet| PacketType::ChatFromSimulator(Box::new(packet))),
@@ -63,7 +64,7 @@ impl fmt::Display for UiEventTypes {
             UiEventTypes::ChatFromSimulatorEvent => write!(f, "ChatFromSimulatorEvent"),
             UiEventTypes::CoarseLocationUpdateEvent => write!(f, "CoarseLocationUpdateEvent"),
             UiEventTypes::DisableSimulatorEvent => write!(f, "DisableSimulatorEvent"),
-            UiEventTypes::LayerUpdateEvent => write!(f, "LayerUpdateEvent"),
+            UiEventTypes::MeshUpdate => write!(f, "LayerUpdateEvent"),
             UiEventTypes::None => write!(f, "None"),
             UiEventTypes::Error => write!(f, "Error"),
         }

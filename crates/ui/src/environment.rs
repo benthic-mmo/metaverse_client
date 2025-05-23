@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_messages::ui::layer_update::LayerUpdate;
+use metaverse_messages::ui::mesh_update::MeshUpdate;
 
 #[derive(Event)]
-pub struct LayerUpdateEvent {
-    pub value: LayerUpdate,
+pub struct MeshUpdateEvent {
+    pub value: MeshUpdate,
 }
 
 #[derive(Resource)]
@@ -38,11 +38,11 @@ pub fn setup_environment(mut commands: Commands) {
 }
 
 pub fn handle_layer_update(
-    mut ev_layer_update: EventReader<LayerUpdateEvent>,
+    mut ev_layer_update: EventReader<MeshUpdateEvent>,
     mut pending_layers: ResMut<PendingLayers>,
     asset_server: Res<AssetServer>,
 ) {
-    let factor = 16;
+    let factor = 16.0;
     for layer_update in ev_layer_update.read() {
         let x = layer_update.value.position.x * factor;
         let y = layer_update.value.position.y * factor;

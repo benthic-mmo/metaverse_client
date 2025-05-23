@@ -1,4 +1,4 @@
-use glam::U16Vec2;
+use glam::{U16Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -6,13 +6,13 @@ use std::path::PathBuf;
 /// the path is the path to the generated gltf file, and the position is where to place it in the
 /// world.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LayerUpdate {
+pub struct MeshUpdate {
     /// path to the generated gtlf file that contains the layer's data
     pub path: PathBuf,
-    /// position of the layer to render
-    pub position: U16Vec2,
+    /// position of the mesh to render
+    pub position: Vec3,
 }
-impl LayerUpdate {
+impl MeshUpdate {
     /// convert the layer update to bytes to send to the UI
     pub fn to_bytes(&self) -> Vec<u8> {
         bincode::serialize(self).expect("Failed to serialize LayerUpdate")

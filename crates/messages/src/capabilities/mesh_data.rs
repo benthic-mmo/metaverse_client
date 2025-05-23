@@ -2,7 +2,7 @@ use flate2::bufread::ZlibDecoder;
 use glam::{Vec3, Vec4};
 use serde_llsd::LLSDValue;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     io::{Error, ErrorKind, Read},
 };
 
@@ -17,22 +17,31 @@ const ZLIB_DECODING_TYPE: u8 = 218;
 
 #[derive(Debug, Default)]
 pub struct Mesh {
-    high_level_of_detail: LevelOfDetail,
-    medium_level_of_detail: Option<LevelOfDetail>,
-    low_level_of_detail: Option<LevelOfDetail>,
-    lowest_level_of_detail: Option<LevelOfDetail>,
-    physics_convex: Vec<u8>,
-    skin: Vec<u8>,
+    pub position: Option<Vec3>,
+    pub high_level_of_detail: LevelOfDetail,
+    pub medium_level_of_detail: Option<LevelOfDetail>,
+    pub low_level_of_detail: Option<LevelOfDetail>,
+    pub lowest_level_of_detail: Option<LevelOfDetail>,
+    pub physics_convex: Vec<u8>,
+    pub skin: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub enum LevelOfDetailType {
+    High,
+    Medium,
+    Low,
+    Lowest,
 }
 
 #[derive(Debug, Default)]
 pub struct LevelOfDetail {
-    no_geometry: bool,
-    position_domain: Option<PositionDomain>,
-    weights: Vec<JointWeight>,
-    texture_coordinate: Vec<TextureCoordinate>,
-    texture_coordinate_domain: TextureCoordinateDomain,
-    triangle_list: Vec<Vec3>,
+    pub no_geometry: bool,
+    pub position_domain: Option<PositionDomain>,
+    pub weights: Vec<JointWeight>,
+    pub texture_coordinate: Vec<TextureCoordinate>,
+    pub texture_coordinate_domain: TextureCoordinateDomain,
+    pub triangles: Vec<Vec3>,
 }
 impl LevelOfDetail {
     fn from_llsd(data: LLSDValue) -> std::io::Result<Self> {
@@ -119,7 +128,7 @@ impl LevelOfDetail {
                 let y = u16::from_le_bytes([chunk[2], chunk[3]]) as f32;
                 let z = u16::from_le_bytes([chunk[4], chunk[5]]) as f32;
 
-                positions.push(Vec3::new(x, y, z));
+                positions.push(Vec3 { x, y, z });
             }
             Ok(positions)
         }
@@ -267,6 +276,7 @@ impl LevelOfDetail {
             Ok(TextureCoordinateDomain { min, max })
         }
         let positions = parse_packed_u16_positions(&get_binary(map, "Position")?)?;
+
         fn expand_triangles_to_vec3(
             triangle_indices: Vec<u16>,
             positions: Vec<Vec3>,
@@ -307,7 +317,7 @@ impl LevelOfDetail {
             texture_coordinate_domain: parse_texture_coordinate_domain(map)?,
             weights: parse_weights(&get_binary(map, "Weights")?)?,
             texture_coordinate: parse_texcoords(&get_binary(map, "TexCoord0")?)?,
-            triangle_list: expand_triangles_to_vec3(
+            triangles: expand_triangles_to_vec3(
                 get_u16_vec(&get_binary(map, "TriangleList")?)?,
                 positions,
             )?,
@@ -316,30 +326,30 @@ impl LevelOfDetail {
 }
 #[derive(Debug, Default)]
 pub struct PositionDomain {
-    min: Vec3,
-    max: Vec3,
+    pub min: Vec3,
+    pub max: Vec3,
 }
 
 #[derive(Debug, Default)]
 pub struct JointWeight {
-    joint_index: u8,
-    weight: u16,
+    pub joint_index: u8,
+    pub weight: u16,
 }
 
 #[derive(Debug, Default)]
 pub struct Position {
-    position: Vec4,
+    pub position: Vec4,
 }
 
 #[derive(Debug, Default)]
 pub struct TextureCoordinate {
-    u: u16,
-    v: u16,
+    pub u: u16,
+    pub v: u16,
 }
 #[derive(Debug, Default)]
 pub struct TextureCoordinateDomain {
-    min: [f32; 2],
-    max: [f32; 2],
+    pub min: [f32; 2],
+    pub max: [f32; 2],
 }
 impl Mesh {
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
 use bitreader::{BitReader, BitReaderError};
+use metaverse_messages::capabilities::mesh_data::Mesh;
+use std::collections::HashMap;
 
 use crate::{
     cloud::Cloud,
@@ -11,10 +11,7 @@ use crate::{
     wind::Wind,
 };
 use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::{
-    environment::layer_data::{LayerData, LayerType},
-    ui::layer_update::LayerUpdate,
-};
+use metaverse_messages::environment::layer_data::{LayerData, LayerType};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -70,11 +67,11 @@ pub trait PatchData: Sized {
     fn from_packet(packet: &LayerData, extended: bool) -> Result<Vec<Self>, PatchError>;
 
     /// generate_ui_event generates a vector of LayerUpdate for the UI to handle
-    fn generate_ui_event(
+    fn generate_mesh(
         self: Self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Vec<LayerUpdate>;
+    ) -> Option<Mesh>;
 }
 
 /// This is the header that begins each new terrain patch, containing information required for

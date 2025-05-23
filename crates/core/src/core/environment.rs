@@ -1,10 +1,20 @@
-use std::collections::HashMap;
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
-use metaverse_environment::{land::Land, layer_handler::{parse_layer_data, PatchData, PatchLayer}};
-use metaverse_messages::{environment::layer_data::LayerData, ui::ui_events::UiEventTypes};
+use log::{error, info};
+use metaverse_environment::{
+    land::Land,
+    layer_handler::{PatchData, PatchLayer, parse_layer_data},
+};
+use metaverse_messages::{
+    environment::layer_data::LayerData,
+    ui::{mesh_update::MeshUpdate, ui_events::UiEventTypes},
+};
+use std::{collections::HashMap, fs::create_dir_all};
 
-use super::session::{Mailbox, UiMessage};
+use super::{
+    generate_gltf::generate_high_lod,
+    session::{Mailbox, UiMessage},
+};
 
 #[cfg(feature = "environment")]
 #[derive(Debug, Message)]
@@ -33,23 +43,54 @@ impl Handler<LayerData> for Mailbox {
                                 .environment_cache
                                 .patch_cache
                                 .insert(land.terrain_header.location, land.clone());
-                            let mut layer_updates = land.generate_ui_event(
+                            let mut layer_meshes = Vec::new();
+                            if let Some(mesh) = land.clone().generate_mesh(
                                 &mut session.environment_cache.patch_queue,
                                 &session.environment_cache.patch_cache,
-                            );
+                            ) {
+                                layer_meshes.push(mesh);
+                            }
                             let queue_save = session.environment_cache.patch_queue.clone();
                             for (_location, land) in queue_save {
-                                layer_updates.extend(land.generate_ui_event(
+                                if let Some(mesh) = land.generate_mesh(
                                     &mut session.environment_cache.patch_queue,
                                     &session.environment_cache.patch_cache,
-                                ));
+                                ) {
+                                    layer_meshes.push(mesh);
+                                }
                             }
+                            for mesh in layer_meshes {
+                                // generate gltf file from mesh
+                                // create a UI event
+                                if let Some(data_dir) = dirs::data_dir() {
+                                    let local_share_dir = data_dir.join("benthic");
+                                    if !local_share_dir.exists() {
+                                        if let Err(e) = create_dir_all(&local_share_dir) {
+                                            error!("Failed to create Benthic share dir {:?}", e)
+                                        };
+                                        info!("Created Directory: {:?}", local_share_dir);
+                                    }
+                                    let land_dir = local_share_dir.join("land");
+                                    if !land_dir.exists() {
+                                        if let Err(e) = create_dir_all(&land_dir) {
+                                            error!("Failed to create land dir {:?}", e)
+                                        };
+                                        info!("Created Directory: {:?}", land_dir);
+                                    }
+                                    let path = land_dir
+                                        .join(format!("{}.gltf", land.terrain_header.filename));
 
-                            for layer in layer_updates {
-                                ctx.address().do_send(UiMessage::new(
-                                    UiEventTypes::LayerUpdateEvent,
-                                    layer.to_bytes(),
-                                ));
+                                    if let Ok(path) = generate_high_lod(&mesh, path) {
+                                        ctx.address().do_send(UiMessage::new(
+                                            UiEventTypes::MeshUpdate,
+                                            MeshUpdate {
+                                                position: mesh.position.unwrap(),
+                                                path,
+                                            }
+                                            .to_bytes(),
+                                        ));
+                                    };
+                                }
                             }
                         }
                     }
