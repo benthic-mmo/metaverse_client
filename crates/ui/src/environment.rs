@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_messages::ui::mesh_update::MeshUpdate;
+use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 
 #[derive(Event)]
 pub struct MeshUpdateEvent {
@@ -11,6 +11,7 @@ pub struct MeshUpdateEvent {
 pub struct PendingLayer {
     pub handle: Handle<Gltf>,
     pub position: Vec3,
+    pub mesh_type: MeshType,
 }
 
 #[derive(Resource)]
@@ -42,14 +43,26 @@ pub fn handle_layer_update(
     mut pending_layers: ResMut<PendingLayers>,
     asset_server: Res<AssetServer>,
 ) {
-    let factor = 16.0;
     for layer_update in ev_layer_update.read() {
+        let factor;
+        match layer_update.value.mesh_type {
+            MeshType::Avatar => {
+                println!("RENDERING AVATAR ??? ");
+                factor = 1.0;
+            }
+            MeshType::Land => {
+                factor = 16.0;
+            }
+        }
+
         let x = layer_update.value.position.x * factor;
         let y = layer_update.value.position.y * factor;
+        let z = layer_update.value.position.z * factor;
         let handle: Handle<Gltf> = asset_server.load(layer_update.value.path.clone());
         pending_layers.items.push(PendingLayer {
             handle,
-            position: Vec3::new(x as f32, 0.0, y as f32),
+            position: Vec3::new(x as f32, z as f32, y as f32),
+            mesh_type: layer_update.value.mesh_type.clone(),
         });
     }
 }
@@ -67,6 +80,19 @@ pub fn check_model_loaded(
                 base_color: Color::WHITE,
                 ..Default::default()
             });
+            let scale = match layer.mesh_type {
+                MeshType::Avatar => Vec3::splat(20.0), // Make avatars huge for debugging
+                MeshType::Land => Vec3::ONE,
+            };
+            commands.spawn((
+                SceneRoot(gltf.scenes[0].clone()),
+                Transform {
+                    translation: layer.position,
+                    scale,
+                    ..Default::default()
+                },
+                MeshMaterial3d::from(white_material.clone()),
+            ));
             commands.spawn((
                 SceneRoot(gltf.scenes[0].clone()),
                 Transform::from_translation(layer.position),

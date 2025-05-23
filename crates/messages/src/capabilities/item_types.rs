@@ -1,9 +1,8 @@
-use std::time::SystemTime;
-
-use serde_llsd::LLSDValue;
-use uuid::Uuid;
-
+use super::mesh_data::Mesh;
 use crate::utils::object_types::ObjectType;
+use serde_llsd::LLSDValue;
+use std::time::SystemTime;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 /// Inventory item struct for Opensimulator items

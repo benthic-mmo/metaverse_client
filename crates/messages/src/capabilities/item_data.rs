@@ -4,9 +4,12 @@ use uuid::Uuid;
 
 use crate::capabilities::item_types::Permissions;
 
-use super::item_types::{SaleInfo, SaleType};
+use super::{
+    item_types::{SaleInfo, SaleType},
+    mesh_data::Mesh,
+};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ItemData {
     pub name: String,
     pub version: String,
@@ -14,6 +17,7 @@ pub struct ItemData {
     pub sale_info: SaleInfo,
     pub parameters: HashMap<i32, f32>,
     pub textures: HashMap<TextureSlot, Uuid>,
+    pub mesh: Option<Mesh>,
 }
 
 #[derive(Debug)]
@@ -188,6 +192,7 @@ impl ItemData {
             sale_info,
             parameters,
             textures,
+            mesh: None,
         })
     }
 }

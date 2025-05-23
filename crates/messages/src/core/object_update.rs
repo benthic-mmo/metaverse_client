@@ -1,6 +1,6 @@
 use actix::Message;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use glam::{Quat, Vec3, Vec4};
+use glam::{Vec3, Vec4};
 use rgb::Rgba;
 use uuid::Uuid;
 

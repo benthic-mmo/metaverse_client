@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
+use glam::Vec3;
 use metaverse_messages::{
     capabilities::{item_data::ItemData, mesh_data::Mesh, scene_object::SceneObject},
-    core::object_update::ObjectUpdate,
     utils::object_types::ObjectType,
 };
-use serde_llsd::de::xml;
 use std::io::{Error, ErrorKind};
 use uuid::Uuid;
 
@@ -45,8 +44,12 @@ pub async fn download_asset(
                         match client.get(url).send().await {
                             Ok(mut response) => match response.body().await {
                                 Ok(body_bytes) => {
-                                    Mesh::from_bytes(&body_bytes)?;
-                                    ItemData::from_bytes(&body_bytes)
+                                    let mut mesh = Mesh::from_bytes(&body_bytes)?;
+                                    mesh.position = Some(Vec3::new(200.0, 200.0, 15.0));
+                                    Ok(ItemData {
+                                        mesh: Some(mesh),
+                                        ..Default::default()
+                                    })
                                 }
                                 Err(e) => Err(Error::new(
                                     ErrorKind::Other,

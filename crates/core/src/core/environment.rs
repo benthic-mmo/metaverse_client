@@ -7,7 +7,10 @@ use metaverse_environment::{
 };
 use metaverse_messages::{
     environment::layer_data::LayerData,
-    ui::{mesh_update::MeshUpdate, ui_events::UiEventTypes},
+    ui::{
+        mesh_update::{MeshType, MeshUpdate},
+        ui_events::UiEventTypes,
+    },
 };
 use std::{collections::HashMap, fs::create_dir_all};
 
@@ -77,15 +80,18 @@ impl Handler<LayerData> for Mailbox {
                                         };
                                         info!("Created Directory: {:?}", land_dir);
                                     }
-                                    let path = land_dir
-                                        .join(format!("{}.gltf", land.terrain_header.filename));
 
-                                    if let Ok(path) = generate_high_lod(&mesh, path) {
+                                    if let Ok(path) = generate_high_lod(
+                                        &mesh,
+                                        land_dir,
+                                        land.terrain_header.filename.clone(),
+                                    ) {
                                         ctx.address().do_send(UiMessage::new(
                                             UiEventTypes::MeshUpdate,
                                             MeshUpdate {
                                                 position: mesh.position.unwrap(),
                                                 path,
+                                                mesh_type: MeshType::Land,
                                             }
                                             .to_bytes(),
                                         ));

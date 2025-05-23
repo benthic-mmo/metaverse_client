@@ -15,7 +15,7 @@ use std::{
 const ZLIB_MAGIC_NUMBER: u8 = 120;
 const ZLIB_DECODING_TYPE: u8 = 218;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Mesh {
     pub position: Option<Vec3>,
     pub high_level_of_detail: LevelOfDetail,
@@ -34,7 +34,7 @@ pub enum LevelOfDetailType {
     Lowest,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct LevelOfDetail {
     pub no_geometry: bool,
     pub position_domain: Option<PositionDomain>,
@@ -43,6 +43,7 @@ pub struct LevelOfDetail {
     pub texture_coordinate_domain: TextureCoordinateDomain,
     pub triangles: Vec<Vec3>,
 }
+
 impl LevelOfDetail {
     fn from_llsd(data: LLSDValue) -> std::io::Result<Self> {
         let array = data
@@ -115,22 +116,32 @@ impl LevelOfDetail {
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))
                 .collect())
         }
-        fn parse_packed_u16_positions(data: &[u8]) -> Result<Vec<Vec3>, std::io::Error> {
-            if data.len() % 6 != 0 {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Position data length must be a multiple of 6",
-                ));
-            }
-            let mut positions = Vec::with_capacity(data.len() / 6);
+        fn parse_packed_u16_positions(
+            data: &[u8],
+            min: Vec3,
+            max: Vec3,
+        ) -> Result<Vec<Vec3>, std::io::Error> {
+            let mut out = Vec::with_capacity(data.len() / 6);
             for chunk in data.chunks_exact(6) {
-                let x = u16::from_le_bytes([chunk[0], chunk[1]]) as f32;
-                let y = u16::from_le_bytes([chunk[2], chunk[3]]) as f32;
-                let z = u16::from_le_bytes([chunk[4], chunk[5]]) as f32;
+                let x = u16::from_le_bytes([chunk[0], chunk[1]]) as f32 / 65535.0;
+                let z = u16::from_le_bytes([chunk[2], chunk[3]]) as f32 / 65535.0;
+                let y = u16::from_le_bytes([chunk[4], chunk[5]]) as f32 / 65535.0;
+                let pos = Vec3 {
+                    x: min.x + x * (max.x - min.x),
+                    y: min.y + y * (max.y - min.y),
+                    z: min.z + z * (max.z - min.z),
+                };
 
-                positions.push(Vec3 { x, y, z });
+                // Apply Z-up to Y-up conversion
+                out.push(Vec3 {
+                    // for some reason this makes the models look right.
+                    // idk.
+                    x: pos.x / 5.0,
+                    y: pos.y,
+                    z: -pos.z,
+                });
             }
-            Ok(positions)
+            Ok(out)
         }
         fn parse_weights(data: &[u8]) -> std::io::Result<Vec<JointWeight>> {
             let mut weights = Vec::new();
@@ -214,7 +225,7 @@ impl LevelOfDetail {
             // parse "Min" array
             let min = match domain_map.get("Min") {
                 Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
-                    let x = match &arr[0] {
+                    let x = match &arr[1] {
                         LLSDValue::Real(f) => *f as f32,
                         _ => {
                             return Err(std::io::Error::new(
@@ -223,7 +234,7 @@ impl LevelOfDetail {
                             ));
                         }
                     };
-                    let y = match &arr[1] {
+                    let y = match &arr[0] {
                         LLSDValue::Real(f) => *f as f32,
                         _ => {
                             return Err(std::io::Error::new(
@@ -275,8 +286,11 @@ impl LevelOfDetail {
 
             Ok(TextureCoordinateDomain { min, max })
         }
-        let positions = parse_packed_u16_positions(&get_binary(map, "Position")?)?;
-
+        let positions = parse_packed_u16_positions(
+            &get_binary(map, "Position")?,
+            position_domain_min,
+            position_domain_max,
+        )?;
         fn expand_triangles_to_vec3(
             triangle_indices: Vec<u16>,
             positions: Vec<Vec3>,
@@ -324,29 +338,29 @@ impl LevelOfDetail {
         })
     }
 }
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PositionDomain {
     pub min: Vec3,
     pub max: Vec3,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct JointWeight {
     pub joint_index: u8,
     pub weight: u16,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Position {
     pub position: Vec4,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TextureCoordinate {
     pub u: u16,
     pub v: u16,
 }
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TextureCoordinateDomain {
     pub min: [f32; 2],
     pub max: [f32; 2],

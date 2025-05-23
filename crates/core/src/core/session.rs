@@ -1,44 +1,27 @@
 use actix::prelude::*;
 use actix_rt::time;
 use bincode;
-use glam::U16Vec2;
 use log::{error, info, warn};
 
 use metaverse_agent::generate_model::generate_model;
-#[cfg(feature = "agent")]
-#[cfg(feature = "environment")]
-use metaverse_environment::{
-    land::Land,
-    layer_handler::{PatchData, PatchLayer, parse_layer_data},
-};
-
-use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
-use metaverse_messages::capabilities::{
-    capabilities::{Capability, CapabilityRequest},
-    folder_types::FolderNode,
-    item_data::ItemData,
-};
+use metaverse_messages::capabilities::{capabilities::Capability, item_data::ItemData};
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
-use metaverse_messages::core::object_update::ObjectUpdate;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
-use metaverse_messages::environment::layer_data::LayerData;
 use metaverse_messages::errors::errors::AckError;
 use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::ui_events::UiEventTypes;
-use metaverse_messages::utils::object_types::ObjectType;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::{collections::HashMap, path::PathBuf};
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-use crate::http_handler::download_asset;
-
+use super::generate_gltf::generate_gltf;
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
 const ACK_ATTEMPTS: i8 = 3;
@@ -189,13 +172,6 @@ impl Mailbox {
             self.notify.notify_one();
         }
     }
-}
-
-/// Trigger the function that creates the user model, and sends the data to the UI.
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct RenderAgent {
-    pub outfit: Vec<ItemData>,
 }
 
 impl Actor for Mailbox {
@@ -439,13 +415,5 @@ async fn send_ack(
         Err(SessionError::AckError(AckError::new(
             "failed to retrieve ack ".to_string(),
         )))
-    }
-}
-
-impl Handler<RenderAgent> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: RenderAgent, _: &mut Self::Context) -> Self::Result {
-        generate_model(msg.outfit);
-        // trigger a UI update
     }
 }
