@@ -21,7 +21,6 @@ use log::{error, info, warn};
 use login::login_screen;
 use metaverse_core::initialize::initialize;
 use metaverse_core::ui_subscriber::listen_for_core_events;
-use metaverse_messages::agent::agent_update::AgentUpdate;
 use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::login::login_errors::LoginError;
 use metaverse_messages::login::login_response::LoginResponse;
@@ -383,22 +382,22 @@ fn send_agent_update(
         return;
     }
 
-    let data = session_data.login_response.as_ref().unwrap();
-    let packet = Packet::new_agent_update(AgentUpdate {
-        agent_id: data.agent_id,
-        session_id: data.session_id,
-        ..Default::default()
-    })
-    .to_bytes();
+    // let data = session_data.login_response.as_ref().unwrap();
+    // let packet = Packet::new_agent_update(AgentUpdate {
+    //     agent_id: data.agent_id,
+    //     session_id: data.session_id,
+    //     ..Default::default()
+    // })
+    // .to_bytes();
 
-    let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    match client_socket.send_to(
-        &packet,
-        format!("127.0.0.1:{}", sockets.ui_to_server_socket),
-    ) {
-        Ok(_) => {}
-        Err(e) => println!("Error sending agent update from UI {:?}", e),
-    };
+    // let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+    // match client_socket.send_to(
+    //     &packet,
+    //     format!("127.0.0.1:{}", sockets.ui_to_server_socket),
+    // ) {
+    //     Ok(_) => {}
+    //     Err(e) => println!("Error sending agent update from UI {:?}", e),
+    // };
 }
 
 fn handle_window_close(

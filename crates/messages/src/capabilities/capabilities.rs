@@ -10,10 +10,6 @@ use serde_llsd::LLSDValue;
 /// these are sent to the server to retrieve the URL of the capability endpoint.
 /// that URL can be used to retrieve more data from the server.
 pub enum Capability {
-    /// Enable the viewer to get meshes.
-    GetMesh,
-    /// Enable the viewer to get textures.
-    GetTexture,
     /// Enable the viewer to retrieve assets from the asset server.  
     ViewerAsset,
 
@@ -30,8 +26,6 @@ pub enum Capability {
 impl Capability {
     fn from_string(string: &str) -> Self {
         match string {
-            "GetMesh" => Self::GetMesh,
-            "GetTexture" => Self::GetTexture,
             "ViewerAsset" => Self::ViewerAsset,
             "FetchLibDescendents2" => Self::FetchLibDescendents2,
             "FetchInventoryDescendents2" => Self::FetchInventoryDescendents2,
@@ -42,8 +36,6 @@ impl Capability {
 impl Display for Capability {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::GetMesh => write!(f, "GetMesh"),
-            Self::GetTexture => write!(f, "GetTexture"),
             Self::ViewerAsset => write!(f, "ViewerAsset"),
 
             Self::FetchInventoryDescendents2 => write!(f, "FetchInventoryDescendents2"),

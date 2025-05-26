@@ -3,8 +3,7 @@ use actix_rt::time;
 use bincode;
 use log::{error, info, warn};
 
-use metaverse_agent::generate_model::generate_model;
-use metaverse_messages::capabilities::{capabilities::Capability, item_data::ItemData};
+use metaverse_messages::capabilities::capabilities::Capability;
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::errors::errors::AckError;
@@ -14,6 +13,7 @@ use metaverse_messages::ui::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
@@ -21,7 +21,6 @@ use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-use super::generate_gltf::generate_gltf;
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
 const ACK_ATTEMPTS: i8 = 3;

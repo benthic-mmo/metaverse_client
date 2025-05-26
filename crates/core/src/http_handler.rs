@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
 use glam::Vec3;
+use metaverse_messages::capabilities::item::Item;
+use metaverse_messages::capabilities::scene_object::SceneGroup;
 use metaverse_messages::{
-    capabilities::{item_data::ItemData, mesh_data::Mesh, scene_object::SceneObject},
-    utils::object_types::ObjectType,
+    capabilities::{item::ItemData, mesh_data::Mesh, scene_object::SceneObject},
+    utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
 use std::io::{Error, ErrorKind};
-use uuid::Uuid;
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object using the object's asset ID.
 /// Creates a get request in the format of
@@ -15,62 +16,65 @@ use uuid::Uuid;
 /// http://da4b15ea-1d97-4140-afe3-2dd1ce5560710000?bodypart_id=da4b15ea-1d97-4140-afe3-2dd1ce5560710000
 /// If successful, this returns bytes that contain the object's information.
 pub async fn download_asset(
-    object_type: ObjectType,
-    asset_id: Uuid,
+    metadata: ItemMetadata,
     path: PathBuf,
     server_endpoint: &String,
-) -> std::io::Result<ItemData> {
+) -> std::io::Result<Item> {
     let client = awc::Client::default();
 
     let url = format!(
         "{}?{}_id={}",
         server_endpoint,
-        object_type.to_string(),
-        asset_id
+        metadata.item_type.to_string(),
+        metadata.asset_id
     );
 
     match client.get(url).send().await {
         Ok(mut response) => match response.body().await {
-            Ok(body_bytes) => match object_type {
+            Ok(body_bytes) => match metadata.item_type {
                 ObjectType::Object => {
-                    let scene_object = SceneObject::from_xml(&body_bytes);
-                    if let Ok(scene) = scene_object {
-                        let url = format!(
-                            "{}?{}_id={}",
-                            server_endpoint,
-                            ObjectType::Mesh.to_string(),
-                            scene.sculpt.texture
-                        );
-                        match client.get(url).send().await {
-                            Ok(mut response) => match response.body().await {
-                                Ok(body_bytes) => {
-                                    let mut mesh = Mesh::from_bytes(&body_bytes)?;
-                                    mesh.position = Some(Vec3::new(200.0, 200.0, 15.0));
-                                    Ok(ItemData {
+                    let scene_group = SceneGroup::from_xml(&body_bytes).map_err(|e| {
+                        Error::new(
+                            ErrorKind::Other,
+                            format!("Failed to parse scene object: {}", e),
+                        )
+                    })?;
+                    println!("scene group is {:?}", scene_group);
+                    let url = format!(
+                        "{}?{}_id={}",
+                        server_endpoint,
+                        ObjectType::Mesh.to_string(),
+                        scene_group.root.sculpt.texture
+                    );
+                    match client.get(url).send().await {
+                        Ok(mut response) => match response.body().await {
+                            Ok(body_bytes) => {
+                                let mesh = Mesh::from_bytes(&body_bytes)?;
+                                Ok(Item {
+                                    metadata,
+                                    data: Some(ItemData {
                                         mesh: Some(mesh),
                                         ..Default::default()
-                                    })
-                                }
-                                Err(e) => Err(Error::new(
-                                    ErrorKind::Other,
-                                    format!("Failed to retrieve mesh {:?}", e),
-                                )),
-                            },
+                                    }),
+                                })
+                            }
                             Err(e) => Err(Error::new(
                                 ErrorKind::Other,
                                 format!("Failed to retrieve mesh {:?}", e),
                             )),
-                        }
-                    } else {
-                        Err(Error::new(
+                        },
+                        Err(e) => Err(Error::new(
                             ErrorKind::Other,
-                            format!("Failed to parse scene object"),
-                        ))
+                            format!("Failed to retrieve mesh {:?}", e),
+                        )),
                     }
                 }
                 _ => {
                     if body_bytes != "" {
-                        ItemData::from_bytes(&body_bytes)
+                        Ok(Item {
+                            metadata,
+                            data: Some(ItemData::from_bytes(&body_bytes)?),
+                        })
                     } else {
                         Err(Error::new(ErrorKind::Other, "Failed to parse item data"))
                     }

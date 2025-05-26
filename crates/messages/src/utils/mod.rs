@@ -4,3 +4,5 @@ pub mod agent_access;
 pub mod object_types;
 /// global values used for describing region capabilities
 pub mod region_flags;
+
+pub mod item_metadata;

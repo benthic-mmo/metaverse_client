@@ -1,6 +1,7 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use uuid::Uuid;
 
 /// this is the struct for sending LayerUpdates from the core to the UI.
 /// the path is the path to the generated gltf file, and the position is where to place it in the
@@ -12,6 +13,7 @@ pub struct MeshUpdate {
     /// position of the mesh to render
     pub position: Vec3,
     pub mesh_type: MeshType,
+    pub id: Option<Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

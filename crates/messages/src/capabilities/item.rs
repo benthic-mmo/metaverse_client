@@ -1,29 +1,136 @@
 use std::collections::HashMap;
-
 use uuid::Uuid;
 
-use crate::capabilities::item_types::Permissions;
+use crate::utils::item_metadata::{ItemMetadata, Permissions};
 
-use super::{
-    item_types::{SaleInfo, SaleType},
-    mesh_data::Mesh,
-};
+use super::mesh_data::Mesh;
 
 #[derive(Debug, Default)]
+/// The item struct that will be saved in the local inventory cache. If data is None, that means
+/// the full data hasn't been retrieved from the asset server.
+pub struct Item {
+    pub metadata: ItemMetadata,
+    pub data: Option<ItemData>,
+}
+
+#[derive(Debug, Default)]
+/// The data received from the ViewerAsset endpoint for inventory objects.
 pub struct ItemData {
-    pub name: String,
     pub version: String,
-    pub permissions: Permissions,
-    pub sale_info: SaleInfo,
     pub parameters: HashMap<i32, f32>,
     pub textures: HashMap<TextureSlot, Uuid>,
     pub mesh: Option<Mesh>,
 }
+impl ItemData {
+    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let text = std::str::from_utf8(bytes)
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
+
+        let mut lines = text.lines().map(str::trim);
+
+        let mut next_line = || {
+            lines.next().ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "Unexpected end of data")
+            })
+        };
+
+        let version = next_line()?.to_owned();
+        let _name = next_line()?.to_owned();
+
+        next_line()?; // permissions 0
+        next_line()?; // {
+        next_line()?; // base_mask
+
+        let parse_hex = |line: &str| {
+            i32::from_str_radix(
+                line.split('\t').nth(1).ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing hex field")
+                })?,
+                16,
+            )
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
+        };
+
+        let _base_mask = parse_hex(next_line()?)?;
+        let _owner_mask = parse_hex(next_line()?)?;
+        let _group_mask = parse_hex(next_line()?)?;
+        let _everyone_mask = parse_hex(next_line()?)?;
+        let _next_owner_mask = parse_hex(next_line()?)?;
+
+        let parse_uuid = |line: &str| {
+            let id_str = line.split('\t').nth(1).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing UUID field")
+            })?;
+            Uuid::parse_str(id_str)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
+        };
+
+        let _creator_id = parse_uuid(next_line()?)?;
+        let _owner_id = parse_uuid(next_line()?)?;
+        let _last_owner_id = Some(parse_uuid(next_line()?)?);
+        let _group_id = parse_uuid(next_line()?)?;
+
+        next_line()?; // }
+        next_line()?; // sale_info 0
+        next_line()?; // {
+        next_line()?; // sale_type
+
+        let _price = {
+            let _price_str = next_line()?.split('\t').nth(1).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing sale price")
+            })?;
+        };
+
+        next_line()?; // }
+        next_line()?; // type 0
+
+        let param_count = {
+            let parts: Vec<&str> = next_line()?.split(' ').collect();
+            parse_or_io(parts.get(1).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing parameter count")
+            })?)?
+        };
+
+        let mut parameters = HashMap::new();
+        for _ in 0..param_count {
+            let parts: Vec<&str> = next_line()?.split(' ').collect();
+            if parts.len() >= 2 {
+                parameters.insert(parse_or_io(parts[0])?, parse_or_io(parts[1])?);
+            }
+        }
+
+        let texture_count = {
+            let parts: Vec<&str> = next_line()?.split(' ').collect();
+            parse_or_io(parts.get(1).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing texture count")
+            })?)?
+        };
+
+        let mut textures = HashMap::new();
+        for _ in 0..texture_count {
+            let parts: Vec<&str> = next_line()?.split(' ').collect();
+            if parts.len() >= 2 {
+                textures.insert(
+                    TextureSlot::from_bytes(parse_or_io(parts[0])?),
+                    parse_or_io(parts[1])?,
+                );
+            }
+            // Optional: parse texture lines if needed
+        }
+
+        Ok(ItemData {
+            version,
+            parameters,
+            textures,
+            mesh: None,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct Texture {
-    texture_slot: TextureSlot,
-    id: Uuid,
+    pub texture_slot: TextureSlot,
+    pub id: Uuid,
 }
 
 /// Could be totally wrong
@@ -68,131 +175,11 @@ where
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
 }
 
-impl ItemData {
+impl Item {
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let text = std::str::from_utf8(bytes)
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
-
-        let mut lines = text.lines().map(str::trim);
-
-        let mut next_line = || {
-            lines.next().ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "Unexpected end of data")
-            })
-        };
-
-        let version = next_line()?.to_owned();
-        let name = next_line()?.to_owned();
-
-        next_line()?; // permissions 0
-        next_line()?; // {
-        next_line()?; // base_mask
-
-        let parse_hex = |line: &str| {
-            i32::from_str_radix(
-                line.split('\t').nth(1).ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing hex field")
-                })?,
-                16,
-            )
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-        };
-
-        let base_mask = parse_hex(next_line()?)?;
-        let owner_mask = parse_hex(next_line()?)?;
-        let group_mask = parse_hex(next_line()?)?;
-        let everyone_mask = parse_hex(next_line()?)?;
-        let next_owner_mask = parse_hex(next_line()?)?;
-
-        let parse_uuid = |line: &str| {
-            let id_str = line.split('\t').nth(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing UUID field")
-            })?;
-            Uuid::parse_str(id_str)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-        };
-
-        let creator_id = parse_uuid(next_line()?)?;
-        let owner_id = parse_uuid(next_line()?)?;
-        let last_owner_id = Some(parse_uuid(next_line()?)?);
-        let group_id = parse_uuid(next_line()?)?;
-
-        let permissions = Permissions {
-            base_mask,
-            owner_mask,
-            group_mask,
-            everyone_mask,
-            next_owner_mask,
-            creator_id,
-            last_owner_id,
-            group_id,
-            owner_id,
-            is_owner_group: None,
-        };
-
-        next_line()?; // }
-        next_line()?; // sale_info 0
-        next_line()?; // {
-        next_line()?; // sale_type
-
-        let price = {
-            let price_str = next_line()?.split('\t').nth(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing sale price")
-            })?;
-            parse_or_io(price_str)?
-        };
-
-        let sale_info = SaleInfo {
-            sale_type: SaleType::Not,
-            price,
-            ownership_cost: None,
-        };
-
-        next_line()?; // }
-        next_line()?; // type 0
-
-        let param_count = {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            parse_or_io(parts.get(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing parameter count")
-            })?)?
-        };
-
-        let mut parameters = HashMap::new();
-        for _ in 0..param_count {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            if parts.len() >= 2 {
-                parameters.insert(parse_or_io(parts[0])?, parse_or_io(parts[1])?);
-            }
-        }
-
-        let texture_count = {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            parse_or_io(parts.get(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing texture count")
-            })?)?
-        };
-
-        let mut textures = HashMap::new();
-        for _ in 0..texture_count {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            if parts.len() >= 2 {
-                textures.insert(
-                    TextureSlot::from_bytes(parse_or_io(parts[0])?),
-                    parse_or_io(parts[1])?,
-                );
-            }
-            // Optional: parse texture lines if needed
-        }
-
-        Ok(ItemData {
-            version,
-            name,
-            permissions,
-            sale_info,
-            parameters,
-            textures,
-            mesh: None,
+        Ok(Item {
+            metadata: ItemMetadata::from_bytes(bytes)?,
+            data: Some(ItemData::from_bytes(bytes)?),
         })
     }
 }
