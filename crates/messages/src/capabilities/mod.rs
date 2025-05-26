@@ -13,9 +13,7 @@ pub mod capabilities;
 pub mod folder_types;
 
 /// Handles the types for inventory items
-pub mod item_types;
-
-pub mod item_data;
+pub mod item;
 
 pub mod scene_object;
 

@@ -9,8 +9,6 @@ use metaverse_messages::{
 };
 use uuid::Uuid;
 
-use crate::http_handler::download_asset;
-
 use super::session::Mailbox;
 
 #[cfg(feature = "inventory")]
@@ -135,31 +133,5 @@ impl Handler<FolderNode> for Mailbox {
         if let Some(session) = self.session.as_mut() {
             session.inventory_data.inventory_tree = Some(msg);
         }
-    }
-}
-
-impl Handler<RetrieveAsset> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: RetrieveAsset, ctx: &mut Self::Context) -> Self::Result {
-        ctx.spawn(
-            async move {
-                match download_asset(
-                    msg.object_type,
-                    msg.asset_id,
-                    msg.path,
-                    &msg.server_endpoint,
-                )
-                .await
-                {
-                    Ok(item) => match msg.kind {
-                        RetrieveAssetKind::Environment => {}
-                        RetrieveAssetKind::Agent => {}
-                        RetrieveAssetKind::Inventory => {}
-                    },
-                    Err(e) => warn!("Failed to download asset {:?}", e),
-                }
-            }
-            .into_actor(self),
-        );
     }
 }

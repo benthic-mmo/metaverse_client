@@ -1,9 +1,14 @@
 use crate::core::session::Mailbox;
 use actix::Actor;
 use actix_rt::time;
+use log::error;
+use log::info;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::fs::create_dir_all;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -87,4 +92,38 @@ pub async fn initialize(
     });
 
     Ok(handle)
+}
+
+pub fn create_sub_share_dir(dir: &str) -> std::io::Result<PathBuf> {
+    let local_share_dir = initialize_share_dir()?;
+    let new_dir = local_share_dir.join(dir);
+    if !new_dir.exists() {
+        if let Err(e) = create_dir_all(&new_dir) {
+            error!("Failed to create {} dir {:?}", dir, e);
+            return Err(e);
+        };
+        info!("Created Directory: {:?}", new_dir);
+    }
+    Ok(new_dir)
+}
+
+pub fn initialize_share_dir() -> std::io::Result<PathBuf> {
+    if let Some(data_dir) = dirs::data_dir() {
+        let local_share_dir = data_dir.join("benthic");
+        if !local_share_dir.exists() {
+            if let Err(e) = create_dir_all(&local_share_dir) {
+                error!("Failed to create benthic share directory");
+                return Err(e);
+            };
+            info!("Created Directory: {:?}", local_share_dir);
+            Ok(local_share_dir)
+        } else {
+            Ok(local_share_dir)
+        }
+    } else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Failed to find share dir",
+        ));
+    }
 }

@@ -4,6 +4,7 @@ use crate::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLog
 use std::env;
 use std::error::Error;
 
+use glam::Vec3;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use reqwest::Client;

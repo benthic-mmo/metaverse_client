@@ -1,16 +1,18 @@
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::error;
 use log::{info, warn};
+use metaverse_messages::capabilities::item::Item;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use metaverse_messages::ui::ui_events::UiEventTypes;
 use metaverse_messages::{
-    capabilities::{capabilities::Capability, item_data::ItemData},
-    core::object_update::ObjectUpdate,
+    capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
     utils::object_types::ObjectType,
 };
 use std::{fs::create_dir_all, time::Duration};
+use uuid::Uuid;
 
 use crate::http_handler::download_asset;
+use crate::initialize::create_sub_share_dir;
 
 use super::session::UiMessage;
 use super::{generate_gltf::generate_high_lod, session::Mailbox};
@@ -19,7 +21,8 @@ use super::{generate_gltf::generate_high_lod, session::Mailbox};
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderAgent {
-    pub outfit: Vec<ItemData>,
+    pub agent_id: Uuid,
+    pub outfit: Vec<Item>,
 }
 
 #[cfg(any(feature = "agent", feature = "environment"))]
@@ -69,22 +72,29 @@ impl Handler<ObjectUpdate> for Mailbox {
                                         if ObjectType::Link == element.item_type {
                                             continue;
                                         }
-                                        match download_asset(
-                                            element.item_type,
-                                            element.asset_id,
-                                            outfit_path.clone(),
-                                            &url,
-                                        )
-                                        .await
+                                        match download_asset(element, outfit_path.clone(), &url)
+                                            .await
                                         {
-                                            Ok(item) => {
+                                            Ok(mut item) => {
+                                                // The position of the mesh is stored in the
+                                                // ObjectData packet. Copy that value to the mesh
+                                                // object.
+                                                if let Some(mesh) =
+                                                    item.data.as_mut().and_then(|d| d.mesh.as_mut())
+                                                {
+                                                    mesh.position = Some(msg.motion_data.position);
+                                                }
                                                 items.push(item);
                                             }
                                             Err(e) => warn!("Failed to download asset {:?}", e),
                                         }
                                     }
-                                    if let Err(e) =
-                                        address.send(RenderAgent { outfit: items }).await
+                                    if let Err(e) = address
+                                        .send(RenderAgent {
+                                            agent_id: msg.full_id,
+                                            outfit: items,
+                                        })
+                                        .await
                                     {
                                         warn!("Failed to send render agent request {:?}", e)
                                     };
@@ -105,7 +115,7 @@ impl Handler<ObjectUpdate> for Mailbox {
                 }
             }
             _ => {
-                println!("other value");
+                println!("Unknown object type");
             }
         }
     }
@@ -115,36 +125,25 @@ impl Handler<RenderAgent> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RenderAgent, ctx: &mut Self::Context) -> Self::Result {
         for item in msg.outfit {
-            if let Some(mesh) = item.mesh {
-                if let Some(data_dir) = dirs::data_dir() {
-                    let local_share_dir = data_dir.join("benthic");
-                    if !local_share_dir.exists() {
-                        if let Err(e) = create_dir_all(&local_share_dir) {
-                            error!("Failed to create Benthic share dir {:?}", e)
-                        };
-                        info!("Created Directory: {:?}", local_share_dir);
-                    }
-                    let agent_dir = local_share_dir.join("agent");
-                    if !agent_dir.exists() {
-                        if let Err(e) = create_dir_all(&agent_dir) {
-                            error!("Failed to create land dir {:?}", e)
-                        };
-                        info!("Created Directory: {:?}", agent_dir);
-                    }
-                    match generate_high_lod(&mesh, agent_dir, "asdf".to_string()) {
-                        Ok(path) => ctx.address().do_send(UiMessage::new(
-                            UiEventTypes::MeshUpdate,
-                            MeshUpdate {
-                                position: mesh.position.unwrap(),
-                                path,
-                                mesh_type: MeshType::Avatar,
+            if let Some(data) = item.data {
+                if let Some(mesh) = data.mesh {
+                    if let Ok(agent_dir) = create_sub_share_dir("agent") {
+                        match generate_high_lod(&mesh, agent_dir, "asdf".to_string()) {
+                            Ok(path) => ctx.address().do_send(UiMessage::new(
+                                UiEventTypes::MeshUpdate,
+                                MeshUpdate {
+                                    position: mesh.position.unwrap(),
+                                    path,
+                                    mesh_type: MeshType::Avatar,
+                                    id: Some(msg.agent_id),
+                                }
+                                .to_bytes(),
+                            )),
+                            Err(e) => {
+                                error!("Failed to generate GLTF {:?}", e)
                             }
-                            .to_bytes(),
-                        )),
-                        Err(e) => {
-                            error!("Failed to generate GLTF {:?}", e)
-                        }
-                    };
+                        };
+                    }
                 }
             }
         }

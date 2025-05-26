@@ -125,7 +125,7 @@ pub struct ObjectUpdate {
     /// The size of the object
     pub scale: Vec3,
     /// Values involving rotation, velocity and position.  
-    pub object_data: Update,
+    pub motion_data: MotionData,
     /// The local ID of any object this oobject is a child of. Used for creation of object and
     /// attachments. 0 if not present.  
     pub parent_id: u32,
@@ -196,10 +196,10 @@ impl PacketData for ObjectUpdate {
             z: scale_z,
         };
 
-        let object_data_length = cursor.read_u8()?;
-        let mut object_data = vec![0u8; object_data_length as usize];
-        cursor.read_exact(&mut object_data)?;
-        let object_data = Update::from_bytes(&object_data)?;
+        let motion_data_length = cursor.read_u8()?;
+        let mut motion_data = vec![0u8; motion_data_length as usize];
+        cursor.read_exact(&mut motion_data)?;
+        let motion_data = MotionData::from_bytes(&motion_data)?;
 
         let parent_id = cursor.read_u32::<LittleEndian>()?;
         let update_flags = cursor.read_u32::<LittleEndian>()?;
@@ -289,7 +289,7 @@ impl PacketData for ObjectUpdate {
             click_action,
             scale,
             material,
-            object_data,
+            motion_data,
             parent_id,
             update_flags,
             primitive_geometry,
@@ -438,7 +438,7 @@ impl PrimitiveGeometry {
 /// Stores ObjectUpdate update fields
 /// This contains information about the position, velocity, acceleration and etc of the object.
 /// Stores all values as f32s, despite them coming in as variable length values.
-pub struct Update {
+pub struct MotionData {
     /// The collision plane for setting the user's foot angle
     pub foot_collision_plane: Option<Vec4>,
     /// The location of the object in the world  
@@ -452,15 +452,15 @@ pub struct Update {
     /// The angular velocity of the object
     pub angular_velocity: Vec3,
 }
-impl Update {
+impl MotionData {
     /// Matches the length of the data to the correct parsing function
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         match bytes.len() {
-            76 => Ok(Update::from_bytes_foot_collision_high(bytes)?),
-            60 => Ok(Update::from_bytes_high(bytes)?),
-            48 => Ok(Update::from_bytes_foot_collision_medium(bytes)?),
-            32 => Ok(Update::from_bytes_medium(bytes)?),
-            16 => Ok(Update::from_bytes_low(bytes)?),
+            76 => Ok(Self::from_bytes_foot_collision_high(bytes)?),
+            60 => Ok(Self::from_bytes_high(bytes)?),
+            48 => Ok(Self::from_bytes_foot_collision_medium(bytes)?),
+            32 => Ok(Self::from_bytes_medium(bytes)?),
+            16 => Ok(Self::from_bytes_low(bytes)?),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Unknown ObjectData size",
@@ -478,7 +478,7 @@ impl Update {
 
         let mut update_bytes = [0u8; 60];
         cursor.read_exact(&mut update_bytes)?;
-        let mut update = Update::from_bytes_high(&update_bytes)?;
+        let mut update = Self::from_bytes_high(&update_bytes)?;
         update.foot_collision_plane = Some(collision_plane);
         Ok(update)
     }
@@ -494,7 +494,7 @@ impl Update {
 
         let mut update_bytes = [0u8; 32];
         cursor.read_exact(&mut update_bytes)?;
-        let mut update = Update::from_bytes_medium(&update_bytes)?;
+        let mut update = Self::from_bytes_medium(&update_bytes)?;
         update.foot_collision_plane = Some(collision_plane);
         Ok(update)
     }

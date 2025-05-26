@@ -371,6 +371,7 @@ impl Mesh {
             ..Default::default()
         };
         if let Ok(data) = serde_llsd::de::binary::from_bytes(bytes) {
+            println!("data is: {:?}", data);
             // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
             // first data block.
             let sentinel_location = bytes

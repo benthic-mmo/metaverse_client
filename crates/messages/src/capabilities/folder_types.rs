@@ -1,10 +1,9 @@
-use crate::capabilities::item_types::Item;
 use actix::Message;
 use serde_llsd::LLSDValue;
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
-use crate::utils::object_types::ObjectType;
+use crate::utils::{item_metadata::ItemMetadata, object_types::ObjectType};
 
 #[derive(Debug, Clone, Message)]
 #[rtype(result = "()")]
@@ -84,7 +83,7 @@ pub struct Folder {
     /// Number of descendents the folder has
     pub descendent_count: i32,
     /// Items contained within the folder
-    pub items: Vec<Item>,
+    pub items: Vec<ItemMetadata>,
     /// sub-folders within the folder
     pub categories: Vec<Category>,
 }
@@ -123,7 +122,7 @@ impl Folder {
                                 Some(items) => {
                                     if let Some(items) = items.as_array() {
                                         for item in items {
-                                            items_vec.push(Item::from_llsd(item)?)
+                                            items_vec.push(ItemMetadata::from_llsd(item)?)
                                         }
                                     }
                                 }

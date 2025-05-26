@@ -1,6 +1,5 @@
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
-use log::{error, info};
 use metaverse_environment::{
     land::Land,
     layer_handler::{PatchData, PatchLayer, parse_layer_data},
@@ -12,7 +11,9 @@ use metaverse_messages::{
         ui_events::UiEventTypes,
     },
 };
-use std::{collections::HashMap, fs::create_dir_all};
+use std::collections::HashMap;
+
+use crate::initialize::create_sub_share_dir;
 
 use super::{
     generate_gltf::generate_high_lod,
@@ -65,25 +66,10 @@ impl Handler<LayerData> for Mailbox {
                             for mesh in layer_meshes {
                                 // generate gltf file from mesh
                                 // create a UI event
-                                if let Some(data_dir) = dirs::data_dir() {
-                                    let local_share_dir = data_dir.join("benthic");
-                                    if !local_share_dir.exists() {
-                                        if let Err(e) = create_dir_all(&local_share_dir) {
-                                            error!("Failed to create Benthic share dir {:?}", e)
-                                        };
-                                        info!("Created Directory: {:?}", local_share_dir);
-                                    }
-                                    let land_dir = local_share_dir.join("land");
-                                    if !land_dir.exists() {
-                                        if let Err(e) = create_dir_all(&land_dir) {
-                                            error!("Failed to create land dir {:?}", e)
-                                        };
-                                        info!("Created Directory: {:?}", land_dir);
-                                    }
-
+                                if let Ok(dir) = create_sub_share_dir("land") {
                                     if let Ok(path) = generate_high_lod(
                                         &mesh,
-                                        land_dir,
+                                        dir,
                                         land.terrain_header.filename.clone(),
                                     ) {
                                         ctx.address().do_send(UiMessage::new(
@@ -92,6 +78,7 @@ impl Handler<LayerData> for Mailbox {
                                                 position: mesh.position.unwrap(),
                                                 path,
                                                 mesh_type: MeshType::Land,
+                                                id: None,
                                             }
                                             .to_bytes(),
                                         ));

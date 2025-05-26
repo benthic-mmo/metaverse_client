@@ -108,7 +108,7 @@ pub fn login_screen(
             first: login_data.first_name.clone(),
             last: login_data.last_name.clone(),
             passwd: login_data.password.clone(),
-            start: "home".to_string(),
+            start: "last".to_string(),
             channel: "benthic".to_string(),
             agree_to_tos: true,
             read_critical: true,
