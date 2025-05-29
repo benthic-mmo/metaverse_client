@@ -5,22 +5,16 @@ use std::path::PathBuf;
 use std::{borrow::Cow, mem};
 
 use gltf_json::validation::USize64;
-use metaverse_messages::capabilities::mesh_data::{LevelOfDetail, Mesh};
-/// Generates GLTF files from mesh objects.
-/// everything in this project that gets displayed in the 3d world will be stored as a Mesh object,
-/// even things that traditionally aren't meshes.
-/// This will generate the GLTF file on disk, and inform the UI.  
-
+use metaverse_messages::capabilities::mesh::{Mesh, MeshGeometry};
+/// Generates meshes for every level of detail, and returns the paths of all created files.
 pub fn generate_all_lods(
     mesh: &Mesh,
     path: PathBuf,
     name: String,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let mut paths = Vec::new();
-    println!("THIS IS THE PLAYER MESH!!!!!!!!!!!");
 
     let high_path = path.join(format!("{}_high.gltf", name));
-    println!("high path {:?}", high_path);
     paths.push(generate_gltf(&mesh.high_level_of_detail, high_path)?);
 
     let medium_path = path.join(format!("{}_medium.gltf", name));
@@ -41,6 +35,8 @@ pub fn generate_all_lods(
     Ok(paths)
 }
 
+/// Generate one mesh at the highest level of detail. This is the default level of detail unless
+/// specified.
 pub fn generate_high_lod(
     mesh: &Mesh,
     path: PathBuf,
@@ -56,7 +52,7 @@ pub fn generate_high_lod(
 /// heavily referenced from
 /// <https://github.com/gltf-rs/gltf/blob/main/examples/export/main.rs>
 pub fn generate_gltf(
-    data: &LevelOfDetail,
+    data: &MeshGeometry,
     path: PathBuf,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let buffer_length = data.triangles.len() * mem::size_of::<Vec3>();

@@ -3,7 +3,6 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-use byteorder::ReadBytesExt;
 use std::io::{self, Cursor, Read};
 use uuid::Uuid;
 
@@ -51,9 +50,6 @@ impl PacketData for AgentWearablesRequest {
         let mut session_bytes = [0u8; 16];
         cursor.read_exact(&mut session_bytes)?;
         let session_id = Uuid::from_bytes(session_bytes);
-
-        let hello = cursor.read_u8()?;
-        println!("hello {:?}", hello);
 
         Ok(AgentWearablesRequest {
             agent_id,

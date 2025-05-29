@@ -400,8 +400,11 @@ pub struct PrimitiveGeometry {
     pub profile_end: u16,
     /// Makes a hollow in the shape. EG, a hollow cylinder becomes a tube.
     pub profile_hollow: f32,
-
+    /// Optional object update info populated from the mesh.
+    /// The shape of the hollow made into the object
     pub hollow_shape: Option<String>,
+    /// Optional object update info populated from the mesh.
+    /// The shape of the profile of the object.
     pub profile_shape: Option<String>,
 }
 

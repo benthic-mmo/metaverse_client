@@ -1,5 +1,5 @@
 use bitreader::{BitReader, BitReaderError};
-use metaverse_messages::capabilities::mesh_data::Mesh;
+use metaverse_messages::capabilities::mesh::Mesh;
 use std::collections::HashMap;
 
 use crate::{

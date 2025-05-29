@@ -6,7 +6,6 @@ use log::info;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -94,6 +93,9 @@ pub async fn initialize(
     Ok(handle)
 }
 
+/// Create a subdirectory in the benthic share dir.
+/// if the directory already exists, it simply returns the path to the dir.
+/// this is for creating new subfolders like "land" and "inventory" for downloaded assets.
 pub fn create_sub_share_dir(dir: &str) -> std::io::Result<PathBuf> {
     let local_share_dir = initialize_share_dir()?;
     let new_dir = local_share_dir.join(dir);
@@ -107,6 +109,7 @@ pub fn create_sub_share_dir(dir: &str) -> std::io::Result<PathBuf> {
     Ok(new_dir)
 }
 
+/// Initialize the viewer's cache in the share dir on disk
 pub fn initialize_share_dir() -> std::io::Result<PathBuf> {
     if let Some(data_dir) = dirs::data_dir() {
         let local_share_dir = data_dir.join("benthic");

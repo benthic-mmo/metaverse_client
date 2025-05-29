@@ -2,6 +2,10 @@ use glam::Vec3;
 
 use crate::land::Land;
 
+/// Generate the triangles of the patch's land data.
+/// Requires the north layer, east layer and top corner in order to preform stitching on the
+/// patches. The raw layer data comes in with a gap between tiles, for the viewer to stitch
+/// together manually.
 pub fn generate_triangles(
     layer: &Land,
     north_layer: &Land,

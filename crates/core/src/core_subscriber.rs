@@ -3,7 +3,6 @@ use crate::core::{
     inventory::{InventoryData, RefreshInventoryEvent},
     session::{Mailbox, Session, UiMessage},
 };
-use glam::Vec3;
 use log::{info, warn};
 use metaverse_messages::{
     agent::agent_wearables_request::AgentWearablesRequest,
@@ -22,8 +21,8 @@ use metaverse_messages::{
         ui_events::UiEventTypes,
     },
 };
-use std::fs::{self, File};
-use std::{collections::HashMap, path::PathBuf};
+use std::sync::Mutex;
+use std::{collections::HashMap, sync::Arc};
 use tokio::net::UdpSocket;
 
 /// This is used for the core to listen to messages coming in from the UI.
@@ -149,6 +148,8 @@ async fn handle_login(
                 inventory_lib_owner: login_response.inventory_lib_owner,
                 inventory_tree: None,
             },
+            #[cfg(feature = "agent")]
+            agent_list: Arc::new(Mutex::new(HashMap::new())),
             socket: None,
         })
         .await

@@ -9,10 +9,12 @@ use serde_llsd::LLSDValue;
 /// Describes the capabilities the client can have.
 /// these are sent to the server to retrieve the URL of the capability endpoint.
 /// that URL can be used to retrieve more data from the server.
+///
+/// There are many other legacy capabilities, which will not be implmented. Only the ones that
+/// currently work will be added here.
 pub enum Capability {
     /// Enable the viewer to retrieve assets from the asset server.  
     ViewerAsset,
-
     /// Enable the viewer to retrieve the inventory of the current user. Required for determining
     /// the user's appearance and managing inventory.
     FetchInventoryDescendents2,
@@ -37,7 +39,6 @@ impl Display for Capability {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ViewerAsset => write!(f, "ViewerAsset"),
-
             Self::FetchInventoryDescendents2 => write!(f, "FetchInventoryDescendents2"),
             Self::FetchLibDescendents2 => write!(f, "FetchLibDescendents2"),
             Self::Unknown => write!(f, "Unknown"),

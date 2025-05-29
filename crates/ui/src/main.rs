@@ -372,9 +372,11 @@ fn handle_logout(
     }
 }
 
+// TODO: reimpliment this. This will send the location of the user to the server for motion, and
+// needs to be handled by the ui.
 fn send_agent_update(
-    session_data: Res<SessionData>,
-    sockets: Res<Sockets>,
+    _session_data: Res<SessionData>,
+    _sockets: Res<Sockets>,
     time: Res<Time>,
     mut timer: ResMut<AgentUpdateTimer>,
 ) {
