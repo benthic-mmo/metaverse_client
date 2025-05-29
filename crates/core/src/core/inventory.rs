@@ -3,10 +3,7 @@ use std::{path::PathBuf, time::Duration};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
 use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
-use metaverse_messages::{
-    capabilities::{capabilities::Capability, folder_types::FolderNode},
-    utils::object_types::ObjectType,
-};
+use metaverse_messages::capabilities::{capabilities::Capability, folder_types::FolderNode};
 use uuid::Uuid;
 
 use super::session::Mailbox;
@@ -41,23 +38,6 @@ pub struct RefreshInventoryEvent {
     /// current user, fetch the FetchInventoryDescendents2. If it isn't, fetch from the
     /// FetchLibDescendents2 endpoint.
     pub agent_id: Uuid,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct RetrieveAsset {
-    pub object_type: ObjectType,
-    pub asset_id: Uuid,
-    pub path: PathBuf,
-    pub server_endpoint: String,
-    pub kind: RetrieveAssetKind,
-}
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-enum RetrieveAssetKind {
-    Agent,
-    Environment,
-    Inventory,
 }
 
 #[cfg(feature = "inventory")]

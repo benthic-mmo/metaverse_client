@@ -1,7 +1,9 @@
-use super::item::Item;
 use crate::{
     core::object_update::{MaterialType, ObjectUpdate},
-    utils::{item_metadata::SaleType, object_types::ObjectType},
+    utils::{
+        item_metadata::{ItemMetadata, SaleType},
+        object_types::ObjectType,
+    },
 };
 use glam::{Vec3, Vec4, bool};
 use quick_xml::{
@@ -10,17 +12,37 @@ use quick_xml::{
 };
 use rgb::Rgba;
 use std::{
-    str::{Bytes, FromStr, from_utf8},
+    str::{FromStr, from_utf8},
     time::SystemTime,
 };
 use uuid::Uuid;
 
-#[derive(Debug, Default)]
+use super::mesh::Mesh;
+
+#[derive(Debug, Default, Clone)]
+/// The group of scenes received from the server, used for rendering meshes.
+///
+/// Scenes contain attributes for the meshes contained within them. They describe which meshes are
+/// present, how they are textured, and how they are placed and parented in relation to each other.
+/// This is the main structure for how multi-mesh objects are created in OpenSimulator. Upon upload
+/// to the server, each multipart mesh is broken up into its component pieces, and given a unique
+/// UUID. SceneGroups describe how those individual pieces should be reconstituted back into a
+/// single mesh.
 pub struct SceneGroup {
-    pub root: SceneObject,
-    pub children: Vec<SceneObject>,
+    /// The parts of the root object. These contain different meshes that make up the whole object.
+    /// The root object is always at position 0 of the vec.
+    pub parts: Vec<SceneObject>,
+
+    /// optional vector of meshes, retrieved from the ViewerAsset endpoint
+    pub meshes: Option<Vec<Mesh>>,
 }
 impl SceneGroup {
+    /// Receive bytes from the server, and parse them as XML.
+    ///
+    /// Despite the majority of the project using things like LLSD, this uses raw 2001 standard
+    /// xml. XML is not a very good option, because of how hard it can be to iterate over data that
+    /// can contain a variable number of entries, while having to read line by line.
+    /// If this were JSON, life would be much better.
     pub fn from_xml(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let mut root_object = SceneObject::default();
         let mut children = Vec::new();
@@ -37,9 +59,14 @@ impl SceneGroup {
                 }
                 Event::Text(e) => {
                     let path_refs: Vec<&str> = path.iter().map(String::as_str).collect();
+                    // If we are at the part of the XML describing the RootPart, mutate the
+                    // root_object SceneOBject field by field.
                     if path_refs.starts_with(&["SceneObjectGroup", "RootPart", "SceneObjectPart"]) {
                         SceneObject::from_path_str(path_refs.clone(), e, &mut root_object, 3)?;
                     }
+                    // If we are at the part of the XML describing the other parts, create a new
+                    // scene object that will be mutated by the read_until_scene_object_end
+                    // function.
                     if path_refs.starts_with(&[
                         "SceneObjectGroup",
                         "OtherParts",
@@ -62,94 +89,106 @@ impl SceneGroup {
 
             buf.clear();
         }
-
+        children.insert(0, root_object);
         Ok(SceneGroup {
-            root: root_object,
-            children
+            parts: children,
+            meshes: None,
         })
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
+/// An object within a scene
+///
+/// This contains information about the object, and how it relates to other objects within the
+/// scene.
 pub struct SceneObject {
+    /// ID of the person who created the object
     pub creator_id: Uuid,
+    /// The folder the object is located in
     pub folder_id: Uuid,
+    /// A serial number that gets incrimented upon every change of the object.
+    /// This is used to ensure the inventory is up to date.
     pub inventory_serial: i32,
+    /// The name of the mesh
     pub name: String,
+    /// A flag that determines if a prim passes on click events to prims behind it.
+    /// This is useful for things like HUDs where things are visually in front, but should not
+    /// block input to things behind.
     pub pass_touches: bool,
+    /// A flag that determines if a prim passes collision events to the prim behind it.
+    /// useful for things like dresses where you don't want to set the collision for the dress
+    /// itself, but the body wearing it.
     pub pass_collisions: bool,
+    /// 64 bit key identifying the region the object lives in. Useful for when an object is
+    ///    crossing regions.
     pub region_handle: u64,
+    /// A pin to prevent unauthorized script injections. Kind of like a password.
+    /// This is very insecure and should be phased out.
     pub script_access_pin: u64,
+    /// World position of the root. The true location of the object.
     pub group_position: Vec3,
+    /// Description of the object. Could be used for image descriptions for MUD based viewers.
     pub description: String,
+    /// Deprecated commerce type
     pub category: String,
+    /// Tint applied to the object when rendering
     pub color: Rgba<i32>,
+    /// Label returned when the object is clicked
     pub touch_name: String,
+    /// Index of the prim in the scene. 1 is the root.
     pub link_num: i32,
+    /// UUID of the thing that most recently rezzed te object.
     pub rezzer_id: Uuid,
+    /// The sound the object makes on collision
     pub collision_sound: Uuid,
+    /// The volume of the collision sound
     pub collision_sound_volume: i32,
+    /// Information about the Sculpt.
+    /// Contains information about how the viewer will render the geometry of the object.
     pub sculpt: Sculpt,
+    /// Information about sitting
+    /// contains information about how the position and orientation of agent sitting.
     pub sit_data: SitData,
-    pub item_data: Item,
+    /// Information about the item's metadata
+    /// This contains things like the permissions, sale info, item and asset ID and etc.
+    pub item_metadata: ItemMetadata,
+    /// Information about the ObjectUpdate
+    /// THis contains things like the primitive geometry, motion data, materials and etc
     pub object_update: ObjectUpdate,
+    /// Used by vendors to populate pricetags
     pub pay_price: [i32; 5],
+    /// Offset of the attachment relative to the avatar bone when worn
+    /// allows repositioning of attachments without editing the root.
     pub attached_pos: Vec3,
+    /// determines the effect of gravity on the object.
+    /// 0 = normal gravity
+    /// 1 = floating
+    /// \>1 = rising
     pub buoyancy: i32,
+    /// Constant force applied by physics each frame. Used for things like hovering platforms.
     pub force: Vec3,
+    /// Constant torque applied by physics each frame. Used for things like spinners and wheels.
     pub torque: Vec3,
+    /// Flag for determining if the object is a non-solid "Sensor volume" that triggers on
+    /// collisions. Used for triggers without physical shape.
     pub volume_detect_active: bool,
-    pub physics_shape_type: i32,
+    /// Controls collision hull optimization.
+    pub physics_shape_type: PhysicsShapeType,
+    /// Offset applied to the avatar's camera when seated on this prim. For things like changing
+    /// camera angle when driving a car. Matches edit camera settings.
     pub camera_eye_offset: Vec3,
+    /// "Look at" focus offset for the camera eye offset. For things like changing camera angle
+    /// when driving a car.
     pub camera_at_offset: Vec3,
+    /// Flag for preventing sounds from overlapping by queuing them instead. Used to prevent audio
+    /// spam.
     pub sound_queueing: bool,
 }
 
-#[derive(Debug, Default)]
-pub struct Sculpt {
-    pub texture: Uuid,
-    pub sculpt_type: i32,
-    pub entry: bool,
-    pub flex: Flex,
-    pub light: Light,
-    pub state: i32,
-    pub last_attach_point: i32,
-}
-
-#[derive(Debug, Default)]
-pub struct Flex {
-    pub entry: bool,
-    pub softness: i32,
-    pub tension: i32,
-    pub drag: i32,
-    pub gravity: i32,
-    pub wind: i32,
-    pub force: Vec4,
-}
-
-#[derive(Debug, Default)]
-pub struct SitData {
-    pub sit_name: String,
-    pub orientation: Vec3,
-    pub orientation_ll: Vec3,
-    pub position: Vec3,
-    pub position_ll: Vec3,
-}
-
-#[derive(Debug, Default)]
-pub struct Light {
-    pub entry: bool,
-    pub color: Rgba<i32>,
-    pub radius: i32,
-    pub cutoff: i32,
-    pub intensity: i32,
-    pub falloff: i32,
-}
-
-/// An ObjectUpdate object can also be retrieved from the ?object_id ViewerAsset endpoint when
-/// downloading meshes and shapes. This comes in as w2 2001 xml.
-/// This contains the information for retrieving
 impl SceneObject {
+    /// This is used for reading the bytes after the root object has been parsed.
+    /// This is for handling the OtherParts section of the xml.
     pub fn read_until_scene_object_end<R: std::io::BufRead>(
         reader: &mut Reader<R>,
         scene_object: &mut SceneObject,
@@ -171,7 +210,6 @@ impl SceneObject {
                             path.pop();
                         }
                     }
-
                     // Exit if we've closed the original SceneObjectPart
                     if tag == "SceneObjectPart" {
                         break;
@@ -190,7 +228,7 @@ impl SceneObject {
                 }
                 Event::Text(e) => {
                     let path_refs: Vec<&str> = path.iter().map(String::as_str).collect();
-                    SceneObject::from_path_str(path_refs, e, scene_object, 3)?;
+                    SceneObject::from_path_str(path_refs, e, scene_object, 4)?;
                 }
                 Event::Eof => break,
                 _ => {}
@@ -198,17 +236,18 @@ impl SceneObject {
 
             buf.clear();
         }
-
         Ok(())
     }
+    /// from_path_str takes one path string, and parses the scene object value out of it.
+    /// This takes a mutable scene object, and changes its default value to the value defined by
+    /// the xml.
     pub fn from_path_str(
         path_str: Vec<&str>,
         e: BytesText<'_>,
-        mut scene_object: &mut SceneObject,
+        scene_object: &mut SceneObject,
         offset: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let val = e.unescape()?.into_owned();
-        println!("path string: {:?}", path_str);
         match &path_str[offset..] {
             ["CreatorID", "UUID"] => {
                 scene_object.creator_id = Uuid::parse_str(&val)?;
@@ -415,7 +454,9 @@ impl SceneObject {
                     scene_object.sculpt.last_attach_point = val.parse::<i32>()?
                 }
                 ["SculptTexture", "UUID"] => scene_object.sculpt.texture = Uuid::parse_str(&val)?,
-                ["SculptType"] => scene_object.sculpt.sculpt_type = val.parse::<i32>()?,
+                ["SculptType"] => {
+                    scene_object.sculpt.sculpt_type = SculptType::from_bytes(val.parse::<i32>()?)
+                }
                 ["SculptEntry"] => scene_object.sculpt.entry = val.parse::<bool>()?,
                 ["FlexiSoftness"] => scene_object.sculpt.flex.softness = val.parse::<i32>()?,
                 ["FlexiTension"] => scene_object.sculpt.flex.tension = val.parse::<i32>()?,
@@ -470,58 +511,55 @@ impl SceneObject {
                 _ => {}
             },
             ["ParentID"] => {
-                scene_object.item_data.metadata.parent_id = if val == "0" {
-                    Uuid::nil()
+                scene_object.item_metadata.parent_id_local = if val == "0" {
+                    Some(0)
                 } else {
-                    Uuid::from_str(&val)?
+                    Some(u32::from_str(&val)?)
                 };
             }
             ["CreationDate"] => {
-                scene_object.item_data.metadata.created_at =
+                scene_object.item_metadata.created_at =
                     SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(val.parse::<u64>()?)
             }
             ["Category"] => scene_object.category = val,
-            ["SalePrice"] => {
-                scene_object.item_data.metadata.sale_info.price = val.parse::<i32>()?
-            }
+            ["SalePrice"] => scene_object.item_metadata.sale_info.price = val.parse::<i32>()?,
             ["ObjectSaleType"] => {
-                scene_object.item_data.metadata.sale_info.sale_type = SaleType::from_string(&val)
+                scene_object.item_metadata.sale_info.sale_type = SaleType::from_string(&val)
             }
 
             ["OwnershipCost"] => {
-                scene_object.item_data.metadata.sale_info.ownership_cost = Some(val.parse::<i32>()?)
+                scene_object.item_metadata.sale_info.ownership_cost = Some(val.parse::<i32>()?)
             }
             ["GroupID", "UUID"] => {
-                scene_object.item_data.metadata.permissions.group_id = Uuid::from_str(&val)?
+                scene_object.item_metadata.permissions.group_id = Uuid::from_str(&val)?
             }
             ["OwnerID", "UUID"] => {
-                scene_object.item_data.metadata.permissions.owner_id = Uuid::from_str(&val)?
+                scene_object.item_metadata.permissions.owner_id = Uuid::from_str(&val)?
             }
             ["LastOwnerID", "UUID"] => {
-                scene_object.item_data.metadata.permissions.last_owner_id =
-                    Some(Uuid::from_str(&val)?)
+                scene_object.item_metadata.permissions.last_owner_id = Some(Uuid::from_str(&val)?)
             }
             ["RezzerID", "UUID"] => scene_object.rezzer_id = Uuid::from_str(&val)?,
             ["BaseMask"] => {
-                scene_object.item_data.metadata.permissions.base_mask = val.parse::<i32>()?
+                scene_object.item_metadata.permissions.base_mask = val.parse::<i32>()?
             }
             ["OwnerMask"] => {
-                scene_object.item_data.metadata.permissions.owner_mask = val.parse::<i32>()?
+                scene_object.item_metadata.permissions.owner_mask = val.parse::<i32>()?
             }
             ["Groupmask"] => {
-                scene_object.item_data.metadata.permissions.group_mask = val.parse::<i32>()?
+                scene_object.item_metadata.permissions.group_mask = val.parse::<i32>()?
             }
             ["EveryoneMask"] => {
-                scene_object.item_data.metadata.permissions.everyone_mask = val.parse::<i32>()?
+                scene_object.item_metadata.permissions.everyone_mask = val.parse::<i32>()?
             }
             ["NextOwnerMask"] => {
-                scene_object.item_data.metadata.permissions.next_owner_mask = val.parse::<i32>()?
+                scene_object.item_metadata.permissions.next_owner_mask = val.parse::<i32>()?
             }
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.item_data.metadata.flags = 0
+                    scene_object.item_metadata.flags = 0
                 } else {
-                    scene_object.item_data.metadata.flags = val.parse::<i32>()?
+                    scene_object.item_metadata.flags = val.parse::<i32>()?
                 }
             }
             ["CollisionSound", "UUID"] => scene_object.collision_sound = Uuid::from_str(&val)?,
@@ -555,7 +593,9 @@ impl SceneObject {
                 _ => {}
             },
             ["VolumeDetectActive"] => scene_object.volume_detect_active = val.parse::<bool>()?,
-            ["PhysicsShapetype"] => scene_object.physics_shape_type = val.parse::<i32>()?,
+            ["PhysicsShapetype"] => {
+                scene_object.physics_shape_type = PhysicsShapeType::from_bytes(val.parse::<i32>()?)
+            }
             ["CameraEyeOffset", rest @ ..] => match rest {
                 ["x"] => scene_object.camera_eye_offset[0] = val.parse()?,
                 ["y"] => scene_object.camera_eye_offset[1] = val.parse()?,
@@ -579,5 +619,158 @@ impl SceneObject {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+/// Sculpt information
+/// <https://wiki.secondlife.com/wiki/Sculpted_Prims:_FAQ>
+///
+/// Sculpts were used before meshes became widespread. They were created using SculptTextures,
+/// which was a standard RGB texture where the R,G and B values were mapped onto values in x,y,z
+/// space. This allowed low-bandwith distribution for meshes, and easy animation. Flash animations
+/// could easily generate animations, by playing the sculpt textures like a traditional animation,
+/// and compression and decompression were very straightforward.
+///
+/// This has been almost completely replaced by modern meshes, but the name "Sculpt" remains the
+/// standard.
+pub struct Sculpt {
+    /// The UUID of the "sculpt texture".
+    /// This used to contain the UUID of the SculptTexture image, but now contains the UUID of the
+    /// mesh object.
+    pub texture: Uuid,
+    /// Tells the engine what base to use when deforming based on the SculptTexture.
+    /// For example, the SculptTexture applied to a sphere would deform that sphere, or a
+    /// SculptTexture applied to a plane would deform differently.
+    /// Mostly legacy now. Always set to 5 when displaying meshes.
+    pub sculpt_type: SculptType,
+    /// Used to determine if the object can be entered and walked through.
+    pub entry: bool,
+    /// Information about the flex attributes
+    /// Contains information about how the object bends, sways and moves using gravity, tension and
+    /// wind.
+    pub flex: Flex,
+    /// Information about the light attributes.
+    /// Contains information about how the object emits lights.
+    pub light: Light,
+    /// Describes the script state of the object. Default, on, off, etc. Helps resume script
+    /// execution after duplication or region restart.
+    pub state: i32,
+    /// The last point the object was attached to. Helps reattach items to the same place when
+    /// loggin in or putting on again.
+    pub last_attach_point: i32,
+}
+
+#[derive(Debug, Default, Clone)]
+/// Flex information
+///
+/// Used to describe how physics forces act on a non-rigid object.
+pub struct Flex {
+    /// Enables flexible behavior. If false, the object is rigid.
+    pub entry: bool,
+    /// Controls the number of segements in the flexible object. Higher = more bendy.
+    pub softness: i32,
+    /// A spring-like force that pulls the prim back to its original position.
+    /// higher = tighter
+    pub tension: i32,
+    /// Damping effect. High values reduce fast motion.
+    pub drag: i32,
+    /// Gravity's downward force on the object
+    pub gravity: i32,
+    /// the effect wind has on the object
+    pub wind: i32,
+    /// A custom force applied to the object
+    pub force: Vec4,
+}
+
+#[derive(Debug, Default, Clone)]
+/// Information about how the object can be sat on.
+pub struct SitData {
+    /// Custom name that is displayed when the user right-clicks to sit.
+    /// Could be things like "sit", "pose", "lounge" etc
+    pub sit_name: String,
+    /// How to rotate the avatar that sits down
+    pub orientation: Vec3,
+    /// Undocumented. Maybe legacy rotation vector
+    pub orientation_ll: Vec3,
+    /// XYZ position the avatar should be placed when sitting.
+    pub position: Vec3,
+    /// Undocumented. Maybe legacy position vector.
+    pub position_ll: Vec3,
+}
+
+#[derive(Debug, Default, Clone)]
+/// Information about how the object emits light
+pub struct Light {
+    /// Enables glow. If false, the object doesn't glow.
+    pub entry: bool,
+    /// The color of the glow
+    pub color: Rgba<i32>,
+    /// how far the light reaches from the source
+    pub radius: i32,
+    /// Cone cutoff angle for spotlights. 0 = point light, 180 is a full sphere.
+    pub cutoff: i32,
+    /// Brightness of the light
+    pub intensity: i32,
+    /// How quickly the light intensity decreases with distance
+    pub falloff: i32,
+}
+
+#[derive(Debug, Default, Clone)]
+/// The types used for physics collision
+pub enum PhysicsShapeType {
+    /// Primitive collision
+    Prim,
+    /// The smallest convex shape that contains all the points of the 3d mesh.
+    /// Kind of like shrinkwrapping to find the collision points of the mesh. Does not handle
+    /// collision for inclusions.
+    ConvexHull,
+    /// No collision
+    None,
+
+    #[default]
+    /// Unknown
+    Unknown,
+}
+impl PhysicsShapeType {
+    fn from_bytes(bytes: i32) -> Self {
+        match bytes {
+            0 => Self::Prim,
+            1 => Self::ConvexHull,
+            2 => Self::None,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+/// Used for legacy compatability with SculptTextures.
+/// describes the different basic shapes the sculpttexture can deform.
+pub enum SculptType {
+    /// The sculpt texture deforms a sphere
+    Sphere,
+    /// The sculpt texture deforms a torus
+    Torus,
+    /// The sculpt texture deforms a plane
+    Plane,
+    /// The sculpt texture deforms a cylinder
+    Cylinder,
+    /// This describes a mesh. which is the primary supported type.
+    Mesh,
+
+    #[default]
+    /// Unknown
+    Unknown,
+}
+impl SculptType {
+    fn from_bytes(bytes: i32) -> Self {
+        match bytes {
+            1 => Self::Sphere,
+            2 => Self::Torus,
+            3 => Self::Plane,
+            4 => Self::Cylinder,
+            5 => Self::Mesh,
+            _ => Self::Unknown,
+        }
     }
 }

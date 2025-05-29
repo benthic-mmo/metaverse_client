@@ -1,7 +1,7 @@
 use actix::prelude::*;
 use actix_rt::time;
 use bincode;
-use log::{error, info, warn};
+use log::{error, info};
 
 use metaverse_messages::capabilities::capabilities::Capability;
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
@@ -13,7 +13,6 @@ use metaverse_messages::ui::ui_events::UiEventTypes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::UdpSocket as SyncUdpSocket;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
@@ -21,6 +20,7 @@ use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
+use super::agent::AgentAppearance;
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
 const ACK_ATTEMPTS: i8 = 3;
@@ -80,6 +80,10 @@ pub struct Session {
     /// The environment cache. Contains things for handling and generating the environment.
     #[cfg(feature = "environment")]
     pub environment_cache: EnvironmentCache,
+
+    /// The agent list. Contains information about the appearances of all loaded agents
+    #[cfg(feature = "agent")]
+    pub agent_list: Arc<Mutex<HashMap<Uuid, AgentAppearance>>>,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.

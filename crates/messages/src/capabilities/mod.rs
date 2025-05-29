@@ -15,6 +15,11 @@ pub mod folder_types;
 /// Handles the types for inventory items
 pub mod item;
 
-pub mod scene_object;
+/// Handles scene data.
+/// Scenes are what contain meshes, their effects, and how they are arranged in relation to each
+/// other.
+pub mod scene;
 
-pub mod mesh_data;
+/// Handles the mesh data.
+/// This contains the triangle coordinates of mesh objects that will be displayed by the UI.
+pub mod mesh;

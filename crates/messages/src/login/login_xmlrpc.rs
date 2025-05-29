@@ -1,17 +1,13 @@
 use crate::login::login_response::LoginResponse;
 use crate::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
-
-use std::env;
-use std::error::Error;
-
-use glam::Vec3;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use reqwest::Client;
+use std::env;
+use std::error::Error;
 use std::fs::File;
 use std::io::Cursor;
 
-extern crate sys_info;
 use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT};
 use std::io::Read;
 

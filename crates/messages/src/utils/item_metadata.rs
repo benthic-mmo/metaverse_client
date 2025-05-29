@@ -10,13 +10,20 @@ use super::object_types::ObjectType;
 /// this is received by the FetchInventory endpoint, and can be used to retrieve additional items
 /// data from the ViewerAsset endpoint.
 pub struct ItemMetadata {
+    /// Permissions attached to the item. Who can create, copy, transfer, sell etc.
     pub permissions: Permissions,
+    /// name of the item
     pub name: String,
+    /// Sale information of the item. Is it for sale, how much, etc.
     pub sale_info: SaleInfo,
     /// The ID of the item, used for retrieving from the ViewerAsset endpoint
     pub asset_id: Uuid,
     /// The parent object. If the object is the root, the id is zeroed out.
     pub parent_id: Uuid,
+    /// The optional local parent ID. Some places in the code store the parent ID as a u32 to save
+    /// space and not save the full UUID.
+    pub parent_id_local: Option<u32>,
+    /// local ID of the item
     pub item_id: Uuid,
     /// Description of the object.
     pub description: String,
@@ -24,7 +31,9 @@ pub struct ItemMetadata {
     pub created_at: std::time::SystemTime,
     /// Name of the  object
     pub inventory_type: i32,
+    /// item flags
     pub flags: i32,
+    /// type of the item. Clothes, tree, animation, etc.
     pub item_type: ObjectType,
 }
 impl Default for ItemMetadata {
@@ -35,6 +44,7 @@ impl Default for ItemMetadata {
             permissions: Default::default(),
             asset_id: Default::default(),
             parent_id: Default::default(),
+            parent_id_local: Default::default(),
             item_id: Default::default(),
             description: Default::default(),
             created_at: SystemTime::UNIX_EPOCH,
@@ -45,6 +55,8 @@ impl Default for ItemMetadata {
     }
 }
 impl ItemMetadata {
+    /// Item metadata comes in through an unstructured newline seperated type when receiving item
+    /// data from the ViewerAsset endpoint. This parses the item metadata as bytes.
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
         let text = std::str::from_utf8(bytes)
             .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
@@ -124,6 +136,8 @@ impl ItemMetadata {
 
         Ok(metadata)
     }
+    /// When receiving item metadata from the FetchInventoryDescendents endpoint. item metadadata
+    /// is received in LLSD format.
     pub fn from_llsd(data: &LLSDValue) -> std::io::Result<Self> {
         if let Some(item) = data.as_map() {
             let asset_id = match item.get("asset_id") {
@@ -198,11 +212,12 @@ impl ItemMetadata {
                 item_type,
                 flags,
                 parent_id,
+                parent_id_local: None,
             })
         } else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "Missing or invalid image data",
+                "Missing or invalid item metadata",
             ));
         }
     }
@@ -217,18 +232,30 @@ where
 #[derive(Debug, Clone, Default)]
 /// Information regarding the permissions the object has
 pub struct Permissions {
+    /// The UUID of the current owner of the object
     pub owner_id: Uuid,
+    /// The group that the object belongs to. This allows permissions for objects to be handled on
+    /// a user group level instead of an individual level.
     pub group_id: Uuid,
+    /// The ID of the creator of the object
     pub creator_id: Uuid,
+    /// The default permissions of the object that apply regardless of ownership or group.
     pub base_mask: i32,
+    /// Permissions granted to all users. Broadest level of access.
     pub everyone_mask: i32,
+    /// Permissions granted to users who belong to the specified group ID.
     pub group_mask: i32,
+    /// Permissions granted to the next owner of the object, when it is transferred.
     pub next_owner_mask: i32,
+    /// Permissions the current owner has on the object.
     pub owner_mask: i32,
+    /// indicates if the owner is the group istelf, rather than an individual user
     pub is_owner_group: Option<bool>,
+    /// Stores the UUID of the last owner
     pub last_owner_id: Option<Uuid>,
 }
 impl Permissions {
+    /// convert LLSD values to permissions
     pub fn from_llsd(data: &LLSDValue) -> std::io::Result<Self> {
         if let Some(permissions) = data.as_map() {
             let owner_id = match permissions.get("owner_id") {
@@ -295,9 +322,12 @@ pub struct SaleInfo {
     pub sale_type: SaleType,
     /// The price of the object
     pub price: i32,
+    /// Recurring cost that is associated with owning the object after the purchase.
+    /// Functionally how much you are renting it for.
     pub ownership_cost: Option<i32>,
 }
 impl SaleInfo {
+    /// Converts LLSD to a SaleInfo object
     pub fn from_llsd(data: &LLSDValue) -> std::io::Result<Self> {
         if let Some(sale_info) = data.as_map() {
             let sale_type = match sale_info.get("sale_type") {
@@ -333,16 +363,23 @@ impl SaleInfo {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Values to determine what the for sale state of an object is.
 pub enum SaleType {
+    /// Not for sale
     Not,
+    /// The original item is for sale.
     Original,
+    /// A copy of the original is for sale
     Copy,
+    /// The contents inside the object are for sale
     Contents,
 
     #[default]
+    /// unknown
     Unknown,
 }
 impl SaleType {
+    /// Convert the SaleType from an i32
     pub fn from_i32(byte: i32) -> Self {
         match byte {
             0 => Self::Not,
@@ -352,6 +389,7 @@ impl SaleType {
             _ => Self::Unknown,
         }
     }
+    /// Convert the SaleType from a string
     pub fn from_string(str: &str) -> Self {
         match str {
             "not" | "Not" => SaleType::Not,

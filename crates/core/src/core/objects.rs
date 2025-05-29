@@ -1,27 +1,23 @@
-use actix::{AsyncContext, Handler, Message, WrapFuture};
-use log::error;
+use actix::{AsyncContext, Handler, Message};
 use log::{info, warn};
 use metaverse_messages::capabilities::item::Item;
-use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
-use metaverse_messages::ui::ui_events::UiEventTypes;
 use metaverse_messages::{
     capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
     utils::object_types::ObjectType,
 };
-use std::{fs::create_dir_all, time::Duration};
+use std::time::Duration;
 use uuid::Uuid;
 
-use crate::http_handler::download_asset;
-use crate::initialize::create_sub_share_dir;
+use super::agent::{AgentAppearance, DownloadAgentAsset};
+use super::session::Mailbox;
 
-use super::session::UiMessage;
-use super::{generate_gltf::generate_high_lod, session::Mailbox};
-
-/// Trigger the function that creates the user model, and sends the data to the UI.
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
+/// Trigger the function that creates the user model, and sends the data to the UI.
 pub struct RenderAgent {
+    ///. The ID of the agent to render
     pub agent_id: Uuid,
+    /// all of the items the agent is wearing
     pub outfit: Vec<Item>,
 }
 
@@ -29,19 +25,19 @@ pub struct RenderAgent {
 impl Handler<ObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        match msg.pcode {
-            ObjectType::Tree
-            | ObjectType::Grass
-            | ObjectType::Prim
-            | ObjectType::Unknown
-            | ObjectType::ParticleSystem
-            | ObjectType::NewTree => {
-                #[cfg(feature = "environment")]
-                info!("Received environment data");
-            }
-            ObjectType::Avatar | ObjectType::Bodypart | ObjectType::Clothing => {
-                #[cfg(feature = "agent")]
-                if let Some(session) = &self.session {
+        if let Some(session) = self.session.as_mut() {
+            match msg.pcode {
+                ObjectType::Tree
+                | ObjectType::Grass
+                | ObjectType::Prim
+                | ObjectType::Unknown
+                | ObjectType::ParticleSystem
+                | ObjectType::NewTree => {
+                    #[cfg(feature = "environment")]
+                    info!("Received environment data");
+                }
+                ObjectType::Avatar => {
+                    #[cfg(feature = "agent")]
                     // if the ID of the object is your agent ID, you are downloading your own
                     // current outfit.
                     if session.agent_id == msg.full_id {
@@ -51,56 +47,36 @@ impl Handler<ObjectUpdate> for Mailbox {
                             .as_ref()
                             .and_then(|tree| tree.children.get(&ObjectType::CurrentOutfit))
                         {
-                            // This could have been a request item event, but I want to make
-                            // sure that the entire directory is loaded and all of the assets
-                            // are downloaded before anything starts rendering.
-                            //
-                            // this is to keep people's clothes on.
-                            let address = ctx.address().clone();
-                            let url = session
-                                .capability_urls
-                                .clone()
-                                .get(&Capability::ViewerAsset)
-                                .unwrap()
-                                .clone();
                             let elements = current_outfit.folder.items.clone();
-                            let outfit_path = current_outfit.path.clone();
-                            ctx.spawn(
-                                async move {
-                                    let mut items = Vec::new();
-                                    for element in elements {
-                                        if ObjectType::Link == element.item_type {
-                                            continue;
-                                        }
-                                        match download_asset(element, outfit_path.clone(), &url)
-                                            .await
-                                        {
-                                            Ok(mut item) => {
-                                                // The position of the mesh is stored in the
-                                                // ObjectData packet. Copy that value to the mesh
-                                                // object.
-                                                if let Some(mesh) =
-                                                    item.data.as_mut().and_then(|d| d.mesh.as_mut())
-                                                {
-                                                    mesh.position = Some(msg.motion_data.position);
-                                                }
-                                                items.push(item);
-                                            }
-                                            Err(e) => warn!("Failed to download asset {:?}", e),
-                                        }
-                                    }
-                                    if let Err(e) = address
-                                        .send(RenderAgent {
-                                            agent_id: msg.full_id,
-                                            outfit: items,
-                                        })
-                                        .await
-                                    {
-                                        warn!("Failed to send render agent request {:?}", e)
-                                    };
-                                }
-                                .into_actor(self),
-                            );
+                            //add the agent to the agent list
+                            {
+                                session.agent_list.lock().unwrap().insert(
+                                    msg.full_id,
+                                    AgentAppearance {
+                                        agent_id: msg.full_id,
+                                        // the size of the outfit is half of the size of the
+                                        // currently worn folder. This is because the currently
+                                        // worn folder is full of simlinks and the real objects.
+                                        outfit_size: current_outfit.folder.items.len() / 2,
+                                        // the outfit items are currently not populated. As the asset
+                                        // downloads complete, this will fill up.
+                                        outfit_items: vec![],
+                                    },
+                                );
+                            }
+
+                            for element in elements {
+                                ctx.address().do_send(DownloadAgentAsset {
+                                    url: session
+                                        .capability_urls
+                                        .get(&Capability::ViewerAsset)
+                                        .unwrap()
+                                        .to_string(),
+                                    item: element,
+                                    agent_id: msg.full_id,
+                                    position: msg.motion_data.position,
+                                });
+                            }
                         } else {
                             // If you are downloading your current inventory, and your inventory is
                             // not loaded into memory, wait until the inventory is loaded.
@@ -113,37 +89,8 @@ impl Handler<ObjectUpdate> for Mailbox {
                         println!("HANDLE NON-USER UPDATE")
                     }
                 }
-            }
-            _ => {
-                println!("Unknown object type");
-            }
-        }
-    }
-}
-
-impl Handler<RenderAgent> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: RenderAgent, ctx: &mut Self::Context) -> Self::Result {
-        for item in msg.outfit {
-            if let Some(data) = item.data {
-                if let Some(mesh) = data.mesh {
-                    if let Ok(agent_dir) = create_sub_share_dir("agent") {
-                        match generate_high_lod(&mesh, agent_dir, "asdf".to_string()) {
-                            Ok(path) => ctx.address().do_send(UiMessage::new(
-                                UiEventTypes::MeshUpdate,
-                                MeshUpdate {
-                                    position: mesh.position.unwrap(),
-                                    path,
-                                    mesh_type: MeshType::Avatar,
-                                    id: Some(msg.agent_id),
-                                }
-                                .to_bytes(),
-                            )),
-                            Err(e) => {
-                                error!("Failed to generate GLTF {:?}", e)
-                            }
-                        };
-                    }
+                _ => {
+                    println!("Unknown object type");
                 }
             }
         }
