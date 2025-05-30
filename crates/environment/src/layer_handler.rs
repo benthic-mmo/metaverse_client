@@ -68,7 +68,7 @@ pub trait PatchData: Sized {
 
     /// generate_ui_event generates a vector of LayerUpdate for the UI to handle
     fn generate_mesh(
-        self: Self,
+        self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
     ) -> Option<Mesh>;

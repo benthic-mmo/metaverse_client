@@ -43,8 +43,16 @@ pub enum SessionError {
     /// This is sent when setting the capabilities fail
     #[error("CapabilityError: {0}")]
     Capability(#[from] CapabilityError),
-}
 
+    /// This is sent when files fail to create and IO errors are thrown
+    #[error("IOError: {0}")]
+    IOError(String),
+}
+impl From<std::io::Error> for SessionError {
+    fn from(e: std::io::Error) -> Self {
+        SessionError::IOError(e.to_string())
+    }
+}
 impl SessionError {
     /// Create a new LoginError from the message's login error
     pub fn new_login_error(login_error: LoginError) -> Self {

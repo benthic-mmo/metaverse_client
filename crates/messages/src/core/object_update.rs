@@ -168,6 +168,7 @@ impl PacketData for ObjectUpdate {
     fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
 
+        // read the regionhandle as two u32s instead of one u64
         let region_x = cursor.read_u32::<LittleEndian>()?;
         let region_y = cursor.read_u32::<LittleEndian>()?;
         let time_dilation = cursor.read_u16::<LittleEndian>()? as f32 / 65535.0;
@@ -311,8 +312,8 @@ impl PacketData for ObjectUpdate {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let bytes = Vec::new();
-        bytes
+        
+        Vec::new()
     }
 }
 

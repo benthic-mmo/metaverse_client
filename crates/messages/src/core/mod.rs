@@ -278,7 +278,6 @@ pub mod complete_ping_check;
 /// | angular_velocity_x| 1 byte  | [u8] | the x angular velocity of the object |
 /// | angular_velocity_y| 1 byte  | [u8] | the y angular velocity of the object |
 /// | angular_velocity_z| 1 byte  | [u8] | the z angular velocity of the object |
-
 ///
 /// ## Primitive Geometry
 ///

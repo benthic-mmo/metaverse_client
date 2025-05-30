@@ -1,8 +1,8 @@
 use flate2::bufread::ZlibDecoder;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use serde_llsd::LLSDValue;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{Error, ErrorKind, Read},
 };
 
@@ -37,7 +37,7 @@ pub struct Mesh {
     pub physics_convex: Vec<u8>,
     /// This is the skinning information, which tells the mesh how to deform based on the avatar's
     /// skeleton.
-    pub skin: Vec<u8>,
+    pub skin: Skin,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -57,7 +57,16 @@ pub struct MeshGeometry {
     /// Used to decode compressed UVs
     pub texture_coordinate_domain: TextureCoordinateDomain,
     /// positions of vertices in 3d space.
-    pub triangles: Vec<Vec3>,
+    /// This should only be used for small meshes that don't have a lot of vertices. Storing these
+    /// triangles duplicates vertices, which is inefficient.
+    /// Currently used by land generation to prevent having to generate an index.
+    pub triangles: Option<Vec<Vec3>>,
+    /// full list of vertices
+    pub vertices: Vec<Vec3>,
+    /// full list of indices
+    /// This contains information on where in the triangle each of your vertices are. This saves
+    /// space by not duplicating vertices and allows the renderer to handle building the triangles.
+    pub indices: Vec<u16>,
 }
 
 impl MeshGeometry {
@@ -66,8 +75,7 @@ impl MeshGeometry {
             .as_array()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected top-level array"))?;
 
-        let map = array
-            .get(0)
+        let map = array.first()
             .and_then(LLSDValue::as_map)
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected map inside array"))?;
 
@@ -111,8 +119,8 @@ impl MeshGeometry {
 
         for chunk in position_bytes.chunks_exact(6) {
             let x = u16::from_le_bytes([chunk[0], chunk[1]]);
-            let z = u16::from_le_bytes([chunk[2], chunk[3]]);
-            let y = u16::from_le_bytes([chunk[4], chunk[5]]);
+            let y = u16::from_le_bytes([chunk[2], chunk[3]]);
+            let z = u16::from_le_bytes([chunk[4], chunk[5]]);
 
             let xf = position_domain_min.x
                 + (x as f32 / 65535.0) * (position_domain_max.x - position_domain_min.x);
@@ -121,8 +129,7 @@ impl MeshGeometry {
             let zf = position_domain_min.z
                 + (z as f32 / 65535.0) * (position_domain_max.z - position_domain_min.z);
 
-            //TODO: SCALE THIS PROPERLY. THIS 5.0 IS WRONG
-            positions.push(Vec3::new(xf / 5.0, yf, -zf));
+            positions.push(Vec3::new(xf, yf, zf));
         }
 
         // Parse triangle indices
@@ -139,37 +146,14 @@ impl MeshGeometry {
             triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]));
         }
 
-        // Expand triangle indices to Vec3 vertices
-        let mut triangles = Vec::with_capacity(triangle_indices.len());
-        for &index in &triangle_indices {
-            let idx = index as usize;
-            if idx >= positions.len() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!(
-                        "Index {} out of bounds (positions length {})",
-                        idx,
-                        positions.len()
-                    ),
-                ));
-            }
-            triangles.push(positions[idx]);
-        }
-
-        if triangles.len() % 3 != 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Expanded triangle vector length is not divisible by 3",
-            ));
-        }
-
         let mut weights = Vec::new();
         let data = parse_binary(map, "Weights")?;
         let mut iter = data.iter().cloned(); // iterator over bytes, cloning to get u8 values
         while let Some(_) = iter.clone().next() {
-            // loop while there's data left
-            let mut influences = Vec::with_capacity(4);
-            for _ in 0..4 {
+            let mut joint_indices = [0u8; 4];
+            let mut joint_weights = [0u16; 4];
+
+            for i in 0..4 {
                 let joint = match iter.next() {
                     Some(j) => j,
                     None => {
@@ -209,13 +193,13 @@ impl MeshGeometry {
                     }
                 };
                 let weight = u16::from_le_bytes([w1, w2]);
-
-                influences.push(JointWeight {
-                    joint_index: joint,
-                    weight,
-                });
+                joint_indices[i] = joint;
+                joint_weights[i] = weight;
             }
-            weights.extend(influences);
+            weights.push(JointWeight {
+                indices: joint_indices,
+                weights: joint_weights,
+            });
         }
 
         let data = parse_binary(map, "TexCoord0")?;
@@ -322,7 +306,9 @@ impl MeshGeometry {
             texture_coordinate_domain,
             weights,
             texture_coordinate,
-            triangles,
+            triangles: None,
+            vertices: positions,
+            indices: triangle_indices,
         })
     }
 }
@@ -343,9 +329,9 @@ pub struct PositionDomain {
 /// This corresponds to each vertex in the mesh
 pub struct JointWeight {
     /// The index of the joint the vertex corresponds to
-    pub joint_index: u8,
+    pub indices: [u8; 4],
     /// How strongly the joint influences the vertex
-    pub weight: u16,
+    pub weights: [u16; 4],
 }
 
 #[derive(Clone, Debug, Default)]
@@ -367,6 +353,116 @@ pub struct TextureCoordinateDomain {
     /// The maximum values found in the mesh UVs
     pub max: [f32; 2],
 }
+
+#[derive(Debug, Clone, Default)]
+/// This contains skin information that is used by avatars. This can alter all or part of the
+/// skeleton
+pub struct Skin {
+    /// The names of the joints that are going to be altered. A full avatar replacement will
+    /// replace all of the joints, and a partial skeleton will only replace some.
+    pub joint_names: HashSet<String>,
+    /// The inverse bind matrices used to determine the joint's transform, scale and rotation. This
+    /// matrix aligns with the joint names. inverse_bind_matrices[0] corresponds to joint_names[0],
+    /// describing the scale, rotation and transform of each joint, and where the joint should be
+    /// applied to the mesh.
+    pub inverse_bind_matrices: Vec<Mat4>,
+    /// The bind shape matrix is used to determine each coordinate's location and offset. Apply
+    /// this to each coordinate in the mesh's vertices to apply the scale and roatation of
+    /// the sub-object in global space.
+    pub bind_shape_matrix: Mat4,
+}
+impl Skin {
+    fn from_llsd(data: LLSDValue) -> std::io::Result<Self> {
+        let map = data
+            .as_map()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected map"))?;
+
+        // Parse joint_names
+        let joint_names: HashSet<String> = map
+            .get("joint_names")
+            .and_then(LLSDValue::as_array)
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing joint_names")
+            })?
+            .iter()
+            .map(|v| {
+                v.as_string().map(|s| s.to_string()).ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid joint name")
+                })
+            })
+            .collect::<Result<HashSet<_>, _>>()?;
+
+        // Parse inverse_bind_matrix
+        let inverse_bind_matrices = map
+            .get("inverse_bind_matrix")
+            .and_then(LLSDValue::as_array)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Missing inverse_bind_matrix",
+                )
+            })?
+            .iter()
+            .map(|matrix_val| {
+                let flat = matrix_val.as_array().ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected matrix array")
+                })?;
+
+                if flat.len() != 16 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Matrix must have 16 elements",
+                    ));
+                }
+
+                let mut floats = [0.0f32; 16];
+                for (i, val) in flat.iter().enumerate() {
+                    floats[i] = *val.as_real().ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Matrix element not real",
+                        )
+                    })? as f32;
+                }
+                Ok(Mat4::from_cols_array(&floats))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Parse bind_shape_matrix
+        let bind_shape_vals = map
+            .get("bind_shape_matrix")
+            .and_then(LLSDValue::as_array)
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing bind_shape_matrix")
+            })?;
+
+        if bind_shape_vals.len() != 16 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "bind_shape_matrix must have 16 elements",
+            ));
+        }
+
+        let mut bind_shape_array = [0.0f32; 16];
+        for (i, val) in bind_shape_vals.iter().enumerate() {
+            bind_shape_array[i] = *val.as_real().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Invalid bind_shape_matrix element",
+                )
+            })? as f32;
+        }
+
+        let bind_shape_matrix = Mat4::from_cols_array(&bind_shape_array);
+
+        Ok(Self {
+            joint_names,
+            inverse_bind_matrices,
+            bind_shape_matrix,
+        })
+    }
+}
+
 impl Mesh {
     /// Converts mesh bytes to a mesh object.
     /// <https://wiki.secondlife.com/wiki/Mesh/Mesh_Asset_Format>
@@ -433,7 +529,7 @@ impl Mesh {
                 &compressed_data
                     [physics_convex_offset..physics_convex_offset + physics_convex_size],
             )?;
-            mesh.skin =
+            let skin =
                 decompress_slice(&compressed_data[skin_offset..skin_offset + skin_offset_size])?;
 
             if let Ok(decoded) = MeshGeometry::from_llsd(
@@ -462,6 +558,11 @@ impl Mesh {
                     mesh.lowest_level_of_detail = Some(decoded)
                 }
             }
+
+            if let Ok(decoded) = Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap())
+            {
+                mesh.skin = decoded
+            };
         };
         Ok(mesh)
     }

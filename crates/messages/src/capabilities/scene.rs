@@ -32,9 +32,6 @@ pub struct SceneGroup {
     /// The parts of the root object. These contain different meshes that make up the whole object.
     /// The root object is always at position 0 of the vec.
     pub parts: Vec<SceneObject>,
-
-    /// optional vector of meshes, retrieved from the ViewerAsset endpoint
-    pub meshes: Option<Vec<Mesh>>,
 }
 impl SceneGroup {
     /// Receive bytes from the server, and parse them as XML.
@@ -90,10 +87,7 @@ impl SceneGroup {
             buf.clear();
         }
         children.insert(0, root_object);
-        Ok(SceneGroup {
-            parts: children,
-            meshes: None,
-        })
+        Ok(SceneGroup { parts: children })
     }
 }
 
@@ -120,14 +114,18 @@ pub struct SceneObject {
     /// useful for things like dresses where you don't want to set the collision for the dress
     /// itself, but the body wearing it.
     pub pass_collisions: bool,
-    /// 64 bit key identifying the region the object lives in. Useful for when an object is
-    ///    crossing regions.
-    pub region_handle: u64,
+    /// X location of the agent in the world. Parsed from RegionHandle.
+    pub region_x: u32,
+    /// Y location of the agent of the world. Parsed from RegionHandle
+    pub region_y: u32,
     /// A pin to prevent unauthorized script injections. Kind of like a password.
     /// This is very insecure and should be phased out.
     pub script_access_pin: u64,
     /// World position of the root. The true location of the object.
     pub group_position: Vec3,
+    /// offset of the object. If it is the root, this is the offset from the group position. if it
+    /// is a child, it's the offset from the root.
+    pub offset_position: Vec3,
     /// Description of the object. Could be used for image descriptions for MUD based viewers.
     pub description: String,
     /// Deprecated commerce type
@@ -217,11 +215,11 @@ impl SceneObject {
 
                     // Exit if we've closed the original SceneObjectPart
                     if tag == "SceneObjectPart"
-                        && path.ends_with(&[
+                        && !path.ends_with(&[
                             "Part".to_string(),
                             "OtherParts".to_string(),
                             "SceneObjectGroup".to_string(),
-                        ]) == false
+                        ])
                     {
                         break;
                     }
@@ -277,7 +275,9 @@ impl SceneObject {
                 scene_object.pass_collisions = val.parse::<bool>()?;
             }
             ["RegionHandle"] => {
-                scene_object.region_handle = val.parse::<u64>()?;
+                let region_handle = val.parse::<u64>()?;
+                scene_object.region_x = (region_handle >> 32) as u32;
+                scene_object.region_y = (region_handle & 0xFFFF_FFFF) as u32;
             }
             ["ScriptAccessPin"] => {
                 scene_object.script_access_pin = val.parse::<u64>()?;
@@ -290,9 +290,9 @@ impl SceneObject {
                 _ => {}
             },
             ["OffsetPosition", rest @ ..] => match rest {
-                ["X"] => scene_object.object_update.motion_data.position[0] = val.parse()?,
-                ["Y"] => scene_object.object_update.motion_data.position[1] = val.parse()?,
-                ["Z"] => scene_object.object_update.motion_data.position[2] = val.parse()?,
+                ["X"] => scene_object.offset_position[0] = val.parse()?,
+                ["Y"] => scene_object.offset_position[1] = val.parse()?,
+                ["Z"] => scene_object.offset_position[2] = val.parse()?,
                 _ => {}
             },
             ["RotationOffset", rest @ ..] => match rest {
@@ -657,8 +657,11 @@ pub struct Sculpt {
     /// execution after duplication or region restart.
     pub state: i32,
     /// The last point the object was attached to. Helps reattach items to the same place when
-    /// loggin in or putting on again.
+    /// logging in or putting on again.
     pub last_attach_point: i32,
+    /// The optional downloaded mesh, retrieved from the AssetServer.
+    /// Will be empty until the mesh data is retrieved from the server.
+    pub mesh: Option<Mesh>,
 }
 
 #[derive(Debug, Default, Clone)]

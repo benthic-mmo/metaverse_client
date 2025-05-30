@@ -20,7 +20,7 @@ use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-use super::agent::AgentAppearance;
+use super::agent::Avatar;
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
 const ACK_ATTEMPTS: i8 = 3;
@@ -83,7 +83,7 @@ pub struct Session {
 
     /// The agent list. Contains information about the appearances of all loaded agents
     #[cfg(feature = "agent")]
-    pub agent_list: Arc<Mutex<HashMap<Uuid, AgentAppearance>>>,
+    pub agent_list: Arc<Mutex<HashMap<Uuid, Avatar>>>,
 }
 
 /// Format for sending a serialized message from the mailbox to the UI.

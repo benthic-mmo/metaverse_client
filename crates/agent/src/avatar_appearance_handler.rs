@@ -8,9 +8,9 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use rgb::Rgba;
 use uuid::Uuid;
 
-pub fn parse_texture_data(bytes: &Vec<u8>) -> std::io::Result<String> {
+pub fn parse_texture_data(bytes: &[u8]) -> std::io::Result<String> {
     let mut faces: HashMap<u32, Texture> = HashMap::new();
-    let texture_entry = Texture::from_bytes(&bytes, &mut faces)?;
+    let texture_entry = Texture::from_bytes(bytes, &mut faces)?;
 
     println!("{:?}", faces);
     println!("texture entry: {:?}", texture_entry);
@@ -195,7 +195,7 @@ where
         for face_index in 0..size {
             let bit = 1 << face_index;
             if bitfield & bit != 0 {
-                let face = faces.entry(face_index).or_insert_with(Texture::default);
+                let face = faces.entry(face_index).or_default();
                 read_and_apply(cursor, face)?;
             }
         }

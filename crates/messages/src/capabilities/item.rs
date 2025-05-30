@@ -130,7 +130,7 @@ impl ItemData {
         next_line()?; // {
         next_line()?; // sale_type
 
-        let _price = {
+        {
             let _price_str = next_line()?.split('\t').nth(1).ok_or_else(|| {
                 std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing sale price")
             })?;

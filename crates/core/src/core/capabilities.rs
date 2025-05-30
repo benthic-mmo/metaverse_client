@@ -52,7 +52,6 @@ impl Handler<CapabilityRequest> for Mailbox {
                 }
                 .into_actor(self),
             );
-        } else {
-        }
+        } 
     }
 }
