@@ -62,10 +62,10 @@ impl Category {
                 version,
             })
         } else {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Missing or invalid category data",
-            ));
+            ))
         }
     }
 }
@@ -118,26 +118,20 @@ impl Folder {
                                 _ => Uuid::nil(),
                             };
                             let mut items_vec = Vec::new();
-                            match folder_data.get("items") {
-                                Some(items) => {
-                                    if let Some(items) = items.as_array() {
-                                        for item in items {
-                                            items_vec.push(ItemMetadata::from_llsd(item)?)
-                                        }
+                            if let Some(items) = folder_data.get("items") {
+                                if let Some(items) = items.as_array() {
+                                    for item in items {
+                                        items_vec.push(ItemMetadata::from_llsd(item)?)
                                     }
                                 }
-                                _ => {}
                             };
                             let mut category_vec = Vec::new();
-                            match folder_data.get("categories") {
-                                Some(categories) => {
-                                    if let Some(categories) = categories.as_array() {
-                                        for category in categories {
-                                            category_vec.push(Category::from_llsd(category)?);
-                                        }
+                            if let Some(categories) = folder_data.get("categories") {
+                                if let Some(categories) = categories.as_array() {
+                                    for category in categories {
+                                        category_vec.push(Category::from_llsd(category)?);
                                     }
                                 }
-                                _ => {}
                             };
                             folders_vec.push(Folder {
                                 folder_id,

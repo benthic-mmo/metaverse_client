@@ -81,7 +81,7 @@ pub fn check_model_loaded(
                 ..Default::default()
             });
             let scale = match layer.mesh_type {
-                MeshType::Avatar => Vec3::splat(20.0), // Make avatars huge for debugging
+                MeshType::Avatar => Vec3::splat(1.0), // Make avatars huge for debugging
                 MeshType::Land => Vec3::ONE,
             };
             commands.spawn((

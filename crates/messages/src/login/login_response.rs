@@ -895,7 +895,7 @@ fn parse_inventory_root(values: Option<&xmlrpc::Value>) -> Option<Vec<Uuid>> {
         Some(x) => x.as_array().unwrap(),
     };
     for value in unwrapped_values {
-        if let Ok(id) = Uuid::from_str(&value["folder_id"].as_str().unwrap().to_string()) {
+        if let Ok(id) = Uuid::from_str(value["folder_id"].as_str().unwrap()) {
             {
                 value_vec.push(id);
             }
@@ -912,7 +912,7 @@ fn parse_inventory_lib_owner(values: Option<&xmlrpc::Value>) -> Option<Vec<Uuid>
         Some(x) => x.as_array().unwrap(),
     };
     for value in unwrapped_values {
-        if let Ok(id) = Uuid::from_str(&value["agent_id"].as_str().unwrap().to_string()) {
+        if let Ok(id) = Uuid::from_str(value["agent_id"].as_str().unwrap()) {
             {
                 value_vec.push(id);
             }

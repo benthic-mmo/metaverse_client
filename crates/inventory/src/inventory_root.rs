@@ -50,7 +50,7 @@ pub async fn refresh_inventory(
     inventory_current_dir: PathBuf,
 ) -> Result<FolderNode, InventoryError> {
     let client = awc::Client::default();
-    let url = format!("{}", server_endpoint,);
+    let url = server_endpoint.to_string();
     let data = match client
         .post(url)
         .insert_header(("Content-Type", "application/llsd+xml"))
@@ -108,7 +108,7 @@ async fn establish_inventory_dirs(
             info!("Created Directory: {:?}", inventory_root);
         }
 
-        for folder in folders {
+        if let Some(folder) = folders.into_iter().next(){
             current_dir.push(folder.folder_id.to_string());
             let inventory_current_dir = inventory_root.join(current_dir.clone());
             let mut root_node = FolderNode {

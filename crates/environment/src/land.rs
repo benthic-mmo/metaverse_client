@@ -96,7 +96,7 @@ impl PatchData for Land {
     /// This should be called in a loop against the output of Layer::parse_packet.
     /// Currently this is called from within the actix mailbox. It receives the layer
     fn generate_mesh(
-        self: Self,
+        self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
     ) -> Option<Mesh> {
@@ -122,12 +122,12 @@ impl PatchData for Land {
             let mut layer_mesh = Mesh {
                 ..Default::default()
             };
-            layer_mesh.high_level_of_detail.triangles = generate_triangles(
+            layer_mesh.high_level_of_detail.triangles = Some(generate_triangles(
                 total_patches.get(&location).unwrap(),
                 north_layer.unwrap(),
                 east_layer.unwrap(),
                 top_corner.unwrap(),
-            );
+            ));
             layer_mesh.position = Some(Vec3 {
                 x: self.terrain_header.location.x as f32,
                 y: self.terrain_header.location.y as f32,

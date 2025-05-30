@@ -37,5 +37,4 @@
 /// [^2]: If the region is extended, the first 5 bits of the 10 bit string are used for the x, and the next 5
 /// represent the y. If the region is not extended, the first 2 bytes represent the x, and the next 2 represent
 /// the y. Stored in big-endian format.
-///
 pub mod layer_data;

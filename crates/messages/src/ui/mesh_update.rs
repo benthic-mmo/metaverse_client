@@ -6,7 +6,7 @@ use uuid::Uuid;
 /// this is the struct for sending mesh updates from the core to the UI.
 /// the path is the path to the generated gltf file, and the position is where to place it in the
 /// world.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MeshUpdate {
     /// path to the generated gtlf file that contains the mesh
     pub path: PathBuf,
@@ -18,12 +18,13 @@ pub struct MeshUpdate {
     pub id: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 /// Type of mesh the UI is rendering.
 pub enum MeshType {
     /// Land type
     Land,
     /// Avatar type
+    #[default]
     Avatar,
 }
 

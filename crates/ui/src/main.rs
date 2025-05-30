@@ -299,6 +299,9 @@ fn handle_queue(
                 SessionError::Capability(e) => {
                     info!("CapabilityError {:?}", e)
                 }
+                SessionError::IOError(e) => {
+                    info!("IOError {:?}", e)
+                }
             },
             PacketType::ChatFromSimulator(chat_from_simulator) => {
                 chat_messages.messages.push(ChatFromClientMessage {

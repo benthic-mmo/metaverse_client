@@ -108,3 +108,6 @@ pub mod cloud;
 pub mod water;
 /// TODO: unimplemented
 pub mod wind;
+
+/// Generate the GLTF files for patch data
+pub mod generate_gltf;

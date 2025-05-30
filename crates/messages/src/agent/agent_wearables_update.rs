@@ -1,11 +1,5 @@
 use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
-/// this is a file for easily creating a new packet.
-/// Simply copy this and fill in the data to create a new packet
-/// *local_name*    is something like "region_handshake"
-/// *PacketName*    is the name of the packet like "RegionHandshake"
-/// *id*            is the ID of the packet
-///
 use std::io::{self, Cursor, Read};
 use uuid::Uuid;
 

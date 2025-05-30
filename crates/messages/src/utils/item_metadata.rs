@@ -215,10 +215,10 @@ impl ItemMetadata {
                 parent_id_local: None,
             })
         } else {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Missing or invalid item metadata",
-            ));
+            ))
         }
     }
 }
@@ -307,10 +307,10 @@ impl Permissions {
                 last_owner_id: None,
             })
         } else {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Missing or invalid image permission data",
-            ));
+            ))
         }
     }
 }
@@ -354,10 +354,10 @@ impl SaleInfo {
                 ownership_cost: None,
             })
         } else {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Missing or invalid image sale data",
-            ));
+            ))
         }
     }
 }

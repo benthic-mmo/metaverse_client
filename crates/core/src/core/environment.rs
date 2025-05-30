@@ -1,6 +1,7 @@
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
 use metaverse_environment::{
+    generate_gltf::generate_land_gltf,
     land::Land,
     layer_handler::{PatchData, PatchLayer, parse_layer_data},
 };
@@ -15,10 +16,7 @@ use std::collections::HashMap;
 
 use crate::initialize::create_sub_share_dir;
 
-use super::{
-    generate_gltf::generate_high_lod,
-    session::{Mailbox, UiMessage},
-};
+use super::session::{Mailbox, UiMessage};
 
 #[cfg(feature = "environment")]
 #[derive(Debug, Message)]
@@ -67,7 +65,7 @@ impl Handler<LayerData> for Mailbox {
                                 // generate gltf file from mesh
                                 // create a UI event
                                 if let Ok(dir) = create_sub_share_dir("land") {
-                                    if let Ok(path) = generate_high_lod(
+                                    if let Ok(path) = generate_land_gltf(
                                         &mesh,
                                         dir,
                                         land.terrain_header.filename.clone(),

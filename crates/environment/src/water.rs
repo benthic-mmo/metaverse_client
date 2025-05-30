@@ -13,7 +13,7 @@ impl PatchData for Water {
         Ok(vec![])
     }
     fn generate_mesh(
-        self: Self,
+        self,
         _: &mut HashMap<U16Vec2, Self>,
         _: &HashMap<U16Vec2, Self>,
     ) -> Option<Mesh> {

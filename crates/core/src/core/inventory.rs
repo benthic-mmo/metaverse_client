@@ -67,11 +67,11 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                         .inventory_data
                         .inventory_root
                         .as_ref()
-                        .and_then(|vec| vec.get(0))
+                        .and_then(|vec| vec.first())
                         .copied()
                         .unwrap_or(Uuid::nil());
 
-                    let owner_id = session.agent_id.clone();
+                    let owner_id = session.agent_id;
                     let addr = ctx.address();
                     let url = url.clone();
                     ctx.spawn(
