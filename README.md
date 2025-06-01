@@ -25,7 +25,16 @@ Provides a straightforward way of handling incoming Layer Data information being
 ### Ui
 This is a debug UI. Written in bevy and bevy-egui, it is not expected to get very polished. The more user-friendly UI can be found at [benthic_viewer](https://github.com/benthic-mmo/benthic_viewer). 
 
-## Getting Started 
+## Getting Started
+
+Prerequisite Packages (Fedora names, yours may vary):
+* `rust`
+* `cargo`
+* `openssl-devel`
+* `alsa-lib-devel`
+* `rust-libudev-devel`
+
+### Building
 ``cargo run``
 Will run the debug UI.
 ``cargo test`` 
