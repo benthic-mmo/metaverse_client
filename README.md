@@ -27,7 +27,7 @@ This is a debug UI. Written in bevy and bevy-egui, it is not expected to get ver
 
 ## Getting Started
 
-Prerequisite Packages (Fedora names, yours may vary):
+Prerequisite Packages:
 * `rust`
 * `cargo`
 * `openssl-devel`
