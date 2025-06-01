@@ -33,6 +33,7 @@ Prerequisite Packages (Fedora names, yours may vary):
 * `openssl-devel`
 * `alsa-lib-devel`
 * `rust-libudev-devel`
+* `rust-libdbus-devel`
 
 ### Building
 ``cargo run``
