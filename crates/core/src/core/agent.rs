@@ -15,7 +15,10 @@ use metaverse_messages::{
         mesh_update::{MeshType, MeshUpdate},
         ui_events::UiEventTypes,
     },
-    utils::{item_metadata::ItemMetadata, object_types::ObjectType},
+    utils::{
+        item_metadata::{self, ItemMetadata},
+        object_types::ObjectType,
+    },
 };
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -80,7 +83,6 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                     let mut mesh_metadata = scene.item_metadata.clone();
                                     mesh_metadata.item_type = ObjectType::Mesh;
                                     mesh_metadata.asset_id = scene.sculpt.texture;
-
                                     match download_mesh(mesh_metadata, &msg.url).await {
                                         Ok(mesh) => {
                                             scene.sculpt.mesh = Some(mesh);
@@ -142,26 +144,37 @@ impl Handler<Avatar> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: Avatar, ctx: &mut Self::Context) -> Self::Result {
         for item in msg.outfit_items {
-            if let OutfitObject::SceneGroup(scene_group) = item {
-                if let Ok(agent_dir) = create_sub_share_dir("agent") {
-                    if let Ok(skeleton_path) = initialize_skeleton() {
-                        if let Ok(path) = generate_avatar_from_scenegroup(
-                            scene_group,
-                            skeleton_path,
-                            agent_dir,
-                        ) {
-                            ctx.address().do_send(UiMessage::new(
-                                UiEventTypes::MeshUpdate,
-                                MeshUpdate {
-                                    position: msg.position,
-                                    path,
-                                    mesh_type: MeshType::Avatar,
-                                    id: Some(msg.agent_id),
+            match item {
+                OutfitObject::SceneGroup(scene_group) => {
+                    println!("{:?}", scene_group.parts[0].name);
+                    if let Ok(agent_dir) = create_sub_share_dir("agent") {
+                        if let Ok(skeleton_path) = initialize_skeleton() {
+                            match generate_avatar_from_scenegroup(
+                                scene_group,
+                                skeleton_path,
+                                agent_dir,
+                            ) {
+                                Ok(path) => {
+                                    ctx.address().do_send(UiMessage::new(
+                                        UiEventTypes::MeshUpdate,
+                                        MeshUpdate {
+                                            position: msg.position,
+                                            path,
+                                            mesh_type: MeshType::Avatar,
+                                            id: Some(msg.agent_id),
+                                        }
+                                        .to_bytes(),
+                                    ));
                                 }
-                                .to_bytes(),
-                            ));
+                                Err(e) => {
+                                    error!("uh oh stinky {:?}", e)
+                                }
+                            }
                         }
                     }
+                }
+                OutfitObject::Item(item) => {
+                    println!("{:?}", item.metadata.name);
                 }
             }
         }

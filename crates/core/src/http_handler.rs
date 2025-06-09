@@ -18,7 +18,6 @@ pub async fn download_asset(
     let client = awc::Client::default();
     let item_type = metadata.item_type.to_string();
     let asset_id = metadata.asset_id;
-
     let url = format!("{}?{}_id={}", server_endpoint, item_type, asset_id);
     let mut response = client
         .get(&url)
@@ -43,23 +42,15 @@ pub async fn download_object(
     metadata: ItemMetadata,
     server_endpoint: &str,
 ) -> std::io::Result<SceneGroup> {
-    SceneGroup::from_xml(&download_asset(metadata, server_endpoint).await?).map_err(|e| {
-        Error::new(
-            ErrorKind::Other,
-            format!("Failed to parse SceneGroup XML: {}", e),
-        )
-    })
+    SceneGroup::from_xml(&download_asset(metadata, server_endpoint).await?)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to parse object: {}", e)))
 }
 
 /// Retrieve an inventory item from the ViewerAsset endpoint.
 /// this needs to be parsed as an Item object
 pub async fn download_item(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Item> {
-    Item::from_bytes(&download_asset(metadata, server_endpoint).await?).map_err(|e| {
-        Error::new(
-            ErrorKind::Other,
-            format!("Failed to parse SceneGroup XML: {}", e),
-        )
-    })
+    Item::from_bytes(&download_asset(metadata, server_endpoint).await?)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to parse item: {}", e)))
 }
 
 /// Retrieve a mesh from the ViewerAsset endpoint.

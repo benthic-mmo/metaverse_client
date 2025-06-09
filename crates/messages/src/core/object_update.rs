@@ -312,7 +312,6 @@ impl PacketData for ObjectUpdate {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

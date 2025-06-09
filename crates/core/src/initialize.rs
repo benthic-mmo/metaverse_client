@@ -174,12 +174,10 @@ pub fn initialize_skeleton() -> std::io::Result<PathBuf> {
     if !dest_gltf.exists() {
         match fs::copy(&base_skeleton_path, &dest_gltf) {
             Ok(_) => Ok(dest_gltf),
-            Err(_) => {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Failed to find copy skeleton.gltf to agent share dir",
-                ))
-            }
+            Err(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Failed to find copy skeleton.gltf to agent share dir",
+            )),
         }
     } else {
         Ok(dest_gltf)

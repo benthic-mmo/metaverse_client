@@ -108,7 +108,7 @@ async fn establish_inventory_dirs(
             info!("Created Directory: {:?}", inventory_root);
         }
 
-        if let Some(folder) = folders.into_iter().next(){
+        if let Some(folder) = folders.into_iter().next() {
             current_dir.push(folder.folder_id.to_string());
             let inventory_current_dir = inventory_root.join(current_dir.clone());
             let mut root_node = FolderNode {

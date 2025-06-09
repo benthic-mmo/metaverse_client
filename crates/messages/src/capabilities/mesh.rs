@@ -39,6 +39,108 @@ pub struct Mesh {
     /// skeleton.
     pub skin: Skin,
 }
+impl Mesh {
+    /// Converts mesh bytes to a mesh object.
+    /// <https://wiki.secondlife.com/wiki/Mesh/Mesh_Asset_Format>
+    ///
+    /// The data structure starts out with a header in LL binary format.
+    /// <https://wiki.secondlife.com/wiki/LLSD#binary_data>
+    /// The header is uncompressed and contains the
+    /// offset positions for each of the compressed values.
+    /// Extracted from the binary format to a HashMap, it looks something like this.
+    ///
+    /// ```
+    /// Map({
+    /// skin: Map({ size: Integer(598), offset: Integer(0) }),
+    /// physics_convex: Map({ size: Integer(204), offset: Integer(598) }),
+    /// lowest_lod: Map({ size: Integer(1305), offset: Integer(802) }),
+    /// low_lod: Map({ size: Integer(2246), offset: Integer(2107) }),
+    /// medium_lod: Map({ offset: Integer(4353), size: Integer(7672) }),
+    /// high_lod: Map({ size: Integer(27225), offset: Integer(12025) }),
+    /// });
+    ///```
+    /// The offset it points to is the exact position in the data of the next zlib magic
+    /// number for decompressing each section.
+    /// Once decompressed, the data is encoded in the same binary llsd format that the header is.
+    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let mut mesh = Mesh {
+            ..Default::default()
+        };
+        if let Ok(data) = serde_llsd::de::binary::from_bytes(bytes) {
+            // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
+            // first data block.
+            let sentinel_location = bytes
+                .windows(2)
+                .position(|w| w == [ZLIB_MAGIC_NUMBER, ZLIB_DECODING_TYPE])
+                .expect("Zlib header not found");
+            let compressed_data = &bytes[sentinel_location..];
+
+            let map_data = data.into_map().unwrap();
+            let (high_lod_offset, high_lod_size) =
+                extract_offset_size(map_data.get("high_lod").unwrap())?;
+            let (medium_lod_offset, medium_lod_size) =
+                extract_offset_size(map_data.get("medium_lod").unwrap())?;
+            let (low_lod_offset, low_lod_size) =
+                extract_offset_size(map_data.get("low_lod").unwrap())?;
+            let (lowest_lod_offset, lowest_lod_size) =
+                extract_offset_size(map_data.get("lowest_lod").unwrap())?;
+            let (physics_convex_offset, physics_convex_size) =
+                extract_offset_size(map_data.get("physics_convex").unwrap())?;
+            let (skin_offset, skin_offset_size) =
+                extract_offset_size(map_data.get("skin").unwrap())?;
+
+            let high_level_of_detail = decompress_slice(
+                &compressed_data[high_lod_offset..high_lod_offset + high_lod_size],
+            )?;
+            let medium_level_of_detail = Some(decompress_slice(
+                &compressed_data[medium_lod_offset..medium_lod_offset + medium_lod_size],
+            )?);
+            let low_level_of_detail = Some(decompress_slice(
+                &compressed_data[low_lod_offset..low_lod_offset + low_lod_size],
+            )?);
+            let lowest_level_of_detail = Some(decompress_slice(
+                &compressed_data[lowest_lod_offset..lowest_lod_offset + lowest_lod_size],
+            )?);
+            mesh.physics_convex = decompress_slice(
+                &compressed_data
+                    [physics_convex_offset..physics_convex_offset + physics_convex_size],
+            )?;
+            let skin =
+                decompress_slice(&compressed_data[skin_offset..skin_offset + skin_offset_size])?;
+
+            match MeshGeometry::from_llsd(
+                serde_llsd::de::binary::from_bytes(&high_level_of_detail).unwrap(),
+            ) {
+                Ok(decoded) => mesh.high_level_of_detail = decoded,
+                Err(e) => println!("Error decoding mesh geometry {:?}", e),
+            }
+            if let Some(data) = &medium_level_of_detail {
+                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                    Ok(decoded) => mesh.medium_level_of_detail = Some(decoded),
+                    Err(e) => println!("a {:?}", e),
+                }
+            }
+            if let Some(data) = &low_level_of_detail {
+                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                    Ok(decoded) => mesh.low_level_of_detail = Some(decoded),
+                    Err(e) => println!("a {:?}", e),
+                }
+            }
+            if let Some(data) = &lowest_level_of_detail {
+                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                    Ok(decoded) => mesh.lowest_level_of_detail = Some(decoded),
+                    Err(e) => println!("a {:?}", e),
+                }
+            }
+
+            match Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap()) {
+                Ok(decoded) => mesh.skin = decoded,
+                Err(e) => println!("a {:?}", e),
+            };
+        };
+        Ok(mesh)
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 /// Contains the geometry information of the mesh.
@@ -75,7 +177,8 @@ impl MeshGeometry {
             .as_array()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected top-level array"))?;
 
-        let map = array.first()
+        let map = array
+            .first()
             .and_then(LLSDValue::as_map)
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected map inside array"))?;
 
@@ -165,12 +268,6 @@ impl MeshGeometry {
                 };
                 if joint == 0xFF {
                     break; // end of influences for this vertex
-                }
-                if joint > 31 {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        format!("Invalid joint index: {}", joint),
-                    ));
                 }
 
                 // Next 2 bytes for weight
@@ -460,111 +557,6 @@ impl Skin {
             inverse_bind_matrices,
             bind_shape_matrix,
         })
-    }
-}
-
-impl Mesh {
-    /// Converts mesh bytes to a mesh object.
-    /// <https://wiki.secondlife.com/wiki/Mesh/Mesh_Asset_Format>
-    ///
-    /// The data structure starts out with a header in LL binary format.
-    /// <https://wiki.secondlife.com/wiki/LLSD#binary_data>
-    /// The header is uncompressed and contains the
-    /// offset positions for each of the compressed values.
-    /// Extracted from the binary format to a HashMap, it looks something like this.
-    ///
-    /// ```
-    /// Map({
-    /// skin: Map({ size: Integer(598), offset: Integer(0) }),
-    /// physics_convex: Map({ size: Integer(204), offset: Integer(598) }),
-    /// lowest_lod: Map({ size: Integer(1305), offset: Integer(802) }),
-    /// low_lod: Map({ size: Integer(2246), offset: Integer(2107) }),
-    /// medium_lod: Map({ offset: Integer(4353), size: Integer(7672) }),
-    /// high_lod: Map({ size: Integer(27225), offset: Integer(12025) }),
-    /// });
-    ///```
-    /// The offset it points to is the exact position in the data of the next zlib magic
-    /// number for decompressing each section.
-    /// Once decompressed, the data is encoded in the same binary llsd format that the header is.
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let mut mesh = Mesh {
-            ..Default::default()
-        };
-        if let Ok(data) = serde_llsd::de::binary::from_bytes(bytes) {
-            // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
-            // first data block.
-            let sentinel_location = bytes
-                .windows(2)
-                .position(|w| w == [ZLIB_MAGIC_NUMBER, ZLIB_DECODING_TYPE])
-                .expect("Zlib header not found");
-            let compressed_data = &bytes[sentinel_location..];
-
-            let map_data = data.into_map().unwrap();
-            let (high_lod_offset, high_lod_size) =
-                extract_offset_size(map_data.get("high_lod").unwrap())?;
-            let (medium_lod_offset, medium_lod_size) =
-                extract_offset_size(map_data.get("medium_lod").unwrap())?;
-            let (low_lod_offset, low_lod_size) =
-                extract_offset_size(map_data.get("low_lod").unwrap())?;
-            let (lowest_lod_offset, lowest_lod_size) =
-                extract_offset_size(map_data.get("lowest_lod").unwrap())?;
-            let (physics_convex_offset, physics_convex_size) =
-                extract_offset_size(map_data.get("physics_convex").unwrap())?;
-            let (skin_offset, skin_offset_size) =
-                extract_offset_size(map_data.get("skin").unwrap())?;
-
-            let high_level_of_detail = decompress_slice(
-                &compressed_data[high_lod_offset..high_lod_offset + high_lod_size],
-            )?;
-            let medium_level_of_detail = Some(decompress_slice(
-                &compressed_data[medium_lod_offset..medium_lod_offset + medium_lod_size],
-            )?);
-            let low_level_of_detail = Some(decompress_slice(
-                &compressed_data[low_lod_offset..low_lod_offset + low_lod_size],
-            )?);
-            let lowest_level_of_detail = Some(decompress_slice(
-                &compressed_data[lowest_lod_offset..lowest_lod_offset + lowest_lod_size],
-            )?);
-            mesh.physics_convex = decompress_slice(
-                &compressed_data
-                    [physics_convex_offset..physics_convex_offset + physics_convex_size],
-            )?;
-            let skin =
-                decompress_slice(&compressed_data[skin_offset..skin_offset + skin_offset_size])?;
-
-            if let Ok(decoded) = MeshGeometry::from_llsd(
-                serde_llsd::de::binary::from_bytes(&high_level_of_detail).unwrap(),
-            ) {
-                mesh.high_level_of_detail = decoded;
-            }
-            if let Some(data) = &medium_level_of_detail {
-                if let Ok(decoded) =
-                    MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap())
-                {
-                    mesh.medium_level_of_detail = Some(decoded)
-                }
-            }
-            if let Some(data) = &low_level_of_detail {
-                if let Ok(decoded) =
-                    MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap())
-                {
-                    mesh.low_level_of_detail = Some(decoded)
-                }
-            }
-            if let Some(data) = &lowest_level_of_detail {
-                if let Ok(decoded) =
-                    MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap())
-                {
-                    mesh.lowest_level_of_detail = Some(decoded)
-                }
-            }
-
-            if let Ok(decoded) = Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap())
-            {
-                mesh.skin = decoded
-            };
-        };
-        Ok(mesh)
     }
 }
 
