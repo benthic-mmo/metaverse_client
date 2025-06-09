@@ -13,8 +13,11 @@ use gltf_json::{
 use log::{info, warn};
 use metaverse_messages::capabilities::scene::SceneGroup;
 use rgb::bytemuck;
-use std::{collections::{BTreeMap, HashMap, HashSet}, f32::consts::FRAC_1_SQRT_2, f64::consts::FRAC_1_SQRT_2};
 use std::{borrow::Cow, fs::File, mem, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    f32::consts::FRAC_1_SQRT_2,
+};
 
 /// This generates a GLTF file and a MeshUpdate for a scenegroup object. This handles the skeleton,
 /// mesh deforms, etc.
@@ -38,7 +41,7 @@ pub fn generate_avatar_from_scenegroup(
 
     // the root mesh is the first entry in the scene_group mesh parts array. This contains the skin
     // data for the rest of the scene.
-    let root_mesh = scene_group.parts[0].clone().sculpt.mesh.unwrap();
+    let mut root_mesh = scene_group.parts[0].clone().sculpt.mesh.unwrap();
 
     // Load the default skeleton data in from the skeleton path. This is a local file that provides the joint rotations
     // and hierarchy that the scene data does not. The original file can be found in
@@ -59,6 +62,91 @@ pub fn generate_avatar_from_scenegroup(
             if root_mesh.skin.joint_names.contains(name) {
                 skin_joint_indices.push(i);
                 joints.push(joint_node.index());
+            }
+        }
+    }
+    // create a map that associates child nodes with their parent nodes. Allows for lookup of a
+    // parent directly from a child.
+    let mut root_joint_map = HashMap::new();
+    for joint in &joints {
+        if let Some(node) = document.nodes().nth(*joint) {
+            for child in node.children() {
+                root_joint_map.insert(child.index(), node.index());
+            }
+        } else {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Unable to find joint",
+            )));
+        };
+    }
+
+    // Find all joints that do not appear as children. These are the root joints.
+    let root_joints: Vec<usize> = joints
+        .iter()
+        .copied()
+        .filter(|joint_idx| !root_joint_map.contains_key(joint_idx))
+        .collect();
+
+    if root_joint_map.is_empty() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "No root joints found",
+        )));
+    }
+
+    let mut full_parent_map = HashMap::new();
+    let mut append_ibms = Vec::new();
+    // Insert parent-child relations for all joints in the full skin hierarchy.
+    // TODO: This can be precomputed at compile time. Figure out how to make this static.
+    for joint_node in skin.joints() {
+        let joint_index = joint_node.index();
+        if let Some(node) = document.nodes().nth(joint_index) {
+            for child in node.children() {
+                full_parent_map.insert(child.index(), node.index());
+            }
+        } else {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Unable to find joint {}", joint_index),
+            )));
+        }
+    }
+
+    // The mpelvis will be the root of all skeleton nodes, even for models that don't include it in
+    // their hierarchy. This is to ensure that things stay aligned on the model.
+    // TODO: This can also be precomputed at compile time. Make this static.
+    let mpelvis_index = document
+        .nodes()
+        .find(|n| n.name() == Some("mPelvis"))
+        .map(|n| n.index())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "mPelvis not found in skeleton",
+            )
+        })?;
+
+    // Add parent nodes that lead to mpelvis back to the joints array.
+    for joint in &root_joints {
+        let mut current = *joint;
+        while current != mpelvis_index {
+            if let Some(&parent) = full_parent_map.get(&current) {
+                if !joints.contains(&parent) {
+                    joints.push(parent);
+                }
+                // TODO: you should not be checking against strings like this
+                if let Some(node) = document.nodes().nth(parent) {
+                    if let Some(name) = node.name() {
+                        root_mesh.skin.joint_names.insert(name.to_string());
+                    }
+                }
+                // add the identity matrix to maintain IBM alignment
+                // TODO: THIS IS NOT CORRECT. but it's closer.``
+                append_ibms.push(Mat4::IDENTITY);
+                current = parent;
+            } else {
+                break; // No parent found, exit loop
             }
         }
     }
@@ -103,7 +191,7 @@ pub fn generate_avatar_from_scenegroup(
     // contains the translation information. In order to obtain the rotations and scale, you need
     // to multiply your local skelet'on's inverse bind matrix, with its w axis as the last part of
     // the identity matrix by the incoming skin's inverse bind matrix.
-    let ibm_matrices = root_mesh
+    let mut ibm_matrices = root_mesh
         .skin
         .inverse_bind_matrices
         .iter()
@@ -120,24 +208,17 @@ pub fn generate_avatar_from_scenegroup(
             skeleton * corrected_translation
         })
         .collect::<Vec<Mat4>>();
+    ibm_matrices.append(&mut append_ibms);
 
-    // Start from the pelvis bone and recursively add child joints to the root, to maintain parent
-    // child hierarchy.
     let mut joint_index_map = HashMap::new();
-    let pelvis_bone_index = skin
-        .joints()
-        .find(|j| j.name() == Some("mPelvis"))
-        .expect("Failed to find pelvis bone")
-        .index();
-
-    let skeleton_root = match add_node_recursive(
+    match add_node_recursive(
         &document,
         &mut root,
         &mut joint_index_map,
-        pelvis_bone_index,
+        mpelvis_index,
         &root_mesh.skin.joint_names,
     ) {
-        Some(index) => index,
+        Some(index) => nodes.push(Index::new(index as u32)),
         None => {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -145,7 +226,7 @@ pub fn generate_avatar_from_scenegroup(
             )));
         }
     };
-    nodes.push(Index::new(skeleton_root as u32));
+
     let mut ibm_bytes_vec = Vec::with_capacity(ibm_matrices.len() * 16 * mem::size_of::<f32>());
     for mat in &ibm_matrices {
         let cols: [f32; 16] = mat.to_cols_array();
@@ -232,10 +313,11 @@ pub fn generate_avatar_from_scenegroup(
             node.translation = Some([translation.x, translation.y, translation.z]);
         }
     }
+
     root.skins.push(Skin {
         joints: new_joints,
         inverse_bind_matrices: Some(inverse_bind_accessor_index),
-        skeleton: Some(Index::new(skeleton_root as u32)),
+        skeleton: None,
         extensions: Default::default(),
         extras: Default::default(),
         name: skin.name().map(str::to_string),
@@ -248,7 +330,6 @@ pub fn generate_avatar_from_scenegroup(
         if let Some(mesh) = scene.sculpt.mesh.as_ref() {
             let vertices_buffer_length =
                 mesh.high_level_of_detail.vertices.len() * mem::size_of::<Vec3>();
-
             // apply the bind shape matrix to the vertices of the mesh. The bind shape matrix
             // transforms the vertices to give them their proper scale, and align them with the
             // skeleton.
@@ -499,6 +580,7 @@ fn add_node_recursive(
         .nodes()
         .nth(node_index)
         .expect("Node index out of range");
+
     if let Some(name) = node.name() {
         if !allowed_joints.contains(name) {
             return None;
@@ -506,6 +588,7 @@ fn add_node_recursive(
     } else {
         return None;
     }
+
     let children_indices: Vec<usize> = node
         .children()
         .filter_map(|child| {

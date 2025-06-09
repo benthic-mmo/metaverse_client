@@ -50,6 +50,20 @@ impl SceneGroup {
             match reader.read_event_into(&mut buf)? {
                 Event::Start(ref e) => {
                     path.push(from_utf8(e.name().as_ref())?.to_string());
+                    // If we are at the part of the XML describing the other parts, create a new
+                    // scene object that will be mutated by the read_until_scene_object_end
+                    // function.
+                    if path.ends_with(&[
+                        "SceneObjectGroup".to_string(),
+                        "OtherParts".to_string(),
+                        "Part".to_string(),
+                        "SceneObjectPart".to_string(),
+                    ]) {
+                        let mut obj = SceneObject::default();
+                        SceneObject::read_scene_object(&mut reader, &mut obj, path.clone())?;
+                        children.push(obj);
+                        path.pop(); // pop "SceneObjectPart"
+                    }
                 }
                 Event::End(_) => {
                     path.pop();
@@ -61,24 +75,6 @@ impl SceneGroup {
                     if path_refs.starts_with(&["SceneObjectGroup", "RootPart", "SceneObjectPart"]) {
                         SceneObject::from_path_str(path_refs.clone(), e, &mut root_object, 3)?;
                     }
-                    // If we are at the part of the XML describing the other parts, create a new
-                    // scene object that will be mutated by the read_until_scene_object_end
-                    // function.
-                    if path_refs.starts_with(&[
-                        "SceneObjectGroup",
-                        "OtherParts",
-                        "Part",
-                        "SceneObjectPart",
-                    ]) {
-                        let mut obj = SceneObject::default();
-                        SceneObject::read_until_scene_object_end(
-                            &mut reader,
-                            &mut obj,
-                            path.clone(),
-                        )?;
-                        children.push(obj);
-                        path.pop();
-                    }
                 }
                 Event::Eof => break,
                 _ => {}
@@ -86,6 +82,7 @@ impl SceneGroup {
 
             buf.clear();
         }
+        // set the root object to the first child.
         children.insert(0, root_object);
         Ok(SceneGroup { parts: children })
     }
@@ -187,7 +184,7 @@ pub struct SceneObject {
 impl SceneObject {
     /// This is used for reading the bytes after the root object has been parsed.
     /// This is for handling the OtherParts section of the xml.
-    pub fn read_until_scene_object_end<R: std::io::BufRead>(
+    fn read_scene_object<R: std::io::BufRead>(
         reader: &mut Reader<R>,
         scene_object: &mut SceneObject,
         path_prefix: Vec<String>,
