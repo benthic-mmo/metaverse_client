@@ -1,5 +1,8 @@
+use super::agent::DownloadAgentAsset;
+use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message};
 use log::warn;
+use metaverse_agent::avatar::Avatar;
 use metaverse_messages::capabilities::item::Item;
 use metaverse_messages::{
     capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
@@ -8,14 +11,11 @@ use metaverse_messages::{
 use std::time::Duration;
 use uuid::Uuid;
 
-use super::agent::{Avatar, DownloadAgentAsset};
-use super::session::Mailbox;
-
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 /// Trigger the function that creates the user model, and sends the data to the UI.
 pub struct RenderAgent {
-    ///. The ID of the agent to render
+    /// The ID of the agent to render
     pub agent_id: Uuid,
     /// all of the items the agent is wearing
     pub outfit: Vec<Item>,
@@ -52,17 +52,11 @@ impl Handler<ObjectUpdate> for Mailbox {
                             {
                                 session.agent_list.lock().unwrap().insert(
                                     msg.full_id,
-                                    Avatar {
-                                        agent_id: msg.full_id,
-                                        position: msg.motion_data.position,
-                                        // the size of the outfit is half of the size of the
-                                        // currently worn folder. This is because the currently
-                                        // worn folder is full of simlinks and the real objects.
-                                        outfit_size: current_outfit.folder.items.len() / 2,
-                                        // the outfit items are currently not populated. As the asset
-                                        // downloads complete, this will fill up.
-                                        outfit_items: vec![],
-                                    },
+                                    Avatar::new(
+                                        msg.full_id,
+                                        msg.motion_data.position,
+                                        current_outfit.folder.items.len() / 2,
+                                    ),
                                 );
                             }
 

@@ -1,57 +1,31 @@
-use std::{collections::HashMap, sync::Arc};
-
 use super::session::{Mailbox, UiMessage};
-use crate::{
-    http_handler::{download_item, download_mesh, download_object},
-    initialize::{create_sub_share_dir, initialize_skeleton},
-};
+use crate::http_handler::{download_item, download_mesh, download_object};
+use crate::initialize::create_sub_share_dir;
 use actix::{Addr, AsyncContext, Handler, Message, WrapFuture};
-use glam::Vec3;
+use glam::{Vec3, Vec4};
 use log::error;
-use metaverse_agent::generate_gltf::generate_avatar_from_scenegroup;
+use metaverse_agent::skeleton::create_skeleton;
+use metaverse_agent::{
+    avatar::{Avatar, OutfitObject, RiggedObject},
+    generate_gltf::generate_baked_avatar,
+};
+use metaverse_messages::capabilities::scene::SceneGroup;
 use metaverse_messages::{
-    capabilities::{item::Item, scene::SceneGroup},
     ui::{
         mesh_update::{MeshType, MeshUpdate},
         ui_events::UiEventTypes,
     },
-    utils::{
-        item_metadata::{self, ItemMetadata},
-        object_types::ObjectType,
-    },
+    utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Arc};
+use std::{path::PathBuf, sync::Mutex};
 use uuid::Uuid;
 
 #[cfg(feature = "agent")]
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
-/// This contains information about the agent appearances as they come into the scene.
-/// this is used to collect agent items, and trigger generation of the GLTF once their assets have
-/// been loaded.
-pub struct Avatar {
-    /// The UUID of the agent
-    pub agent_id: Uuid,
-    /// How many items are being requested. When the appearance is fully loaded, the outfit_size
-    /// and outfit_items will be of equal length.
-    pub outfit_size: usize,
-    /// The items in the outfit. Contains mesh and other data that will be used to construct the
-    /// gltf file.
-    pub outfit_items: Vec<OutfitObject>,
-    /// The position of the agent in the world
-    pub position: Vec3,
-}
-
-#[cfg(feature = "agent")]
-#[derive(Debug, Message, Clone)]
-#[rtype(result = "()")]
-/// The items that can be stored in an outfit. It can contain generic Items, or SceneGroups, which
-/// contain mesh data.
-pub enum OutfitObject {
-    /// A generic item
-    Item(Item),
-    /// A SceneGroup, containing mesh and render data
-    SceneGroup(SceneGroup),
+pub struct Agent {
+    pub avatar: Avatar,
 }
 
 #[derive(Debug, Message)]
@@ -68,6 +42,34 @@ pub struct DownloadAgentAsset {
     pub position: Vec3,
 }
 
+async fn download_scenegroup_mesh(scene_group: &mut SceneGroup, url: &str) {
+    for scene in &mut scene_group.parts {
+        let mut mesh_metadata = scene.item_metadata.clone();
+        mesh_metadata.item_type = ObjectType::Mesh;
+        mesh_metadata.asset_id = scene.sculpt.texture;
+        match download_mesh(mesh_metadata, url).await {
+            Ok(mut mesh) => {
+                // apply the skin bind shape matrix to the retrieved
+                // vertices
+                let vertices_transformed: Vec<Vec3> = mesh
+                    .high_level_of_detail
+                    .vertices
+                    .iter()
+                    .map(|v| {
+                        let v4 = mesh.skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
+                        Vec3::new(v4.x, v4.y, v4.z)
+                    })
+                    .collect();
+                mesh.high_level_of_detail.vertices = vertices_transformed;
+                scene.sculpt.mesh = Some(mesh);
+            }
+            Err(e) => {
+                error!("{:?}", e);
+            }
+        };
+    }
+}
+
 impl Handler<DownloadAgentAsset> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: DownloadAgentAsset, ctx: &mut Self::Context) -> Self::Result {
@@ -79,23 +81,21 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                     match msg.item.item_type {
                         ObjectType::Object => match download_object(msg.item, &msg.url).await {
                             Ok(mut scene_group) => {
-                                for scene in &mut scene_group.parts {
-                                    let mut mesh_metadata = scene.item_metadata.clone();
-                                    mesh_metadata.item_type = ObjectType::Mesh;
-                                    mesh_metadata.asset_id = scene.sculpt.texture;
-                                    match download_mesh(mesh_metadata, &msg.url).await {
-                                        Ok(mesh) => {
-                                            scene.sculpt.mesh = Some(mesh);
-                                        }
-                                        Err(e) => {
-                                            error!("{:?}", e);
-                                        }
-                                    };
-                                }
+                                download_scenegroup_mesh(&mut scene_group, &msg.url).await;
+
+                                let skeleton = create_skeleton(
+                                    scene_group.parts[0].clone(),
+                                    agent_list.clone(),
+                                    msg.agent_id,
+                                )
+                                .unwrap();
                                 add_item_to_agent_list(
                                     agent_list,
                                     msg.agent_id,
-                                    OutfitObject::SceneGroup(scene_group),
+                                    OutfitObject::RiggedObject(RiggedObject {
+                                        scene_group,
+                                        skeleton,
+                                    }),
                                     address,
                                 );
                             }
@@ -135,48 +135,39 @@ fn add_item_to_agent_list(
         agent.outfit_items.push(item);
         // if all of the items have loaded in, trigger a render
         if agent.outfit_items.len() == agent.outfit_size {
-            address.do_send(agent.clone());
+            address.do_send(Agent {
+                avatar: agent.clone(),
+            });
         }
     }
 }
 
-impl Handler<Avatar> for Mailbox {
+impl Handler<Agent> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: Avatar, ctx: &mut Self::Context) -> Self::Result {
-        for item in msg.outfit_items {
-            match item {
-                OutfitObject::SceneGroup(scene_group) => {
-                    println!("{:?}", scene_group.parts[0].name);
-                    if let Ok(agent_dir) = create_sub_share_dir("agent") {
-                        if let Ok(skeleton_path) = initialize_skeleton() {
-                            match generate_avatar_from_scenegroup(
-                                scene_group,
-                                skeleton_path,
-                                agent_dir,
-                            ) {
-                                Ok(path) => {
-                                    ctx.address().do_send(UiMessage::new(
-                                        UiEventTypes::MeshUpdate,
-                                        MeshUpdate {
-                                            position: msg.position,
-                                            path,
-                                            mesh_type: MeshType::Avatar,
-                                            id: Some(msg.agent_id),
-                                        }
-                                        .to_bytes(),
-                                    ));
-                                }
-                                Err(e) => {
-                                    error!("uh oh stinky {:?}", e)
-                                }
-                            }
-                        }
-                    }
-                }
-                OutfitObject::Item(item) => {
-                    println!("{:?}", item.metadata.name);
-                }
+    fn handle(&mut self, mut msg: Agent, ctx: &mut Self::Context) -> Self::Result {
+        // bake all of the objects in the outfit onto the same skeleton for rendering
+        let path = create_sub_share_dir("agent")
+            .ok()
+            .and_then(|agent_dir| {
+                let agent_path = msg.avatar.agent_id;
+                generate_baked_avatar(
+                    msg.avatar.outfit_items.clone(),
+                    msg.avatar.skeleton,
+                    agent_dir.with_file_name(format!("{:?}_combined_high.glb", agent_path)),
+                )
+                .ok()
+            })
+            .unwrap();
+        msg.avatar.path = Some(path);
+        ctx.address().do_send(UiMessage::new(
+            UiEventTypes::MeshUpdate,
+            MeshUpdate {
+                position: msg.avatar.position,
+                path: msg.avatar.path.unwrap(),
+                mesh_type: MeshType::Avatar,
+                id: Some(msg.avatar.agent_id),
             }
-        }
+            .to_bytes(),
+        ));
     }
 }

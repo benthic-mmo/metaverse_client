@@ -1,3 +1,4 @@
+tags 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -21,5 +22,7 @@ Cargo.lock
 crates/instantiator/sims/
 crates/core/sims/
 crates/login/sims/
+
+crates/agent/tests/generated_gltf
 
 *.login_conf.json

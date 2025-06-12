@@ -20,6 +20,7 @@ use metaverse_messages::{
         errors::{MailboxSessionError, SessionError},
         ui_events::UiEventTypes,
     },
+    utils::skeleton::Skeleton,
 };
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};

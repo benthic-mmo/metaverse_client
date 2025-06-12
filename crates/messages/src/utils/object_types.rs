@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 /// The types of all objects in the simulator. Also contains types for folders.
 pub enum ObjectType {
     /// A bodypart
