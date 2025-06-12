@@ -5,21 +5,22 @@ use crate::{
         object_types::ObjectType,
     },
 };
-use glam::{Vec3, Vec4, bool};
+use glam::{bool, Vec3, Vec4};
 use quick_xml::{
-    Reader,
     events::{BytesText, Event},
+    Reader,
 };
 use rgb::Rgba;
+use serde::{Deserialize, Serialize};
 use std::{
-    str::{FromStr, from_utf8},
+    str::{from_utf8, FromStr},
     time::SystemTime,
 };
 use uuid::Uuid;
 
 use super::mesh::Mesh;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// The group of scenes received from the server, used for rendering meshes.
 ///
 /// Scenes contain attributes for the meshes contained within them. They describe which meshes are
@@ -88,7 +89,7 @@ impl SceneGroup {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// An object within a scene
 ///
 /// This contains information about the object, and how it relates to other objects within the
@@ -619,7 +620,7 @@ impl SceneObject {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Sculpt information
 /// <https://wiki.secondlife.com/wiki/Sculpted_Prims:_FAQ>
 ///
@@ -661,7 +662,7 @@ pub struct Sculpt {
     pub mesh: Option<Mesh>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Flex information
 ///
 /// Used to describe how physics forces act on a non-rigid object.
@@ -683,7 +684,7 @@ pub struct Flex {
     pub force: Vec4,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Information about how the object can be sat on.
 pub struct SitData {
     /// Custom name that is displayed when the user right-clicks to sit.
@@ -699,7 +700,7 @@ pub struct SitData {
     pub position_ll: Vec3,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Information about how the object emits light
 pub struct Light {
     /// Enables glow. If false, the object doesn't glow.
@@ -716,7 +717,7 @@ pub struct Light {
     pub falloff: i32,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// The types used for physics collision
 pub enum PhysicsShapeType {
     /// Primitive collision
@@ -743,7 +744,7 @@ impl PhysicsShapeType {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Used for legacy compatability with SculptTextures.
 /// describes the different basic shapes the sculpttexture can deform.
 pub enum SculptType {

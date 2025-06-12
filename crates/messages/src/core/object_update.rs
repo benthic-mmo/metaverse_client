@@ -2,6 +2,7 @@ use actix::Message;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use glam::{Vec3, Vec4};
 use rgb::Rgba;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -34,7 +35,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// the types of materials that exist in opensimulator.
 /// used for assigning textures and shaders
 pub enum MaterialType {
@@ -97,7 +98,7 @@ impl MaterialType {
     }
 }
 
-#[derive(Debug, Message, Clone, Default)]
+#[derive(Debug, Message, Clone, Default, Serialize, Deserialize)]
 #[rtype(result = "()")]
 /// The object update packet. Receives object information. Is the first packet received when
 /// spawning objects into the viewer.
@@ -108,7 +109,7 @@ pub struct ObjectUpdate {
     pub region_y: u32,
     /// The current lag from the server. Used by physics simulations to keep up with real time.
     pub time_dilation: f32,
-    /// The region local ID of the tasks. Used for most operations in lieu of the task's full UUID
+    /// The region local ID of the tasks. UsedSerializeSerialize for most operations in lieu of the task's full UUID
     pub id: u32,
     /// unused except by grass. Used to determine species of grass.
     pub state: u8,
@@ -316,7 +317,7 @@ impl PacketData for ObjectUpdate {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Handles sounds attached to the object
 pub struct Sound {
     /// Asset UUID of any attached looped sounds
@@ -351,7 +352,7 @@ impl Sound {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// This contains primitive geometry information. This contains information about how a basic shape
 /// can be stretched, tapered, twisted, sheared and deformed.
 pub struct PrimitiveGeometry {
@@ -437,7 +438,7 @@ impl PrimitiveGeometry {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Stores ObjectUpdate update fields
 /// This contains information about the position, velocity, acceleration and etc of the object.
 /// Stores all values as f32s, despite them coming in as variable length values.

@@ -3,6 +3,7 @@ use actix_rt::time;
 use bincode;
 use log::{error, info};
 
+use metaverse_agent::avatar::Avatar;
 use metaverse_messages::capabilities::capabilities::Capability;
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
@@ -20,7 +21,6 @@ use tokio::sync::{Notify, oneshot};
 use tokio::time::Duration;
 use uuid::Uuid;
 
-use super::agent::Avatar;
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
 const ACK_ATTEMPTS: i8 = 3;

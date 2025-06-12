@@ -6,3 +6,5 @@ pub mod item_metadata;
 pub mod object_types;
 /// global values used for describing region capabilities
 pub mod region_flags;
+/// Skeleton object for defining the per-user skeleton
+pub mod skeleton;

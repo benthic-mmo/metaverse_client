@@ -1,11 +1,12 @@
 use std::time::SystemTime;
 
+use serde::{Deserialize, Serialize};
 use serde_llsd::LLSDValue;
 use uuid::Uuid;
 
 use super::object_types::ObjectType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Metadata shared by all opensimulator items
 /// this is received by the FetchInventory endpoint, and can be used to retrieve additional items
 /// data from the ViewerAsset endpoint.
@@ -229,7 +230,7 @@ where
     s.parse::<T>()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
 }
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Information regarding the permissions the object has
 pub struct Permissions {
     /// The UUID of the current owner of the object
@@ -315,7 +316,7 @@ impl Permissions {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// information regarding the sale of the object. How it was sold and how much it costs.
 pub struct SaleInfo {
     /// The type of sale
@@ -362,7 +363,7 @@ impl SaleInfo {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Values to determine what the for sale state of an object is.
 pub enum SaleType {
     /// Not for sale

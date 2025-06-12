@@ -1,6 +1,5 @@
-use glam::{Mat4, Vec3, Vec4, usize};
+use glam::{usize, Vec3};
 use gltf_json::{
-    Accessor, Buffer, Index, Mesh, Node, Scene, Skin, Value,
     accessor::{ComponentType, GenericComponentType},
     buffer::{Stride, Target, View},
     mesh::{Mode, Primitive, Semantic},
@@ -9,248 +8,338 @@ use gltf_json::{
         Checked::{self, Valid},
         USize64,
     },
+    Accessor, Index, Mesh, Node, Root, Scene, Skin, Value,
 };
-use log::{info, warn};
-use metaverse_messages::capabilities::scene::SceneGroup;
+use metaverse_messages::utils::skeleton::JointName;
+use metaverse_messages::utils::skeleton::Skeleton;
 use rgb::bytemuck;
-use std::{borrow::Cow, fs::File, mem, path::PathBuf};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    f32::consts::FRAC_1_SQRT_2,
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet, HashMap},
+    fs::File,
+    mem,
+    path::PathBuf,
+    vec,
 };
 
-/// This generates a GLTF file and a MeshUpdate for a scenegroup object. This handles the skeleton,
-/// mesh deforms, etc.
-pub fn generate_avatar_from_scenegroup(
-    scene_group: SceneGroup,
-    skeleton_path: PathBuf,
+use crate::avatar::OutfitObject;
+
+pub fn generate_baked_avatar(
+    outfit_objects: Vec<OutfitObject>,
+    skeleton: Skeleton,
     path: PathBuf,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let mut root = gltf_json::Root::default();
-    let mut raw_buffer = Vec::new();
+    let mut root = Root::default();
+    let mut combined_buffer: Vec<u8> = Vec::new();
+    let mut bones: BTreeSet<JointName> = BTreeSet::new();
+    let mut combined_weights = Vec::new();
     let mut nodes = Vec::new();
-    let high_path = path.join(format!("{}_high.glb", scene_group.parts[0].name));
 
     let buffer = root.push(gltf_json::Buffer {
         byte_length: USize64::from(0_usize),
         extensions: Default::default(),
         extras: Default::default(),
-        name: Some(scene_group.parts[0].name.clone()),
+        name: Some("Combined Avatar".to_string()),
         uri: None,
     });
-
-    // the root mesh is the first entry in the scene_group mesh parts array. This contains the skin
-    // data for the rest of the scene.
-    let mut root_mesh = scene_group.parts[0].clone().sculpt.mesh.unwrap();
-
-    // Load the default skeleton data in from the skeleton path. This is a local file that provides the joint rotations
-    // and hierarchy that the scene data does not. The original file can be found in
-    // agent/benthic_default_model/skeleton.gltf. It gets copied to the agent share dir.
-    info!("Loading skeleton data from {:?}", skeleton_path);
-    let (document, buffers, _) = gltf::import(&skeleton_path)
-        .unwrap_or_else(|_| panic!("Failed to load skeleton {:?}", skeleton_path));
-    let skin = document.skins().next().expect("No skins in gltf");
-
-    // filter out the joint indices thare are used.
-    // skin_joint_indices contains the location of the joint in the joint list, for retrieving the
-    // joint's inverse bind matrix out of the buffer.
-    // joints contains the node index of all of the allowed joints
-    let mut skin_joint_indices = Vec::new();
-    let mut joints = Vec::new();
-    for (i, joint_node) in skin.joints().enumerate() {
-        if let Some(name) = joint_node.name() {
-            if root_mesh.skin.joint_names.contains(name) {
-                skin_joint_indices.push(i);
-                joints.push(joint_node.index());
+    for object in outfit_objects.clone() {
+        if let OutfitObject::RiggedObject(rigged) = object {
+            for (name, _joint) in &rigged.skeleton.joints {
+                bones.insert(name.clone());
             }
         }
     }
-    // create a map that associates child nodes with their parent nodes. Allows for lookup of a
-    // parent directly from a child.
-    let mut root_joint_map = HashMap::new();
-    for joint in &joints {
-        if let Some(node) = document.nodes().nth(*joint) {
-            for child in node.children() {
-                root_joint_map.insert(child.index(), node.index());
+
+    for object in outfit_objects.clone() {
+        if let OutfitObject::RiggedObject(rigged) = object {
+            for secene_object in rigged.scene_group.parts {
+                if let Some(mesh) = secene_object.sculpt.mesh.as_ref() {
+                    let vertices_transformed: Vec<Vec3> =
+                        mesh.high_level_of_detail.vertices.clone();
+                    let (min, max) = bounding_coords(&vertices_transformed);
+
+                    let padded_vertex_bytes = to_padded_byte_vector(&vertices_transformed);
+                    while combined_buffer.len() % 4 != 0 {
+                        combined_buffer.push(0);
+                    }
+                    let vertex_offset = combined_buffer.len();
+                    let buffer_view = root.push(View {
+                        buffer,
+                        byte_length: USize64::from(padded_vertex_bytes.len()),
+                        byte_offset: Some(USize64::from(vertex_offset)),
+                        byte_stride: Some(Stride(mem::size_of::<Vec3>())),
+                        target: Some(Valid(Target::ArrayBuffer)),
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                        name: None,
+                    });
+                    combined_buffer.extend_from_slice(&padded_vertex_bytes);
+                    let positions_accessor = root.push(Accessor {
+                        buffer_view: Some(buffer_view),
+                        byte_offset: Some(USize64(0)),
+                        count: USize64::from(mesh.high_level_of_detail.vertices.len()),
+                        component_type: Valid(GenericComponentType(ComponentType::F32)),
+                        type_: Valid(gltf_json::accessor::Type::Vec3),
+                        min: Some(Value::from(Vec::from(min))),
+                        max: Some(Value::from(Vec::from(max))),
+                        normalized: false,
+                        sparse: None,
+                        name: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    });
+                    while combined_buffer.len() % 2 != 0 {
+                        combined_buffer.push(0);
+                    }
+
+                    let mut index_bytes =
+                        Vec::with_capacity(mesh.high_level_of_detail.indices.len() * 2);
+                    for index in &mesh.high_level_of_detail.indices {
+                        index_bytes.extend_from_slice(&index.to_le_bytes());
+                    }
+                    let index_view = root.push(View {
+                        buffer,
+                        byte_length: USize64::from(index_bytes.len()),
+                        byte_offset: Some(USize64::from(combined_buffer.len())),
+                        byte_stride: None,
+                        target: Some(Valid(Target::ElementArrayBuffer)),
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                        name: None,
+                    });
+                    combined_buffer.extend_from_slice(&index_bytes);
+                    while combined_buffer.len() % 4 != 0 {
+                        combined_buffer.push(0);
+                    }
+
+                    let index_accessor = root.push(Accessor {
+                        buffer_view: Some(index_view),
+                        byte_offset: Some(USize64(0)),
+                        count: USize64::from(mesh.high_level_of_detail.indices.len()),
+                        component_type: Valid(GenericComponentType(ComponentType::U16)),
+                        type_: Valid(gltf_json::accessor::Type::Scalar),
+                        normalized: false,
+                        sparse: None,
+                        name: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                        min: None,
+                        max: None,
+                    });
+
+                    let mut joint_indices_bytes = Vec::new();
+                    let mut joint_weights_bytes = Vec::new();
+                    for vw in &mesh.high_level_of_detail.weights {
+                        let joints: Vec<u8> = vw
+                            .joint_name
+                            .iter()
+                            .filter_map(|j| {
+                                bones.iter().enumerate().find_map(|(i, joint_name)| {
+                                    if joint_name == j {
+                                        Some(i as u8)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                            .collect();
+                        for (&joint, &weight) in joints.iter().zip(vw.weights.iter()) {
+                            joint_indices_bytes.extend_from_slice(&joint.to_le_bytes());
+                            joint_weights_bytes.extend_from_slice(&weight.to_le_bytes());
+                        }
+                    }
+                    for vw in &mesh.high_level_of_detail.weights {
+                        // resolve joint indices from joint names
+                        let joints: Vec<u8> = vw
+                            .joint_name
+                            .iter()
+                            .filter_map(|j| {
+                                bones.iter().enumerate().find_map(|(i, joint_name)| {
+                                    if joint_name == j {
+                                        Some(i as u8)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                            .collect();
+
+                        let indices: [u8; 4] = joints.try_into().unwrap_or([0, 0, 0, 0]);
+
+                        for (&joint, &weight) in indices.iter().zip(vw.weights.iter()) {
+                            joint_indices_bytes.extend_from_slice(&joint.to_le_bytes());
+                            joint_weights_bytes.extend_from_slice(&weight.to_le_bytes());
+                        }
+                    }
+
+                    // --- joint indices view/accessor
+                    let joint_indices_view = root.push(View {
+                        buffer,
+                        byte_length: USize64::from(joint_indices_bytes.len()),
+                        byte_offset: Some(USize64::from(combined_buffer.len())),
+                        byte_stride: Some(Stride(4 * std::mem::size_of::<u8>())),
+                        target: Some(Valid(Target::ArrayBuffer)),
+                        extensions: None,
+                        extras: Default::default(),
+                        name: None,
+                    });
+                    combined_buffer.extend_from_slice(&joint_indices_bytes);
+                    let joint_indices_accessor = root.push(Accessor {
+                        buffer_view: Some(joint_indices_view),
+                        byte_offset: Some(USize64(0)),
+                        count: USize64::from(mesh.high_level_of_detail.weights.len()),
+                        component_type: Valid(GenericComponentType(ComponentType::U8)),
+                        type_: Valid(gltf_json::accessor::Type::Vec4),
+                        normalized: false,
+                        min: None,
+                        max: None,
+                        name: None,
+                        sparse: None,
+                        extensions: None,
+                        extras: Default::default(),
+                    });
+                    // --- joint weights view/accessor
+                    let joint_weights_view = root.push(View {
+                        buffer,
+                        byte_length: USize64::from(joint_weights_bytes.len()),
+                        byte_offset: Some(USize64::from(combined_buffer.len())),
+                        byte_stride: Some(Stride(4 * std::mem::size_of::<f32>())),
+                        target: Some(Valid(Target::ArrayBuffer)),
+                        extensions: None,
+                        extras: Default::default(),
+                        name: None,
+                    });
+                    combined_buffer.extend_from_slice(&joint_weights_bytes);
+                    let joint_weights_accessor = root.push(Accessor {
+                        buffer_view: Some(joint_weights_view),
+                        byte_offset: Some(USize64(0)),
+                        count: USize64::from(mesh.high_level_of_detail.weights.len()),
+                        component_type: Valid(GenericComponentType(ComponentType::F32)),
+                        type_: Valid(gltf_json::accessor::Type::Vec4),
+                        normalized: false,
+                        min: None,
+                        max: None,
+                        name: None,
+                        sparse: None,
+                        extensions: None,
+                        extras: Default::default(),
+                    });
+
+                    let mut attributes = BTreeMap::new();
+                    attributes.insert(Valid(Semantic::Positions), positions_accessor);
+                    attributes.insert(Valid(Semantic::Joints(0)), joint_indices_accessor);
+                    attributes.insert(Valid(Semantic::Weights(0)), joint_weights_accessor);
+
+                    let primitive = Primitive {
+                        attributes,
+                        indices: Some(index_accessor),
+                        material: None,
+                        mode: Valid(Mode::Triangles),
+                        targets: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                    };
+
+                    let mesh_index = root.push(Mesh {
+                        primitives: vec![primitive],
+                        weights: None,
+                        extensions: Default::default(),
+                        extras: Default::default(),
+                        name: None,
+                    });
+
+                    let node_index = root.push(Node {
+                        mesh: Some(mesh_index),
+                        skin: None,
+                        children: None,
+                        name: Some(secene_object.name.to_string()),
+                        ..Default::default()
+                    });
+                    nodes.push(node_index);
+                }
+                combined_weights.push(
+                    secene_object
+                        .sculpt
+                        .mesh
+                        .unwrap()
+                        .high_level_of_detail
+                        .weights,
+                );
             }
-        } else {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Unable to find joint",
-            )));
+        }
+    }
+
+    let mut joint_to_node: HashMap<JointName, Index<Node>> = HashMap::new();
+    let mut skeleton_nodes = Vec::new();
+    let mut ibm_matrices: Vec<[f32; 16]> = Vec::new();
+
+    for joint_name in &bones {
+        if let Some(joint) = skeleton.joints.get(joint_name) {
+            let (scale, rotation, translation) = joint
+                .local_transforms
+                .last()
+                .unwrap()
+                .transform
+                .to_scale_rotation_translation();
+            let node_index = root.push(Node {
+                name: Some(joint_name.to_string()),
+                scale: Some(scale.into()),
+                rotation: Some(UnitQuaternion([
+                    rotation.x, rotation.y, rotation.z, rotation.w,
+                ])),
+                translation: Some(translation.into()),
+                ..Default::default()
+            });
+            if skeleton.root.contains(joint_name) {
+                nodes.push(node_index)
+            }
+
+            joint_to_node.insert(joint_name.clone(), node_index);
+            skeleton_nodes.push(node_index);
+            ibm_matrices.push(joint.transforms.last().unwrap().transform.to_cols_array());
         };
     }
-
-    // Find all joints that do not appear as children. These are the root joints.
-    let root_joints: Vec<usize> = joints
-        .iter()
-        .copied()
-        .filter(|joint_idx| !root_joint_map.contains_key(joint_idx))
-        .collect();
-
-    if root_joint_map.is_empty() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "No root joints found",
-        )));
-    }
-
-    let mut full_parent_map = HashMap::new();
-    let mut append_ibms = Vec::new();
-    // Insert parent-child relations for all joints in the full skin hierarchy.
-    // TODO: This can be precomputed at compile time. Figure out how to make this static.
-    for joint_node in skin.joints() {
-        let joint_index = joint_node.index();
-        if let Some(node) = document.nodes().nth(joint_index) {
-            for child in node.children() {
-                full_parent_map.insert(child.index(), node.index());
-            }
-        } else {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Unable to find joint {}", joint_index),
-            )));
+    // now that we know the locations of all of the joints in the array, add the children
+    for joint_name in &bones {
+        let joint = skeleton.joints.get(joint_name).unwrap();
+        if let Some(parent_name) = joint.parent {
+            let parent_index = joint_to_node[&parent_name];
+            let child_index = joint_to_node[joint_name];
+            root.nodes[parent_index.value()]
+                .children
+                .get_or_insert_with(Vec::new)
+                .push(Index::new(child_index.value() as u32));
         }
     }
 
-    // The mpelvis will be the root of all skeleton nodes, even for models that don't include it in
-    // their hierarchy. This is to ensure that things stay aligned on the model.
-    // TODO: This can also be precomputed at compile time. Make this static.
-    let mpelvis_index = document
-        .nodes()
-        .find(|n| n.name() == Some("mPelvis"))
-        .map(|n| n.index())
-        .ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "mPelvis not found in skeleton",
-            )
-        })?;
-
-    // Add parent nodes that lead to mpelvis back to the joints array.
-    for joint in &root_joints {
-        let mut current = *joint;
-        while current != mpelvis_index {
-            if let Some(&parent) = full_parent_map.get(&current) {
-                if !joints.contains(&parent) {
-                    joints.push(parent);
-                }
-                // TODO: you should not be checking against strings like this
-                if let Some(node) = document.nodes().nth(parent) {
-                    if let Some(name) = node.name() {
-                        root_mesh.skin.joint_names.insert(name.to_string());
-                    }
-                }
-                // add the identity matrix to maintain IBM alignment
-                // TODO: THIS IS NOT CORRECT. but it's closer.``
-                append_ibms.push(Mat4::IDENTITY);
-                current = parent;
-            } else {
-                break; // No parent found, exit loop
-            }
-        }
+    while combined_buffer.len() % 4 != 0 {
+        combined_buffer.push(0);
     }
 
-    // This is a little janky, but what it is effectively doing is retrieving the inverse bind
-    // matrix of the relevant joint out of the tightly packed buffer data. It then stores this in
-    // skin_ibms, which will be used to apply the rotation and scale to the inverse bind matrix
-    // data that is retrieved from the server.
-    let ibm_accessor = skin
-        .inverse_bind_matrices()
-        .expect("Skin has no inverse bind matrices");
-    let view = ibm_accessor.view().expect("Accessor has no buffer view");
-    let buffer_data = &buffers[view.buffer().index()];
-    let ibm_offset = ibm_accessor.offset() + view.offset();
-    let ibm_stride = view.stride().unwrap_or(16 * 4); // 16 floats * 4 bytes
-    let ibm_count = ibm_accessor.count();
-    let mut skin_ibms = Vec::new();
-    for &joint_i in &skin_joint_indices {
-        if joint_i >= ibm_count {
-            warn!(
-                "Warning: joint index {} out of bounds for IBMs count {}",
-                joint_i, ibm_count
-            );
-            continue;
-        }
-
-        let start = ibm_offset + joint_i * ibm_stride;
-        let end = start + 16 * 4;
-        let matrix_bytes = &buffer_data[start..end];
-
-        let matrix_floats: &[f32] = bytemuck::cast_slice(matrix_bytes);
-        let matrix_floats: &[f32; 16] = matrix_floats
-            .try_into()
-            .expect("Slice with incorrect length");
-
-        let ibm = Mat4::from_cols_array(matrix_floats);
-        skin_ibms.push(ibm);
-    }
-
-    // This applies the ibm matrix updates from the root mesh's skin.
-    // IBMs come in from the server as mostly the identity matrix, except for the w axis, which
-    // contains the translation information. In order to obtain the rotations and scale, you need
-    // to multiply your local skelet'on's inverse bind matrix, with its w axis as the last part of
-    // the identity matrix by the incoming skin's inverse bind matrix.
-    let mut ibm_matrices = root_mesh
-        .skin
-        .inverse_bind_matrices
-        .iter()
-        .zip(skin_ibms.iter_mut())
-        .map(|(a, b)| {
-            let skeleton = Mat4 {
-                x_axis: b.x_axis,
-                y_axis: b.y_axis,
-                z_axis: b.z_axis,
-                w_axis: Vec4::new(0.0, 0.0, 0.0, 1.0),
-            };
-            let corrected_translation = *a;
-
-            skeleton * corrected_translation
-        })
-        .collect::<Vec<Mat4>>();
-    ibm_matrices.append(&mut append_ibms);
-
-    let mut joint_index_map = HashMap::new();
-    match add_node_recursive(
-        &document,
-        &mut root,
-        &mut joint_index_map,
-        mpelvis_index,
-        &root_mesh.skin.joint_names,
-    ) {
-        Some(index) => nodes.push(Index::new(index as u32)),
-        None => {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Failed to add skeleton root",
-            )));
-        }
-    };
-
-    let mut ibm_bytes_vec = Vec::with_capacity(ibm_matrices.len() * 16 * mem::size_of::<f32>());
+    let ibm_byte_offset = combined_buffer.len();
     for mat in &ibm_matrices {
-        let cols: [f32; 16] = mat.to_cols_array();
-        for f in &cols {
-            ibm_bytes_vec.extend_from_slice(&f.to_le_bytes());
+        for f in mat.iter() {
+            combined_buffer.extend_from_slice(&f.to_le_bytes());
         }
     }
 
-    let ibm_buffer_view = View {
-        buffer,
-        byte_length: USize64::from(ibm_bytes_vec.len()),
-        byte_offset: Some(USize64::from(raw_buffer.len())),
+    let ibm_byte_length = ibm_matrices.len() * 16 * std::mem::size_of::<f32>();
+    let ibm_view = View {
+        buffer: Index::new(0),
+        byte_length: USize64::from(ibm_byte_length as usize),
+        byte_offset: Some(USize64(ibm_byte_offset as u64)),
         byte_stride: None,
         target: None,
         name: Some("inverse_bind_matrices_view".to_string()),
         extensions: Default::default(),
         extras: Default::default(),
     };
+    let ibm_view_index = root.push(ibm_view);
 
-    raw_buffer.extend_from_slice(&ibm_bytes_vec);
-    let ibm_buffer_view_index = root.push(ibm_buffer_view);
-    let ibm_accessor_json = Accessor {
+    // create accessor of type Mat4
+    let ibm_accessor = Accessor {
         sparse: None,
-        buffer_view: Some(ibm_buffer_view_index),
+        buffer_view: Some(ibm_view_index),
         byte_offset: Some(USize64(0)),
         count: USize64::from(ibm_matrices.len()),
         component_type: Checked::Valid(gltf_json::accessor::GenericComponentType(
@@ -264,375 +353,52 @@ pub fn generate_avatar_from_scenegroup(
         normalized: false,
         type_: Checked::Valid(gltf_json::accessor::Type::Mat4),
     };
+    let ibm_accessor_index = root.push(ibm_accessor);
 
-    let inverse_bind_accessor_index = root.push(ibm_accessor_json);
-    let new_joints: Vec<Index<gltf_json::Node>> = joints
-        .iter()
-        .filter_map(|orig_idx| joint_index_map.get(orig_idx))
-        .map(|i| Index::new(*i as u32))
-        .collect();
-
-    // Create a hashmap to retrieve the index of the parent from the child node.
-    // This allows child nodes to look up their parent, instead of parents only knowing about child
-    // nodes. This is required in order to calculate the joint-local joint transforms.
-    let mut parent_map: HashMap<usize, usize> = HashMap::new();
-    for (parent_joint_idx, &parent_joint_node_index) in new_joints.iter().enumerate() {
-        let parent_node = &root.nodes[parent_joint_node_index.value()];
-
-        if let Some(children) = &parent_node.children {
-            for child_node_index in children {
-                if let Some(child_joint_idx) = new_joints
-                    .iter()
-                    .position(|&j| j.value() == child_node_index.value())
-                {
-                    parent_map.insert(child_joint_idx, parent_joint_idx);
-                }
-            }
-        }
-    }
-    // For every joint in the joint node index, retrieve the joint from the root, and if it has a
-    // parent, multiply the parent's inverse bind matrix by the child's bind matrix.
-    // This calculation allows you to isolate just the transforms between each joint, which will be
-    // applied as the local joint translation, rotation and scale.
-    for (i, &joint_node_index) in new_joints.iter().enumerate() {
-        let node = &mut root.nodes[joint_node_index.value()];
-        if let Some(&parent_joint_idx) = parent_map.get(&i) {
-            let mat = ibm_matrices[parent_joint_idx] * ibm_matrices[i].inverse();
-            let (scale, rotation, translation) = mat.to_scale_rotation_translation();
-            node.scale = Some([scale.x, scale.y, scale.z]);
-            node.translation = Some([translation.x, translation.y, translation.z]);
-            node.rotation = Some(UnitQuaternion([
-                rotation.x, rotation.y, rotation.z, rotation.w,
-            ]));
-        } else {
-            let (scale, rotation, translation) = ibm_matrices[i].to_scale_rotation_translation();
-            node.scale = Some([scale.x, scale.y, scale.z]);
-            node.rotation = Some(UnitQuaternion([
-                rotation.x, rotation.y, rotation.z, rotation.w,
-            ]));
-            node.translation = Some([translation.x, translation.y, translation.z]);
-        }
-    }
-
-    root.skins.push(Skin {
-        joints: new_joints,
-        inverse_bind_matrices: Some(inverse_bind_accessor_index),
-        skeleton: None,
+    // create skin referencing the joint nodes and the ibm accessor
+    let skin = Skin {
+        joints: skeleton_nodes.clone(),
+        inverse_bind_matrices: Some(ibm_accessor_index),
+        skeleton: skeleton_nodes.get(0).cloned(),
         extensions: Default::default(),
         extras: Default::default(),
-        name: skin.name().map(str::to_string),
-    });
-    // save the skin index to apply to all meshes in the scene.
-    // TODO: make sure that this is the right thing to do.
-    let skin_index = Index::new((root.skins.len() - 1) as u32);
-
-    for scene in &scene_group.parts {
-        if let Some(mesh) = scene.sculpt.mesh.as_ref() {
-            let vertices_buffer_length =
-                mesh.high_level_of_detail.vertices.len() * mem::size_of::<Vec3>();
-            // apply the bind shape matrix to the vertices of the mesh. The bind shape matrix
-            // transforms the vertices to give them their proper scale, and align them with the
-            // skeleton.
-            let vertices_transformed: Vec<Vec3> = mesh
-                .high_level_of_detail
-                .vertices
-                .iter()
-                .map(|v| {
-                    let v4 = mesh.skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                    Vec3::new(v4.x, v4.y, v4.z)
-                })
-                .collect();
-
-            let (min, max) = bounding_coords(&vertices_transformed);
-            let buffer_view = root.push(View {
-                buffer,
-                byte_length: USize64::from(vertices_buffer_length),
-                byte_offset: Some(USize64::from(raw_buffer.len())),
-                byte_stride: Some(Stride(mem::size_of::<Vec3>())),
-                extensions: Default::default(),
-                extras: Default::default(),
-                name: None,
-                target: Some(Valid(Target::ArrayBuffer)),
-            });
-            raw_buffer.extend_from_slice(&to_padded_byte_vector(&vertices_transformed));
-            let positions_accessor = root.push(Accessor {
-                buffer_view: Some(buffer_view),
-                byte_offset: Some(USize64(0)),
-                count: USize64::from(mesh.high_level_of_detail.vertices.len()),
-                component_type: Valid(GenericComponentType(ComponentType::F32)),
-                extensions: Default::default(),
-                extras: Default::default(),
-                type_: Valid(gltf_json::accessor::Type::Vec3),
-                min: Some(Value::from(Vec::from(min))),
-                max: Some(Value::from(Vec::from(max))),
-                name: None,
-                normalized: false,
-                sparse: None,
-            });
-
-            let index_buffer_length =
-                mesh.high_level_of_detail.indices.len() * mem::size_of::<u16>();
-            let index_view = root.push(View {
-                buffer,
-                byte_length: USize64::from(index_buffer_length),
-                byte_offset: Some(USize64::from(raw_buffer.len())),
-                byte_stride: None,
-                target: Some(Valid(Target::ElementArrayBuffer)),
-                extensions: None,
-                extras: Default::default(),
-                name: None,
-            });
-            for index in &mesh.high_level_of_detail.indices {
-                raw_buffer.extend_from_slice(&index.to_le_bytes());
-            }
-            let index_accessor = root.push(Accessor {
-                buffer_view: Some(index_view),
-                byte_offset: Some(USize64(0)),
-                count: USize64::from(mesh.high_level_of_detail.indices.len()),
-                component_type: Valid(GenericComponentType(ComponentType::U16)),
-                type_: Valid(gltf_json::accessor::Type::Scalar),
-                normalized: false,
-                min: None,
-                max: None,
-                name: None,
-                sparse: None,
-                extensions: None,
-                extras: Default::default(),
-            });
-
-            // Add the joint weights which come in with each mesh. The index is the index of the
-            // joint the weight acts on within the skin.
-            // Weights define how much a movement on the bone affects the vertex. Each vertex can
-            // be influcenced by up to four joints. The weights determine how intense that
-            // influence is when the joints move.
-            let mut joint_indices_bytes = Vec::new();
-            let mut joint_weights_bytes = Vec::new();
-            for jw in &mesh.high_level_of_detail.weights {
-                for &joint in &jw.indices {
-                    joint_indices_bytes.extend_from_slice(&joint.to_le_bytes());
-                }
-
-                // Convert weights to f32 normalized [0..1]
-                let weights_f32: Vec<f32> =
-                    jw.weights.iter().map(|&w| (w as f32) / 65535.0).collect();
-
-                let sum: f32 = weights_f32.iter().sum();
-
-                // Normalize weights to sum to 1.0
-                // this is crucial or else you will get gltf errors
-                let normalized_weights = if sum > 0.0 {
-                    weights_f32.iter().map(|w| w / sum).collect::<Vec<f32>>()
-                } else {
-                    // fallback to equal weights if sum is zero
-                    vec![0.25, 0.25, 0.25, 0.25]
-                };
-
-                // Write normalized weights to bytes
-                for &weight in &normalized_weights {
-                    joint_weights_bytes.extend_from_slice(&weight.to_le_bytes());
-                }
-            }
-
-            let weights_byte_length =
-                mesh.high_level_of_detail.weights.len() * 4 * mem::size_of::<u8>();
-            let joint_indices_view = root.push(View {
-                buffer,
-                byte_length: USize64::from(weights_byte_length),
-                byte_offset: Some(USize64::from(raw_buffer.len())),
-                byte_stride: Some(Stride(mem::size_of::<u8>() * 4)),
-                target: Some(Valid(Target::ArrayBuffer)),
-                extensions: None,
-                extras: Default::default(),
-                name: None,
-            });
-            raw_buffer.extend_from_slice(&joint_indices_bytes);
-            let joint_indices_accessor = root.push(Accessor {
-                buffer_view: Some(joint_indices_view),
-                byte_offset: Some(USize64(0)),
-                count: USize64::from(mesh.high_level_of_detail.weights.len()),
-                component_type: Valid(GenericComponentType(ComponentType::U8)),
-                type_: Valid(gltf_json::accessor::Type::Vec4),
-                normalized: false,
-                min: None,
-                max: None,
-                name: None,
-                sparse: None,
-                extensions: None,
-                extras: Default::default(),
-            });
-
-            let indices_byte_length =
-                mesh.high_level_of_detail.weights.len() * 4 * mem::size_of::<f32>();
-            let joint_weights_view = root.push(View {
-                buffer,
-                byte_length: USize64::from(indices_byte_length),
-                byte_offset: Some(USize64::from(raw_buffer.len())),
-                byte_stride: Some(Stride(mem::size_of::<f32>() * 4)), // 4 * u16
-                target: Some(Valid(Target::ArrayBuffer)),
-                extensions: None,
-                extras: Default::default(),
-                name: None,
-            });
-            raw_buffer.extend_from_slice(&joint_weights_bytes);
-            let joint_weights_accessor = root.push(Accessor {
-                buffer_view: Some(joint_weights_view),
-                byte_offset: Some(USize64(0)),
-                count: USize64::from(mesh.high_level_of_detail.weights.len()),
-                component_type: Valid(GenericComponentType(ComponentType::F32)),
-                type_: Valid(gltf_json::accessor::Type::Vec4),
-                normalized: false,
-                min: None,
-                max: None,
-                name: None,
-                sparse: None,
-                extensions: None,
-                extras: Default::default(),
-            });
-
-            let mut attributes = BTreeMap::new();
-            attributes.insert(Valid(Semantic::Positions), positions_accessor);
-            attributes.insert(Valid(Semantic::Joints(0)), joint_indices_accessor);
-            attributes.insert(Valid(Semantic::Weights(0)), joint_weights_accessor);
-
-            let primitive = Primitive {
-                attributes,
-                extensions: Default::default(),
-                extras: Default::default(),
-                indices: Some(index_accessor),
-                material: None,
-                mode: Valid(Mode::Triangles),
-                targets: None,
-            };
-
-            let node_mesh = root.push(Mesh {
-                extensions: Default::default(),
-                extras: Default::default(),
-                name: None,
-                primitives: vec![primitive],
-                weights: None,
-            });
-            let node = root.push(Node {
-                mesh: Some(node_mesh),
-                skin: Some(skin_index),
-                ..Default::default()
-            });
-            nodes.push(node);
+        name: None,
+    };
+    let skin_index = root.push(skin);
+    for node in root.nodes.iter_mut() {
+        if node.mesh.is_some() {
+            node.skin = Some(skin_index)
         }
     }
-
-    // rotate the model
-    // this allows for the model to appear upright in blender, bevy and godot.
-    // SL and gltf both use Y-up coordinate systems. This aligns the coordinates to that y-up
-    // oirentation, and blender and bevy compensate by applying a 90 degree tilt on load.
     let rotated_root_index = Index::new(root.nodes.len() as u32);
     root.nodes.push(Node {
         camera: None,
         children: Some(nodes.clone()),
         name: Some("RotatedRoot".to_string()),
-        rotation: Some(UnitQuaternion([FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0, 0.0])),
         ..Default::default()
     });
 
     root.push(Scene {
         extensions: Default::default(),
         extras: Default::default(),
-        name: Some(scene_group.parts[0].name.clone()),
+        name: Some("asdf".to_string()),
         nodes: vec![rotated_root_index],
     });
 
-    let buffer_length = raw_buffer.len();
-    root.buffers[buffer.value()] = Buffer {
-        byte_length: USize64::from(buffer_length),
-        ..root.buffers[buffer.value()].clone()
-    };
+    root.buffers[buffer.value() as usize].byte_length = USize64::from(combined_buffer.len());
 
     let json_string = gltf_json::serialize::to_string(&root)?;
-    let mut json_offset = json_string.len();
-    align_to_multiple_of_four(&mut json_offset);
-
     let glb = gltf::binary::Glb {
         header: gltf::binary::Header {
             magic: *b"glTF",
             version: 2,
-            length: (json_offset + buffer_length).try_into()?,
+            length: (json_string.len() + combined_buffer.len()).try_into()?,
         },
         json: Cow::Owned(json_string.into_bytes()),
-        bin: Some(Cow::Owned(raw_buffer)),
+        bin: Some(Cow::Owned(combined_buffer)),
     };
-
-    let writer = File::create(&high_path)?;
-    glb.to_writer(writer)?;
-
-    Ok(high_path)
-}
-
-fn add_node_recursive(
-    document: &gltf::Document,
-    root: &mut gltf_json::Root,
-    joint_index_map: &mut HashMap<usize, usize>,
-    node_index: usize,
-    allowed_joints: &HashSet<String>,
-) -> Option<usize> {
-    if let Some(&existing_index) = joint_index_map.get(&node_index) {
-        return Some(existing_index);
-    }
-    let node = document
-        .nodes()
-        .nth(node_index)
-        .expect("Node index out of range");
-
-    if let Some(name) = node.name() {
-        if !allowed_joints.contains(name) {
-            return None;
-        }
-    } else {
-        return None;
-    }
-
-    let children_indices: Vec<usize> = node
-        .children()
-        .filter_map(|child| {
-            add_node_recursive(
-                document,
-                root,
-                joint_index_map,
-                child.index(),
-                allowed_joints,
-            )
-        })
-        .collect();
-    let new_index = root.nodes.len();
-    let (translation, rotation, scale) = node.transform().decomposed();
-    root.nodes.push(Node {
-        camera: None,
-        children: if children_indices.is_empty() {
-            None
-        } else {
-            Some(
-                children_indices
-                    .into_iter()
-                    .map(|i| Index::new(i as u32))
-                    .collect(),
-            )
-        },
-        skin: None,
-        matrix: None,
-        mesh: None,
-        name: node.name().map(|s| s.to_string()),
-        rotation: Some(UnitQuaternion(rotation)),
-        scale: Some([scale[0], scale[1], scale[2]]),
-        translation: Some([translation[0], translation[1], translation[2]]),
-        weights: None,
-        extensions: Default::default(),
-        extras: Default::default(),
-    });
-    joint_index_map.insert(node_index, new_index);
-    Some(new_index)
-}
-
-/// realigns the data to a mutiple of four
-fn align_to_multiple_of_four(n: &mut usize) {
-    *n = (*n + 3) & !3;
+    glb.to_writer(File::create(&path)?)?;
+    Ok(path)
 }
 
 /// Converts a byte vector to a vector aligned to a mutiple of 4

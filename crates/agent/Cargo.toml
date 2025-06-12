@@ -2,6 +2,7 @@
 name = "metaverse_agent"
 version = "0.0.1"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 metaverse_messages = {path = "../messages/"}
@@ -9,7 +10,17 @@ byteorder = "1.5.0"
 rgb = "0.8.50"
 uuid = "1.16.0"
 awc = "3.7.0"
-log = "0.4.27"
 gltf-json = "1.4.1"
 glam = "0.30.3"
+log = "0.4.27"
 gltf = "1.4.1"
+indexmap = "2.9.0"
+serde_json = "1.0.143"
+
+[build-dependencies]
+metaverse_messages = {path = "../messages/"}
+gltf = "1.4.1"
+bytemuck = "1.23.1"
+glam = "0.30.3"
+uuid = "1.16.0"
+indexmap = "2.9.0"

@@ -1,9 +1,12 @@
+use crate::utils::skeleton::JointName;
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
+use serde::{Deserialize, Serialize};
 use serde_llsd::LLSDValue;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     io::{Error, ErrorKind, Read},
+    str::FromStr,
 };
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data
@@ -15,7 +18,7 @@ use std::{
 const ZLIB_MAGIC_NUMBER: u8 = 120;
 const ZLIB_DECODING_TYPE: u8 = 218;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// A mesh object that will be rendered by the UI.
 pub struct Mesh {
     /// The position of the mesh in the world
@@ -108,41 +111,51 @@ impl Mesh {
             let skin =
                 decompress_slice(&compressed_data[skin_offset..skin_offset + skin_offset_size])?;
 
+            match Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap()) {
+                Ok(decoded) => mesh.skin = decoded,
+                Err(e) => println!("a {:?}", e),
+            };
+
             match MeshGeometry::from_llsd(
                 serde_llsd::de::binary::from_bytes(&high_level_of_detail).unwrap(),
+                &mesh.skin.joint_names,
             ) {
                 Ok(decoded) => mesh.high_level_of_detail = decoded,
                 Err(e) => println!("Error decoding mesh geometry {:?}", e),
             }
             if let Some(data) = &medium_level_of_detail {
-                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                match MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(data).unwrap(),
+                    &mesh.skin.joint_names,
+                ) {
                     Ok(decoded) => mesh.medium_level_of_detail = Some(decoded),
                     Err(e) => println!("a {:?}", e),
                 }
             }
             if let Some(data) = &low_level_of_detail {
-                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                match MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(data).unwrap(),
+                    &mesh.skin.joint_names,
+                ) {
                     Ok(decoded) => mesh.low_level_of_detail = Some(decoded),
                     Err(e) => println!("a {:?}", e),
                 }
             }
             if let Some(data) = &lowest_level_of_detail {
-                match MeshGeometry::from_llsd(serde_llsd::de::binary::from_bytes(data).unwrap()) {
+                match MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(data).unwrap(),
+                    &mesh.skin.joint_names,
+                ) {
                     Ok(decoded) => mesh.lowest_level_of_detail = Some(decoded),
                     Err(e) => println!("a {:?}", e),
                 }
             }
-
-            match Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap()) {
-                Ok(decoded) => mesh.skin = decoded,
-                Err(e) => println!("a {:?}", e),
-            };
         };
         Ok(mesh)
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// Contains the geometry information of the mesh.
 ///
 /// This includes all of the information required for creating and displaying the mesh.
@@ -172,7 +185,7 @@ pub struct MeshGeometry {
 }
 
 impl MeshGeometry {
-    fn from_llsd(data: LLSDValue) -> std::io::Result<Self> {
+    fn from_llsd(data: LLSDValue, joint_names: &Vec<JointName>) -> std::io::Result<Self> {
         let array = data
             .as_array()
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected top-level array"))?;
@@ -290,12 +303,27 @@ impl MeshGeometry {
                     }
                 };
                 let weight = u16::from_le_bytes([w1, w2]);
+
                 joint_indices[i] = joint;
                 joint_weights[i] = weight;
             }
+            let raw_f32: [f32; 4] = joint_weights.map(|w| w as f32);
+            let total: f32 = raw_f32.iter().sum();
+
+            let normalized_weights: [f32; 4] = if total > 0.0 {
+                raw_f32.map(|w| w / total)
+            } else {
+                [0.25, 0.25, 0.25, 0.25]
+            };
             weights.push(JointWeight {
                 indices: joint_indices,
-                weights: joint_weights,
+                weights: normalized_weights,
+                joint_name: [
+                    joint_names[joint_indices[0] as usize],
+                    joint_names[joint_indices[1] as usize],
+                    joint_names[joint_indices[2] as usize],
+                    joint_names[joint_indices[3] as usize],
+                ],
             });
         }
 
@@ -410,7 +438,7 @@ impl MeshGeometry {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// The position domain of the mesh. Used for decompressing the triangle data.
 /// this provides the minimum corner and the maximum corner of the 3d bounding box.
 /// this is the range into which the u16 values of the triangles are unpacked.
@@ -421,17 +449,20 @@ pub struct PositionDomain {
     pub max: Vec3,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// Information about the weights of each joint.
 /// This corresponds to each vertex in the mesh
 pub struct JointWeight {
     /// The index of the joint the vertex corresponds to
     pub indices: [u8; 4],
     /// How strongly the joint influences the vertex
-    pub weights: [u16; 4],
+    pub weights: [f32; 4],
+    /// The name of the joint that the weight corresponds to.
+    /// TODO:will override indices.
+    pub joint_name: [JointName; 4],
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// UV data for texturing the mesh.
 /// This corresponds to each vertex in the mesh.
 /// This is used to wrap the image around the mesh, based on vertex points and xy (or uv) points on
@@ -442,7 +473,7 @@ pub struct TextureCoordinate {
     /// vertical coordinate where the vertex draws its color from
     pub v: u16,
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// The position domain of the texture. Used for decompressing the UV location data.
 pub struct TextureCoordinateDomain {
     /// The minimum values found in the mesh UVs
@@ -451,13 +482,13 @@ pub struct TextureCoordinateDomain {
     pub max: [f32; 2],
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// This contains skin information that is used by avatars. This can alter all or part of the
 /// skeleton
 pub struct Skin {
     /// The names of the joints that are going to be altered. A full avatar replacement will
     /// replace all of the joints, and a partial skeleton will only replace some.
-    pub joint_names: HashSet<String>,
+    pub joint_names: Vec<JointName>,
     /// The inverse bind matrices used to determine the joint's transform, scale and rotation. This
     /// matrix aligns with the joint names. inverse_bind_matrices[0] corresponds to joint_names[0],
     /// describing the scale, rotation and transform of each joint, and where the joint should be
@@ -475,19 +506,29 @@ impl Skin {
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected map"))?;
 
         // Parse joint_names
-        let joint_names: HashSet<String> = map
+        let joint_names: Vec<JointName> = map
             .get("joint_names")
             .and_then(LLSDValue::as_array)
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing joint_names")
-            })?
+            .ok_or_else(|| std::io::Error::new(ErrorKind::InvalidData, "Missing joint_names"))?
             .iter()
             .map(|v| {
-                v.as_string().map(|s| s.to_string()).ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid joint name")
-                })
+                v.as_string()
+                    .ok_or_else(|| {
+                        std::io::Error::new(
+                            ErrorKind::InvalidData,
+                            "Invalid joint name (not a string)",
+                        )
+                    })
+                    .and_then(|s| {
+                        JointName::from_str(&s).map_err(|e| {
+                            std::io::Error::new(
+                                ErrorKind::InvalidData,
+                                format!("Unknown joint name: {}, {}", s, e),
+                            )
+                        })
+                    })
             })
-            .collect::<Result<HashSet<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Parse inverse_bind_matrix
         let inverse_bind_matrices = map
