@@ -12,6 +12,8 @@ use std::sync::Mutex;
 use tokio::sync::oneshot;
 
 use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, UiMessage};
+/// This file is for handling the UDP messages that are sent from the server to the client.
+
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
     pub async fn start_udp_read(
@@ -24,12 +26,13 @@ impl Mailbox {
         loop {
             match sock.recv_from(&mut buf).await {
                 Ok((size, _addr)) => {
-                    //info!("Received {} bytes from {:?}", size, addr);
-
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(_) => {
-                            //                            println!("{:?}", e);
+                            //println!("{:?}", e);
+                            //this currently has a lot of packets that don't parse. If this error
+                            //were to be visible it would be a constant spam. Someday this will not
+                            //be the case.
                             continue;
                         }
                     };

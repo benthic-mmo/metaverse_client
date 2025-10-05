@@ -11,7 +11,7 @@ use metaverse_messages::{
 use std::time::Duration;
 use uuid::Uuid;
 
-use crate::initialize::create_sub_share_dir;
+use crate::initialize::create_sub_agent_dir;
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
@@ -49,10 +49,9 @@ impl Handler<ObjectUpdate> for Mailbox {
                             .as_ref()
                             .and_then(|tree| tree.children.get(&ObjectType::CurrentOutfit))
                         {
-                            use crate::initialize::create_sub_agent_dir;
-
                             let elements = current_outfit.folder.items.clone();
-                            //add the agent to the agent list
+                            //add the agent to the global agent list. This will be used to look up
+                            //the position of agents and what they are wearing.
                             {
                                 session.agent_list.lock().unwrap().insert(
                                     msg.full_id,
@@ -69,6 +68,7 @@ impl Handler<ObjectUpdate> for Mailbox {
                                 warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
                             }
 
+                            // download all of the assets in the inventory
                             for element in elements {
                                 ctx.address().do_send(DownloadAgentAsset {
                                     url: session
