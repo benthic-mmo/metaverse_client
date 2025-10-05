@@ -7,27 +7,10 @@ use metaverse_messages::{
 };
 use uuid::Uuid;
 
-// Modify the rank
-fn set_rank<F>(joint: &mut Joint, transform: &Transform, mut get_vec: F)
-where
-    F: FnMut(&mut Joint) -> &mut Vec<Transform>,
-{
-    let transforms = get_vec(joint);
-    // if a transform is specified by multiple parts of an outfit, increase the
-    // rank of it in the skeleton.
-    if let Some(existing) = transforms
-        .iter_mut()
-        .find(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
-    {
-        existing.rank += 1;
-        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
-    } else {
-        transforms.push(transform.clone());
-        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
-    }
-}
-
-/// This function updates the global skeleton for the avatar.
+/// This function takes an object's skeleton, and applies it to the agent's combined skeleton. The
+/// combined skeleton contains all of the transforms for all of the joints, ranked by how many
+/// elements of the outfit contain the same transform.
+/// Highest ranking joint values will always be last.
 pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
     for joint in skeleton.joints.values() {
         if let Some(global_joint) = avatar.skeleton.joints.get_mut(&joint.name) {
@@ -41,6 +24,7 @@ pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
     }
 }
 
+/// Determine the local and global joint transforms for a skinned SceneObject.
 pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
     // if the object has a mesh, handle the skeleton
     if let Some(mesh) = &scene_root.sculpt.mesh {
@@ -54,7 +38,7 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
         for (i, name) in mesh.skin.joint_names.iter().enumerate() {
             // apply the rotations from the default skeleton to the object
             // the default skeleton's transforms are stored in [0]
-            // these rotations need to be applied, because the IBMs from the server are mostly
+            // these rotations need to be applied, because the IBMs from -> *mut c_charthe server are mostly
             // the identity matrix, and only contain translation information. The default
             // skeleton contains the rotations.
             let default_joints = default_skeleton.joints.get(name).unwrap().clone();
@@ -148,5 +132,25 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
         })
     } else {
         None
+    }
+}
+
+// Modify the rank for local and global transforms.
+fn set_rank<F>(joint: &mut Joint, transform: &Transform, mut get_vec: F)
+where
+    F: FnMut(&mut Joint) -> &mut Vec<Transform>,
+{
+    let transforms = get_vec(joint);
+    // if a transform is specified by multiple parts of an outfit, increase the
+    // rank of it in the skeleton.
+    if let Some(existing) = transforms
+        .iter_mut()
+        .find(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
+    {
+        existing.rank += 1;
+        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+    } else {
+        transforms.push(transform.clone());
+        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
     }
 }

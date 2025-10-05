@@ -6,7 +6,6 @@ use log::info;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
-use std::fs;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -62,9 +61,6 @@ pub async fn initialize(
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     initialize_share_dir()?;
-
-    #[cfg(feature = "agent")]
-    initialize_skeleton()?;
 
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
@@ -150,52 +146,5 @@ pub fn initialize_share_dir() -> std::io::Result<PathBuf> {
             std::io::ErrorKind::InvalidData,
             "Failed to find share dir",
         ))
-    }
-}
-
-/// Initialize the local skeleton that contains joint rotations.
-/// This is stored in agent/src/benthic_default_model/skeleton.gltf
-/// If the file does not need to be copied to the share dir, then it simply returns the gltf file
-/// already in share.
-pub fn initialize_skeleton() -> std::io::Result<PathBuf> {
-    let agent_dir = create_sub_share_dir("agent")?;
-    let mut base_skeleton_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    base_skeleton_path.pop();
-    base_skeleton_path.push("agent");
-    base_skeleton_path.push("src");
-    base_skeleton_path.push("benthic_default_model");
-    base_skeleton_path.push("skeleton.gltf");
-
-    let mut base_skeleton_bin_path = base_skeleton_path.clone();
-    base_skeleton_bin_path.pop();
-    base_skeleton_bin_path.push("skeleton.bin");
-
-    let mut dest_gltf = agent_dir.clone();
-    dest_gltf.push("skeleton.gltf");
-    let mut dest_bin = agent_dir.clone();
-    dest_bin.push("skeleton.bin");
-
-    if !dest_bin.exists() {
-        match fs::copy(&base_skeleton_bin_path, &dest_bin) {
-            Ok(_) => info!("Copied skeleton.bin to {:?}", dest_bin),
-            Err(_) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Failed to find copy skeleton.bin to agent share dir",
-                ));
-            }
-        }
-    }
-
-    if !dest_gltf.exists() {
-        match fs::copy(&base_skeleton_path, &dest_gltf) {
-            Ok(_) => Ok(dest_gltf),
-            Err(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Failed to find copy skeleton.gltf to agent share dir",
-            )),
-        }
-    } else {
-        Ok(dest_gltf)
     }
 }

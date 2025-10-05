@@ -12,7 +12,7 @@ use metaverse_messages::{
         circuit_code::CircuitCodeData,
         complete_agent_movement::CompleteAgentMovementData,
         login_response::LoginResponse,
-        login_xmlrpc::{Login, send_login_xmlrpc},
+        login_xmlrpc::{send_login_xmlrpc, Login},
         simulator_login_protocol::SimulatorLoginProtocol,
     },
     packet::{packet::Packet, packet_types::PacketType},
@@ -20,13 +20,12 @@ use metaverse_messages::{
         errors::{MailboxSessionError, SessionError},
         ui_events::UiEventTypes,
     },
-    utils::skeleton::Skeleton,
 };
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::UdpSocket;
 
-/// This is used for the core to listen to messages coming in from the UI.
+/// This is used to enable the core to listen to messages coming in from the UI.
 /// Messages from the UI are sent in bytes as packets, and deserialized in the same way that they
 /// would be sent to and from the core
 /// all of these packets and their byte representations are defined by the spec here.

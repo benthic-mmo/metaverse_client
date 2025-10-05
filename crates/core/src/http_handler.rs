@@ -5,6 +5,8 @@ use metaverse_messages::{
 };
 use std::io::{Error, ErrorKind};
 
+/// This file is used to send HTTP requests to capability endpoints.
+
 /// Sends a call to the ViewerAsset endpoint to retrieve the object using the object's asset ID.
 /// Creates a get request in the format of
 /// http://[UUID OF VIEWERASSET ENDPOINT]?[OBJECT TYPE]_id=[ASSET ID]
