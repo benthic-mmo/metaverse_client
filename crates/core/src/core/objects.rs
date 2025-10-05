@@ -11,6 +11,8 @@ use metaverse_messages::{
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::initialize::create_sub_share_dir;
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 /// Trigger the function that creates the user model, and sends the data to the UI.
@@ -47,6 +49,8 @@ impl Handler<ObjectUpdate> for Mailbox {
                             .as_ref()
                             .and_then(|tree| tree.children.get(&ObjectType::CurrentOutfit))
                         {
+                            use crate::initialize::create_sub_agent_dir;
+
                             let elements = current_outfit.folder.items.clone();
                             //add the agent to the agent list
                             {
@@ -58,6 +62,11 @@ impl Handler<ObjectUpdate> for Mailbox {
                                         current_outfit.folder.items.len() / 2,
                                     ),
                                 );
+                            }
+                            // create the agent directory that will contain the agent's
+                            // files, such as skeleton json, clothing jsons, and rendered 3d files.
+                            if let Err(e) = create_sub_agent_dir(&msg.full_id.to_string()) {
+                                warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
                             }
 
                             for element in elements {

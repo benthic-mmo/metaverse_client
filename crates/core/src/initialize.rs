@@ -115,6 +115,22 @@ pub fn create_sub_share_dir(dir: &str) -> std::io::Result<PathBuf> {
     Ok(new_dir)
 }
 
+/// Create a subdirectory for user agents.
+/// If the directory already exists, return the path to the dir
+/// this is for creating subfolders within the agent dir to contain an avatar's downloaded assets.
+pub fn create_sub_agent_dir(dir: &str) -> std::io::Result<PathBuf> {
+    let agent_dir = create_sub_share_dir("agent")?;
+    let new_dir = agent_dir.join(dir);
+    if !new_dir.exists() {
+        if let Err(e) = create_dir_all(&new_dir) {
+            error!("Failed to create {} dir {:?}", dir, e);
+            return Err(e);
+        };
+        info!("Created Directory: {:?}", new_dir);
+    }
+    Ok(new_dir)
+}
+
 /// Initialize the viewer's cache in the share dir on disk
 pub fn initialize_share_dir() -> std::io::Result<PathBuf> {
     if let Some(data_dir) = dirs::data_dir() {

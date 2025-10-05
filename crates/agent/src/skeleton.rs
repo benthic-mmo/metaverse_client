@@ -5,78 +5,92 @@ use metaverse_messages::{
     capabilities::scene::SceneObject,
     utils::skeleton::{Joint, JointName, Skeleton, Transform},
 };
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
-};
 use uuid::Uuid;
 
-pub fn create_skeleton(
-    scene_root: SceneObject,
-    agent_list: Arc<Mutex<HashMap<Uuid, Avatar>>>,
-    agent_id: Uuid,
-) -> Option<Skeleton> {
-    if let Some(mesh) = &scene_root.sculpt.mesh {
-        let mut joints = IndexMap::new();
-        let valid_names: HashSet<_> = mesh.skin.joint_names.iter().cloned().collect();
+// Modify the rank
+fn set_rank<F>(joint: &mut Joint, transform: &Transform, mut get_vec: F)
+where
+    F: FnMut(&mut Joint) -> &mut Vec<Transform>,
+{
+    let transforms = get_vec(joint);
+    // if a transform is specified by multiple parts of an outfit, increase the
+    // rank of it in the skeleton.
+    if let Some(existing) = transforms
+        .iter_mut()
+        .find(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
+    {
+        existing.rank += 1;
+        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+    } else {
+        transforms.push(transform.clone());
+        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+    }
+}
 
-        for (i, name) in mesh.skin.joint_names.iter().enumerate() {
-            if let Some(agent) = agent_list.lock().unwrap().get_mut(&agent_id) {
-                let default_joints = agent.skeleton.joints.get(name).unwrap().clone();
-
-                // apply the rotations from the default skeleton to the object
-                // the default skeleton's transforms are stored in [0]
-                let mut default_transform = default_joints.transforms[0].transform.clone();
-                default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
-                let transform_matrix = default_transform * mesh.skin.inverse_bind_matrices[i];
-                let transform = Transform {
-                    name: scene_root.name.clone(),
-                    id: scene_root.sculpt.texture,
-                    transform: transform_matrix,
-                    rank: 1,
-                };
-
-                // create the joint object that contains the calculted transforms
-                let joint = Joint {
-                    name: name.clone(),
-                    parent: default_joints.parent.filter(|p| valid_names.contains(p)),
-                    children: default_joints
-                        .children
-                        .into_iter()
-                        .filter(|p| valid_names.contains(p))
-                        .collect(),
-                    transforms: vec![transform.clone()],
-                    // leave the local tranforms empty for now. They will be added after the loop.
-                    local_transforms: vec![],
-                };
-                joints.insert(*name, joint.clone());
-
-                // update the global skeleton with the transforms
-                if let Some(joint) = agent.skeleton.joints.get_mut(name) {
-                    // if a transform is specified by multiple parts of an outfit, increase the
-                    // rank of it in the skeleton.
-                    if let Some(existing) = joint
-                        .transforms
-                        .iter_mut()
-                        .find(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
-                    {
-                        existing.rank += 1;
-                        // Then sort the transforms array to place that transform last.
-                        joint.transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
-                    } else {
-                        joint.transforms.push(transform);
-                    }
-                }
-            };
+/// This function updates the global skeleton for the avatar.
+pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
+    for joint in skeleton.joints.values() {
+        if let Some(global_joint) = avatar.skeleton.joints.get_mut(&joint.name) {
+            for transform in &joint.transforms {
+                set_rank(global_joint, transform, |j| &mut j.transforms);
+            }
+            for local_transform in &joint.local_transforms {
+                set_rank(global_joint, local_transform, |j| &mut j.local_transforms);
+            }
         }
-        // create a skeleton that contains the root nodes
+    }
+}
+
+pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
+    // if the object has a mesh, handle the skeleton
+    if let Some(mesh) = &scene_root.sculpt.mesh {
+        // fetch the default skeleton which is generated at compile time
+        // this will be used for calculating transforms, and getting joint local transforms for the
+        // root object.
+        let default_skeleton = include!(concat!(env!("OUT_DIR"), "/default_skeleton.rs"));
+
+        let mut joints = IndexMap::new();
+        // for every joint in the skin
+        for (i, name) in mesh.skin.joint_names.iter().enumerate() {
+            // apply the rotations from the default skeleton to the object
+            // the default skeleton's transforms are stored in [0]
+            // these rotations need to be applied, because the IBMs from the server are mostly
+            // the identity matrix, and only contain translation information. The default
+            // skeleton contains the rotations.
+            let default_joints = default_skeleton.joints.get(name).unwrap().clone();
+            let mut default_transform = default_joints.transforms[0].transform.clone();
+            default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
+            let transform_matrix = default_transform * mesh.skin.inverse_bind_matrices[i];
+
+            let transform = Transform {
+                name: scene_root.name.clone(),
+                id: scene_root.sculpt.texture,
+                transform: transform_matrix,
+                // Default transforms are rank 0, and will stay at position 0 in the array.
+                // Custom transforms start at rank 1.
+                rank: 1,
+            };
+
+            // create the joint object that contains the calculted transforms
+            let joint = Joint {
+                name: name.clone(),
+                parent: default_joints.parent,
+                children: default_joints.children.into_iter().collect(),
+                transforms: vec![transform.clone()],
+                // leave the local tranforms empty for now. They will be added after the loop.
+                local_transforms: vec![],
+            };
+            joints.insert(*name, joint.clone());
+        }
+
+        // determine the root joints of the skeleton
         let root_joints: Vec<JointName> = joints
             .values()
             .filter(|joint| joint.parent.is_none())
             .map(|joint| joint.name.clone())
             .collect();
 
-        // create the local transforms
+        // Attach the IBMs to their corresponding joint name
         let ibm_map: IndexMap<JointName, Mat4> = mesh
             .skin
             .joint_names
@@ -86,40 +100,45 @@ pub fn create_skeleton(
             .map(|(i, name)| (name, mesh.skin.inverse_bind_matrices[i]))
             .collect();
 
-        // create the local transforms
-        if let Some(agent) = agent_list.lock().unwrap().get_mut(&agent_id) {
-            // the highest ranking joint will always be last. Retrieve the name and highest ranked
-            // transform to calculate the local joint transforms
-            let calculated_transforms: IndexMap<JointName, Mat4> = agent
-                .skeleton
-                .joints
-                .iter()
-                .map(|(name, joint)| (name.clone(), joint.transforms.last().unwrap().transform))
-                .collect();
-            for joint in agent.skeleton.joints.values_mut() {
-                if let Some(parent_name) = &joint.parent {
-                    let parent = calculated_transforms.get(parent_name).unwrap().clone();
-                    let child = calculated_transforms.get(&joint.name).unwrap().clone();
-                    // IBM-based local matrix
-                    let local_matrix = parent * child.inverse();
+        let last_transforms: IndexMap<JointName, Mat4> = joints
+            .iter()
+            .map(|(name, joint)| (name.clone(), joint.transforms.last().unwrap().transform))
+            .collect();
+
+        for (_, joint) in joints.iter_mut() {
+            if let Some(parent_name) = &joint.parent {
+                // if last_transforms doesn't contain the parent, it means that is the root, and
+                // the parent should be calculated via the default skeleton.
+                let parent = last_transforms
+                    .get(parent_name)
+                    .or_else(|| {
+                        Some(
+                            &default_skeleton.joints.get(parent_name).unwrap().transforms[0]
+                                .transform,
+                        )
+                    })
+                    .unwrap();
+
+                let child = last_transforms.get(&joint.name).unwrap();
+                // IBM-based local matrix
+                let local_matrix = *parent * child.inverse();
+                let local_transform = Transform {
+                    name: scene_root.name.clone(),
+                    id: scene_root.sculpt.texture,
+                    transform: local_matrix,
+                    rank: 1,
+                };
+                joint.local_transforms.push(local_transform);
+            } else {
+                // root joint: local transform = its own IBM
+                if let Some(child_ibm) = ibm_map.get(&joint.name) {
                     let local_transform = Transform {
-                        name: joint.name.to_string().clone(),
+                        name: scene_root.name.clone(),
                         id: scene_root.sculpt.texture,
-                        transform: local_matrix,
+                        transform: *child_ibm,
                         rank: 1,
                     };
                     joint.local_transforms.push(local_transform);
-                } else {
-                    // root joint: local transform = its own IBM
-                    if let Some(child_ibm) = ibm_map.get(&joint.name) {
-                        let local_transform = Transform {
-                            name: joint.name.to_string().clone(),
-                            id: scene_root.sculpt.texture,
-                            transform: *child_ibm,
-                            rank: 1,
-                        };
-                        joint.local_transforms.push(local_transform);
-                    }
                 }
             }
         }
