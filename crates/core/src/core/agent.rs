@@ -1,14 +1,12 @@
 use super::session::{Mailbox, UiMessage};
 use crate::http_handler::{download_item, download_mesh, download_object};
-use crate::initialize::create_sub_share_dir;
+use crate::initialize::create_sub_agent_dir;
 use actix::{Addr, AsyncContext, Handler, Message, WrapFuture};
 use glam::{Vec3, Vec4};
-use log::error;
-use metaverse_agent::skeleton::create_skeleton;
-use metaverse_agent::{
-    avatar::{Avatar, OutfitObject, RiggedObject},
-    generate_gltf::generate_baked_avatar,
-};
+use log::{error, warn};
+use metaverse_agent::avatar::{Avatar, OutfitObject, RiggedObject};
+use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
+use metaverse_gltf::skinned_mesh::generate_skinned_mesh;
 use metaverse_messages::capabilities::scene::SceneGroup;
 use metaverse_messages::{
     ui::{
@@ -17,6 +15,9 @@ use metaverse_messages::{
     },
     utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
+use serde::Serialize;
+use std::fs::File;
+use std::io::{self, Write};
 use std::{collections::HashMap, sync::Arc};
 use std::{path::PathBuf, sync::Mutex};
 use uuid::Uuid;
@@ -83,18 +84,25 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             Ok(mut scene_group) => {
                                 download_scenegroup_mesh(&mut scene_group, &msg.url).await;
 
-                                let skeleton = create_skeleton(
-                                    scene_group.parts[0].clone(),
-                                    agent_list.clone(),
+                                let skeleton =
+                                    create_skeleton(scene_group.parts[0].clone()).unwrap();
+
+                                // TODO: DO NOT LEAVE THIS AS NAME PERMANENTLY. FIGURE OUT WHY THE
+                                // SCENEOBJECT'S METADATA IS NOT POPULATING
+                                let json_path = write_json(
+                                    &scene_group,
                                     msg.agent_id,
+                                    scene_group.parts[0].name.clone(),
                                 )
                                 .unwrap();
+
                                 add_item_to_agent_list(
                                     agent_list,
                                     msg.agent_id,
                                     OutfitObject::RiggedObject(RiggedObject {
                                         scene_group,
                                         skeleton,
+                                        json_path,
                                     }),
                                     address,
                                 );
@@ -132,6 +140,13 @@ fn add_item_to_agent_list(
     address: Addr<Mailbox>,
 ) {
     if let Some(agent) = agent_list.lock().unwrap().get_mut(&agent_id) {
+        // update the avatar skeleton with the calculated object skeleton
+        match &item {
+            OutfitObject::RiggedObject(object) => {
+                update_global_avatar_skeleton(agent, &object.skeleton);
+            }
+            _ => {}
+        }
         agent.outfit_items.push(item);
         // if all of the items have loaded in, trigger a render
         if agent.outfit_items.len() == agent.outfit_size {
@@ -142,28 +157,69 @@ fn add_item_to_agent_list(
     }
 }
 
+fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: String) -> io::Result<PathBuf> {
+    match create_sub_agent_dir(&agent_id.to_string()) {
+        Ok(mut agent_dir) => match serde_json::to_string(&data) {
+            Ok(json) => {
+                agent_dir.push(format!("{:?}.json", filename));
+                let mut file = File::create(&agent_dir).unwrap();
+                file.write_all(json.as_bytes()).unwrap();
+                return Ok(agent_dir);
+            }
+            Err(e) => {
+                error!("Failed to serialize scene group {:?}, {:?}", filename, e);
+                return Err(io::Error::new(io::ErrorKind::Other, e));
+            }
+        },
+        Err(e) => {
+            error!(
+                "Failed to create agent dir for {:?}. Unable to cache downloaded items.",
+                e
+            );
+            return Err(io::Error::new(io::ErrorKind::Other, e));
+        }
+    };
+}
+
 impl Handler<Agent> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: Agent, ctx: &mut Self::Context) -> Self::Result {
-        // bake all of the objects in the outfit onto the same skeleton for rendering
-        let path = create_sub_share_dir("agent")
-            .ok()
-            .and_then(|agent_dir| {
-                let agent_path = msg.avatar.agent_id;
-                generate_baked_avatar(
-                    msg.avatar.outfit_items.clone(),
-                    msg.avatar.skeleton,
-                    agent_dir.with_file_name(format!("{:?}_combined_high.glb", agent_path)),
-                )
-                .ok()
+        // Base "agent" directory (e.g. /share/agent)
+        let agent_dir = match create_sub_agent_dir(&msg.avatar.agent_id.to_string()) {
+            Ok(dir) => dir,
+            Err(e) => {
+                warn!("Failed to create base agent directory: {:?}", e);
+                return;
+            }
+        };
+
+        let skeleton_path = write_json(
+            &msg.avatar.skeleton,
+            msg.avatar.agent_id,
+            format!("{:?}_skeleton", msg.avatar.agent_id),
+        )
+        .unwrap();
+
+        // TODO: This needs major reworking
+        let glb_path = agent_dir.join(format!("{:?}_combined_high.glb", msg.avatar.agent_id));
+        let paths: Vec<_> = msg
+            .avatar
+            .outfit_items
+            .iter()
+            .filter_map(|obj| match obj {
+                OutfitObject::RiggedObject(r) => Some(r.json_path.clone()), // extract path
+                _ => None,                                                  // skip other variants
             })
-            .unwrap();
-        msg.avatar.path = Some(path);
+            .collect();
+        generate_skinned_mesh(paths, skeleton_path, glb_path.clone());
+
+        // Update avatar state and notify UI
+        msg.avatar.path = Some(glb_path.clone());
         ctx.address().do_send(UiMessage::new(
             UiEventTypes::MeshUpdate,
             MeshUpdate {
                 position: msg.avatar.position,
-                path: msg.avatar.path.unwrap(),
+                path: glb_path,
                 mesh_type: MeshType::Avatar,
                 id: Some(msg.avatar.agent_id),
             }

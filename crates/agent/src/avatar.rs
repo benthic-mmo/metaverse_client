@@ -68,4 +68,7 @@ pub struct RiggedObject {
     /// the skeleton that defines the joint data of the object
     /// not the global skeleton of the agent
     pub skeleton: Skeleton,
+    // TODO: Find a better place for this.
+    // the path to the json cache for the object
+    pub json_path: PathBuf,
 }

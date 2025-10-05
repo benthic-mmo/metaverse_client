@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Definitions for the avatar's skeleton  
 pub struct Skeleton {
     /// The joints that make up the skeleton
@@ -14,7 +14,7 @@ pub struct Skeleton {
     pub root: Vec<JointName>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Defines the joint that makes up the skeleton
 pub struct Joint {
     /// The name of the joint
@@ -29,7 +29,7 @@ pub struct Joint {
     pub parent: Option<JointName>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// This stores the transform that each joint has
 /// This is not just a vector of Mat4s to solve a very specific issue.
 /// The default skeleton is generated based on the joint transforms of all of the objects in the

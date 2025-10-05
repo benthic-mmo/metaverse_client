@@ -3,12 +3,13 @@ use glam::vec3;
 use metaverse_agent::{
     avatar::{Avatar, OutfitObject, RiggedObject},
     generate_gltf::generate_baked_avatar,
-    skeleton::create_skeleton,
+    skeleton::{create_skeleton, update_global_avatar_skeleton},
 };
 use metaverse_messages::capabilities::scene::SceneGroup;
 use std::{
     collections::HashMap,
-    fs,
+    fs::{self, File},
+    io::Write,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -47,6 +48,9 @@ pub fn combine_gltf() {
     let mut combined_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     combined_path.push("tests/generated_gltf/Combined.glb");
 
+    let mut skeleton_json_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    skeleton_json_path.push("tests/generated_gltf/skeleton.json");
+
     // get strings
     let body_str = fs::read_to_string(&body_path).expect("Failed to read body.json");
     let shirt_str = fs::read_to_string(&shirt_path).expect("Failed to read t-shirt.json");
@@ -71,8 +75,11 @@ pub fn combine_gltf() {
     for element in elements {
         // generate the skeleton for each object. This updates the global agent skeleton object with the correct
         // joint transforms, and stores the object specific skeleton and transforms.
-        let local_skeleton =
-            create_skeleton(element.parts[0].clone(), agent_list.clone(), agent_uuid).unwrap();
+        let local_skeleton = create_skeleton(element.parts[0].clone()).unwrap();
+
+        if let Some(agent) = agent_list.lock().unwrap().get_mut(&agent_uuid) {
+            update_global_avatar_skeleton(agent, &local_skeleton);
+        }
 
         rigged_objects.push(OutfitObject::RiggedObject(RiggedObject {
             scene_group: element,
@@ -89,7 +96,10 @@ pub fn combine_gltf() {
             .unwrap()
             .skeleton
             .clone();
+        let json = serde_json::to_string_pretty(&final_skeleton).expect("Failed to serialize");
 
+        let mut file = File::create(skeleton_json_path).unwrap();
+        file.write_all(json.as_bytes());
         generate_baked_avatar(rigged_objects, final_skeleton, combined_path);
     }
 }
