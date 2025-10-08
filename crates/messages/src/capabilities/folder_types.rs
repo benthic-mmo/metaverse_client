@@ -91,9 +91,9 @@ impl Folder {
     /// When the server responds with
     pub fn from_llsd(parsed_data: LLSDValue) -> std::io::Result<Vec<Self>> {
         let mut folders_vec = Vec::new();
-        if let Ok(data) = parsed_data.into_map() {
-            if let Some(folders) = data.get("folders") {
-                if let Some(folders) = folders.as_array() {
+        if let Ok(data) = parsed_data.into_map()
+            && let Some(folders) = data.get("folders")
+                && let Some(folders) = folders.as_array() {
                     for folder in folders {
                         if let Some(folder_data) = folder.as_map() {
                             let folder_id = match folder_data.get("folder_id") {
@@ -118,21 +118,19 @@ impl Folder {
                                 _ => Uuid::nil(),
                             };
                             let mut items_vec = Vec::new();
-                            if let Some(items) = folder_data.get("items") {
-                                if let Some(items) = items.as_array() {
+                            if let Some(items) = folder_data.get("items")
+                                && let Some(items) = items.as_array() {
                                     for item in items {
                                         items_vec.push(ItemMetadata::from_llsd(item)?)
                                     }
-                                }
-                            };
+                                };
                             let mut category_vec = Vec::new();
-                            if let Some(categories) = folder_data.get("categories") {
-                                if let Some(categories) = categories.as_array() {
+                            if let Some(categories) = folder_data.get("categories")
+                                && let Some(categories) = categories.as_array() {
                                     for category in categories {
                                         category_vec.push(Category::from_llsd(category)?);
                                     }
-                                }
-                            };
+                                };
                             folders_vec.push(Folder {
                                 folder_id,
                                 owner_id,
@@ -145,8 +143,6 @@ impl Folder {
                         }
                     }
                 }
-            }
-        }
         Ok(folders_vec)
     }
 }

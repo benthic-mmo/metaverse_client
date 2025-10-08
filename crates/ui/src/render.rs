@@ -2,21 +2,21 @@ use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct MeshUpdateEvent {
     pub value: MeshUpdate,
 }
 
 #[derive(Resource)]
-pub struct PendingLayer {
+pub struct Renderable {
     pub handle: Handle<Gltf>,
     pub position: Vec3,
     pub mesh_type: MeshType,
 }
 
 #[derive(Resource)]
-pub struct PendingLayers {
-    pub items: Vec<PendingLayer>,
+pub struct MeshQueue {
+    pub items: Vec<Renderable>,
 }
 
 pub fn setup_environment(mut commands: Commands) {
@@ -38,43 +38,46 @@ pub fn setup_environment(mut commands: Commands) {
     ));
 }
 
-pub fn handle_layer_update(
-    mut ev_layer_update: EventReader<MeshUpdateEvent>,
-    mut pending_layers: ResMut<PendingLayers>,
+pub fn handle_mesh_update(
+    mut ev_mesh_update: MessageReader<MeshUpdateEvent>,
+    mut mesh_queue: ResMut<MeshQueue>,
     asset_server: Res<AssetServer>,
 ) {
-    for layer_update in ev_layer_update.read() {
-        let factor;
-        match layer_update.value.mesh_type {
-            MeshType::Avatar => {
-                println!("RENDERING AVATAR ??? ");
-                factor = 1.0;
-            }
+    for renderable in ev_mesh_update.read() {
+        // this needs to be done because Bevy and the Core crate might be using different versions of Glam
+        let mut position = Vec3::from_array([
+            renderable.value.position.x,
+            renderable.value.position.z,
+            renderable.value.position.y,
+        ]);
+        match renderable.value.mesh_type {
+            // the land's XYZ positions need to be multiplied by their size.
+            // TODO: These might not always be 16x16 tiles
             MeshType::Land => {
-                factor = 16.0;
+                position *= 16.0;
+            }
+            MeshType::Avatar => {
+                info!("Rendering Avatar: {:?}", renderable.value.id.unwrap())
             }
         }
 
-        let x = layer_update.value.position.x * factor;
-        let y = layer_update.value.position.y * factor;
-        let z = layer_update.value.position.z * factor;
-        let handle: Handle<Gltf> = asset_server.load(layer_update.value.path.clone());
-        pending_layers.items.push(PendingLayer {
+        let handle: Handle<Gltf> = asset_server.load(renderable.value.path.clone());
+        mesh_queue.items.push(Renderable {
             handle,
-            position: Vec3::new(x as f32, z as f32, y as f32),
-            mesh_type: layer_update.value.mesh_type.clone(),
+            position,
+            mesh_type: renderable.value.mesh_type.clone(),
         });
     }
 }
 
 pub fn check_model_loaded(
     mut commands: Commands,
-    mut pending_layers: ResMut<PendingLayers>,
+    mut mesh_queue: ResMut<MeshQueue>,
     layer_assets: Res<Assets<Gltf>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut ready = vec![];
-    for (i, layer) in pending_layers.items.iter().enumerate() {
+    for (i, layer) in mesh_queue.items.iter().enumerate() {
         if let Some(gltf) = layer_assets.get(&layer.handle) {
             let white_material = materials.add(StandardMaterial {
                 base_color: Color::WHITE,
@@ -102,12 +105,6 @@ pub fn check_model_loaded(
         }
     }
     for i in ready.iter().rev() {
-        pending_layers.items.remove(*i);
-    }
-}
-
-pub fn _log_camera_position_system(query: Query<&Transform, With<Camera>>) {
-    for transform in query.iter() {
-        println!("Camera position: {:?}", transform.translation);
+        mesh_queue.items.remove(*i);
     }
 }

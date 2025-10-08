@@ -3,7 +3,7 @@ use metaverse_messages::{
     capabilities::{item::Item, scene::SceneGroup},
     utils::item_metadata::ItemMetadata,
 };
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 
 /// This file is used to send HTTP requests to capability endpoints.
 
@@ -33,7 +33,7 @@ pub async fn download_asset(
         .map_err(|e| io_error("Failed to read response body", e))?;
 
     if body_bytes.is_empty() {
-        return Err(Error::new(ErrorKind::Other, "Empty response body"));
+        return Err(Error::other("Empty response body"));
     }
     Ok(body_bytes)
 }
@@ -45,27 +45,26 @@ pub async fn download_object(
     server_endpoint: &str,
 ) -> std::io::Result<SceneGroup> {
     SceneGroup::from_xml(&download_asset(metadata, server_endpoint).await?)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to parse object: {}", e)))
+        .map_err(|e| Error::other(format!("Failed to parse object: {}", e)))
 }
 
 /// Retrieve an inventory item from the ViewerAsset endpoint.
 /// this needs to be parsed as an Item object
 pub async fn download_item(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Item> {
     Item::from_bytes(&download_asset(metadata, server_endpoint).await?)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("Failed to parse item: {}", e)))
+        .map_err(|e| Error::other(format!("Failed to parse item: {}", e)))
 }
 
 /// Retrieve a mesh from the ViewerAsset endpoint.
 /// This needs to be parsed as a Mesh object.
 pub async fn download_mesh(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Mesh> {
     Mesh::from_bytes(&download_asset(metadata, server_endpoint).await?).map_err(|e| {
-        Error::new(
-            ErrorKind::Other,
+        Error::other(
             format!("Failed to parse SceneGroup XML: {}", e),
         )
     })
 }
 
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
-    Error::new(ErrorKind::Other, format!("{}: {:?}", msg, err))
+    Error::other(format!("{}: {:?}", msg, err))
 }

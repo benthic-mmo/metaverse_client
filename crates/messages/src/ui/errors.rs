@@ -1,6 +1,7 @@
 use crate::{
     errors::errors::{AckError, CapabilityError, CircuitCodeError, CompleteAgentMovementError},
     login::login_errors::LoginError,
+    packet::message::EventType,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -48,6 +49,13 @@ pub enum SessionError {
     #[error("IOError: {0}")]
     IOError(String),
 }
+
+impl EventType {
+    pub fn new_session_error(data: SessionError) -> Self {
+        EventType::Error(data)
+    }
+}
+
 impl From<std::io::Error> for SessionError {
     fn from(e: std::io::Error) -> Self {
         SessionError::IOError(e.to_string())
@@ -57,14 +65,5 @@ impl SessionError {
     /// Create a new LoginError from the message's login error
     pub fn new_login_error(login_error: LoginError) -> Self {
         SessionError::Login(login_error)
-    }
-
-    /// to_bytes function for sending error from server to UI
-    pub fn to_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).expect("Failed to serialize SessionError")
-    }
-    /// from_bytes for sending error from server to UI
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        bincode::deserialize(bytes).ok()
     }
 }

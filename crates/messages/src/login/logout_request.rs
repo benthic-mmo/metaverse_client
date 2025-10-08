@@ -1,7 +1,8 @@
-use std::io::{self, Cursor, Read};
+use std::io::{Cursor, Read};
 use uuid::Uuid;
 
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -37,7 +38,7 @@ pub struct LogoutRequest {
 }
 
 impl PacketData for LogoutRequest {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];

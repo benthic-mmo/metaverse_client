@@ -1,9 +1,17 @@
-use crate::{CONFIG_FILE, ShareDir, Sockets, VIEWER_NAME, ViewerState};
+use crate::{
+    errors::{CredentialDeleteError, CredentialLoadError, CredentialStoreError, PacketSendError},
+    login,
+    plugin::{send_packet_to_core, ShareDir, Sockets, ViewerState, VIEWER_NAME},
+};
+use bevy::log::error;
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, egui};
+use bevy_egui::{egui, EguiContexts};
 use keyring::Entry;
-use metaverse_messages::{login::login_xmlrpc::Login, packet::packet::Packet};
-use std::{fs, net::UdpSocket, path::PathBuf};
+use metaverse_messages::{
+    login::login_xmlrpc::Login,
+    packet::message::{EventType, UiMessage},
+};
+use std::{fs, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]
 pub struct LoginData {
@@ -18,17 +26,16 @@ pub fn login_screen(
     mut login_data: ResMut<LoginData>,
     mut is_initialized: Local<bool>,
     mut contexts: EguiContexts,
-    mut viewer_state: ResMut<NextState<ViewerState>>,
+    viewer_state: ResMut<NextState<ViewerState>>,
     sockets: Res<Sockets>,
     share_dir: ResMut<ShareDir>,
-) {
+) -> Result {
     if !*is_initialized {
         *is_initialized = true;
     }
 
     let mut login = false;
-    let ctx = contexts.ctx_mut();
-
+    let ctx = contexts.ctx_mut()?;
     egui::SidePanel::left("Login")
         .default_width(200.0)
         .show(ctx, |ui| {
@@ -62,66 +69,89 @@ pub fn login_screen(
                 login = ui.button("Login").clicked();
             });
         });
-    if login {
-        // display loading screen after login
-        viewer_state.set(ViewerState::Loading);
+    if login
+        && let Err(e) = send_login(viewer_state, login_data, share_dir, sockets) {
+            error!("{:?}", e)
+        };
+    Ok(())
+}
 
-        let path = PathBuf::from(CONFIG_FILE);
-        let username = format!(
-            "{} {} {}",
-            login_data.first_name, login_data.last_name, login_data.grid
-        );
+fn send_login(
+    mut viewer_state: ResMut<NextState<ViewerState>>,
+    login_data: ResMut<LoginData>,
+    share_dir: ResMut<ShareDir>,
+    sockets: Res<Sockets>,
+) -> Result<(), PacketSendError> {
+    // display loading screen after login
+    viewer_state.set(ViewerState::Loading);
 
-        if login_data.remember_me {
-            println!("{}", username);
-            match Entry::new(VIEWER_NAME, &username) {
-                Ok(entry) => {
-                    if let Err(e) = entry.set_password(&login_data.password) {
-                        eprintln!("failed to store password {:?}", e)
-                    }
-                }
-                Err(e) => println!("failed to create new keyring entry {:?}", e),
-            }
-            if let Some(file_path) = &share_dir.path {
-                if let Err(e) = fs::write(file_path, &username) {
-                    eprintln!("Error writing file: {}", e);
-                }
-            }
-        } else {
-            if let Err(e) =
-                Entry::new(VIEWER_NAME, &username).and_then(|entry| entry.delete_credential())
-            {
-                eprintln!("Failed to store password: {:?}", e);
-            }
-            if let Err(e) = fs::remove_file(path) {
-                eprintln!("Failed to remove stored data {:?}", e)
-            };
+    let username = format!(
+        "{} {} {}",
+        login_data.first_name, login_data.last_name, login_data.grid
+    );
+
+    if login_data.remember_me {
+        if let Err(e) = store_creds(&username, &login_data.password, &share_dir.login_cred_path) {
+            warn!("{:?}", e)
         }
-
-        let grid = if login_data.grid == "localhost" {
-            format!("{}:{}", "http://127.0.0.1", 9000)
-        } else {
-            format!("http://{}", login_data.grid)
-        };
-
-        let packet = Packet::new_login_packet(Login {
-            first: login_data.first_name.clone(),
-            last: login_data.last_name.clone(),
-            passwd: login_data.password.clone(),
-            start: "last".to_string(),
-            channel: "benthic".to_string(),
-            agree_to_tos: true,
-            read_critical: true,
-            url: grid,
-        })
-        .to_bytes();
-        let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        match client_socket.send_to(
-            &packet,
-            format!("127.0.0.1:{}", &sockets.ui_to_server_socket),
-        ) {
-            Ok(_) => println!("Login sent from UI"),
-            Err(e) => println!("Error sending login from UI {:?}", e),
-        };
+    } else if let Err(e) = delete_creds(&username, &share_dir.login_cred_path) {
+        warn!("{:?}", e)
     }
+
+    let grid = if login_data.grid == "localhost" {
+        format!("{}:{}", "http://127.0.0.1", 9000)
+    } else {
+        format!("http://{}", login_data.grid)
+    };
+
+    let packet = UiMessage::from_event(&EventType::new_login_event(Login {
+        first: login_data.first_name.clone(),
+        last: login_data.last_name.clone(),
+        passwd: login_data.password.clone(),
+        start: "last".to_string(),
+        channel: VIEWER_NAME.to_string(),
+        agree_to_tos: true,
+        read_critical: true,
+        url: grid,
+    }))
+    .to_bytes();
+    send_packet_to_core(&packet, &sockets)?;
+    Ok(())
+}
+
+fn store_creds(
+    username: &str,
+    password: &str,
+    cred_path: &PathBuf,
+) -> Result<(), CredentialStoreError> {
+    let entry = Entry::new(VIEWER_NAME, username)?;
+    entry.set_password(password)?;
+    fs::write(cred_path, username)?;
+    Ok(())
+}
+
+fn delete_creds(username: &str, cred_path: &PathBuf) -> Result<(), CredentialDeleteError> {
+    let entry = Entry::new(VIEWER_NAME, username)?;
+    entry.delete_credential()?;
+    fs::remove_file(cred_path)?;
+    Ok(())
+}
+
+// load the login data from the keyring. Return a CredentialLoadError if it fails.
+pub fn load_login_data(file_path: &PathBuf) -> Result<LoginData, CredentialLoadError> {
+    let content = fs::read_to_string(file_path)?;
+    let keyring = Entry::new(VIEWER_NAME, &content)?;
+    let password = keyring.get_password()?;
+
+    let mut parts = content.split_whitespace();
+    let first_name = parts.next().unwrap_or_default().to_string();
+    let last_name = parts.next().unwrap_or_default().to_string();
+    let grid = parts.next().unwrap_or_default().to_string();
+    Ok(login::LoginData {
+        first_name,
+        last_name,
+        grid,
+        remember_me: true,
+        password,
+    })
 }

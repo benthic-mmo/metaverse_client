@@ -42,7 +42,8 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
             // the identity matrix, and only contain translation information. The default
             // skeleton contains the rotations.
             let default_joints = default_skeleton.joints.get(name).unwrap().clone();
-            let mut default_transform = default_joints.transforms[0].transform.clone();
+            let mut default_transform = default_joints.transforms[0].transform;
+
             default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
             let transform_matrix = default_transform * mesh.skin.inverse_bind_matrices[i];
 
@@ -57,7 +58,7 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
 
             // create the joint object that contains the calculted transforms
             let joint = Joint {
-                name: name.clone(),
+                name: *name,
                 parent: default_joints.parent,
                 children: default_joints.children.into_iter().collect(),
                 transforms: vec![transform.clone()],
@@ -71,7 +72,7 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
         let root_joints: Vec<JointName> = joints
             .values()
             .filter(|joint| joint.parent.is_none())
-            .map(|joint| joint.name.clone())
+            .map(|joint| joint.name)
             .collect();
 
         // Attach the IBMs to their corresponding joint name
@@ -86,7 +87,7 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
 
         let last_transforms: IndexMap<JointName, Mat4> = joints
             .iter()
-            .map(|(name, joint)| (name.clone(), joint.transforms.last().unwrap().transform))
+            .map(|(name, joint)| (*name, joint.transforms.last().unwrap().transform))
             .collect();
 
         for (_, joint) in joints.iter_mut() {
@@ -141,16 +142,36 @@ where
     F: FnMut(&mut Joint) -> &mut Vec<Transform>,
 {
     let transforms = get_vec(joint);
-    // if a transform is specified by multiple parts of an outfit, increase the
-    // rank of it in the skeleton.
-    if let Some(existing) = transforms
-        .iter_mut()
-        .find(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
+
+    // Track whether we matched only rank 0
+    let mut matched_rank0 = false;
+
+    for t in transforms.iter_mut().skip(1) {
+        if t.transform.abs_diff_eq(transform.transform, 1e-4) {
+            t.rank += 1;
+            transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+            return;
+        }
+    }
+
+    // If we didn’t find a non-zero match, check rank 0.
+    if let Some(first) = transforms.first()
+        && first.transform.abs_diff_eq(transform.transform, 1e-4) {
+            matched_rank0 = true;
+        }
+
+    // If it matched only rank 0 or none at all, create a new transform
+    if matched_rank0
+        || !transforms
+            .iter()
+            .any(|t| t.transform.abs_diff_eq(transform.transform, 1e-4))
     {
-        existing.rank += 1;
-        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
-    } else {
-        transforms.push(transform.clone());
+        let mut new_t = transform.clone();
+        // If it matched only rank 0, start at rank 1
+        if matched_rank0 {
+            new_t.rank = 1;
+        }
+        transforms.push(new_t);
         transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
     }
 }

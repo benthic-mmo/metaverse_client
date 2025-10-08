@@ -1,12 +1,16 @@
-use std::net::UdpSocket;
-
-use crate::{ChatMessages, SessionData, Sockets};
+use crate::errors::ChatError;
+use crate::plugin::{
+    retrieve_login_response, send_packet_to_core, ChatMessages, SessionData, Sockets, ViewerState,
+};
+use bevy::ecs::error::Result;
 use bevy::ecs::system::{Res, ResMut};
+use bevy::log::error;
 use bevy::prelude::Resource;
-use bevy_egui::{EguiContexts, egui};
-use metaverse_messages::chat::ChatType;
+use bevy::state::state::NextState;
+use bevy_egui::{egui, EguiContexts};
 use metaverse_messages::chat::chat_from_viewer::ChatFromViewer;
-use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::chat::ChatType;
+use metaverse_messages::packet::message::{EventType, UiMessage};
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
@@ -16,11 +20,12 @@ pub struct ChatMessage {
 pub fn chat_screen(
     mut contexts: EguiContexts,
     mut chat_message: ResMut<ChatMessage>,
+    viewer_state: ResMut<NextState<ViewerState>>,
     session_data: Res<SessionData>,
     sockets: Res<Sockets>,
     chat_messages: Res<ChatMessages>,
-) {
-    let ctx = contexts.ctx_mut();
+) -> Result {
+    let ctx = contexts.ctx_mut()?;
     let mut send = false;
 
     egui::Window::new("Chat")
@@ -58,25 +63,33 @@ pub fn chat_screen(
             });
         });
 
-    if (chat_message.message != "") && send {
-        let message = chat_message.message.clone();
-        chat_message.message = "".to_string();
-        let data = session_data.login_response.as_ref().unwrap();
-        let packet = Packet::new_chat_from_viewer(ChatFromViewer {
-            session_id: data.session_id,
-            agent_id: data.agent_id,
-            message,
-            channel: 0,
-            message_type: ChatType::Normal,
-        })
-        .to_bytes();
-        let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        match client_socket.send_to(
-            &packet,
-            format!("127.0.0.1:{}", sockets.ui_to_server_socket),
-        ) {
-            Ok(_) => println!("Chat message sent from UI"),
-            Err(e) => println!("Error sending chat from UI {:?}", e),
+    if (!chat_message.message.is_empty()) && send {
+        if let Err(e) = send_chat(&chat_message.message, session_data, sockets, viewer_state) {
+            match e {
+                // if the loginresponse is not populated, return to the login screen
+                ChatError::ChatLoginError(_) => return Ok(()),
+                e => error!("{:?}", e),
+            }
         };
+        chat_message.message.clear();
     }
+    Ok(())
+}
+fn send_chat(
+    message: &str,
+    session_data: Res<SessionData>,
+    sockets: Res<Sockets>,
+    mut viewer_state: ResMut<NextState<ViewerState>>,
+) -> Result<(), ChatError> {
+    let response = retrieve_login_response(&session_data, &mut viewer_state)?;
+    let packet = UiMessage::from_event(&EventType::new_chat_from_viewer(ChatFromViewer {
+        session_id: response.session_id,
+        agent_id: response.agent_id,
+        message: message.to_owned(),
+        channel: 0,
+        message_type: ChatType::Normal,
+    }))
+    .to_bytes();
+    send_packet_to_core(&packet, &sockets)?;
+    Ok(())
 }

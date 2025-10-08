@@ -132,14 +132,13 @@ impl Header {
         bytes.extend_from_slice(&self.frequency.to_bytes(self));
 
         // Append the ack list if appended_acks is true
-        if self.appended_acks {
-            if let Some(ref ack_list) = self.ack_list {
+        if self.appended_acks
+            && let Some(ref ack_list) = self.ack_list {
                 bytes.push(ack_list.len() as u8);
                 for ack in ack_list {
                     bytes.extend_from_slice(&ack.to_be_bytes());
                 }
             }
-        }
 
         bytes
     }

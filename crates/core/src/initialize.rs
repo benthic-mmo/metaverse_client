@@ -6,6 +6,7 @@ use log::info;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -65,9 +66,8 @@ pub async fn initialize(
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
-        packet_sequence_number: Arc::new(Mutex::new(0u32)),
 
-        ack_queue: Arc::new(Mutex::new(HashMap::new())),
+        ack_queue: Arc::new(Mutex::new(HashSet::new())),
 
         state: state.clone(),
         notify: notify.clone(),

@@ -140,155 +140,130 @@ impl From<SimulatorLoginOptions> for xmlrpc::Value {
     fn from(val: SimulatorLoginOptions) -> Self {
         let mut options_vec: Vec<String> = Vec::new();
 
-        if let Some(value) = val.adult_compliant {
-            if value {
+        if let Some(value) = val.adult_compliant
+            && value {
                 options_vec.push("adult_compliant".to_string());
             }
-        }
 
-        if let Some(value) = val.advanced_mode {
-            if value {
+        if let Some(value) = val.advanced_mode
+            && value {
                 options_vec.push("advanced_mode".to_string());
             }
-        }
 
-        if let Some(value) = val.avatar_picker_url {
-            if value {
+        if let Some(value) = val.avatar_picker_url
+            && value {
                 options_vec.push("avatar_picker_url".to_string());
             }
-        }
 
-        if let Some(value) = val.buddy_list {
-            if value {
+        if let Some(value) = val.buddy_list
+            && value {
                 options_vec.push("buddy-list".to_string());
             }
-        }
 
-        if let Some(value) = val.classified_categories {
-            if value {
+        if let Some(value) = val.classified_categories
+            && value {
                 options_vec.push("classified_categories".to_string());
             }
-        }
 
-        if let Some(value) = val.currency {
-            if value {
+        if let Some(value) = val.currency
+            && value {
                 options_vec.push("currency".to_string());
             }
-        }
 
-        if let Some(value) = val.destination_guide_url {
-            if value {
+        if let Some(value) = val.destination_guide_url
+            && value {
                 options_vec.push("destination_guide_url".to_string());
             }
-        }
 
-        if let Some(value) = val.display_names {
-            if value {
+        if let Some(value) = val.display_names
+            && value {
                 options_vec.push("display_names".to_string());
             }
-        }
 
-        if let Some(value) = val.event_categories {
-            if value {
+        if let Some(value) = val.event_categories
+            && value {
                 options_vec.push("event_categories".to_string());
             }
-        }
 
-        if let Some(value) = val.gestures {
-            if value {
+        if let Some(value) = val.gestures
+            && value {
                 options_vec.push("gestures".to_string());
             }
-        }
 
-        if let Some(value) = val.global_textures {
-            if value {
+        if let Some(value) = val.global_textures
+            && value {
                 options_vec.push("global-textures".to_string());
             }
-        }
 
-        if let Some(value) = val.inventory_root {
-            if value {
+        if let Some(value) = val.inventory_root
+            && value {
                 options_vec.push("inventory-root".to_string());
             }
-        }
 
-        if let Some(value) = val.inventory_skeleton {
-            if value {
+        if let Some(value) = val.inventory_skeleton
+            && value {
                 options_vec.push("inventory-skeleton".to_string());
             }
-        }
 
-        if let Some(value) = val.inventory_lib_root {
-            if value {
+        if let Some(value) = val.inventory_lib_root
+            && value {
                 options_vec.push("inventory-lib-root".to_string());
             }
-        }
 
-        if let Some(value) = val.inventory_lib_owner {
-            if value {
+        if let Some(value) = val.inventory_lib_owner
+            && value {
                 options_vec.push("inventory-lib-owner".to_string());
             }
-        }
 
-        if let Some(value) = val.inventory_skel_lib {
-            if value {
+        if let Some(value) = val.inventory_skel_lib
+            && value {
                 options_vec.push("inventory-skel-lib".to_string());
             }
-        }
 
-        if let Some(value) = val.login_flags {
-            if value {
+        if let Some(value) = val.login_flags
+            && value {
                 options_vec.push("login-flags".to_string());
             }
-        }
 
-        if let Some(value) = val.max_agent_groups {
-            if value {
+        if let Some(value) = val.max_agent_groups
+            && value {
                 options_vec.push("max-agent-groups".to_string());
             }
-        }
 
-        if let Some(value) = val.max_groups {
-            if value {
+        if let Some(value) = val.max_groups
+            && value {
                 options_vec.push("max_groups".to_string());
             }
-        }
 
-        if let Some(value) = val.map_server_url {
-            if value {
+        if let Some(value) = val.map_server_url
+            && value {
                 options_vec.push("map-server-url".to_string());
             }
-        }
 
-        if let Some(value) = val.newuser_config {
-            if value {
+        if let Some(value) = val.newuser_config
+            && value {
                 options_vec.push("newuser-config".to_string());
             }
-        }
 
-        if let Some(value) = val.search {
-            if value {
+        if let Some(value) = val.search
+            && value {
                 options_vec.push("search".to_string());
             }
-        }
 
-        if let Some(value) = val.tutorial_setting {
-            if value {
+        if let Some(value) = val.tutorial_setting
+            && value {
                 options_vec.push("tutorial_setting".to_string());
             }
-        }
 
-        if let Some(value) = val.ui_config {
-            if value {
+        if let Some(value) = val.ui_config
+            && value {
                 options_vec.push("ui-config".to_string());
             }
-        }
 
-        if let Some(value) = val.voice_config {
-            if value {
+        if let Some(value) = val.voice_config
+            && value {
                 options_vec.push("voice-config".to_string());
             }
-        }
         let xmlrpc_array: xmlrpc::Value =
             xmlrpc::Value::Array(options_vec.into_iter().map(xmlrpc::Value::String).collect());
         xmlrpc_array

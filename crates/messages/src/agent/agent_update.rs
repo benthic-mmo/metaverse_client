@@ -1,4 +1,5 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -475,57 +476,63 @@ pub trait ToFromBytes {
     fn to_bytes(&self) -> [u8; 16];
 }
 
-impl ToFromBytes for Quat {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        let x = f32::from_le_bytes(bytes[0..4].try_into().unwrap());
-        let y = f32::from_le_bytes(bytes[4..8].try_into().unwrap());
-        let z = f32::from_le_bytes(bytes[8..12].try_into().unwrap());
-        let w = f32::from_le_bytes(bytes[12..16].try_into().unwrap());
-        Quat::from_xyzw(x, y, z, w)
+/// local type for quaternion handling
+/// TODO: delete this.
+pub struct QuatBytes(pub Quat);
+
+impl QuatBytes {
+    /// convert bytes to a quaternion
+    pub fn from_bytes(bytes: &[u8]) -> Result<Quat, PacketError> {
+        let x = f32::from_le_bytes(bytes[0..4].try_into()?);
+        let y = f32::from_le_bytes(bytes[4..8].try_into()?);
+        let z = f32::from_le_bytes(bytes[8..12].try_into()?);
+        let w = f32::from_le_bytes(bytes[12..16].try_into()?);
+        Ok(Quat::from_xyzw(x, y, z, w))
     }
+    /// convert quaternions to bytes
     fn to_bytes(&self) -> [u8; 16] {
         let mut bytes = [0u8; 16];
-        bytes[0..4].copy_from_slice(&self.w.to_le_bytes());
-        bytes[4..8].copy_from_slice(&self.x.to_le_bytes());
-        bytes[8..12].copy_from_slice(&self.y.to_le_bytes());
-        bytes[12..16].copy_from_slice(&self.z.to_le_bytes());
+        bytes[0..4].copy_from_slice(&self.0.w.to_le_bytes());
+        bytes[4..8].copy_from_slice(&self.0.x.to_le_bytes());
+        bytes[8..12].copy_from_slice(&self.0.y.to_le_bytes());
+        bytes[12..16].copy_from_slice(&self.0.z.to_le_bytes());
         bytes
     }
 }
 
 impl PacketData for AgentUpdate {
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         // THIS DOES NOT WORK AT ALL
         // THIS WILL CRASH AND BREAK YOUR SHIT
-        let agent_id = Uuid::from_slice(&bytes[0..16]).unwrap();
-        let session_id = Uuid::from_slice(&bytes[16..32]).unwrap();
-        let body_rotation = Quat::from_bytes(&bytes[32..48]);
-        let head_rotation = Quat::from_bytes(&bytes[48..64]);
+        let agent_id = Uuid::from_slice(&bytes[0..16])?;
+        let session_id = Uuid::from_slice(&bytes[16..32])?;
+        let body_rotation = QuatBytes::from_bytes(&bytes[32..48])?;
+        let head_rotation = QuatBytes::from_bytes(&bytes[48..64])?;
 
         let state = State::from_bytes(bytes[64]);
         let camera_center = Vec3 {
-            x: f32::from_le_bytes(bytes[65..69].try_into().unwrap()),
-            y: f32::from_le_bytes(bytes[69..73].try_into().unwrap()),
-            z: f32::from_le_bytes(bytes[73..77].try_into().unwrap()),
+            x: f32::from_le_bytes(bytes[65..69].try_into()?),
+            y: f32::from_le_bytes(bytes[69..73].try_into()?),
+            z: f32::from_le_bytes(bytes[73..77].try_into()?),
         };
         let camera_at_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[77..81].try_into().unwrap()),
-            y: f32::from_le_bytes(bytes[81..85].try_into().unwrap()),
-            z: f32::from_le_bytes(bytes[85..89].try_into().unwrap()),
+            x: f32::from_le_bytes(bytes[77..81].try_into()?),
+            y: f32::from_le_bytes(bytes[81..85].try_into()?),
+            z: f32::from_le_bytes(bytes[85..89].try_into()?),
         };
         let camera_left_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[89..93].try_into().unwrap()),
-            y: f32::from_le_bytes(bytes[93..97].try_into().unwrap()),
-            z: f32::from_le_bytes(bytes[97..101].try_into().unwrap()),
+            x: f32::from_le_bytes(bytes[89..93].try_into()?),
+            y: f32::from_le_bytes(bytes[93..97].try_into()?),
+            z: f32::from_le_bytes(bytes[97..101].try_into()?),
         };
         let camera_up_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[101..105].try_into().unwrap()),
-            y: f32::from_le_bytes(bytes[105..109].try_into().unwrap()),
-            z: f32::from_le_bytes(bytes[109..113].try_into().unwrap()),
+            x: f32::from_le_bytes(bytes[101..105].try_into()?),
+            y: f32::from_le_bytes(bytes[105..109].try_into()?),
+            z: f32::from_le_bytes(bytes[109..113].try_into()?),
         };
-        let far = f32::from_le_bytes(bytes[113..117].try_into().unwrap());
+        let far = f32::from_le_bytes(bytes[113..117].try_into()?);
         let control_flags =
-            ControlFlags::from_bytes(u32::from_le_bytes(bytes[117..121].try_into().unwrap()));
+            ControlFlags::from_bytes(u32::from_le_bytes(bytes[117..121].try_into()?));
         let flags = Flags::from_bytes(bytes[121]);
         Ok(Self {
             agent_id,
@@ -551,8 +558,8 @@ impl PacketData for AgentUpdate {
         bytes.extend_from_slice(self.session_id.as_bytes());
 
         // Serialize Quaternions
-        bytes.extend_from_slice(&self.body_rotation.to_bytes());
-        bytes.extend_from_slice(&self.head_rotation.to_bytes());
+        bytes.extend_from_slice(&QuatBytes(self.body_rotation).to_bytes());
+        bytes.extend_from_slice(&QuatBytes(self.body_rotation).to_bytes());
 
         // Serialize State
         bytes.push(self.state.to_bytes());

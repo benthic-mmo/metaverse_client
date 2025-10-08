@@ -1,4 +1,5 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -38,7 +39,7 @@ pub struct RegionHandshakeReply {
 }
 
 impl PacketData for RegionHandshakeReply {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         let mut agent_id_bytes = [0u8; 16];

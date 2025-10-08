@@ -1,8 +1,10 @@
 use crate::login::login_response::LoginResponse;
 use crate::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
+use crate::packet::message::EventType;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::error::Error;
 use std::fs::File;
@@ -13,9 +15,9 @@ use std::io::Read;
 
 use xmlrpc_benthic::{self as xmlrpc};
 
-use super::login_errors::{LoginError, Reason, create_login_error_from_message};
+use super::login_errors::{create_login_error_from_message, LoginError, Reason};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The struct required for constructing a login
 pub struct Login {
     /// first name
@@ -34,6 +36,13 @@ pub struct Login {
     pub read_critical: bool,
     /// the URL that the user is logging in against
     pub url: String,
+}
+
+impl EventType {
+    /// allow sending the login object between the UI and Core
+    pub fn new_login_event(data: Login) -> Self {
+        EventType::Login(data)
+    }
 }
 ///Logs in using a SimulatorLoginProtocol object and the url string.
 /// returns a LoginResult, or an error.
@@ -116,7 +125,6 @@ pub async fn send_login_xmlrpc(
         Err(_) => Err(create_login_error_from_message(parsed_data_clone)),
     }
 }
-
 ///Generates a SimulatorLoginProtocol based on user supplied values
 ///returns a SimulatorLoginProtocol
 ///```

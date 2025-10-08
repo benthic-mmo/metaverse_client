@@ -1,11 +1,9 @@
 use crossbeam_channel::Sender;
-use metaverse_messages::packet::packet_types::PacketType;
+use metaverse_messages::packet::message::{EventType, UiMessage};
 use std::collections::HashMap;
 use std::net::UdpSocket;
 
 use log::{info, warn};
-
-use crate::core::session::UiMessage;
 
 /// This stores the packet and the chunks for deserialization
 pub struct PacketStore {
@@ -59,7 +57,7 @@ pub struct PacketStore {
 ///     }
 ///}
 ///```
-pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<PacketType>) {
+pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<EventType>) {
     let socket = UdpSocket::bind(core_to_ui_socket).expect("Failed to bind UDP socket");
     let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
 
@@ -68,7 +66,7 @@ pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<Pa
         let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf) {
             Ok((n, _)) => {
-                if let Some(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
+                if let Ok(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
                     let packet_store =
                         message_store
                             .entry(received_chunk.packet_number)
@@ -76,9 +74,10 @@ pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<Pa
                                 chunks: HashMap::new(),
                             });
 
-                    packet_store
-                        .chunks
-                        .insert(received_chunk.sequence_number, received_chunk.message);
+                    packet_store.chunks.insert(
+                        received_chunk.sequence_number,
+                        received_chunk.message.to_vec(),
+                    );
 
                     // Check if we have all chunks
                     if packet_store.chunks.len() == received_chunk.total_packet_number as usize {
@@ -92,10 +91,7 @@ pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<Pa
                             }
                         }
                         // get the packet type and send that to the sender
-                        if let Some(packet) = received_chunk
-                            .message_type
-                            .packet_type_from_bytes(&full_message)
-                        {
+                        if let packet = EventType::from_bytes(&full_message).unwrap() {
                             if let Err(e) = sender.send(packet) {
                                 warn!("Failed to send packet to UI: {:?}", e)
                             };

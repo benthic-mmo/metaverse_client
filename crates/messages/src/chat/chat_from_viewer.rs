@@ -1,11 +1,14 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
+    message::EventType,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 use std::io::Read;
-use std::io::{self, Cursor};
 use uuid::Uuid;
 
 use super::ChatType;
@@ -17,7 +20,7 @@ impl Packet {
             header: Header {
                 id: 80,
                 frequency: PacketFrequency::Low,
-                reliable: true,
+                reliable: false,
                 sequence_number: 0,
                 appended_acks: false,
                 zerocoded: false,
@@ -30,7 +33,14 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+impl EventType {
+    /// Implement UiEvent for ChatFromViewer to allow it to be sent from the UI to the core
+    pub fn new_chat_from_viewer(data: ChatFromViewer) -> Self {
+        EventType::ChatFromViewer(data)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// ChatFromViewer struct. Contains information about chat messages sent from the viewer to the
 /// server.
 pub struct ChatFromViewer {
@@ -47,7 +57,7 @@ pub struct ChatFromViewer {
 }
 
 impl PacketData for ChatFromViewer {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         // Deserialize AgentData
@@ -64,7 +74,7 @@ impl PacketData for ChatFromViewer {
         let mut message_bytes = vec![0u8; message_length];
         cursor.read_exact(&mut message_bytes)?;
 
-        let message = String::from_utf8(message_bytes).unwrap();
+        let message = String::from_utf8(message_bytes)?;
 
         let message_type_byte = cursor.read_u8()?;
         let message_type = ChatType::from_bytes(message_type_byte);

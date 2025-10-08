@@ -1,9 +1,12 @@
+use serde::{Deserialize, Serialize};
+
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
+    message::EventType,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-use std::io;
 
 impl Packet {
     /// create a new disable simulator packet
@@ -25,12 +28,18 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+impl EventType {
+    pub fn new_disable_simulator() -> Self {
+        EventType::DisableSimulator(DisableSimulator {})
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// the disable simulator struct. Intentionally Contains no values.
 pub struct DisableSimulator {}
 
 impl PacketData for DisableSimulator {
-    fn from_bytes(_: &[u8]) -> io::Result<Self> {
+    fn from_bytes(_: &[u8]) -> Result<Self, PacketError> {
         Ok(DisableSimulator {})
     }
     fn to_bytes(&self) -> Vec<u8> {

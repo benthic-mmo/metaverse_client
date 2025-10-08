@@ -1,7 +1,9 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, Write};
 
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -27,7 +29,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Defines locations of agent dots on the minimap.
 pub struct MinimapEntities {
     x: u8,
@@ -53,7 +55,7 @@ impl MinimapEntities {
         Ok(())
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Struct to contain the ID of you, and the agent you are following
 pub struct CoarseLocationUpdate {
     /// The xyz locations of agents
@@ -65,7 +67,7 @@ pub struct CoarseLocationUpdate {
 }
 
 impl PacketData for CoarseLocationUpdate {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
         let location_count = cursor.read_u8()? as usize;
         let mut locations = Vec::with_capacity(location_count);

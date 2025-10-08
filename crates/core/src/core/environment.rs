@@ -3,20 +3,19 @@ use glam::U16Vec2;
 use metaverse_environment::{
     generate_gltf::generate_land_gltf,
     land::Land,
-    layer_handler::{PatchData, PatchLayer, parse_layer_data},
+    layer_handler::{parse_layer_data, PatchData, PatchLayer},
 };
 use metaverse_messages::{
     environment::layer_data::LayerData,
-    ui::{
-        mesh_update::{MeshType, MeshUpdate},
-        ui_events::UiEventTypes,
-    },
+    ui::mesh_update::{MeshType, MeshUpdate},
 };
+
+use metaverse_messages::packet::message::{EventType, UiMessage};
 use std::collections::HashMap;
 
 use crate::initialize::create_sub_share_dir;
 
-use super::session::{Mailbox, UiMessage};
+use super::session::Mailbox;
 
 #[cfg(feature = "environment")]
 #[derive(Debug, Message)]
@@ -36,8 +35,8 @@ pub struct EnvironmentCache {
 impl Handler<LayerData> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: LayerData, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if let Ok(patch_data) = parse_layer_data(&msg) {
+        if let Some(session) = self.session.as_mut()
+            && let Ok(patch_data) = parse_layer_data(&msg) {
                 match patch_data {
                     PatchLayer::Land(patches) => {
                         for land in patches {
@@ -64,24 +63,23 @@ impl Handler<LayerData> for Mailbox {
                             for mesh in layer_meshes {
                                 // generate gltf file from mesh
                                 // create a UI event
-                                if let Ok(dir) = create_sub_share_dir("land") {
-                                    if let Ok(path) = generate_land_gltf(
+                                if let Ok(dir) = create_sub_share_dir("land")
+                                    && let Ok(path) = generate_land_gltf(
                                         &mesh,
                                         dir,
                                         land.terrain_header.filename.clone(),
                                     ) {
-                                        ctx.address().do_send(UiMessage::new(
-                                            UiEventTypes::MeshUpdate,
+
+                                        ctx.address().do_send(UiMessage::from_event(
+                                    &EventType::new_mesh_update(
                                             MeshUpdate {
                                                 position: mesh.position.unwrap(),
                                                 path,
                                                 mesh_type: MeshType::Land,
                                                 id: None,
-                                            }
-                                            .to_bytes(),
+                                            })
                                         ));
                                     };
-                                }
                             }
                         }
                     }
@@ -90,6 +88,5 @@ impl Handler<LayerData> for Mailbox {
                     PatchLayer::Cloud(_patches) => {}
                 }
             }
-        }
     }
 }

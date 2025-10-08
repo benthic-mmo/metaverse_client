@@ -520,7 +520,7 @@ impl Skin {
                         )
                     })
                     .and_then(|s| {
-                        JointName::from_str(&s).map_err(|e| {
+                        JointName::from_str(s).map_err(|e| {
                             std::io::Error::new(
                                 ErrorKind::InvalidData,
                                 format!("Unknown joint name: {}, {}", s, e),

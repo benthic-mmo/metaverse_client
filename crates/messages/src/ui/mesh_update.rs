@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+use crate::packet::message::EventType;
+
 /// this is the struct for sending mesh updates from the core to the UI.
 /// the path is the path to the generated gltf file, and the position is where to place it in the
 /// world.
@@ -18,7 +20,7 @@ pub struct MeshUpdate {
     pub id: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 /// Type of mesh the UI is rendering.
 pub enum MeshType {
     /// Land type
@@ -28,13 +30,8 @@ pub enum MeshType {
     Avatar,
 }
 
-impl MeshUpdate {
-    /// convert the layer update to bytes to send to the UI
-    pub fn to_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).expect("Failed to serialize LayerUpdate")
-    }
-    /// convert the bytes back to a layer update struct
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        bincode::deserialize(bytes).ok()
+impl EventType {
+    pub fn new_mesh_update(data: MeshUpdate) -> Self {
+        EventType::MeshUpdate(data)
     }
 }

@@ -1,4 +1,5 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -39,10 +40,10 @@ pub struct CompleteAgentMovementData {
 }
 
 impl PacketData for CompleteAgentMovementData {
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let circuit_code = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
-        let session_id = Uuid::from_slice(&bytes[4..20]).unwrap();
-        let agent_id = Uuid::from_slice(&bytes[20..36]).unwrap();
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+        let circuit_code = u32::from_le_bytes(bytes[0..4].try_into()?);
+        let session_id = Uuid::from_slice(&bytes[4..20])?;
+        let agent_id = Uuid::from_slice(&bytes[20..36])?;
 
         Ok(CompleteAgentMovementData {
             agent_id,

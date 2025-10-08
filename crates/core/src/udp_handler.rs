@@ -1,23 +1,29 @@
 use actix::Addr;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::net::UdpSocket;
 
 use log::{error, warn};
 use metaverse_messages::{
     core::packet_ack::PacketAck,
-    packet::{packet::Packet, packet_types::PacketType},
-    ui::ui_events::UiEventTypes,
+    packet::{
+        message::{EventType, UiMessage},
+        packet::Packet,
+        packet_types::PacketType,
+    },
 };
 use std::sync::Mutex;
 use tokio::sync::oneshot;
 
-use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, UiMessage};
+use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
 /// This file is for handling the UDP messages that are sent from the server to the client.
 
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
     pub async fn start_udp_read(
-        ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+        ack_queue: Arc<Mutex<HashSet<u32>>>,
         sock: Arc<UdpSocket>,
         mailbox_address: Addr<Mailbox>,
     ) {
@@ -36,26 +42,21 @@ impl Mailbox {
                             continue;
                         }
                     };
+
+                    // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
                     if packet.header.reliable {
-                        if let Err(e) = mailbox_address
-                            .send(Packet::new_packet_ack(PacketAck {
-                                packet_ids: vec![packet.header.sequence_number],
-                            }))
-                            .await
                         {
-                            warn!("Ack failed to send {:?}", e)
-                        };
+                            ack_queue
+                                .lock()
+                                .unwrap()
+                                .insert(packet.header.sequence_number as u32);
+                        }
+                        if let Err(e) = mailbox_address.send(SendAckList {}).await {
+                            warn!("Failed to send ack list {:?}", e)
+                        }
                     }
 
                     match &packet.body {
-                        PacketType::PacketAck(data) => {
-                            let mut queue = ack_queue.lock().unwrap();
-                            for id in data.packet_ids.clone() {
-                                if let Some(sender) = queue.remove(&id) {
-                                    let _ = sender.send(());
-                                }
-                            }
-                        }
                         PacketType::StartPingCheck(data) => {
                             if let Err(e) = mailbox_address
                                 .send(Ping {
@@ -65,6 +66,8 @@ impl Mailbox {
                             {
                                 warn!("failed to handle pong {:?}", e)
                             };
+
+                            // Send AckList every ping.
                         }
                         PacketType::RegionHandshake(_) => {
                             if let Err(e) = mailbox_address.send(RegionHandshakeMessage {}).await {
@@ -74,10 +77,7 @@ impl Mailbox {
                         PacketType::DisableSimulator(_) => {
                             warn!("Simulator shutting down...");
                             if let Err(e) = mailbox_address
-                                .send(UiMessage::new(
-                                    UiEventTypes::DisableSimulatorEvent {},
-                                    vec![],
-                                ))
+                                .send(UiMessage::from_event(&EventType::new_disable_simulator()))
                                 .await
                             {
                                 warn!("failed to send to ui: {:?}", e)
@@ -95,18 +95,18 @@ impl Mailbox {
                                 error!("Failed to handle AgentWearablesUpdate {:?}", e)
                             };
                         }
+                        // Send UI packets to the UI as UiMessages.
+                        PacketType::ChatFromSimulator(data) => {
+                            if let Err(e) = mailbox_address
+                                .send(UiMessage::from_event(&EventType::new_chat_from_simulator(
+                                    *data.clone(),
+                                )))
+                                .await
+                            {
+                                error!("Failed to handle chatfromsimulator{:?}", e)
+                            }
+                        }
                         _ => {}
-                    }
-                    if UiEventTypes::None != packet.body.ui_event() {
-                        if let Err(e) = mailbox_address
-                            .send(UiMessage::new(
-                                packet.body.ui_event(),
-                                packet.body.to_bytes(),
-                            ))
-                            .await
-                        {
-                            warn!("failed to send to ui: {:?}", e)
-                        };
                     }
                 }
                 Err(e) => {

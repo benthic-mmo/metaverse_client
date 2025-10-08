@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     packet::{
+        errors::PacketError,
         header::{Header, PacketFrequency},
         packet::{Packet, PacketData},
         packet_types::PacketType,
@@ -166,7 +167,7 @@ pub struct ObjectUpdate {
 }
 
 impl PacketData for ObjectUpdate {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         // read the regionhandle as two u32s instead of one u64

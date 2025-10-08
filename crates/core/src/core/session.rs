@@ -1,30 +1,30 @@
 use actix::prelude::*;
 use actix_rt::time;
-use bincode;
 use log::{error, info};
 
 use metaverse_agent::avatar::Avatar;
 use metaverse_messages::capabilities::capabilities::Capability;
 use metaverse_messages::core::complete_ping_check::CompletePingCheck;
+use metaverse_messages::core::packet_ack::PacketAck;
 use metaverse_messages::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::errors::errors::AckError;
+use metaverse_messages::packet::message::EventType;
+use metaverse_messages::packet::message::UiMessage;
 use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::packet::packet_types::PacketType;
 use metaverse_messages::ui::errors::SessionError;
-use metaverse_messages::ui::ui_events::UiEventTypes;
-use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::net::UdpSocket as SyncUdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
-use tokio::sync::{Notify, oneshot};
+use tokio::sync::{oneshot, Notify};
 use tokio::time::Duration;
 use uuid::Uuid;
 
 use super::{environment::EnvironmentCache, inventory::InventoryData};
-
-const ACK_ATTEMPTS: i8 = 3;
-const ACK_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// This is the mailbox for handling packets and sessions in the client
 #[derive(Debug)]
@@ -35,10 +35,8 @@ pub struct Mailbox {
     pub server_to_ui_socket: String,
 
     /// queue of ack packets to handle
-    pub ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
+    pub ack_queue: Arc<Mutex<HashSet<u32>>>,
 
-    /// global number of received packets
-    pub packet_sequence_number: Arc<Mutex<u32>>,
     /// state of the mailbox. If it is running or not.
     pub state: Arc<Mutex<ServerState>>,
     /// notify for etablishing when it begins running
@@ -57,10 +55,8 @@ pub struct Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct Session {
-    /// url of the server where the UDP session is connected to
-    pub url: String,
-    /// socket of the server where the UDP session is connected to
-    pub server_socket: u16,
+    /// address of the server the client is connected to. formatted http://Url:Socket
+    pub address: String,
     /// agent ID of the user
     pub agent_id: Uuid,
     /// session ID of the user
@@ -84,43 +80,6 @@ pub struct Session {
     /// The agent list. Contains information about the appearances of all loaded agents
     #[cfg(feature = "agent")]
     pub agent_list: Arc<Mutex<HashMap<Uuid, Avatar>>>,
-}
-
-/// Format for sending a serialized message from the mailbox to the UI.
-#[derive(Debug, Message, Serialize, Deserialize, Clone)]
-#[rtype(result = "()")]
-pub struct UiMessage {
-    /// Type of message, for decoding in the UI
-    pub message_type: UiEventTypes,
-    /// Which number in a series of messages is it
-    pub sequence_number: u16,
-    /// how mant messages are there in total
-    pub total_packet_number: u16,
-    /// for serializing
-    pub packet_number: u16,
-    /// the encoded message to be decoded by the UI
-    pub message: Vec<u8>,
-}
-impl UiMessage {
-    /// Convert the struct into bytes using JSON serialization
-    pub fn as_bytes(&self) -> Vec<u8> {
-        bincode::serialize(self).expect("Failed to serialize UiMessage")
-    }
-
-    /// Convert bytes back into a `UiMessage` struct
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        bincode::deserialize(bytes).ok()
-    }
-    /// create a new UiMessage
-    pub fn new(message_type: UiEventTypes, message: Vec<u8>) -> UiMessage {
-        UiMessage {
-            message_type,
-            message,
-            sequence_number: 0,
-            total_packet_number: 0,
-            packet_number: 0,
-        }
-    }
 }
 
 /// contains information about pings sent to the server
@@ -160,6 +119,15 @@ pub enum ServerState {
     /// the mailbox is stopped
     Stopped,
 }
+
+/// Message used for acknowledging reliable headers for incoming packets.
+/// When a UDP packet is received from the server with a reliable header, its sequence number is
+/// sent back to the server in a PacketAck, so the server knows that sequence number was received.
+/// Then the ack queue is cleared, to prevent sending acks for packets that have already been
+/// received.
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SendAckList {}
 
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -215,18 +183,13 @@ impl Handler<UiMessage> for Mailbox {
         // leave a little room at the end
         let overhead = 2;
 
-        let message_type_len = msg.message_type.to_string().len();
         let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
         let total_packet_number_len = std::mem::size_of::<u16>();
         let packet_number_len = std::mem::size_of::<u16>();
 
         // Calculate the maximum size available for the actual message content
         let available_size = max_message_size
-            - (message_type_len
-                + sequence_number_len
-                + total_packet_number_len
-                + packet_number_len
-                + overhead);
+            - (sequence_number_len + total_packet_number_len + packet_number_len + overhead);
 
         // Split the message content if it's larger than the available size
         let message = msg.message;
@@ -243,7 +206,6 @@ impl Handler<UiMessage> for Mailbox {
 
             // Create a new message with the chunked data
             let chunked_message = UiMessage {
-                message_type: msg.message_type.clone(),
                 sequence_number,
                 total_packet_number: total_chunks as u16, // Add total number of chunks
                 message: chunk.to_vec(),
@@ -252,7 +214,7 @@ impl Handler<UiMessage> for Mailbox {
 
             let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
             if let Err(e) =
-                client_socket.send_to(&chunked_message.as_bytes(), &self.server_to_ui_socket)
+                client_socket.send_to(&chunked_message.to_bytes(), &self.server_to_ui_socket)
             {
                 info!("sending to: {}", self.server_to_ui_socket);
                 error!(
@@ -274,8 +236,8 @@ impl Handler<Session> for Mailbox {
         self.session = Some(msg);
 
         // if the session doesn't already have a UDP socket to watch, create one
-        if let Some(session) = self.session.as_ref() {
-            if session.socket.is_none() {
+        if let Some(session) = self.session.as_ref()
+            && session.socket.is_none() {
                 let addr = format!("0.0.0.0:{}", self.client_socket);
 
                 let addr_clone = addr.clone();
@@ -316,107 +278,56 @@ impl Handler<Session> for Mailbox {
                     }
                 }));
             }
+    }
+}
+
+impl Handler<EventType> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: EventType, ctx: &mut Self::Context) -> Self::Result {
+        if let EventType::ChatFromViewer(data) = msg {
+            ctx.address().do_send(Packet::new_chat_from_viewer(data));
         }
     }
 }
 
-/// This handles incoming packets sent to the Mailbox.
-/// this sends acks if the header is reliable, and increases the sequence number.
+/// Handles sending packets to the server
 impl Handler<Packet> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref session) = self.session {
-            //TODO: This should really be saved somewhere
-            let addr = format!("{}:{}", session.url, session.server_socket);
-
-            {
-                let sequence_number = self.packet_sequence_number.lock().unwrap();
-                msg.header.sequence_number = *sequence_number;
-            }
-
-            if msg.header.reliable {
-                let ack_future = send_ack(
-                    msg,
-                    addr,
-                    self.ack_queue.clone(),
-                    session.socket.as_ref().unwrap().clone(),
-                );
-                ctx.spawn(
-                    async move {
-                        if let Err(e) = ack_future.await {
-                            error!("Error sending acknowledgment: {:?}", e);
-                        }
-                    }
-                    .into_actor(self),
-                );
-            } else {
-                let data = msg.to_bytes().clone();
-                let socket_clone = session.socket.as_ref().unwrap().clone();
-                let fut = async move {
-                    if let Err(e) = socket_clone.send_to(&data, &addr).await {
-                        error!("Failed to send data: {}", e);
-                    }
-                };
-                ctx.spawn(fut.into_actor(self));
+            let addr = session.address.clone();
+            let data = msg.to_bytes().clone();
+            let socket_clone = session.socket.as_ref().unwrap().clone();
+            let fut = async move {
+                if let Err(e) = socket_clone.send_to(&data, &addr).await {
+                    error!("Failed to send data: {}", e);
+                }
             };
-            {
-                let mut sequence_number = self.packet_sequence_number.lock().unwrap();
-                *sequence_number += 1;
-            }
+            ctx.spawn(fut.into_actor(self));
         }
     }
 }
 
-async fn send_ack(
-    packet: Packet,
-    addr: String,
-    ack_queue: Arc<Mutex<HashMap<u32, oneshot::Sender<()>>>>,
-    socket: Arc<UdpSocket>,
-) -> Result<(), SessionError> {
-    let mut attempts = 0;
-    let mut received_ack = false;
-    let packet_id = packet.header.sequence_number;
-    while attempts < ACK_ATTEMPTS && !received_ack {
-        let (tx, rx) = oneshot::channel();
-        let mut packet_clone = packet.clone();
-
-        // if there have been more than 1 attempt, set the resent to true.
-        if attempts > 0 {
-            packet_clone.header.resent = true;
-        }
-
-        {
-            let mut queue = ack_queue.lock().unwrap();
-            queue.insert(packet_id, tx);
-        }
-        // Send the packet
-
-        let data = packet_clone.to_bytes().clone();
-        let addr_clone = addr.clone();
-        let sock_clone = socket.clone();
-        if let Err(e) = sock_clone.send_to(&data, addr_clone).await {
-            error!("Failed to send Ack: {}", e);
-        }
-
-        tokio::select! {
-            _ = rx => {
-                received_ack = true;
-            },
-            _ = tokio::time::sleep(ACK_TIMEOUT) => {
-                attempts += 1;
-                if !received_ack && attempts >= ACK_ATTEMPTS {
-                    // Remove from queue after final attempt
-                    let mut queue = ack_queue.lock().unwrap();
-                    queue.remove(&packet_id);
-                }
+impl Handler<SendAckList> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(ref session) = self.session {
+            // send ack directly to the server
+            let mut ack_queue = self.ack_queue.lock().unwrap();
+            if ack_queue.is_empty() {
+                return;
             }
+            let packet_ids: Vec<u32> = ack_queue.drain().collect();
+
+            let addr = session.address.clone();
+            let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
+            let sock_clone = session.socket.clone().unwrap();
+            let ack_wait = async move {
+                if let Err(e) = sock_clone.send_to(&packet, addr).await {
+                    println!("Failed to send ack: {:?}", e)
+                };
+            };
+            ctx.spawn(ack_wait.into_actor(self));
         }
-    }
-    if received_ack {
-        Ok(())
-    } else {
-        Err(SessionError::AckError(AckError::new(
-            "failed to retrieve ack ".to_string(),
-        )))
     }
 }
