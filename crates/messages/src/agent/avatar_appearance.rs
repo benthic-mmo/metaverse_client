@@ -3,6 +3,7 @@ use std::io::{Cursor, Read};
 use uuid::Uuid;
 
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -44,7 +45,7 @@ pub struct AvatarAppearance {
 }
 
 impl PacketData for AvatarAppearance {
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         println!("avatar appearance packet received : {:?}", bytes);
         let mut cursor = Cursor::new(bytes);
 

@@ -1,25 +1,24 @@
 use crate::core::{
     environment::EnvironmentCache,
     inventory::{InventoryData, RefreshInventoryEvent},
-    session::{Mailbox, Session, UiMessage},
+    session::{Mailbox, Session},
 };
 use log::{info, warn};
 use metaverse_messages::{
-    agent::agent_wearables_request::AgentWearablesRequest,
     capabilities::capabilities::{Capability, CapabilityRequest},
     errors::errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError},
     login::{
-        circuit_code::CircuitCodeData,
+        circuit_code::CircuitCode,
         complete_agent_movement::CompleteAgentMovementData,
         login_response::LoginResponse,
         login_xmlrpc::{send_login_xmlrpc, Login},
         simulator_login_protocol::SimulatorLoginProtocol,
     },
-    packet::{packet::Packet, packet_types::PacketType},
-    ui::{
-        errors::{MailboxSessionError, SessionError},
-        ui_events::UiEventTypes,
+    packet::{
+        message::{EventType, UiMessage},
+        packet::Packet,
     },
+    ui::errors::{MailboxSessionError, SessionError},
 };
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -59,8 +58,6 @@ use tokio::net::UdpSocket;
 /// };
 ///
 /// ```
-///
-///
 pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
     let socket = UdpSocket::bind(ui_to_core_socket)
         .await
@@ -69,24 +66,33 @@ pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: act
         let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf).await {
             Ok((n, _)) => {
-                let packet = match Packet::from_bytes(&buf[..n]) {
-                    Ok(packet) => packet,
+                let event = match UiMessage::from_bytes(&buf[..n]) {
+                    Ok(event) => event,
                     Err(e) => {
-                        warn!("Core failed to receive event from UI: {:?}", e);
+                        warn!("Failed to receive event {:?},", e);
                         continue;
                     }
                 };
-                if let PacketType::Login(login) = packet.body {
-                    match handle_login((*login).clone(), &mailbox_addr).await {
+                let ui_message = match UiMessage::into_event(event) {
+                    Ok(data) => data,
+                    Err(e) => {
+                        warn!("Invalid UIEvent data {:?}", e);
+                        continue;
+                    }
+                };
+                if let EventType::Login(login) = ui_message {
+                    match handle_login(login.clone(), &mailbox_addr).await {
                         Ok(_) => info!("Successfully logged in"),
                         Err(e) => {
                             // send the error to the UI to handle
                             warn!("Error logging in: {:?}", e);
-                            mailbox_addr.do_send(UiMessage::new(UiEventTypes::Error, e.to_bytes()));
+                            mailbox_addr
+                                .do_send(UiMessage::from_event(&EventType::new_session_error(e)));
                         }
                     };
                 } else {
-                    mailbox_addr.do_send(packet);
+                    // send the event to the core to handle
+                    mailbox_addr.do_send(ui_message);
                 }
             }
             Err(e) => {
@@ -110,12 +116,10 @@ async fn handle_login(
 ) -> Result<(), SessionError> {
     let login_response = match login_with_creds(login_data).await {
         Ok(response) => {
-            let serialized = serde_json::to_string(&response).unwrap();
             if let Err(e) = mailbox_addr
-                .send(UiMessage::new(
-                    UiEventTypes::LoginResponseEvent,
-                    serialized.to_string().into_bytes(),
-                ))
+                .send(UiMessage::from_event(&EventType::new_login_response_event(
+                    response.clone(),
+                )))
                 .await
             {
                 warn!("Failed to send LoginResponse to Mailbox {:?}", e)
@@ -128,10 +132,13 @@ async fn handle_login(
 
     if let Err(e) = mailbox_addr
         .send(Session {
-            server_socket: login_response.sim_port.unwrap(),
-            url: login_response.sim_ip.unwrap(),
             agent_id: login_response.agent_id,
             session_id: login_response.session_id,
+            address: format!(
+                "{}:{}",
+                login_response.sim_ip.unwrap(),
+                login_response.sim_port.unwrap()
+            ),
             seed_capability_url: login_response.seed_capability.unwrap(),
             capability_urls: HashMap::new(),
 
@@ -160,7 +167,7 @@ async fn handle_login(
     };
 
     if let Err(e) = mailbox_addr
-        .send(Packet::new_circuit_code(CircuitCodeData {
+        .send(Packet::new_circuit_code(CircuitCode {
             code: login_response.circuit_code,
             session_id: login_response.session_id,
             id: login_response.agent_id,
@@ -181,17 +188,6 @@ async fn handle_login(
                 agent_id: login_response.agent_id,
             },
         ))
-        .await
-    {
-        return Err(SessionError::CompleteAgentMovement(
-            CompleteAgentMovementError::new(format!("{}", e)),
-        ));
-    };
-    if let Err(e) = mailbox_addr
-        .send(Packet::new_agent_wearables_request(AgentWearablesRequest {
-            agent_id: login_response.agent_id,
-            session_id: login_response.session_id,
-        }))
         .await
     {
         return Err(SessionError::CompleteAgentMovement(

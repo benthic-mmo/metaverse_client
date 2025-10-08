@@ -1,10 +1,13 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
+    message::EventType,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
 use byteorder::ReadBytesExt;
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::io::{self, BufRead, Cursor};
 use uuid::Uuid;
@@ -18,7 +21,7 @@ impl Packet {
             header: Header {
                 id: 139,
                 frequency: PacketFrequency::Low,
-                reliable: false,
+                reliable: true,
                 sequence_number: 0,
                 appended_acks: false,
                 zerocoded: false,
@@ -31,7 +34,15 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+/// Implement UIEvent for ChatFromSimulator. Can be sent between the core and UI
+impl EventType {
+    /// create a new chat from simulator UiEvent
+    pub fn new_chat_from_simulator(data: ChatFromSimulator) -> Self {
+        EventType::ChatFromSimulator(data)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Struct for notifying client of new chat messages
 pub struct ChatFromSimulator {
     /// The person who sent the message
@@ -52,7 +63,7 @@ pub struct ChatFromSimulator {
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Enum for the types of agents that can emit chat messages
 pub enum SourceType {
     /// chat coming from the system
@@ -83,7 +94,7 @@ impl SourceType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Determines if the chat is audible to the user.
 pub enum Audible {
     /// Not audible. Don't display the chat.
@@ -115,7 +126,7 @@ impl Audible {
 }
 
 impl PacketData for ChatFromSimulator {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         // FromName

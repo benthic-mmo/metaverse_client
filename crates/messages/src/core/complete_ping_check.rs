@@ -1,4 +1,5 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -32,9 +33,8 @@ pub struct CompletePingCheck {
 }
 
 impl PacketData for CompletePingCheck {
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let ping_id = bytes[0];
-
         Ok(CompletePingCheck { ping_id })
     }
     fn to_bytes(&self) -> Vec<u8> {

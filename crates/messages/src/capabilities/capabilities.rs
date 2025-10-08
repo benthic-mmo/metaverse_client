@@ -81,16 +81,15 @@ impl CapabilityRequest {
     pub fn response_from_llsd(xml_bytes: &[u8]) -> HashMap<Capability, String> {
         let mut result = HashMap::new();
         let xml = String::from_utf8_lossy(xml_bytes).to_string();
-        if let Ok(parsed) = serde_llsd::from_str(&xml) {
-            if let Some(parsed_map) = parsed.as_map() {
+        if let Ok(parsed) = serde_llsd::from_str(&xml)
+            && let Some(parsed_map) = parsed.as_map() {
                 for (key, val) in parsed_map {
                     let capability = Capability::from_string(key);
                     if let LLSDValue::String(value) = val {
                         result.insert(capability, value.clone());
                     }
                 }
-            }
-        };
+            };
         result
     }
 }

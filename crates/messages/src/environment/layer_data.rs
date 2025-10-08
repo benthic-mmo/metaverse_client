@@ -1,11 +1,12 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
 use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
-use std::io::{self, Cursor, Read};
+use std::io::{Cursor, Read};
 
 impl Packet {
     /// Creates a new layer data packet
@@ -97,7 +98,7 @@ impl LayerType {
 }
 
 impl PacketData for LayerData {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
         let layer_type_bytes = cursor.read_u8()?;
         let layer_type = LayerType::from_bytes(layer_type_bytes);

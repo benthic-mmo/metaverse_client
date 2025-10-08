@@ -1,10 +1,11 @@
 use crate::packet::{
+    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Cursor};
+use std::io::Cursor;
 
 impl Packet {
     /// create a new acknowledgement packet
@@ -34,7 +35,7 @@ pub struct PacketAck {
 }
 
 impl PacketData for PacketAck {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let mut cursor = Cursor::new(bytes);
 
         let count = cursor.read_u8()? as usize;
@@ -44,7 +45,6 @@ impl PacketData for PacketAck {
             let id = cursor.read_u32::<LittleEndian>()?;
             packet_ids.push(id);
         }
-
         Ok(PacketAck { packet_ids })
     }
 

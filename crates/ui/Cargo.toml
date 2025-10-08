@@ -9,7 +9,7 @@ metaverse_core = {path = "../core/"}
 metaverse_messages = {path = "../messages/"}
 
 #disable sound for bevy
-bevy = { version = "0.16", default-features = false, features = [
+bevy = { version = "0.17", default-features = false, features = [
     "bevy_winit",
     "bevy_render",
     "bevy_pbr",
@@ -23,28 +23,30 @@ bevy = { version = "0.16", default-features = false, features = [
     "multi_threaded",
     "bevy_log",
     "tonemapping_luts",
-    "dynamic_linking"
+    "dynamic_linking",
+    "zstd_rust"
 ]}
 
-bevy_egui = "0.34.1"
-bevy_panorbit_camera = "0.26.0"
+bevy_egui = "0.37.1"
+bevy_panorbit_camera = "0.29.0"
 
 egui_xml = "0.1.5"
-egui_extras = "0.31.1"
-egui = "0.31.1"
+egui_extras = "0.33.0"
+egui = "0.33.0"
 tokio = { version = "1", features = ["full"] }
-actix-rt = "2.10.0"
-accesskit = "0.19.0"
-tempfile = "3.19.1"
+actix-rt = "2.11.0"
+accesskit = "0.21.1"
+tempfile = "3.23.0"
 serde = { version = "1.0", features = ["derive"] }
 crossbeam-channel = "0.5.15"
 serde_json = "1.0"
 portpicker = "0.1.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 dirs = "6.0.0"
-log = "0.4.27"
+log = "0.4.28"
+thiserror = "2.0.17"
 [dependencies.uuid]
-version = "1.16.0"
+version = "1.18.1"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG

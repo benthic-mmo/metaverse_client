@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// # ChatFromSimulator
 /// <https://wiki.secondlife.com/wiki/ChatFromSimulator>
 ///
@@ -42,7 +44,7 @@ pub mod chat_from_simulator;
 /// | Channel       | 4 bytes  | [i32] | Channel to send the message on.                           |
 pub mod chat_from_viewer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The type of chats that can be sent
 pub enum ChatType {
     /// A chat spoken at a whisper

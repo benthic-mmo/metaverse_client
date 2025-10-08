@@ -94,7 +94,7 @@ fn build_joint_recursive(
         );
         build_joint_recursive(
             child.index(),
-            Some(name.clone()),
+            Some(name),
             node.index(),
             nodes,
             joints,
@@ -108,7 +108,7 @@ fn build_joint_recursive(
         ibm_map[&parent_index] * global.inverse()
     };
     let joint = Joint {
-        name: name.clone(),
+        name,
         parent,
         children,
         transforms: vec![Transform {

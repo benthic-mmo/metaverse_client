@@ -1,4 +1,4 @@
-use super::session::{Mailbox, UiMessage};
+use super::session::Mailbox;
 use crate::http_handler::{download_item, download_mesh, download_object};
 use crate::initialize::create_sub_agent_dir;
 use actix::{Addr, AsyncContext, Handler, Message, WrapFuture};
@@ -8,11 +8,9 @@ use metaverse_agent::avatar::{Avatar, OutfitObject, RiggedObject};
 use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
 use metaverse_gltf::skinned_mesh::generate_skinned_mesh;
 use metaverse_messages::capabilities::scene::SceneGroup;
+use metaverse_messages::packet::message::{EventType, UiMessage};
 use metaverse_messages::{
-    ui::{
-        mesh_update::{MeshType, MeshUpdate},
-        ui_events::UiEventTypes,
-    },
+    ui::mesh_update::{MeshType, MeshUpdate},
     utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
 use serde::Serialize;
@@ -163,16 +161,15 @@ impl Handler<Agent> for Mailbox {
 
         // Update avatar state and notify UI
         msg.avatar.path = Some(glb_path.clone());
-        ctx.address().do_send(UiMessage::new(
-            UiEventTypes::MeshUpdate,
-            MeshUpdate {
-                position: msg.avatar.position,
-                path: glb_path,
-                mesh_type: MeshType::Avatar,
-                id: Some(msg.avatar.agent_id),
-            }
-            .to_bytes(),
-        ));
+        ctx.address()
+            .do_send(UiMessage::from_event(&EventType::new_mesh_update(
+                MeshUpdate {
+                    position: msg.avatar.position,
+                    path: glb_path,
+                    mesh_type: MeshType::Avatar,
+                    id: Some(msg.avatar.agent_id),
+                },
+            )));
     }
 }
 
@@ -214,11 +211,8 @@ fn add_item_to_agent_list(
 ) {
     if let Some(agent) = agent_list.lock().unwrap().get_mut(&agent_id) {
         // update the global avatar skeleton with the calculated object skeleton
-        match &item {
-            OutfitObject::RiggedObject(object) => {
-                update_global_avatar_skeleton(agent, &object.skeleton);
-            }
-            _ => {}
+        if let OutfitObject::RiggedObject(object) = &item {
+            update_global_avatar_skeleton(agent, &object.skeleton);
         }
         agent.outfit_items.push(item);
         // if all of the items have loaded in, trigger a render
@@ -240,11 +234,11 @@ fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: String) -> io::R
                 agent_dir.push(format!("{:?}.json", filename));
                 let mut file = File::create(&agent_dir).unwrap();
                 file.write_all(json.as_bytes()).unwrap();
-                return Ok(agent_dir);
+                Ok(agent_dir)
             }
             Err(e) => {
                 error!("Failed to serialize scene group {:?}, {:?}", filename, e);
-                return Err(io::Error::new(io::ErrorKind::Other, e));
+                Err(io::Error::other(e))
             }
         },
         Err(e) => {
@@ -252,7 +246,7 @@ fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: String) -> io::R
                 "Failed to create agent dir for {:?}. Unable to cache downloaded items.",
                 e
             );
-            return Err(io::Error::new(io::ErrorKind::Other, e));
+            Err(io::Error::other(e))
         }
-    };
+    }
 }

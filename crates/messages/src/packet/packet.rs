@@ -1,6 +1,7 @@
 use super::header::Header;
 use super::packet_types::PacketType;
-use actix::prelude::*;
+use crate::packet::errors::PacketError;
+use actix::Message;
 use std::any::Any;
 use std::io;
 use std::io::{Cursor, Read};
@@ -21,7 +22,7 @@ pub struct Packet {
 /// server, and to and from the client to the UI.
 pub trait PacketData: std::fmt::Debug + Send + Sync + 'static + Any {
     /// convert from bytes to the packet type
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self>
+    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError>
     where
         Self: Sized;
     /// convert to bytes from the packet type
@@ -32,7 +33,7 @@ impl Packet {
     /// Read bytes and convert it to a packet.
     /// First parse the packet's header, and then parse the packet's body based on the ID parsed
     /// from the header.
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
         let header = Header::try_from_bytes(bytes)?;
         // if the packet has a body, add the body to the packet
         let body = if header.size.unwrap_or(0) < bytes.len() {
@@ -48,14 +49,19 @@ impl Packet {
 
         let body = match PacketType::from_id(header.id, header.frequency, body_bytes.as_slice()) {
             Ok(parsed_body) => parsed_body, // If parsing succeeds, use the parsed body
-            Err(e) => match e.kind() {
-                io::ErrorKind::UnexpectedEof => {
-                    println!("header: {:?}", header);
-                    println!("body bytes: {:?}", body_bytes);
-                    println!("raw_packet: {:?}", bytes);
-                    println!("{:?}", e);
-                    return Err(e);
-                }
+            Err(e) => match e {
+                PacketError::ParseError(e2) => match e2.kind() {
+                    io::ErrorKind::UnexpectedEof => {
+                        println!("header: {:?}", header);
+                        println!("body bytes: {:?}", body_bytes);
+                        println!("raw_packet: {:?}", bytes);
+                        println!("{:?}", e2);
+                        return Err(e2)?;
+                    }
+                    _ => {
+                        return Err(e2)?;
+                    }
+                },
                 _ => {
                     return Err(e);
                 }
@@ -97,7 +103,6 @@ fn zero_decode(bytes: &[u8]) -> Vec<u8> {
     dest
 }
 
-// not implemented yet
 fn _zero_encode(src: &[u8]) -> Vec<u8> {
     let mut dest = Vec::new();
     let mut i = 0;
@@ -120,6 +125,5 @@ fn _zero_encode(src: &[u8]) -> Vec<u8> {
             i += 1;
         }
     }
-
     dest
 }
