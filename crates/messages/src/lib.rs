@@ -26,5 +26,6 @@ pub mod utils;
 
 /// HTTP packet definitions
 pub mod http;
+pub mod legacy;
 /// UDP packet definitions
 pub mod udp;

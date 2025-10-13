@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    agent::agent_wearables_update::AgentWearablesUpdate, packet::packet::PacketData,
+    legacy::udp::agent_wearables_update::AgentWearablesUpdate, packet::packet::PacketData,
     utils::object_types::WearableType,
 };
 use uuid::{uuid, Uuid};

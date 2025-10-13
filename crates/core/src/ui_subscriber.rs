@@ -1,15 +1,8 @@
 use crossbeam_channel::Sender;
-use metaverse_messages::packet::message::{EventType, UiMessage};
-use std::collections::HashMap;
+use metaverse_messages::packet::message::UIMessage;
 use std::net::UdpSocket;
 
 use log::{info, warn};
-
-/// This stores the packet and the chunks for deserialization
-pub struct PacketStore {
-    /// the chunks that belong to that packet
-    chunks: HashMap<u16, Vec<u8>>,
-}
 
 /// This is for your client to listen on the data coming out of the server.
 /// import this and use directly, or modify to suit your own needs.
@@ -57,50 +50,19 @@ pub struct PacketStore {
 ///     }
 ///}
 ///```
-pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<EventType>) {
+pub async fn listen_for_core_events(core_to_ui_socket: String, sender: Sender<UIMessage>) {
     let socket = UdpSocket::bind(core_to_ui_socket).expect("Failed to bind UDP socket");
-    let mut message_store: HashMap<u16, PacketStore> = HashMap::new();
 
     info!("UI listening for core events on UDP: {:?}", socket);
     loop {
         let mut buf = [0u8; 1500];
         match socket.recv_from(&mut buf) {
             Ok((n, _)) => {
-                if let Ok(received_chunk) = UiMessage::from_bytes(&buf[..n]) {
-                    let packet_store =
-                        message_store
-                            .entry(received_chunk.packet_number)
-                            .or_insert(PacketStore {
-                                chunks: HashMap::new(),
-                            });
-
-                    packet_store.chunks.insert(
-                        received_chunk.sequence_number,
-                        received_chunk.message.to_vec(),
-                    );
-
-                    // Check if we have all chunks
-                    if packet_store.chunks.len() == received_chunk.total_packet_number as usize {
-                        let mut full_message = Vec::new();
-                        for i in 0..received_chunk.total_packet_number {
-                            if let Some(chunk) = packet_store.chunks.remove(&i) {
-                                full_message.extend_from_slice(&chunk);
-                            } else {
-                                warn!("Missing chunk {} for message reconstruction", i);
-                                return;
-                            }
-                        }
-                        // get the packet type and send that to the sender
-                        if let packet = EventType::from_bytes(&full_message).unwrap() {
-                            if let Err(e) = sender.send(packet) {
-                                warn!("Failed to send packet to UI: {:?}", e)
-                            };
-                        } else {
-                            warn!("Client failed to send packet to UI")
-                        };
-                    }
-                } else {
-                    warn!("UI failed to deserialize the packet chunk from core")
+                if let Ok(packet) = UIMessage::from_bytes(&buf[..n]) {
+                    // get the packet type and send that to the sender
+                    if let Err(e) = sender.send(packet) {
+                        warn!("Failed to send packet to UI: {:?}", e)
+                    };
                 }
             }
             Err(e) => {

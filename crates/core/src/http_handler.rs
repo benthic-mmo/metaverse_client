@@ -1,4 +1,8 @@
+use metaverse_messages::http::login::login_errors::{LoginError, Reason};
+use metaverse_messages::http::login::login_response::LoginResponse;
+use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::http::mesh::Mesh;
+use metaverse_messages::ui::login_event::Login;
 use metaverse_messages::{
     http::{item::Item, scene::SceneGroup},
     utils::item_metadata::ItemMetadata,
@@ -6,6 +10,30 @@ use metaverse_messages::{
 use std::io::Error;
 
 /// This file is used to send HTTP requests to capability endpoints.
+pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginError> {
+    let url = login.url.clone();
+    let client = awc::Client::default();
+    // Serialize login data to XML-RPC
+    let xml = SimulatorLoginProtocol::new(login).to_xml();
+    // Send POST request
+    let mut response = client
+        .post(&url)
+        .insert_header(("Content-Type", "text/xml; charset=utf-8"))
+        .send_body(xml)
+        .await
+        .map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?;
+
+    let body_bytes = response
+        .body()
+        .await
+        .map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?;
+
+    let xml_string = String::from_utf8(body_bytes.to_vec()).unwrap();
+    // Parse XML-RPC response
+
+    LoginResponse::from_xml(&xml_string)
+        .map_err(|e| LoginError::new(Reason::Unknown, &e.to_string()))
+}
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object using the object's asset ID.
 /// Creates a get request in the format of

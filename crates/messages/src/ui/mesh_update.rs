@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use crate::packet::message::EventType;
+use crate::packet::message::UIMessage;
 
 /// this is the struct for sending mesh updates from the core to the UI.
 /// the path is the path to the generated gltf file, and the position is where to place it in the
@@ -30,8 +30,8 @@ pub enum MeshType {
     Avatar,
 }
 
-impl EventType {
+impl UIMessage {
     pub fn new_mesh_update(data: MeshUpdate) -> Self {
-        EventType::MeshUpdate(data)
+        UIMessage::MeshUpdate(data)
     }
 }

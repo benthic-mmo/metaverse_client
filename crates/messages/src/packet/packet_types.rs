@@ -1,11 +1,11 @@
 use super::header::PacketFrequency;
+use crate::legacy::udp::agent_wearables_request::AgentWearablesRequest;
+use crate::legacy::udp::agent_wearables_update::AgentWearablesUpdate;
 use crate::packet::errors::PacketError;
 use crate::packet::packet::PacketData;
-use crate::udp::agent::agent_wearables_request::AgentWearablesRequest;
-use crate::udp::agent::agent_wearables_update::AgentWearablesUpdate;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
+use crate::udp::core::logout_request::LogoutRequest;
 use crate::udp::core::object_update::ObjectUpdate;
-use crate::ui::login::logout_request::LogoutRequest;
 use crate::{
     udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
     udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
@@ -79,7 +79,9 @@ define_packets! {
     158 [Low] => AvatarAppearance,
     249 [Low] => CompleteAgentMovementData,
     252 [Low] => LogoutRequest,
-    382 [Low] => AgentWearablesUpdate,
     251 [Low] => PacketAck,
+
+    // Legacy packets
+    382 [Low] => AgentWearablesUpdate,
     381 [Low] => AgentWearablesRequest
 }

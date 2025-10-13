@@ -8,7 +8,7 @@ use metaverse_agent::avatar::{Avatar, OutfitObject, RiggedObject};
 use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
 use metaverse_gltf::skinned_mesh::generate_skinned_mesh;
 use metaverse_messages::http::scene::SceneGroup;
-use metaverse_messages::packet::message::{EventType, UiMessage};
+use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::{
     ui::mesh_update::{MeshType, MeshUpdate},
     utils::{item_metadata::ItemMetadata, object_types::ObjectType},
@@ -162,14 +162,12 @@ impl Handler<Agent> for Mailbox {
         // Update avatar state and notify UI
         msg.avatar.path = Some(glb_path.clone());
         ctx.address()
-            .do_send(UiMessage::from_event(&EventType::new_mesh_update(
-                MeshUpdate {
-                    position: msg.avatar.position,
-                    path: glb_path,
-                    mesh_type: MeshType::Avatar,
-                    id: Some(msg.avatar.agent_id),
-                },
-            )));
+            .do_send(UIMessage::new_mesh_update(MeshUpdate {
+                position: msg.avatar.position,
+                path: glb_path,
+                mesh_type: MeshType::Avatar,
+                id: Some(msg.avatar.agent_id),
+            }));
     }
 }
 

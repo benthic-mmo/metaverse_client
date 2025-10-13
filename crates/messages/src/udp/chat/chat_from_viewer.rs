@@ -1,7 +1,6 @@
 use crate::packet::{
     errors::PacketError,
     header::{Header, PacketFrequency},
-    message::EventType,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
@@ -30,13 +29,6 @@ impl Packet {
             },
             body: PacketType::ChatFromViewer(Box::new(chat_from_viewer)),
         }
-    }
-}
-
-impl EventType {
-    /// Implement UiEvent for ChatFromViewer to allow it to be sent from the UI to the core
-    pub fn new_chat_from_viewer(data: ChatFromViewer) -> Self {
-        EventType::ChatFromViewer(data)
     }
 }
 

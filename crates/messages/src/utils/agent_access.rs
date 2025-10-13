@@ -1,5 +1,6 @@
+use crate::http::login::login_response::FromLLSDValue;
 use serde::{Deserialize, Serialize};
-use xmlrpc_benthic::{self as xmlrpc, Value};
+use serde_llsd::LLSDValue;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 /// Handles the access level of the viewer.
@@ -21,6 +22,24 @@ pub enum AgentAccess {
     PG,
     /// unknown
     Unknown,
+}
+impl FromLLSDValue for AgentAccess {
+    fn from_llsd(value: &LLSDValue) -> Option<Self> {
+        if let LLSDValue::String(s) = value {
+            match s.as_str() {
+                "A" => Some(AgentAccess::Adult),
+                "M" => Some(AgentAccess::Mature),
+                "D" => Some(AgentAccess::Down),
+                "N" => Some(AgentAccess::NonExistent),
+                "T" => Some(AgentAccess::Trial),
+                "G" => Some(AgentAccess::General),
+                "PG" => Some(AgentAccess::PG),
+                _ => Some(AgentAccess::Unknown),
+            }
+        } else {
+            None
+        }
+    }
 }
 impl AgentAccess {
     /// Maps agent access values to their byte representation. These are a little randomly chosen.
@@ -49,33 +68,4 @@ impl AgentAccess {
             _ => AgentAccess::Unknown,
         }
     }
-}
-impl From<AgentAccess> for Value {
-    fn from(val: AgentAccess) -> Self {
-        let access_str = match val {
-            AgentAccess::Down => "Down",
-            AgentAccess::NonExistent => "",
-            AgentAccess::Trial => "T",
-            AgentAccess::Mature => "M",
-            AgentAccess::Adult => "A",
-            AgentAccess::PG => "PG",
-            AgentAccess::General => "G",
-            AgentAccess::Unknown => "Unknown",
-        };
-        Value::String(access_str.to_string())
-    }
-}
-
-/// used by the login response to parse the agent access from a string.
-pub fn parse_agent_access(agent_access: Option<&xmlrpc::Value>) -> Option<AgentAccess> {
-    agent_access.map(|x| match x.clone().as_str().unwrap() {
-        "M" => AgentAccess::Mature,
-        "A" => AgentAccess::Adult,
-        "PG" => AgentAccess::PG,
-        "G" => AgentAccess::General,
-        "" => AgentAccess::NonExistent,
-        "Down" => AgentAccess::Down,
-        "T" => AgentAccess::Trial,
-        _ => AgentAccess::Unknown,
-    })
 }

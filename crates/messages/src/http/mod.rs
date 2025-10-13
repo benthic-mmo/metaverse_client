@@ -23,3 +23,6 @@ pub mod scene;
 /// Handles the mesh data.
 /// This contains the triangle coordinates of mesh objects that will be displayed by the UI.
 pub mod mesh;
+
+/// Contains login information sent over http
+pub mod login;

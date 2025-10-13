@@ -1,7 +1,7 @@
 use crate::{
     errors::errors::{AckError, CapabilityError, CircuitCodeError, CompleteAgentMovementError},
-    packet::message::EventType,
-    ui::login::login_errors::LoginError,
+    http::login::login_errors::LoginError,
+    packet::message::UIMessage,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -50,9 +50,9 @@ pub enum SessionError {
     IOError(String),
 }
 
-impl EventType {
+impl UIMessage {
     pub fn new_session_error(data: SessionError) -> Self {
-        EventType::Error(data)
+        UIMessage::Error(data)
     }
 }
 

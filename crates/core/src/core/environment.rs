@@ -10,7 +10,7 @@ use metaverse_messages::{
     ui::mesh_update::{MeshType, MeshUpdate},
 };
 
-use metaverse_messages::packet::message::{EventType, UiMessage};
+use metaverse_messages::packet::message::UIMessage;
 use std::collections::HashMap;
 
 use crate::initialize::create_sub_share_dir;
@@ -70,15 +70,14 @@ impl Handler<LayerData> for Mailbox {
                                         land.terrain_header.filename.clone(),
                                     ) {
 
-                                        ctx.address().do_send(UiMessage::from_event(
-                                    &EventType::new_mesh_update(
+                                        ctx.address().do_send(UIMessage::new_mesh_update(
                                             MeshUpdate {
                                                 position: mesh.position.unwrap(),
                                                 path,
                                                 mesh_type: MeshType::Land,
                                                 id: None,
                                             })
-                                        ));
+                                        );
                                     };
                             }
                         }
