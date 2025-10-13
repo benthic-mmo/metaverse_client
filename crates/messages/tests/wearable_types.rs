@@ -1,8 +1,0 @@
-use metaverse_messages::capabilities::wearable_types::WearableData;
-
-const WEARABLE_1: &[u8] = b"LLWearable version 22\nNew Shape\n\n\tpermissions 0\n\t{\n\t\tbase_mask\t7fffffff\n\t\towner_mask\t7fffffff\n\t\tgroup_mask\t00000000\n\t\teveryone_mask\t00000000\n\t\tnext_owner_mask\t00082000\n\t\tcreator_id\t11111111-1111-0000-0000-000100bba000\n\t\towner_id\t11111111-1111-0000-0000-000100bba000\n\t\tlast_owner_id\t00000000-0000-0000-0000-000000000000\n\t\tgroup_id\t00000000-0000-0000-0000-000000000000\n\t}\n\tsale_info\t0\n\t{\n\t\tsale_type\tnot\n\t\tsale_price\t10\n\t}\ntype 0\nparameters 142\n1 0\n2 0\n4 0\n5 0\n6 0\n7 0\n8 0\n10 0\n11 0\n120\n13 0\n14 0\n15 0\n17 0\n18 0\n19 0\n20 0\n21 0\n22 0\n23 0\n24 0\n25 0\n26 0\n27 0\n28 0\n29 .12\n30 .12\n32 0\n33 0\n34 0\n35 0\n36 -.5\n37 0\n38 0\n40 0\n80 0\n100 0\n104 0\n105 .5\n106 0\n151 0\n152 0\n153 0\n155 0\n156 0\n157 0\n185 0\n186 0\n187 0\n188 0\n189 0\n193 .5\n194 .67\n195 .33\n196 0\n505 .5\n506 0\n507 0\n515 0\n517 0\n518 0\n626 0\n627 0\n629 .5\n630 0\n631 0\n633 0\n634 0\n635 0\n637 0\n646 0\n647 0\n648 0\n649 .5\n650 0\n651 0\n652 .5\n653 0\n655 -.08\n656 0\n657 0\n658 0\n659 .5\n660 0\n661 0\n662 .5\n663 0\n664 0\n665 0\n675 0\n676 0\n677 0\n678 .5\n679 -.08\n680 -.08\n681 -.08\n682 .5\n683 -.15\n684 0\n685 0\n686 0\n687 0\n688 0\n689 0\n690 .5\n691 0\n692 0\n693 .6\n694 -.08\n695 0\n753 0\n756 0\n758 0\n759 .5\n760 0\n764 0\n765 0\n767 0\n768 0\n769 .5\n770 0\n772 0\n773 .5\n794 .17\n795 .25\n796 0\n797 0\n798 0\n799 .5\n841 0\n842 0\n843 0\n853 0\n854 0\n855 0\n879 0\n880 0\n1103 0\n1104 0\n1105 0\n1200 0\n1201 0\ntextures 0\n";
-
-#[test]
-fn test_wearable_types() {
-    WearableData::from_bytes(WEARABLE_1);
-}

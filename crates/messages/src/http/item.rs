@@ -48,7 +48,7 @@ impl ItemData {
     /// Data for item objects come in in a newline separated bytes stream.
     /// This is not LLSD, or any other documented format, which may only be used here in ItemData.
     /// Input looks like this:
-    /// ```
+    /// ```ignore
     /// LLWearable version 22
     /// New Eyes
     ///

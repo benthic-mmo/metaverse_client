@@ -14,7 +14,7 @@ impl Packet {
         Packet {
             header: Header {
                 id: 152,
-                reliable: false,
+                reliable: true,
                 resent: false,
                 zerocoded: false,
                 appended_acks: false,

@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::Duration};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
 use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
-use metaverse_messages::capabilities::{capabilities::Capability, folder_types::FolderNode};
+use metaverse_messages::http::{capabilities::Capability, folder_types::FolderNode};
 use uuid::Uuid;
 
 use super::session::Mailbox;

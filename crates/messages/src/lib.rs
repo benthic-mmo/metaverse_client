@@ -11,29 +11,10 @@
 //! packet to_bytes functions. Contributions welcome!
 
 #![warn(missing_docs)]
-/// Packets related to user agents.
-/// Contains packets for updating agent location, and handling appearance, movmement and outfits.
-pub mod agent;
-/// Viewer capabilities. These are requests sent to the server to receive xml data.
-/// these are used for things like getting meshes.
-pub mod capabilities;
-/// Packets related to chat.
-/// Contains packets for sending and receiving chat messages.
-pub mod chat;
-/// Packets related to the core functionality of the client and server.
-/// Conains packets related to sending and receiving acks, sending disconnects, and handling region
-/// handshakes.
-pub mod core;
-/// Packets related to environment rendering
-/// Contains packets related to Layer and object handling.
-pub mod environment;
 /// Errors
 /// Contains errors that can arise when handling packets
 pub mod errors;
-/// Packets related to login.
-/// this also contains functions used for parsing and handling the XMLRPC login functionality.
-/// Though not strictly a packet, this will be used by both the client and server.
-pub mod login;
+
 /// Definitions for things related to the packet, such as the packet itself and headers.
 pub mod packet;
 /// Packets related to UI
@@ -42,3 +23,8 @@ pub mod packet;
 pub mod ui;
 /// Utilities. Mostly constants used throughout the crate.
 pub mod utils;
+
+/// HTTP packet definitions
+pub mod http;
+/// UDP packet definitions
+pub mod udp;

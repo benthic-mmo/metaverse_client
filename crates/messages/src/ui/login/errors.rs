@@ -1,7 +1,7 @@
 use std::error::Error;
 use thiserror::Error;
 
-use crate::login;
+use crate::ui::login::login_errors;
 
 #[derive(Debug, Error)]
 /// Error types for handling LoginResponses
@@ -17,5 +17,5 @@ pub enum LoginResponseError {
     #[error("Failed to convert {0}")]
     /// convert old login errors to new login errors
     /// TODO: remove this
-    ConversionError(#[from] login::login_errors::ConversionError),
+    ConversionError(#[from] login_errors::ConversionError),
 }

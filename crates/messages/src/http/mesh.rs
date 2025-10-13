@@ -52,7 +52,7 @@ impl Mesh {
     /// offset positions for each of the compressed values.
     /// Extracted from the binary format to a HashMap, it looks something like this.
     ///
-    /// ```
+    /// ```ignore
     /// Map({
     /// skin: Map({ size: Integer(598), offset: Integer(0) }),
     /// physics_convex: Map({ size: Integer(204), offset: Integer(598) }),
@@ -63,7 +63,7 @@ impl Mesh {
     /// });
     ///```
     /// The offset it points to is the exact position in the data of the next zlib magic
-    /// number for decompressing each section.
+    /// number for decompressing each section
     /// Once decompressed, the data is encoded in the same binary llsd format that the header is.
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
         let mut mesh = Mesh {

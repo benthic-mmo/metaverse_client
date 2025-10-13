@@ -8,8 +8,8 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use keyring::Entry;
 use metaverse_messages::{
-    login::login_xmlrpc::Login,
     packet::message::{EventType, UiMessage},
+    ui::login::login_xmlrpc::Login,
 };
 use std::{fs, path::PathBuf};
 

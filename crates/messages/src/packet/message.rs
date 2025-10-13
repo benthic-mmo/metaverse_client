@@ -1,10 +1,15 @@
 use crate::{
-    agent::coarse_location_update::CoarseLocationUpdate,
-    chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
-    core::disable_simulator::DisableSimulator,
-    login::{login_response::LoginResponse, login_xmlrpc::Login},
     packet::errors::PacketError,
-    ui::{errors::SessionError, mesh_update::MeshUpdate},
+    udp::{
+        agent::coarse_location_update::CoarseLocationUpdate,
+        chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
+        core::disable_simulator::DisableSimulator,
+    },
+    ui::{
+        errors::SessionError,
+        login::{login_response::LoginResponse, login_xmlrpc::Login},
+        mesh_update::MeshUpdate,
+    },
 };
 use actix::Message;
 use bincode::{

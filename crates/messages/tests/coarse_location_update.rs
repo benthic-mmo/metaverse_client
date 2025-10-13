@@ -1,26 +1,17 @@
-use hex::FromHex;
-use metaverse_messages::packet::Packet;
+use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
+
+const TEST_PACKET: [u8; 13] = [0, 0, 0, 0, 1, 0, 255, 6, 0, 255, 255, 255, 255];
 
 #[test]
 fn test_coarse_location_update() {
-    let test_packet = match Vec::from_hex("000000000100ff0600ffffffff00") {
-        Ok(bytes) => bytes,
-        Err(_) => panic!("failed"),
+    let packet = match Packet::from_bytes(&TEST_PACKET) {
+        Ok(packet) => packet,
+        Err(e) => panic!("Error creating packet: {}", e),
     };
-    match Packet::from_bytes(&test_packet) {
-        Ok(packet) => println!("Packet created successfully: {:?}", packet),
-        Err(e) => eprintln!("Error creating packet: {}", e),
-    }
-}
-
-#[test]
-fn test_coarse_location_update_firestorm() {
-    let test_packet = match Vec::from_hex("400000000300ffff0018") {
-        Ok(bytes) => bytes,
-        Err(_) => panic!("failed"),
-    };
-    match Packet::from_bytes(&test_packet) {
-        Ok(packet) => println!("Packet created successfully: {:?}", packet),
-        Err(e) => eprintln!("Error creating packet: {}", e),
+    match packet.body {
+        PacketType::CoarseLocationUpdate(packet) => {
+            assert!(-1 == packet.you);
+        }
+        _ => {}
     }
 }

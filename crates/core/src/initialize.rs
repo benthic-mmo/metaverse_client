@@ -5,7 +5,6 @@ use log::error;
 use log::info;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::create_dir_all;
 use std::path::PathBuf;

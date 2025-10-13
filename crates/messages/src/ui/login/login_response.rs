@@ -5,8 +5,8 @@
 /// I wrote this a long time ago, but it still works, and the less time you spend thinking about
 /// xml-rpc as used in this project, the better.
 use crate::{
-    login::{errors::LoginResponseError, login_errors::ConversionError},
     packet::message::EventType,
+    ui::login::{errors::LoginResponseError, login_errors::ConversionError},
     utils::agent_access::{parse_agent_access, AgentAccess},
 };
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,30 @@ use xmlrpc_benthic::{self as xmlrpc, Value};
 /// that I may realize some of thse are not optional.
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct LoginResponse {
+    /// The first name of the user
+    pub first_name: String,
+    /// The last name of the user
+    pub last_name: String,
+    /// The id of the user
+    pub agent_id: Uuid,
+    /// UUID of this session
+    pub session_id: Uuid,
+    /// The ip used to communicate with the receiving simulator
+    pub sim_ip: String,
+    /// The UDP port used to communicate with the receiving simulator
+    pub sim_port: u16,
+    /// The URL that the viewer should use to request further capabilities
+    pub seed_capability: Option<String>,
+    /// The ID of the user's root folder
+    pub inventory_root: Option<Vec<Uuid>>,
+    /// Details about the child folders of the root folder
+    pub inventory_skeleton: Option<Vec<InventorySkeletonValues>>,
+    /// The ID of the library root folder
+    pub inventory_lib_root: Option<Vec<Uuid>>,
+    /// Details about the child folders of the library root folder
+    pub inventory_skeleton_lib: Option<Vec<InventorySkeletonValues>>,
+    /// The ID of the user that owns the library
+    pub inventory_lib_owner: Option<Vec<Uuid>>,
     /// home: the home location of the user
     pub home: Option<HomeValues>,
     /// look_at: the direction the avatar should be facing
@@ -33,18 +57,6 @@ pub struct LoginResponse {
     pub agent_access: Option<AgentAccess>,
     /// agent_access_max: The maximum level of region the user can access
     pub agent_access_max: Option<AgentAccess>,
-    /// The URL that the viewer should use to request further capabilities
-    pub seed_capability: Option<String>,
-    /// The first name of the user
-    pub first_name: String,
-    /// The last name of the user
-    pub last_name: String,
-    /// The id of the user
-    pub agent_id: Uuid,
-    /// The ip used to communicate with the receiving simulator
-    pub sim_ip: Option<String>,
-    /// The UDP port used to communicate with the receiving simulator
-    pub sim_port: Option<u16>,
     /// Function unknown. Always set to 0 by OpenSimulator
     pub http_port: Option<u16>,
     /// The location where the user starts on login. "last", "home" or region location
@@ -61,20 +73,10 @@ pub struct LoginResponse {
     pub region_size_y: Option<i64>,
     /// Circuit code to use for all UDP connections
     pub circuit_code: u32,
-    /// UUID of this session
-    pub session_id: Uuid,
+
     /// The secure UUID of this session
     pub secure_session_id: Option<Uuid>,
-    /// The ID of the user's root folder
-    pub inventory_root: Option<Vec<Uuid>>,
-    /// Details about the child folders of the root folder
-    pub inventory_skeleton: Option<Vec<InventorySkeletonValues>>,
-    /// The ID of the library root folder
-    pub inventory_lib_root: Option<Vec<Uuid>>,
-    /// Details about the child folders of the library root folder
-    pub inventory_skeleton_lib: Option<Vec<InventorySkeletonValues>>,
-    /// The ID of the user that owns the library
-    pub inventory_lib_owner: Option<Vec<Uuid>>,
+
     /// URL from which to request map tiles
     pub map_server_url: Option<String>,
     /// The user's friend list. Contains an entry for each friend
@@ -155,12 +157,8 @@ impl From<LoginResponse> for Value {
             "agent_id".to_string(),
             Value::String(val.agent_id.to_string()),
         );
-        if let Some(sim_ip) = val.sim_ip {
-            map.insert("sim_ip".to_string(), Value::String(sim_ip));
-        }
-        if let Some(sim_port) = val.sim_port {
-            map.insert("sim_port".to_string(), Value::Int(sim_port as i32));
-        }
+        map.insert("sim_ip".to_string(), Value::String(val.sim_ip));
+        map.insert("sim_port".to_string(), Value::Int(val.sim_port as i32));
         if let Some(http_port) = val.http_port {
             map.insert("http_port".to_string(), Value::Int(http_port as i32));
         }
@@ -1166,8 +1164,8 @@ impl TryFrom<xmlrpc::Value> for LoginResponse {
             first_name: nonoptional_str_val!(val["first_name"])?,
             last_name: nonoptional_str_val!(val["last_name"])?,
             agent_id: nonoptional_uuid_val!(val["agent_id"]),
-            sim_ip: str_val!(val["sim_ip"]),
-            sim_port: u16_val!(val["sim_port"]),
+            sim_ip: nonoptional_str_val!(val["sim_ip"])?,
+            sim_port: nonoptional_u32_val!(val["sim_port"])?,
             http_port: u16_val!(val["http_port"]),
             start_location: str_val!(val["start_location"]),
             region_x: i64_val!(val["region_x"]),

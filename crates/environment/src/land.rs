@@ -4,15 +4,15 @@ use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use glam::{U16Vec2, Vec3};
 use log::warn;
-use metaverse_messages::capabilities::mesh::Mesh;
-use metaverse_messages::environment::layer_data::LayerData;
+use metaverse_messages::http::mesh::Mesh;
+use metaverse_messages::udp::environment::layer_data::LayerData;
 use twox_hash::XxHash32;
 
 use crate::{
     error::PatchError,
     generate_triangles::generate_triangles,
     layer_handler::{
-        END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
+        bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
     },
 };
 

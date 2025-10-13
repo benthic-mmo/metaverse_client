@@ -5,20 +5,19 @@ use crate::core::{
 };
 use log::{info, warn};
 use metaverse_messages::{
-    capabilities::capabilities::{Capability, CapabilityRequest},
     errors::errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError},
-    login::{
-        circuit_code::CircuitCode,
-        complete_agent_movement::CompleteAgentMovementData,
-        login_response::LoginResponse,
-        login_xmlrpc::{send_login_xmlrpc, Login},
-        simulator_login_protocol::SimulatorLoginProtocol,
-    },
+    http::capabilities::{Capability, CapabilityRequest},
     packet::{
         message::{EventType, UiMessage},
         packet::Packet,
     },
+    udp::core::{circuit_code::CircuitCode, complete_agent_movement::CompleteAgentMovementData},
     ui::errors::{MailboxSessionError, SessionError},
+    ui::login::{
+        login_response::LoginResponse,
+        login_xmlrpc::{send_login_xmlrpc, Login},
+        simulator_login_protocol::SimulatorLoginProtocol,
+    },
 };
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -134,11 +133,7 @@ async fn handle_login(
         .send(Session {
             agent_id: login_response.agent_id,
             session_id: login_response.session_id,
-            address: format!(
-                "{}:{}",
-                login_response.sim_ip.unwrap(),
-                login_response.sim_port.unwrap()
-            ),
+            address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
             seed_capability_url: login_response.seed_capability.unwrap(),
             capability_urls: HashMap::new(),
 

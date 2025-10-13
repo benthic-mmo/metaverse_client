@@ -17,12 +17,12 @@ use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_core::ui_subscriber::listen_for_core_events;
-use metaverse_messages::agent::coarse_location_update::CoarseLocationUpdate;
-use metaverse_messages::login::login_errors::LoginError;
-use metaverse_messages::login::login_response::LoginResponse;
-use metaverse_messages::login::logout_request::LogoutRequest;
 use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
+use metaverse_messages::ui::login::login_errors::LoginError;
+use metaverse_messages::ui::login::login_response::LoginResponse;
+use metaverse_messages::ui::login::logout_request::LogoutRequest;
 use portpicker::pick_unused_port;
 
 pub const VIEWER_NAME: &str = "benthic";
@@ -383,13 +383,14 @@ fn send_agent_update(
 ) {
     if !timer.0.tick(time.delta()).just_finished() {}
 
-    // let data = session_data.login_response.as_ref().unwrap();
-    // let packet = Packet::new_agent_update(AgentUpdate {
-    //     agent_id: data.agent_id,
-    //     session_id: data.session_id,
-    //     ..Default::default()
-    // })
-    // .to_bytes();
+    //let data = session_data.login_response.as_ref().unwrap();
+    //let packet = Packet::new_agent_update(AgentUpdate {
+    //    agent_id: data.agent_id,
+    //    session_id: data.session_id,
+    //    ..Default::default()
+    //})
+    //.to_bytes();
+    //println!("{:?}", packet);
 
     // let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     // match client_socket.send_to(

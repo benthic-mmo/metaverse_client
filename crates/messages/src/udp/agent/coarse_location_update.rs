@@ -59,11 +59,11 @@ impl MinimapEntities {
 /// Struct to contain the ID of you, and the agent you are following
 pub struct CoarseLocationUpdate {
     /// The xyz locations of agents
-    locations: Vec<MinimapEntities>,
+    pub locations: Vec<MinimapEntities>,
     /// the ID of the user
-    you: i16,
+    pub you: i16,
     /// the ID of the user you are following
-    prey: i16,
+    pub prey: i16,
 }
 
 impl PacketData for CoarseLocationUpdate {

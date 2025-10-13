@@ -1,6 +1,6 @@
-use crate::login::login_response::LoginResponse;
-use crate::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 use crate::packet::message::EventType;
+use crate::ui::login::login_response::LoginResponse;
+use crate::ui::login::simulator_login_protocol::{SimulatorLoginOptions, SimulatorLoginProtocol};
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use reqwest::Client;
@@ -51,7 +51,7 @@ impl EventType {
 /// If it can't, try to convert it to a LoginFailure.
 /// If it isn't of that format either (which would be very bad), return an error
 ///
-///```
+///```ignore
 ///let login_data = build_login(Login {
 ///    first: "default".to_string(),
 ///    last: "user".to_string(),
@@ -127,7 +127,7 @@ pub async fn send_login_xmlrpc(
 }
 ///Generates a SimulatorLoginProtocol based on user supplied values
 ///returns a SimulatorLoginProtocol
-///```
+///```ignore
 ///use metaverse_login::login::{build_struct_with_defaults};
 ///
 ///let login_struct = build_login(Login{

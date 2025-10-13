@@ -1,21 +1,14 @@
 use actix::Addr;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashSet, sync::Arc};
 use tokio::net::UdpSocket;
 
 use log::{error, warn};
-use metaverse_messages::{
-    core::packet_ack::PacketAck,
-    packet::{
-        message::{EventType, UiMessage},
-        packet::Packet,
-        packet_types::PacketType,
-    },
+use metaverse_messages::packet::{
+    message::{EventType, UiMessage},
+    packet::Packet,
+    packet_types::PacketType,
 };
 use std::sync::Mutex;
-use tokio::sync::oneshot;
 
 use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
 /// This file is for handling the UDP messages that are sent from the server to the client.
@@ -49,7 +42,7 @@ impl Mailbox {
                             ack_queue
                                 .lock()
                                 .unwrap()
-                                .insert(packet.header.sequence_number as u32);
+                                .insert(packet.header.sequence_number);
                         }
                         if let Err(e) = mailbox_address.send(SendAckList {}).await {
                             warn!("Failed to send ack list {:?}", e)

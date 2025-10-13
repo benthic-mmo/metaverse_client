@@ -1,7 +1,7 @@
 use crate::layer_handler::PatchData;
 use glam::U16Vec2;
-use metaverse_messages::capabilities::mesh::Mesh;
-use metaverse_messages::environment::layer_data::LayerData;
+use metaverse_messages::http::mesh::Mesh;
+use metaverse_messages::udp::environment::layer_data::LayerData;
 use std::collections::HashMap;
 
 /// TODO: unimplemented

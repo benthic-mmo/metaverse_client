@@ -1,14 +1,11 @@
-use hex::FromHex;
-use metaverse_messages::packet::Packet;
+use metaverse_messages::{core::disable_simulator::DisableSimulator, packet::packet::Packet};
 
+const TEST_PACKET: [u8; 10] = [64, 0, 0, 0, 0, 0, 255, 255, 0, 152];
 #[test]
 fn test_disable_simulator() {
-    let test_packet = match Vec::from_hex("400000000300ffff0098") {
-        Ok(bytes) => bytes,
-        Err(_) => panic!("failed"),
+    let packet = match Packet::from_bytes(&TEST_PACKET) {
+        Ok(packet) => packet,
+        Err(e) => panic!("Error creating packet: {}", e),
     };
-    match Packet::from_bytes(&test_packet) {
-        Ok(packet) => println!("Packet created successfully: {:?}", packet),
-        Err(e) => eprintln!("Error creating packet: {}", e),
-    }
+    assert!(Packet::new_disable_simulator(DisableSimulator {}).to_bytes() == packet.to_bytes())
 }
