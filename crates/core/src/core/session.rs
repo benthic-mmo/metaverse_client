@@ -3,13 +3,24 @@ use actix_rt::time;
 use log::{error, info};
 
 use metaverse_agent::avatar::Avatar;
+use metaverse_messages::errors::errors::CapabilityError;
+use metaverse_messages::errors::errors::CircuitCodeError;
+use metaverse_messages::errors::errors::CompleteAgentMovementError;
 use metaverse_messages::http::capabilities::Capability;
-use metaverse_messages::packet::message::EventType;
-use metaverse_messages::packet::message::UiMessage;
+use metaverse_messages::http::capabilities::CapabilityRequest;
+use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::packet::message::UIResponse;
 use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::udp::chat::chat_from_viewer::ChatFromViewer;
+use metaverse_messages::udp::core::circuit_code::CircuitCode;
+use metaverse_messages::udp::core::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::udp::core::complete_ping_check::CompletePingCheck;
+use metaverse_messages::udp::core::logout_request::LogoutRequest;
 use metaverse_messages::udp::core::packet_ack::PacketAck;
 use metaverse_messages::udp::core::region_handshake_reply::RegionHandshakeReply;
+use metaverse_messages::ui::errors::MailboxSessionError;
+use metaverse_messages::ui::errors::SessionError;
+use metaverse_messages::ui::login_event::Login;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::net::UdpSocket as SyncUdpSocket;
@@ -19,6 +30,10 @@ use tokio::net::UdpSocket;
 use tokio::sync::Notify;
 use tokio::time::Duration;
 use uuid::Uuid;
+
+#[cfg(feature = "inventory")]
+use crate::core::inventory::RefreshInventoryEvent;
+use crate::http_handler::login_to_simulator;
 
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
@@ -172,54 +187,13 @@ impl Handler<Ping> for Mailbox {
     }
 }
 
-impl Handler<UiMessage> for Mailbox {
+impl Handler<UIMessage> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: UiMessage, _: &mut Self::Context) -> Self::Result {
-        let max_message_size = 1024;
-        // leave a little room at the end
-        let overhead = 2;
-
-        let sequence_number_len = std::mem::size_of::<u16>(); // 2 bytes for the sequence number
-        let total_packet_number_len = std::mem::size_of::<u16>();
-        let packet_number_len = std::mem::size_of::<u16>();
-
-        // Calculate the maximum size available for the actual message content
-        let available_size = max_message_size
-            - (sequence_number_len + total_packet_number_len + packet_number_len + overhead);
-
-        // Split the message content if it's larger than the available size
-        let message = msg.message;
-        let total_chunks = usize::max(1, message.len().div_ceil(available_size));
-
-        // Loop through each chunk and send it
-        for chunk_index in 0..total_chunks {
-            let start = chunk_index * available_size;
-            let end = usize::min(start + available_size, message.len());
-            let chunk = &message[start..end];
-
-            // Increment the sequence number for each chunk
-            let sequence_number = msg.sequence_number + chunk_index as u16;
-
-            // Create a new message with the chunked data
-            let chunked_message = UiMessage {
-                sequence_number,
-                total_packet_number: total_chunks as u16, // Add total number of chunks
-                message: chunk.to_vec(),
-                packet_number: self.sent_packet_count,
-            };
-
-            let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
-            if let Err(e) =
-                client_socket.send_to(&chunked_message.to_bytes(), &self.server_to_ui_socket)
-            {
-                info!("sending to: {}", self.server_to_ui_socket);
-                error!(
-                    "Error sending chunk {} of {} from mailbox: {:?}",
-                    sequence_number, total_chunks, e
-                )
-            }
+    fn handle(&mut self, msg: UIMessage, _: &mut Self::Context) -> Self::Result {
+        let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
+        if let Err(e) = client_socket.send_to(&msg.to_bytes(), &self.server_to_ui_socket) {
+            error!("Failed to send UI message:{:?}", e)
         }
-        self.sent_packet_count += 1;
     }
 }
 
@@ -277,11 +251,40 @@ impl Handler<Session> for Mailbox {
     }
 }
 
-impl Handler<EventType> for Mailbox {
+impl Handler<UIResponse> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: EventType, ctx: &mut Self::Context) -> Self::Result {
-        if let EventType::ChatFromViewer(data) = msg {
-            ctx.address().do_send(Packet::new_chat_from_viewer(data));
+    fn handle(&mut self, msg: UIResponse, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(ref session) = self.session {
+            match msg {
+                UIResponse::Login(data) => {
+                    let ctx_addr = ctx.address();
+                    actix::spawn(async move {
+                        if let Err(e) = handle_login(data, &ctx_addr).await {
+                            error!("Failed to login {:?}", e);
+                        };
+                    });
+                }
+                UIResponse::ChatFromViewer(data) => {
+                    ctx.address()
+                        .do_send(Packet::new_chat_from_viewer(ChatFromViewer {
+                            session_id: session.session_id,
+                            agent_id: session.agent_id,
+                            channel: data.channel,
+                            message: data.message,
+                            message_type: data.message_type,
+                        }));
+                }
+                UIResponse::Logout(_) => {
+                    ctx.address()
+                        .do_send(Packet::new_logout_request(LogoutRequest {
+                            session_id: session.session_id,
+                            agent_id: session.agent_id,
+                        }));
+                }
+                data => {
+                    error!("Unrecognized packet: {:?}", data)
+                }
+            }
         }
     }
 }
@@ -326,4 +329,119 @@ impl Handler<SendAckList> for Mailbox {
             ctx.spawn(ack_wait.into_actor(self));
         }
     }
+}
+
+pub async fn handle_login(
+    login_data: Login,
+    mailbox_addr: &actix::Addr<Mailbox>,
+) -> Result<(), SessionError> {
+    let login_response = match login_to_simulator(login_data).await {
+        Ok(login_response) => {
+            if let Err(e) = mailbox_addr
+                .send(UIMessage::new_login_response_event(
+                    metaverse_messages::ui::login_response::LoginResponse {
+                        firstname: login_response.first_name.clone(),
+                        lastname: login_response.last_name.clone(),
+                    },
+                ))
+                .await
+            {
+                error!("Failed to send login response to UI {:?}", e)
+            };
+            login_response
+        }
+        Err(e) => return Err(SessionError::new_login_error(e)),
+    };
+
+    if let Err(e) = mailbox_addr
+        .send(Session {
+            agent_id: login_response.agent_id,
+            session_id: login_response.session_id,
+            address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
+            seed_capability_url: login_response.seed_capability.unwrap(),
+            capability_urls: HashMap::new(),
+
+            #[cfg(feature = "environment")]
+            environment_cache: EnvironmentCache {
+                patch_queue: HashMap::new(),
+                patch_cache: HashMap::new(),
+            },
+
+            #[cfg(feature = "inventory")]
+            inventory_data: InventoryData {
+                inventory_root: login_response.inventory_root,
+                inventory_lib_root: login_response.inventory_lib_root,
+                inventory_lib_owner: login_response.inventory_lib_owner,
+                inventory_tree: None,
+            },
+            #[cfg(feature = "agent")]
+            agent_list: Arc::new(Mutex::new(HashMap::new())),
+            socket: None,
+        })
+        .await
+    {
+        return Err(SessionError::MailboxSession(MailboxSessionError::new(
+            format!("{}", e),
+        )));
+    };
+
+    if let Err(e) = mailbox_addr
+        .send(Packet::new_circuit_code(CircuitCode {
+            code: login_response.circuit_code,
+            session_id: login_response.session_id,
+            id: login_response.agent_id,
+        }))
+        .await
+    {
+        return Err(SessionError::CircuitCode(CircuitCodeError::new(format!(
+            "{}",
+            e
+        ))));
+    };
+
+    if let Err(e) = mailbox_addr
+        .send(Packet::new_complete_agent_movement(
+            CompleteAgentMovementData {
+                circuit_code: login_response.circuit_code,
+                session_id: login_response.session_id,
+                agent_id: login_response.agent_id,
+            },
+        ))
+        .await
+    {
+        return Err(SessionError::CompleteAgentMovement(
+            CompleteAgentMovementError::new(format!("{}", e)),
+        ));
+    };
+    if let Err(e) = mailbox_addr
+        .send(CapabilityRequest::new_capability_request(vec![
+            #[cfg(any(feature = "agent", feature = "environment"))]
+            Capability::ViewerAsset,
+            #[cfg(feature = "inventory")]
+            Capability::FetchLibDescendents2,
+            #[cfg(feature = "inventory")]
+            Capability::FetchInventoryDescendents2,
+        ]))
+        .await
+    {
+        return Err(SessionError::Capability(CapabilityError::new(format!(
+            "{}",
+            e
+        ))));
+    }
+
+    #[cfg(feature = "inventory")]
+    if let Err(e) = mailbox_addr
+        .send(RefreshInventoryEvent {
+            agent_id: login_response.agent_id,
+        })
+        .await
+    {
+        return Err(SessionError::Capability(CapabilityError::new(format!(
+            "failed to retrieve inventory {}",
+            e
+        ))));
+    }
+
+    Ok(())
 }

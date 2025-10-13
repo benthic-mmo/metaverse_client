@@ -1,16 +1,13 @@
 use crate::errors::ChatError;
-use crate::plugin::{
-    retrieve_login_response, send_packet_to_core, ChatMessages, SessionData, Sockets, ViewerState,
-};
+use crate::plugin::{send_packet_to_core, ChatMessages, Sockets};
 use bevy::ecs::error::Result;
 use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
 use bevy::prelude::Resource;
-use bevy::state::state::NextState;
 use bevy_egui::{egui, EguiContexts};
-use metaverse_messages::packet::message::{EventType, UiMessage};
-use metaverse_messages::udp::chat::chat_from_viewer::ChatFromViewer;
+use metaverse_messages::packet::message::UIResponse;
 use metaverse_messages::udp::chat::ChatType;
+use metaverse_messages::ui::chat_from_viewer::ChatFromUI;
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
@@ -20,8 +17,6 @@ pub struct ChatMessage {
 pub fn chat_screen(
     mut contexts: EguiContexts,
     mut chat_message: ResMut<ChatMessage>,
-    viewer_state: ResMut<NextState<ViewerState>>,
-    session_data: Res<SessionData>,
     sockets: Res<Sockets>,
     chat_messages: Res<ChatMessages>,
 ) -> Result {
@@ -64,7 +59,7 @@ pub fn chat_screen(
         });
 
     if (!chat_message.message.is_empty()) && send {
-        if let Err(e) = send_chat(&chat_message.message, session_data, sockets, viewer_state) {
+        if let Err(e) = send_chat(&chat_message.message, sockets) {
             match e {
                 // if the loginresponse is not populated, return to the login screen
                 ChatError::ChatLoginError(_) => return Ok(()),
@@ -75,20 +70,12 @@ pub fn chat_screen(
     }
     Ok(())
 }
-fn send_chat(
-    message: &str,
-    session_data: Res<SessionData>,
-    sockets: Res<Sockets>,
-    mut viewer_state: ResMut<NextState<ViewerState>>,
-) -> Result<(), ChatError> {
-    let response = retrieve_login_response(&session_data, &mut viewer_state)?;
-    let packet = UiMessage::from_event(&EventType::new_chat_from_viewer(ChatFromViewer {
-        session_id: response.session_id,
-        agent_id: response.agent_id,
+fn send_chat(message: &str, sockets: Res<Sockets>) -> Result<(), ChatError> {
+    let packet = UIResponse::new_chat_from_viewer(ChatFromUI {
         message: message.to_owned(),
         channel: 0,
         message_type: ChatType::Normal,
-    }))
+    })
     .to_bytes();
     send_packet_to_core(&packet, &sockets)?;
     Ok(())

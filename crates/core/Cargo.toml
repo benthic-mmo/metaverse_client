@@ -12,10 +12,8 @@ metaverse_environment = {path = "../environment/", optional = true}
 metaverse_agent = {path = "../agent/", optional = true}
 metaverse_inventory = {path = "../inventory/", optional = true}
 metaverse_gltf = {path = "../../../metaverse_gltf/"}
-
+serde-llsd = {path="../../../serde-llsd/"}
 tokio = { version = "1.47.1", features = ["full"] }
-env_logger = "0.11"
-tempfile = "3.23.0"
 log = "0.4"
 actix = "0.13.5"
 thiserror = "2.0.17"
@@ -23,14 +21,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 crossbeam-channel = "0.5.15"
 actix-rt = "2.11"
-futures = "0.3.31"
 bincode = "2.0.1"
 portpicker = "0.1.1"
 glam = {version = "0.30.8", features = ["serde"]}
 actix-http = "3.11.2"
 awc = "3.8.1"
 quick-xml = "0.38.3"
-serde-llsd = "0.3.6"
 dirs = "6.0.0"
 bytemuck = "1.24.0"
 bytes = "1.10.1"

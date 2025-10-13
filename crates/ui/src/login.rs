@@ -7,10 +7,7 @@ use bevy::log::error;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use keyring::Entry;
-use metaverse_messages::{
-    packet::message::{EventType, UiMessage},
-    ui::login::login_xmlrpc::Login,
-};
+use metaverse_messages::{packet::message::UIResponse, ui::login_event::Login};
 use std::{fs, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]
@@ -104,7 +101,7 @@ fn send_login(
         format!("http://{}", login_data.grid)
     };
 
-    let packet = UiMessage::from_event(&EventType::new_login_event(Login {
+    let packet = UIResponse::new_login_event(Login {
         first: login_data.first_name.clone(),
         last: login_data.last_name.clone(),
         passwd: login_data.password.clone(),
@@ -113,7 +110,7 @@ fn send_login(
         agree_to_tos: true,
         read_critical: true,
         url: grid,
-    }))
+    })
     .to_bytes();
     send_packet_to_core(&packet, &sockets)?;
     Ok(())

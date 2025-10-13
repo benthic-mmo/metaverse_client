@@ -26,6 +26,7 @@ impl Handler<CapabilityRequest> for Mailbox {
     fn handle(&mut self, msg: CapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &self.session {
             let seed_capability_url = session.seed_capability_url.clone();
+
             let address = ctx.address().clone();
             ctx.spawn(
                 async move {
@@ -39,6 +40,11 @@ impl Handler<CapabilityRequest> for Mailbox {
                         Ok(mut get) => match get.body().await {
                             Ok(body) => {
                                 let capability_urls = CapabilityRequest::response_from_llsd(&body);
+                                if capability_urls.is_empty() {
+                                    error!("Failed to retrieve capability URLs. Caps are empty.")
+                                    // TODO: handle this like a real error and notify the waiting
+                                    // object updates an cap requests
+                                }
                                 address.do_send(SetCapabilityUrls { capability_urls });
                             }
                             Err(e) => {

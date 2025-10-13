@@ -1,7 +1,7 @@
 use std::error::Error;
 use thiserror::Error;
 
-use crate::ui::login::login_errors;
+use crate::http::login::login_errors;
 
 #[derive(Debug, Error)]
 /// Error types for handling LoginResponses

@@ -1,6 +1,6 @@
 use metaverse_messages::{
-    chat::{chat_from_viewer::ChatFromViewer, ChatType},
     packet::{packet::Packet, packet_types::PacketType},
+    udp::chat::{chat_from_viewer::ChatFromViewer, ChatType},
 };
 use uuid::{uuid, Uuid};
 

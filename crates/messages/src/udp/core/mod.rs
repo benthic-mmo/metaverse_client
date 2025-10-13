@@ -9,7 +9,23 @@
 /// |--------------|-------------|----------------|-------------------|---------------------|
 /// | Packet Header| id:152      | reliable: false| zerocoded: false  |     frequency: Low  |
 pub mod disable_simulator;
-
+/// # Logout Request
+/// <https://wiki.secondlife.com/wiki/LogoutRequest>
+///
+/// Logs out user from the simulator and ends the session
+///
+/// ## Header
+/// |CompleteAgentMovement |||||
+/// |----------------------|---------|-----------------|------------------|-----------------|
+/// | Packet Header        | id: 252 | reliable: true  | zerocoded: false | frequency: Low  |
+///
+/// ## Packet Structure
+/// | LogoutRequest         |          |                    |                                 |
+/// |-----------------------|----------|--------------------|---------------------------------|
+/// | AgentID               | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user agent        |  
+/// | SessionID             | 16 bytes | [Uuid](uuid::Uuid) | The ID of the current session   |  
+///
+pub mod logout_request;
 /// # Packet Ack
 /// <https://wiki.secondlife.com/wiki/PacketAck>
 ///

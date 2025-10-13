@@ -1,10 +1,11 @@
-use crate::str_val;
 use std::error::Error;
 /// the type for the conversionerror, thrown when failing to convert a login response to a struct
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use xmlrpc_benthic::Value;
+use serde_llsd::LLSDValue;
+
+use crate::http::login::login_response::{get, FromLLSDValue};
 
 #[derive(Debug)]
 /// Conversion error for failed conversions
@@ -25,6 +26,25 @@ pub struct LoginError {
     pub reason: Reason,
     /// The message of the login failure
     pub message: String,
+}
+
+impl FromLLSDValue for LoginError {
+    fn from_llsd(value: &LLSDValue) -> Option<Self> {
+        match value {
+            LLSDValue::Map(map) => {
+                let reason: String = get("reason", map);
+                let message: String = get("message", map);
+
+                Some(match reason.as_str() {
+                    "presence" => LoginError::new(Reason::Presence, &message),
+                    "key" => LoginError::new(Reason::Key, &message),
+                    "connection" => LoginError::new(Reason::Connection, &message),
+                    _ => LoginError::new(Reason::Unknown, &message),
+                })
+            }
+            _ => Some(LoginError::new(Reason::Unknown, "asdf")),
+        }
+    }
 }
 
 impl LoginError {
@@ -86,20 +106,4 @@ impl fmt::Display for Reason {
         };
         write!(f, "{}", msg)
     }
-}
-
-/// Converts a login error message to a login type
-pub fn create_login_error_from_message(message: Value) -> LoginError {
-    let xml_reason = str_val!(message["reason"]);
-    let reason = match xml_reason {
-        Some(reason) => match reason.as_str() {
-            "presence" => Reason::Presence,
-            "key" => Reason::Key,
-            _ => Reason::Unknown,
-        },
-        None => Reason::Unknown,
-    };
-    let content = str_val!(message["message"]).expect("Unknown Message");
-
-    LoginError::new(reason, &content)
 }

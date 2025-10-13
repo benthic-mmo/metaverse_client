@@ -1,7 +1,7 @@
 use crate::packet::{
     errors::PacketError,
     header::{Header, PacketFrequency},
-    message::EventType,
+    message::UIMessage,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
@@ -35,10 +35,10 @@ impl Packet {
 }
 
 /// Implement UIEvent for ChatFromSimulator. Can be sent between the core and UI
-impl EventType {
+impl UIMessage {
     /// create a new chat from simulator UiEvent
     pub fn new_chat_from_simulator(data: ChatFromSimulator) -> Self {
-        EventType::ChatFromSimulator(data)
+        UIMessage::ChatFromSimulator(data)
     }
 }
 

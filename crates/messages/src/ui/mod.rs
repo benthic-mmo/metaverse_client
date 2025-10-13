@@ -7,7 +7,9 @@ pub mod mesh_update;
 /// Errors created from messages and the session that should be from the core to the UI.
 pub mod errors;
 
-/// Packets related to login.
-/// this also contains functions used for parsing and handling the XMLRPC login functionality.
-/// Though not strictly a packet, this will be used by both the client and server.
-pub mod login;
+/// UI message for sending the UI relevant login response data
+pub mod login_response;
+
+pub mod chat_from_viewer;
+pub mod login_event;
+pub mod logout;

@@ -3,11 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use tokio::net::UdpSocket;
 
 use log::{error, warn};
-use metaverse_messages::packet::{
-    message::{EventType, UiMessage},
-    packet::Packet,
-    packet_types::PacketType,
-};
+use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_types::PacketType};
 use std::sync::Mutex;
 
 use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
@@ -70,7 +66,7 @@ impl Mailbox {
                         PacketType::DisableSimulator(_) => {
                             warn!("Simulator shutting down...");
                             if let Err(e) = mailbox_address
-                                .send(UiMessage::from_event(&EventType::new_disable_simulator()))
+                                .send(UIMessage::new_disable_simulator())
                                 .await
                             {
                                 warn!("failed to send to ui: {:?}", e)
@@ -91,9 +87,7 @@ impl Mailbox {
                         // Send UI packets to the UI as UiMessages.
                         PacketType::ChatFromSimulator(data) => {
                             if let Err(e) = mailbox_address
-                                .send(UiMessage::from_event(&EventType::new_chat_from_simulator(
-                                    *data.clone(),
-                                )))
+                                .send(UIMessage::new_chat_from_simulator(*data.clone()))
                                 .await
                             {
                                 error!("Failed to handle chatfromsimulator{:?}", e)

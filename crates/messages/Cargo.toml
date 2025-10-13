@@ -7,9 +7,8 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
+serde-llsd = {path = "../../../serde-llsd/"}
 log = "0.4"
-env_logger = "0.11"
-xmlrpc_benthic = "0.0.1"
 byteorder = "1.5.0"
 mac_address = "1.1.8"
 sys-info = "0.9.1"
@@ -18,21 +17,18 @@ actix = "0.13.5"
 md-5 = "0.10.6"
 glam = {version="0.30.8", features=["serde"]}
 serde = { version = "1.0", features = ["derive"] }
-futures = "0.3.31"
 hex = "0.4.3"
 serde_json = "1.0.145"
 bincode = {version="2.0.1", features=["serde"]}
 thiserror = "2.0.17"
-reqwest = "0.12.23"
 rgb = {version="0.8.52", features=["serde"]}
-actix-http = "3.11.2"
-serde-llsd = "0.3.6"
 quick-xml = "0.38.3"
 flate2 = "1.1.4"
 bytemuck = "1.24.0"
 strum = "0.27.2"
 strum_macros = "0.27.2"
 indexmap = {version="2.11.4", features = ["serde"]}
+chrono = "0.4.42"
 [dependencies.uuid]
 version = "1.18.1"
 features = [

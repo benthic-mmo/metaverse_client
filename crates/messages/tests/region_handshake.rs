@@ -1,7 +1,4 @@
-use log::LevelFilter;
-use metaverse_messages::{
-    core::region_handshake::RegionHandshake, packet::packet_types::PacketType,
-};
+use metaverse_messages::udp::core::region_handshake::RegionHandshake;
 
 const TEST_PACKET: [u8; 276] = [
     148, 198, 128, 64, 16, 13, // Sim Access, set to 13 which corresponds to PG

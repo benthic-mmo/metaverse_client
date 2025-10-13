@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::packet::{
     errors::PacketError,
     header::{Header, PacketFrequency},
-    message::EventType,
+    message::UIMessage,
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
@@ -28,9 +28,9 @@ impl Packet {
     }
 }
 
-impl EventType {
+impl UIMessage {
     pub fn new_disable_simulator() -> Self {
-        EventType::DisableSimulator(DisableSimulator {})
+        UIMessage::DisableSimulator(DisableSimulator {})
     }
 }
 

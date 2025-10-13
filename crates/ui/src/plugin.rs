@@ -1,6 +1,6 @@
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
-use metaverse_messages::packet::message::EventType;
+use metaverse_messages::packet::message::{UIMessage, UIResponse};
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
@@ -17,12 +17,10 @@ use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_core::ui_subscriber::listen_for_core_events;
-use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::http::login::login_errors::LoginError;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
-use metaverse_messages::ui::login::login_errors::LoginError;
-use metaverse_messages::ui::login::login_response::LoginResponse;
-use metaverse_messages::ui::login::logout_request::LogoutRequest;
+use metaverse_messages::ui::login_response::LoginResponse;
 use portpicker::pick_unused_port;
 
 pub const VIEWER_NAME: &str = "benthic";
@@ -43,8 +41,8 @@ pub struct Sockets {
 
 #[derive(Resource)]
 struct EventChannel {
-    pub sender: Sender<EventType>,
-    pub receiver: Receiver<EventType>,
+    pub sender: Sender<UIMessage>,
+    pub receiver: Receiver<UIMessage>,
 }
 
 #[derive(Resource)]
@@ -248,22 +246,22 @@ fn handle_queue(
     let receiver = event_channel.receiver.clone();
     while let Ok(event) = receiver.try_recv() {
         match event {
-            EventType::LoginResponse(login_response) => {
+            UIMessage::LoginResponse(login_response) => {
                 ev_loginresponse.write(LoginResponseEvent {
                     value: Ok(login_response),
                 });
                 info!("got LoginResponse")
             }
-            EventType::MeshUpdate(mesh_update) => {
+            UIMessage::MeshUpdate(mesh_update) => {
                 ev_layer_update.write(MeshUpdateEvent { value: mesh_update });
             }
-            EventType::CoarseLocationUpdate(coarse_location_update) => {
+            UIMessage::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.write(CoarseLocationUpdateEvent {
                     _value: coarse_location_update,
                 });
                 info!("got CoarseLocationUpdate")
             }
-            EventType::Error(error) => match error {
+            UIMessage::Error(error) => match error {
                 SessionError::Login(e) => {
                     ev_loginresponse.write(LoginResponseEvent { value: Err(e) });
                 }
@@ -286,13 +284,13 @@ fn handle_queue(
                     info!("IOError {:?}", e)
                 }
             },
-            EventType::ChatFromSimulator(chat_from_simulator) => {
+            UIMessage::ChatFromSimulator(chat_from_simulator) => {
                 chat_messages.messages.push(ChatFromClientMessage {
                     user: chat_from_simulator.from_name,
                     message: chat_from_simulator.message,
                 });
             }
-            EventType::DisableSimulator(_) => {
+            UIMessage::DisableSimulator(_) => {
                 ev_disable_simulator.write(DisableSimulatorEvent {});
             }
             event => {
@@ -337,23 +335,9 @@ fn start_core(sockets: Res<Sockets>) {
     });
 }
 
-fn handle_logout(
-    mut events: MessageReader<LogoutRequestEvent>,
-    session_data: Res<SessionData>,
-    mut viewer_state: ResMut<NextState<ViewerState>>,
-    sockets: Res<Sockets>,
-) {
+fn handle_logout(mut events: MessageReader<LogoutRequestEvent>, sockets: Res<Sockets>) {
     for _ in events.read() {
-        let response = match retrieve_login_response(&session_data, &mut viewer_state) {
-            Ok(response) => response,
-            Err(_) => return,
-        };
-        let packet = Packet::new_logout_request(LogoutRequest {
-            session_id: response.session_id,
-            agent_id: response.agent_id,
-        })
-        .to_bytes();
-        if let Err(e) = send_packet_to_core(&packet, &sockets) {
+        if let Err(e) = send_packet_to_core(&UIResponse::new_logout().to_bytes(), &sockets) {
             error!("{:?}", e)
         };
     }

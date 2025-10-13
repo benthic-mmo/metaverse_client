@@ -9,7 +9,6 @@ metaverse_messages = {path = "../messages/"}
 byteorder = "1.5.0"
 rgb = "0.8.52"
 uuid = "1.18.1"
-awc = "3.8.1"
 glam = "0.30.8"
 log = "0.4.28"
 indexmap = "2.11.4"

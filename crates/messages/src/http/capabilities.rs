@@ -74,6 +74,7 @@ impl CapabilityRequest {
                 "".to_string()
             }
         };
+
         CapabilityRequest { capabilities: caps }
     }
     /// Generate the HashMap from the response bytes. This should be stored and used by the session
@@ -89,7 +90,10 @@ impl CapabilityRequest {
                         result.insert(capability, value.clone());
                     }
                 }
-            };
+            }
+        else {
+            error!("FAILED TO PARSE CAPABILITY")
+        }
         result
     }
 }
