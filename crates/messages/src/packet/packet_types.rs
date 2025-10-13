@@ -1,21 +1,21 @@
 use super::header::PacketFrequency;
-use crate::agent::agent_wearables_request::AgentWearablesRequest;
-use crate::agent::agent_wearables_update::AgentWearablesUpdate;
-use crate::agent::avatar_appearance::AvatarAppearance;
-use crate::core::object_update::ObjectUpdate;
-use crate::login::logout_request::LogoutRequest;
 use crate::packet::errors::PacketError;
 use crate::packet::packet::PacketData;
+use crate::udp::agent::agent_wearables_request::AgentWearablesRequest;
+use crate::udp::agent::agent_wearables_update::AgentWearablesUpdate;
+use crate::udp::agent::avatar_appearance::AvatarAppearance;
+use crate::udp::core::object_update::ObjectUpdate;
+use crate::ui::login::logout_request::LogoutRequest;
 use crate::{
-    agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
-    chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
-    core::{
+    udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
+    udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
+    udp::core::{circuit_code::CircuitCode, complete_agent_movement::CompleteAgentMovementData},
+    udp::core::{
         complete_ping_check::CompletePingCheck, disable_simulator::DisableSimulator,
         packet_ack::PacketAck, region_handshake::RegionHandshake,
         region_handshake_reply::RegionHandshakeReply, start_ping_check::StartPingCheck,
     },
-    environment::layer_data::LayerData,
-    login::{circuit_code::CircuitCode, complete_agent_movement::CompleteAgentMovementData},
+    udp::environment::layer_data::LayerData,
 };
 use std::fmt::Debug;
 

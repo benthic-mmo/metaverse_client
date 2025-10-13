@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fs::create_dir_all, path::PathBuf};
 
 use log::{info, warn};
-use metaverse_messages::capabilities::folder_types::{Folder, FolderNode};
-use serde_llsd::{LLSDValue, ser::xml};
+use metaverse_messages::http::folder_types::{Folder, FolderNode};
+use serde_llsd::{ser::xml, LLSDValue};
 use uuid::Uuid;
 
 use crate::errors::InventoryError;

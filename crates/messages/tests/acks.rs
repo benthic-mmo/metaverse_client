@@ -1,5 +1,5 @@
 use hex::FromHex;
-use metaverse_messages::packet::Packet;
+use metaverse_messages::packet::packet::Packet;
 
 #[test]
 fn test_acks_parse() {

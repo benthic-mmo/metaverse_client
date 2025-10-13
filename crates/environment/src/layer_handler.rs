@@ -1,5 +1,8 @@
 use bitreader::{BitReader, BitReaderError};
-use metaverse_messages::capabilities::mesh::Mesh;
+use metaverse_messages::{
+    http::mesh::Mesh,
+    udp::environment::layer_data::{LayerData, LayerType},
+};
 use std::collections::HashMap;
 
 use crate::{
@@ -10,8 +13,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{U16Vec2, u16, u32, usize};
-use metaverse_messages::environment::layer_data::{LayerData, LayerType};
+use glam::{u16, u32, usize, U16Vec2};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use gltf_json::validation::Checked::Valid;
 use gltf_json::validation::USize64;
-use metaverse_messages::capabilities::mesh::Mesh;
+use metaverse_messages::http::mesh::Mesh;
 use std::{borrow::Cow, mem};
 use std::{fs::File, path::PathBuf};
 

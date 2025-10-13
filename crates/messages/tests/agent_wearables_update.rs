@@ -1,11 +1,8 @@
 use metaverse_messages::{
-    agent::{
-        agent_wearables_request::AgentWearablesRequest,
-        agent_wearables_update::{AgentWearablesUpdate, WearableType},
-    },
-    packet::packet::PacketData,
+    agent::agent_wearables_update::AgentWearablesUpdate, packet::packet::PacketData,
+    utils::object_types::WearableType,
 };
-use uuid::{Uuid, uuid};
+use uuid::{uuid, Uuid};
 const DATA1: [u8; 235] = [
     157, 193, 139, 177, 4, 79, 76, 104, 144, 107, 44, 182, 8, 178, 225, 151, 17, 97, 227, 166, 218,
     153, 78, 239, 134, 183, 97, 62, 174, 87, 147, 40, 0, 0, 0, 0, 6, 33, 44, 119, 51, 59, 61, 78,
@@ -19,7 +16,6 @@ const DATA1: [u8; 235] = [
     17, 2, 78, 34, 34, 34, 17, 17, 16, 4, 172, 210, 82, 62, 212, 20, 75, 230, 146, 94, 85, 9, 222,
     246, 97, 234, 0, 0, 0, 0, 56, 249, 17, 17, 2, 78, 34, 34, 34, 17, 17, 32, 5,
 ];
-
 const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
 
 #[test]

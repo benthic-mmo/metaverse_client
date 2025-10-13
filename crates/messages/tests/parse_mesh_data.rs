@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use metaverse_messages::capabilities::mesh_data::Mesh;
+use metaverse_messages::capabilities::mesh::Mesh;
 
 #[test]
 fn handle_mesh_data() {

@@ -6,7 +6,7 @@ use metaverse_environment::{
     layer_handler::{parse_layer_data, PatchData, PatchLayer},
 };
 use metaverse_messages::{
-    environment::layer_data::LayerData,
+    udp::environment::layer_data::LayerData,
     ui::mesh_update::{MeshType, MeshUpdate},
 };
 

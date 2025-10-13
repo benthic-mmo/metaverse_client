@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::error;
-use metaverse_messages::capabilities::capabilities::{Capability, CapabilityRequest};
+use metaverse_messages::http::capabilities::{Capability, CapabilityRequest};
 
 /// Message to update the capability urls
 #[derive(Debug, Message)]

@@ -3,9 +3,9 @@ use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message};
 use log::warn;
 use metaverse_agent::avatar::Avatar;
-use metaverse_messages::capabilities::item::Item;
+use metaverse_messages::http::item::Item;
 use metaverse_messages::{
-    capabilities::capabilities::Capability, core::object_update::ObjectUpdate,
+    http::capabilities::Capability, udp::core::object_update::ObjectUpdate,
     utils::object_types::ObjectType,
 };
 use std::time::Duration;

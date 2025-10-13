@@ -7,7 +7,7 @@ use log::{error, warn};
 use metaverse_agent::avatar::{Avatar, OutfitObject, RiggedObject};
 use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
 use metaverse_gltf::skinned_mesh::generate_skinned_mesh;
-use metaverse_messages::capabilities::scene::SceneGroup;
+use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::packet::message::{EventType, UiMessage};
 use metaverse_messages::{
     ui::mesh_update::{MeshType, MeshUpdate},

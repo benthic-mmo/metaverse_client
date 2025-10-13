@@ -8,9 +8,9 @@ use bevy::log::error;
 use bevy::prelude::Resource;
 use bevy::state::state::NextState;
 use bevy_egui::{egui, EguiContexts};
-use metaverse_messages::chat::chat_from_viewer::ChatFromViewer;
-use metaverse_messages::chat::ChatType;
 use metaverse_messages::packet::message::{EventType, UiMessage};
+use metaverse_messages::udp::chat::chat_from_viewer::ChatFromViewer;
+use metaverse_messages::udp::chat::ChatType;
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {

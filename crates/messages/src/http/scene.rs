@@ -1,5 +1,5 @@
 use crate::{
-    core::object_update::{MaterialType, ObjectUpdate},
+    udp::core::object_update::{MaterialType, ObjectUpdate},
     utils::{
         item_metadata::{ItemMetadata, SaleType},
         object_types::ObjectType,

@@ -1,7 +1,7 @@
 use crate::{
     errors::errors::{AckError, CapabilityError, CircuitCodeError, CompleteAgentMovementError},
-    login::login_errors::LoginError,
     packet::message::EventType,
+    ui::login::login_errors::LoginError,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

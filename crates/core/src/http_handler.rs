@@ -1,6 +1,6 @@
-use metaverse_messages::capabilities::mesh::Mesh;
+use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::{
-    capabilities::{item::Item, scene::SceneGroup},
+    http::{item::Item, scene::SceneGroup},
     utils::item_metadata::ItemMetadata,
 };
 use std::io::Error;
@@ -58,11 +58,8 @@ pub async fn download_item(metadata: ItemMetadata, server_endpoint: &str) -> std
 /// Retrieve a mesh from the ViewerAsset endpoint.
 /// This needs to be parsed as a Mesh object.
 pub async fn download_mesh(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Mesh> {
-    Mesh::from_bytes(&download_asset(metadata, server_endpoint).await?).map_err(|e| {
-        Error::other(
-            format!("Failed to parse SceneGroup XML: {}", e),
-        )
-    })
+    Mesh::from_bytes(&download_asset(metadata, server_endpoint).await?)
+        .map_err(|e| Error::other(format!("Failed to parse SceneGroup XML: {}", e)))
 }
 
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {

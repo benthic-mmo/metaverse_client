@@ -7,7 +7,7 @@ use metaverse_messages::utils::skeleton::Transform;
 
 use glam::Vec3;
 use metaverse_messages::{
-    capabilities::{item::Item, scene::SceneGroup},
+    http::{item::Item, scene::SceneGroup},
     utils::skeleton::Skeleton,
 };
 use uuid::Uuid;
