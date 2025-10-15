@@ -1,8 +1,10 @@
-use crate::packet::{
-    errors::PacketError,
-    header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    errors::ParseError,
+    packet::{
+        header::{Header, PacketFrequency},
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
 };
 
 impl Packet {
@@ -37,7 +39,7 @@ pub struct StartPingCheck {
 }
 
 impl PacketData for StartPingCheck {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let ping_id = bytes[0];
         let oldest_unacked = u32::from_le_bytes(bytes[1..5].try_into()?);
 

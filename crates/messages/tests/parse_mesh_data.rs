@@ -9,5 +9,8 @@ fn handle_mesh_data() {
 
     file.read_to_end(&mut buffer).unwrap();
 
-    Mesh::from_bytes(&buffer).unwrap();
+    let mesh = Mesh::from_bytes(&buffer).unwrap();
+    assert!(mesh.skin.is_some());
+
+    println!("{:?}", mesh);
 }

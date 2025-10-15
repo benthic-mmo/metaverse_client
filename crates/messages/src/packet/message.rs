@@ -1,5 +1,5 @@
 use crate::{
-    packet::errors::PacketError,
+    errors::ParseError,
     udp::{
         agent::coarse_location_update::CoarseLocationUpdate,
         chat::chat_from_simulator::ChatFromSimulator, core::disable_simulator::DisableSimulator,
@@ -22,7 +22,7 @@ pub enum UIResponse {
     Login(Login),
     /// Message for sending chat events from the UI to the core to the server.
     ChatFromViewer(ChatFromUI),
-
+    /// Message for sending logout events from the UI to the core to the server.
     Logout(Logout),
 }
 impl UIResponse {
@@ -33,14 +33,16 @@ impl UIResponse {
     }
 
     /// Converts bytes to a UIEvent.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
-        serde_json::from_slice(bytes).map_err(PacketError::SerdeDeserializeError)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        serde_json::from_slice(bytes).map_err(|e| ParseError::SerdeError(e))
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Message, Clone)]
 #[serde(tag = "type", content = "data")] // for json simplicity
 #[rtype(result = "()")]
+/// Message types for sending between the core and the UI. These are truncated types that do not
+/// contain all of the values that their packet types contain.
 pub enum UIMessage {
     /// Message for sending chat events from the server, to the core, to the UI
     ChatFromSimulator(ChatFromSimulator),
@@ -64,7 +66,7 @@ impl UIMessage {
     }
 
     /// Converts bytes to a UIEvent.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
-        serde_json::from_slice(bytes).map_err(PacketError::SerdeDeserializeError)
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        serde_json::from_slice(bytes).map_err(|e| ParseError::SerdeError(e))
     }
 }

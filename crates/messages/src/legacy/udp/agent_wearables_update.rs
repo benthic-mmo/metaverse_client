@@ -4,8 +4,8 @@ use std::io::{Cursor, Read};
 use uuid::Uuid;
 
 use crate::{
+    errors::ParseError,
     packet::{
-        errors::PacketError,
         header::{Header, PacketFrequency},
         packet::{Packet, PacketData},
         packet_types::PacketType,
@@ -62,7 +62,7 @@ pub struct Wearable {
 }
 
 impl PacketData for AgentWearablesUpdate {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];

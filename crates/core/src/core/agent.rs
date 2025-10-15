@@ -185,7 +185,8 @@ async fn download_scenegroup_mesh(scene_group: &mut SceneGroup, url: &str) {
                     .vertices
                     .iter()
                     .map(|v| {
-                        let v4 = mesh.skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
+                        let v4 = mesh.skin.as_ref().unwrap().bind_shape_matrix
+                            * Vec4::new(v.x, v.y, v.z, 1.0);
                         Vec3::new(v4.x, v4.y, v4.z)
                     })
                     .collect();

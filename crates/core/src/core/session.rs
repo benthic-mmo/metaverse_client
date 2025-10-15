@@ -3,9 +3,6 @@ use actix_rt::time;
 use log::{error, info};
 
 use metaverse_agent::avatar::Avatar;
-use metaverse_messages::errors::errors::CapabilityError;
-use metaverse_messages::errors::errors::CircuitCodeError;
-use metaverse_messages::errors::errors::CompleteAgentMovementError;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::capabilities::CapabilityRequest;
 use metaverse_messages::packet::message::UIMessage;
@@ -18,6 +15,9 @@ use metaverse_messages::udp::core::complete_ping_check::CompletePingCheck;
 use metaverse_messages::udp::core::logout_request::LogoutRequest;
 use metaverse_messages::udp::core::packet_ack::PacketAck;
 use metaverse_messages::udp::core::region_handshake_reply::RegionHandshakeReply;
+use metaverse_messages::ui::errors::CapabilityError;
+use metaverse_messages::ui::errors::CircuitCodeError;
+use metaverse_messages::ui::errors::CompleteAgentMovementError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
@@ -254,16 +254,19 @@ impl Handler<Session> for Mailbox {
 impl Handler<UIResponse> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: UIResponse, ctx: &mut Self::Context) -> Self::Result {
+        // handle login before session is established
+        if let UIResponse::Login(data) = &msg {
+            let ctx_addr = ctx.address().clone();
+            let login_data = data.clone();
+            actix::spawn(async move {
+                if let Err(e) = handle_login(login_data, &ctx_addr).await {
+                    error!("{:?}", e);
+                };
+            });
+        }
+        // other messages require session
         if let Some(ref session) = self.session {
             match msg {
-                UIResponse::Login(data) => {
-                    let ctx_addr = ctx.address();
-                    actix::spawn(async move {
-                        if let Err(e) = handle_login(data, &ctx_addr).await {
-                            error!("Failed to login {:?}", e);
-                        };
-                    });
-                }
                 UIResponse::ChatFromViewer(data) => {
                     ctx.address()
                         .do_send(Packet::new_chat_from_viewer(ChatFromViewer {
@@ -282,7 +285,7 @@ impl Handler<UIResponse> for Mailbox {
                         }));
                 }
                 data => {
-                    error!("Unrecognized packet: {:?}", data)
+                    error!("Unrecognized UIMessage: {:?}", data)
                 }
             }
         }
@@ -331,7 +334,7 @@ impl Handler<SendAckList> for Mailbox {
     }
 }
 
-pub async fn handle_login(
+async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
 ) -> Result<(), SessionError> {
@@ -350,7 +353,15 @@ pub async fn handle_login(
             };
             login_response
         }
-        Err(e) => return Err(SessionError::new_login_error(e)),
+        Err(e) => {
+            if let Err(e) = mailbox_addr
+                .send(UIMessage::new_session_error(e.clone().into()))
+                .await
+            {
+                error!("Failed to send session error: {:?}", e)
+            };
+            Err(e)?
+        }
     };
 
     if let Err(e) = mailbox_addr
@@ -380,9 +391,9 @@ pub async fn handle_login(
         })
         .await
     {
-        return Err(SessionError::MailboxSession(MailboxSessionError::new(
-            format!("{}", e),
-        )));
+        Err(MailboxSessionError {
+            message: e.to_string(),
+        })?;
     };
 
     if let Err(e) = mailbox_addr
@@ -393,10 +404,9 @@ pub async fn handle_login(
         }))
         .await
     {
-        return Err(SessionError::CircuitCode(CircuitCodeError::new(format!(
-            "{}",
-            e
-        ))));
+        Err(CircuitCodeError {
+            message: e.to_string(),
+        })?;
     };
 
     if let Err(e) = mailbox_addr
@@ -409,26 +419,29 @@ pub async fn handle_login(
         ))
         .await
     {
-        return Err(SessionError::CompleteAgentMovement(
-            CompleteAgentMovementError::new(format!("{}", e)),
-        ));
+        Err(CompleteAgentMovementError {
+            message: e.to_string(),
+        })?;
     };
-    if let Err(e) = mailbox_addr
-        .send(CapabilityRequest::new_capability_request(vec![
-            #[cfg(any(feature = "agent", feature = "environment"))]
-            Capability::ViewerAsset,
-            #[cfg(feature = "inventory")]
-            Capability::FetchLibDescendents2,
-            #[cfg(feature = "inventory")]
-            Capability::FetchInventoryDescendents2,
-        ]))
-        .await
-    {
-        return Err(SessionError::Capability(CapabilityError::new(format!(
-            "{}",
-            e
-        ))));
-    }
+    match CapabilityRequest::new_capability_request(vec![
+        #[cfg(any(feature = "agent", feature = "environment"))]
+        Capability::ViewerAsset,
+        #[cfg(feature = "inventory")]
+        Capability::FetchLibDescendents2,
+        #[cfg(feature = "inventory")]
+        Capability::FetchInventoryDescendents2,
+    ]) {
+        Ok(caps) => {
+            if let Err(e) = mailbox_addr.send(caps).await {
+                Err(CapabilityError {
+                    message: e.to_string(),
+                })?
+            }
+        }
+        Err(e) => {
+            error!("{:?}", e)
+        }
+    };
 
     #[cfg(feature = "inventory")]
     if let Err(e) = mailbox_addr
@@ -437,11 +450,9 @@ pub async fn handle_login(
         })
         .await
     {
-        return Err(SessionError::Capability(CapabilityError::new(format!(
-            "failed to retrieve inventory {}",
-            e
-        ))));
+        Err(CapabilityError {
+            message: e.to_string(),
+        })?
     }
-
     Ok(())
 }

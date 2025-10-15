@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// The struct required for constructing a login
 pub struct LoginResponse {
+    /// first name of the logged in user
     pub firstname: String,
+    /// last name of the logged in user
     pub lastname: String,
 }
 

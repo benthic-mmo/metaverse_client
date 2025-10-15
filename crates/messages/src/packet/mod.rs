@@ -24,8 +24,5 @@ pub mod packet;
 /// assigning those valeus to rust data types.
 pub mod packet_types;
 
-/// error handling for packets
-pub mod errors;
-
 /// messages for UI and Core communication
 pub mod message;

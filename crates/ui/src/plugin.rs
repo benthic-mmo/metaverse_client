@@ -17,7 +17,7 @@ use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_core::ui_subscriber::listen_for_core_events;
-use metaverse_messages::http::login::login_errors::LoginError;
+use metaverse_messages::http::login::login_error::LoginError;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_response::LoginResponse;
@@ -263,7 +263,10 @@ fn handle_queue(
             }
             UIMessage::Error(error) => match error {
                 SessionError::Login(e) => {
-                    ev_loginresponse.write(LoginResponseEvent { value: Err(e) });
+                    ev_loginresponse.write(LoginResponseEvent {
+                        value: Err(e.clone()),
+                    });
+                    error!("{:?}", e)
                 }
                 SessionError::MailboxSession(e) => {
                     info!("MailboxError {:?}", e)
@@ -292,9 +295,6 @@ fn handle_queue(
             }
             UIMessage::DisableSimulator(_) => {
                 ev_disable_simulator.write(DisableSimulatorEvent {});
-            }
-            event => {
-                info!("unknown event coming from server: {:?}", event)
             }
         };
     }

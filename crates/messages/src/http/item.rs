@@ -1,6 +1,10 @@
 use super::mesh::Mesh;
-use crate::utils::item_metadata::ItemMetadata;
-use std::collections::HashMap;
+use crate::{errors::ParseError, utils::item_metadata::ItemMetadata};
+use serde_llsd::converter::get;
+use std::{
+    collections::HashMap,
+    str::{from_utf8, FromStr},
+};
 use uuid::Uuid;
 
 #[derive(Debug, Default, Clone)]
@@ -19,7 +23,7 @@ impl Item {
     ///
     /// Metadata is parsed with the ItemMetadata from_bytes, and data is parsed with
     /// ItemData::from_bytes.
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(Item {
             metadata: ItemMetadata::from_bytes(bytes)?,
             data: Some(ItemData::from_bytes(bytes)?),
@@ -31,7 +35,7 @@ impl Item {
 /// The data received from the ViewerAsset endpoint for inventory objects.
 pub struct ItemData {
     /// The version of the item. For some wearables it comes in as something like "LLWearable version 22"
-    pub version: String,
+    pub version: u32,
     /// A map of visual parameters for character customization. The key corresponds to a bodypart
     /// on the model, such as nose, or height. The value corresponds to the slider value of the
     /// modification of that bodypart. This will be rewritten to contain an enum mapping each parameter to
@@ -43,6 +47,7 @@ pub struct ItemData {
     /// Will not be populated until the mesh is retrieved.
     pub mesh: Option<Mesh>,
 }
+
 impl ItemData {
     /// Converts from bytes to an ItemData struct.
     /// Data for item objects come in in a newline separated bytes stream.
@@ -77,106 +82,16 @@ impl ItemData {
     /// textures 1
     /// 3 6522e74d-1660-4e7f-b601-6f48c1659a77
     /// ```
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let text = std::str::from_utf8(bytes)
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))?;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        let data = from_utf8(bytes)?;
+        let llsd =
+            serde_llsd::de::auto_from_str(data).map_err(|e| ParseError::Message(e.to_string()))?;
 
-        let mut lines = text.lines().map(str::trim);
-
-        let mut next_line = || {
-            lines.next().ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "Unexpected end of data")
-            })
-        };
-
-        let version = next_line()?.to_owned();
-        let _name = next_line()?.to_owned();
-
-        next_line()?; // permissions 0
-        next_line()?; // {
-        next_line()?; // base_mask
-
-        let parse_hex = |line: &str| {
-            i32::from_str_radix(
-                line.split('\t').nth(1).ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing hex field")
-                })?,
-                16,
-            )
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-        };
-
-        let _base_mask = parse_hex(next_line()?)?;
-        let _owner_mask = parse_hex(next_line()?)?;
-        let _group_mask = parse_hex(next_line()?)?;
-        let _everyone_mask = parse_hex(next_line()?)?;
-        let _next_owner_mask = parse_hex(next_line()?)?;
-
-        let parse_uuid = |line: &str| {
-            let id_str = line.split('\t').nth(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing UUID field")
-            })?;
-            Uuid::parse_str(id_str)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-        };
-
-        let _creator_id = parse_uuid(next_line()?)?;
-        let _owner_id = parse_uuid(next_line()?)?;
-        let _last_owner_id = Some(parse_uuid(next_line()?)?);
-        let _group_id = parse_uuid(next_line()?)?;
-
-        next_line()?; // }
-        next_line()?; // sale_info 0
-        next_line()?; // {
-        next_line()?; // sale_type
-
-        {
-            let _price_str = next_line()?.split('\t').nth(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing sale price")
-            })?;
-        };
-
-        next_line()?; // }
-        next_line()?; // type 0
-
-        let param_count = {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            parse_or_io(parts.get(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing parameter count")
-            })?)?
-        };
-
-        let mut parameters = HashMap::new();
-        for _ in 0..param_count {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            if parts.len() >= 2 {
-                parameters.insert(parse_or_io(parts[0])?, parse_or_io(parts[1])?);
-            }
-        }
-
-        let texture_count = {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            parse_or_io(parts.get(1).ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing texture count")
-            })?)?
-        };
-
-        let mut textures = HashMap::new();
-        for _ in 0..texture_count {
-            let parts: Vec<&str> = next_line()?.split(' ').collect();
-            if parts.len() >= 2 {
-                textures.insert(
-                    TextureSlot::from_bytes(parse_or_io(parts[0])?),
-                    parse_or_io(parts[1])?,
-                );
-            }
-            // Optional: parse texture lines if needed
-        }
-
+        let map = llsd.as_map().ok_or(ParseError::LLSDError())?;
         Ok(ItemData {
-            version,
-            parameters,
-            textures,
+            version: get("version", map),
+            parameters: get("parameters", map),
+            textures: get("textures", map),
             mesh: None,
         })
     }
@@ -218,28 +133,21 @@ pub enum TextureSlot {
     Unknown = 99,
 }
 
-impl TextureSlot {
-    fn from_bytes(value: u8) -> Self {
-        match value {
-            0 => TextureSlot::Head,
-            1 => TextureSlot::UpperBody,
-            2 => TextureSlot::LowerBody,
-            3 => TextureSlot::Eyes,
-            4 => TextureSlot::Hair,
-            5 => TextureSlot::Shirt,
-            6 => TextureSlot::Pants,
-            7 => TextureSlot::Shoes,
-            8 => TextureSlot::Socks,
-            9 => TextureSlot::Jacket,
-            _ => TextureSlot::Unknown,
+impl FromStr for TextureSlot {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(TextureSlot::Head),
+            "1" => Ok(TextureSlot::UpperBody),
+            "2" => Ok(TextureSlot::LowerBody),
+            "3" => Ok(TextureSlot::Eyes),
+            "4" => Ok(TextureSlot::Hair),
+            "5" => Ok(TextureSlot::Shirt),
+            "6" => Ok(TextureSlot::Pants),
+            "7" => Ok(TextureSlot::Shoes),
+            "8" => Ok(TextureSlot::Socks),
+            "9" => Ok(TextureSlot::Jacket),
+            _ => Ok(TextureSlot::Unknown),
         }
     }
-}
-
-fn parse_or_io<T: std::str::FromStr>(s: &str) -> std::io::Result<T>
-where
-    T::Err: std::fmt::Display,
-{
-    s.parse::<T>()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
 }

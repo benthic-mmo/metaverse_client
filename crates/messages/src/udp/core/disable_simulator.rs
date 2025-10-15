@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::packet::{
-    errors::PacketError,
-    header::{Header, PacketFrequency},
-    message::UIMessage,
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    errors::ParseError,
+    packet::{
+        header::{Header, PacketFrequency},
+        message::UIMessage,
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
 };
 
 impl Packet {
@@ -29,6 +31,7 @@ impl Packet {
 }
 
 impl UIMessage {
+    /// create a new UI message to allow the client to inform the server of disconnects
     pub fn new_disable_simulator() -> Self {
         UIMessage::DisableSimulator(DisableSimulator {})
     }
@@ -39,7 +42,7 @@ impl UIMessage {
 pub struct DisableSimulator {}
 
 impl PacketData for DisableSimulator {
-    fn from_bytes(_: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(_: &[u8]) -> Result<Self, ParseError> {
         Ok(DisableSimulator {})
     }
     fn to_bytes(&self) -> Vec<u8> {

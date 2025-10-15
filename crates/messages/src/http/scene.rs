@@ -1,4 +1,5 @@
 use crate::{
+    errors::ParseError,
     udp::core::object_update::{MaterialType, ObjectUpdate},
     utils::{
         item_metadata::{ItemMetadata, SaleType},
@@ -38,11 +39,11 @@ pub struct SceneGroup {
 impl SceneGroup {
     /// Receive bytes from the server, and parse them as XML.
     ///
-    /// Despite the majority of the project using things like LLSD, this uses raw 2001 standard
+    /// Despite the majority of the project using things like LLSD, or LLSD-XML, this uses raw 2001 standard
     /// xml. XML is not a very good option, because of how hard it can be to iterate over data that
     /// can contain a variable number of entries, while having to read line by line.
     /// If this were JSON, life would be much better.
-    pub fn from_xml(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn from_xml(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut root_object = SceneObject::default();
         let mut children = Vec::new();
         let mut reader = Reader::from_reader(bytes);
@@ -190,7 +191,7 @@ impl SceneObject {
         reader: &mut Reader<R>,
         scene_object: &mut SceneObject,
         path_prefix: Vec<String>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), ParseError> {
         let mut buf = Vec::new();
         let mut path = path_prefix;
 
@@ -242,7 +243,7 @@ impl SceneObject {
         e: BytesText<'_>,
         scene_object: &mut SceneObject,
         offset: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), ParseError> {
         let text = str::from_utf8(e.as_ref())?;
         let val = unescape(text)?.into_owned();
         match &path_str[offset..] {

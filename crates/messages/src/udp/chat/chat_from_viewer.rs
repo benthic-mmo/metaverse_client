@@ -1,8 +1,10 @@
-use crate::packet::{
-    errors::PacketError,
-    header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    errors::ParseError,
+    packet::{
+        header::{Header, PacketFrequency},
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
@@ -49,7 +51,7 @@ pub struct ChatFromViewer {
 }
 
 impl PacketData for ChatFromViewer {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
         // Deserialize AgentData

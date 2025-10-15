@@ -2,11 +2,13 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{self, Cursor, Write};
 
-use crate::packet::{
-    errors::PacketError,
-    header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    errors::ParseError,
+    packet::{
+        header::{Header, PacketFrequency},
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
 };
 
 impl Packet {
@@ -67,7 +69,7 @@ pub struct CoarseLocationUpdate {
 }
 
 impl PacketData for CoarseLocationUpdate {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
         let location_count = cursor.read_u8()? as usize;
         let mut locations = Vec::with_capacity(location_count);
