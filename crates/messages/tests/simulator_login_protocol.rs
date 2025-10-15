@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use metaverse_messages::ui::login::simulator_login_protocol::SimulatorLoginProtocol;
+use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 
 #[test]
 fn parse_login_failure() {

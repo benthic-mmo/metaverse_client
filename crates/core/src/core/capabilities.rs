@@ -39,13 +39,12 @@ impl Handler<CapabilityRequest> for Mailbox {
                     {
                         Ok(mut get) => match get.body().await {
                             Ok(body) => {
-                                let capability_urls = CapabilityRequest::response_from_llsd(&body);
-                                if capability_urls.is_empty() {
-                                    error!("Failed to retrieve capability URLs. Caps are empty.")
-                                    // TODO: handle this like a real error and notify the waiting
-                                    // object updates an cap requests
-                                }
-                                address.do_send(SetCapabilityUrls { capability_urls });
+                                match CapabilityRequest::response_from_llsd(&body) {
+                                    Ok(capability_urls) => {
+                                        address.do_send(SetCapabilityUrls { capability_urls })
+                                    }
+                                    Err(e) => error!("Capabilities failed to parse: {:?}", e),
+                                };
                             }
                             Err(e) => {
                                 error!("Failed to retrieve body of capability request {:?}", e);

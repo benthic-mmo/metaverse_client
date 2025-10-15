@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::packet::message::UIResponse;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// A message to request a logout from the core
 pub struct Logout {}
 
 impl UIResponse {

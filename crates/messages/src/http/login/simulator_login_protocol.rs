@@ -270,10 +270,13 @@ impl SimulatorLoginOptions {
 }
 
 impl SimulatorLoginProtocol {
+    /// Writes the simulator login protocol to XML
     pub fn to_xml(self) -> String {
         let llsd = self.to_llsd_map();
         xml_rpc::to_string(&llsd, false, "login_to_simulator").unwrap()
     }
+    /// create a new simulator login protocol using the minimal object sent from the UI, populated
+    /// with defaults
     pub fn new(login: Login) -> Self {
         SimulatorLoginProtocol {
             first: login.first,

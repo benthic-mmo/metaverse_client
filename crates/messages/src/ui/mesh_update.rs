@@ -31,6 +31,7 @@ pub enum MeshType {
 }
 
 impl UIMessage {
+    /// creates a new MeshUpdate message
     pub fn new_mesh_update(data: MeshUpdate) -> Self {
         UIMessage::MeshUpdate(data)
     }

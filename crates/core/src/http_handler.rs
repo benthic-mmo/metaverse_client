@@ -1,5 +1,5 @@
-use metaverse_messages::http::login::login_errors::{LoginError, Reason};
-use metaverse_messages::http::login::login_response::LoginResponse;
+use metaverse_messages::http::login::login_error::{LoginError, Reason};
+use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::ui::login_event::Login;
@@ -21,18 +21,26 @@ pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginErro
         .insert_header(("Content-Type", "text/xml; charset=utf-8"))
         .send_body(xml)
         .await
-        .map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?;
+        .map_err(|e| LoginError {
+            reason: Reason::Connection,
+            message: format!("{:?}", e),
+        })?;
 
-    let body_bytes = response
-        .body()
-        .await
-        .map_err(|e| LoginError::new(Reason::Connection, &format!("{:?}", e)))?;
+    let body_bytes = response.body().await.map_err(|e| LoginError {
+        reason: Reason::Connection,
+        message: format!("{:?}", e),
+    })?;
 
     let xml_string = String::from_utf8(body_bytes.to_vec()).unwrap();
     // Parse XML-RPC response
 
-    LoginResponse::from_xml(&xml_string)
-        .map_err(|e| LoginError::new(Reason::Unknown, &e.to_string()))
+    match LoginResponse::from_xml(&xml_string) {
+        Ok(login) => match login {
+            LoginStatus::Success(success) => Ok(success),
+            LoginStatus::Failure(failure) => Err(failure),
+        },
+        Err(e) => Err(e)?,
+    }
 }
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object using the object's asset ID.

@@ -29,6 +29,7 @@ strum = "0.27.2"
 strum_macros = "0.27.2"
 indexmap = {version="2.11.4", features = ["serde"]}
 chrono = "0.4.42"
+anyhow = "1.0.100"
 [dependencies.uuid]
 version = "1.18.1"
 features = [

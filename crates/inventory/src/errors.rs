@@ -1,3 +1,4 @@
+use metaverse_messages::errors::ParseError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,4 +20,7 @@ pub enum InventoryError {
 
     #[error("Inventory Error: {0}")]
     Error(String),
+
+    #[error("Messges error: {0}")]
+    Messages(#[from] ParseError),
 }

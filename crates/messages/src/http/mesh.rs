@@ -1,13 +1,9 @@
-use crate::utils::skeleton::JointName;
+use crate::{errors::ParseError, utils::skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 use serde_llsd::LLSDValue;
-use std::{
-    collections::HashMap,
-    io::{Error, ErrorKind, Read},
-    str::FromStr,
-};
+use std::{collections::HashMap, io::Read, str::FromStr};
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data
 /// begins. This is followed by
@@ -37,10 +33,10 @@ pub struct Mesh {
     pub lowest_level_of_detail: Option<MeshGeometry>,
     /// This is a physics representation taht uses convex hull approximation for collision and
     /// physics simulation.
-    pub physics_convex: Vec<u8>,
+    pub physics_convex: Option<Vec<u8>>,
     /// This is the skinning information, which tells the mesh how to deform based on the avatar's
     /// skeleton.
-    pub skin: Skin,
+    pub skin: Option<Skin>,
 }
 impl Mesh {
     /// Converts mesh bytes to a mesh object.
@@ -65,92 +61,109 @@ impl Mesh {
     /// The offset it points to is the exact position in the data of the next zlib magic
     /// number for decompressing each section
     /// Once decompressed, the data is encoded in the same binary llsd format that the header is.
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut mesh = Mesh {
             ..Default::default()
         };
-        if let Ok(data) = serde_llsd::de::binary::from_bytes(bytes) {
-            // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
-            // first data block.
-            let sentinel_location = bytes
-                .windows(2)
-                .position(|w| w == [ZLIB_MAGIC_NUMBER, ZLIB_DECODING_TYPE])
-                .expect("Zlib header not found");
-            let compressed_data = &bytes[sentinel_location..];
+        let data = serde_llsd::de::binary::from_bytes(bytes)?;
+        // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
+        // first data block.
+        let sentinel_location = bytes
+            .windows(2)
+            .position(|w| w == [ZLIB_MAGIC_NUMBER, ZLIB_DECODING_TYPE])
+            .expect("Zlib header not found");
+        let compressed_data = &bytes[sentinel_location..];
 
-            let map_data = data.into_map().unwrap();
-            let (high_lod_offset, high_lod_size) =
-                extract_offset_size(map_data.get("high_lod").unwrap())?;
-            let (medium_lod_offset, medium_lod_size) =
-                extract_offset_size(map_data.get("medium_lod").unwrap())?;
-            let (low_lod_offset, low_lod_size) =
-                extract_offset_size(map_data.get("low_lod").unwrap())?;
-            let (lowest_lod_offset, lowest_lod_size) =
-                extract_offset_size(map_data.get("lowest_lod").unwrap())?;
-            let (physics_convex_offset, physics_convex_size) =
-                extract_offset_size(map_data.get("physics_convex").unwrap())?;
-            let (skin_offset, skin_offset_size) =
-                extract_offset_size(map_data.get("skin").unwrap())?;
+        let map_data = data.into_map()?;
 
-            let high_level_of_detail = decompress_slice(
-                &compressed_data[high_lod_offset..high_lod_offset + high_lod_size],
-            )?;
-            let medium_level_of_detail = Some(decompress_slice(
+        let get_offset_size = |key: &str| -> Result<Option<(usize, usize)>, ParseError> {
+            map_data.get(key).map(extract_offset_size).transpose()
+        };
+
+        // Helper to get optional offset/size
+        let (high_lod_offset, high_lod_size) = extract_offset_size(
+            map_data
+                .get("high_lod")
+                .ok_or(ParseError::MissingField("high_lod".into()))?,
+        )?;
+
+        let (medium_lod_offset, medium_lod_size) = get_offset_size("medium_lod")?.unwrap_or((0, 0));
+        let (low_lod_offset, low_lod_size) = get_offset_size("low_lod")?.unwrap_or((0, 0));
+        let (lowest_lod_offset, lowest_lod_size) = get_offset_size("lowest_lod")?.unwrap_or((0, 0));
+        let (physics_convex_offset, physics_convex_size) =
+            get_offset_size("physics_convex")?.unwrap_or((0, 0));
+        let (skin_offset, skin_size) = get_offset_size("skin")?.unwrap_or((0, 0));
+
+        let high_level_of_detail =
+            decompress_slice(&compressed_data[high_lod_offset..high_lod_offset + high_lod_size])?;
+
+        let medium_level_of_detail = if medium_lod_size > 0 {
+            Some(decompress_slice(
                 &compressed_data[medium_lod_offset..medium_lod_offset + medium_lod_size],
-            )?);
-            let low_level_of_detail = Some(decompress_slice(
+            )?)
+        } else {
+            None
+        };
+
+        let low_level_of_detail = if low_lod_size > 0 {
+            Some(decompress_slice(
                 &compressed_data[low_lod_offset..low_lod_offset + low_lod_size],
-            )?);
-            let lowest_level_of_detail = Some(decompress_slice(
+            )?)
+        } else {
+            None
+        };
+        let lowest_level_of_detail = if lowest_lod_size > 0 {
+            Some(decompress_slice(
                 &compressed_data[lowest_lod_offset..lowest_lod_offset + lowest_lod_size],
-            )?);
-            mesh.physics_convex = decompress_slice(
+            )?)
+        } else {
+            None
+        };
+
+        if physics_convex_size > 0 {
+            let physics_convex = decompress_slice(
                 &compressed_data
                     [physics_convex_offset..physics_convex_offset + physics_convex_size],
             )?;
-            let skin =
-                decompress_slice(&compressed_data[skin_offset..skin_offset + skin_offset_size])?;
+            mesh.physics_convex = Some(physics_convex);
+        }
 
-            match Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin).unwrap()) {
-                Ok(decoded) => mesh.skin = decoded,
-                Err(e) => println!("a {:?}", e),
-            };
+        if skin_size > 0 {
+            let skin = decompress_slice(&compressed_data[skin_offset..skin_offset + skin_size])?;
+            mesh.skin = Some(Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin)?)?);
+        }
 
-            match MeshGeometry::from_llsd(
-                serde_llsd::de::binary::from_bytes(&high_level_of_detail).unwrap(),
-                &mesh.skin.joint_names,
-            ) {
-                Ok(decoded) => mesh.high_level_of_detail = decoded,
-                Err(e) => println!("Error decoding mesh geometry {:?}", e),
-            }
-            if let Some(data) = &medium_level_of_detail {
-                match MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(data).unwrap(),
-                    &mesh.skin.joint_names,
-                ) {
-                    Ok(decoded) => mesh.medium_level_of_detail = Some(decoded),
-                    Err(e) => println!("a {:?}", e),
-                }
-            }
-            if let Some(data) = &low_level_of_detail {
-                match MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(data).unwrap(),
-                    &mesh.skin.joint_names,
-                ) {
-                    Ok(decoded) => mesh.low_level_of_detail = Some(decoded),
-                    Err(e) => println!("a {:?}", e),
-                }
-            }
-            if let Some(data) = &lowest_level_of_detail {
-                match MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(data).unwrap(),
-                    &mesh.skin.joint_names,
-                ) {
-                    Ok(decoded) => mesh.lowest_level_of_detail = Some(decoded),
-                    Err(e) => println!("a {:?}", e),
-                }
-            }
-        };
+        mesh.high_level_of_detail = MeshGeometry::from_llsd(
+            serde_llsd::de::binary::from_bytes(&high_level_of_detail)?,
+            &mesh.skin,
+        )?;
+        mesh.medium_level_of_detail = medium_level_of_detail
+            .as_ref()
+            .map(|bytes| {
+                MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
+                    &mesh.skin,
+                )
+            })
+            .transpose()?;
+        mesh.low_level_of_detail = low_level_of_detail
+            .as_ref()
+            .map(|bytes| {
+                MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
+                    &mesh.skin,
+                )
+            })
+            .transpose()?;
+        mesh.lowest_level_of_detail = lowest_level_of_detail
+            .as_ref()
+            .map(|bytes| {
+                MeshGeometry::from_llsd(
+                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
+                    &mesh.skin,
+                )
+            })
+            .transpose()?;
         Ok(mesh)
     }
 }
@@ -161,12 +174,12 @@ impl Mesh {
 /// This includes all of the information required for creating and displaying the mesh.
 pub struct MeshGeometry {
     /// Boolean flag to show that there is no mesh geometry.
-    /// Legacy code.
+    /// Unused and legacy code .
     pub no_geometry: bool,
     /// Used to decode compressed triangle positions
     pub position_domain: Option<PositionDomain>,
     /// Bone weights for skinning
-    pub weights: Vec<JointWeight>,
+    pub weights: Option<Vec<JointWeight>>,
     /// Stores UVs per vertex, used for texturing.
     pub texture_coordinate: Vec<TextureCoordinate>,
     /// Used to decode compressed UVs
@@ -185,51 +198,54 @@ pub struct MeshGeometry {
 }
 
 impl MeshGeometry {
-    fn from_llsd(data: LLSDValue, joint_names: &Vec<JointName>) -> std::io::Result<Self> {
+    fn from_llsd(data: LLSDValue, skin: &Option<Skin>) -> Result<Self, ParseError> {
         let array = data
             .as_array()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected top-level array"))?;
+            .ok_or_else(|| ParseError::MissingField("Expected top level array".into()))?;
 
         let map = array
             .first()
             .and_then(LLSDValue::as_map)
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Expected map inside array"))?;
+            .ok_or_else(|| ParseError::MissingField("Expected map inside array".into()))?;
 
         let position_domain = map
             .get("PositionDomain")
             .and_then(LLSDValue::as_map)
-            .ok_or_else(|| {
-                Error::new(ErrorKind::InvalidData, "Missing or invalid PositionDomain")
-            })?;
+            .ok_or_else(|| ParseError::MissingField("PositionDomain".into()))?;
 
         let min = position_domain
             .get("Min")
             .and_then(LLSDValue::as_array)
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing PositionDomain Min"))?;
+            .ok_or_else(|| ParseError::MissingField("PositionDomain Min".into()))?;
 
         let max = position_domain
             .get("Max")
             .and_then(LLSDValue::as_array)
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing PositionDomain Max"))?;
+            .ok_or_else(|| ParseError::MissingField("PositionDomain Max".into()))?;
 
         let position_domain_min = Vec3::new(
-            parse_f32(&min[0]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid x"))?,
-            parse_f32(&min[1]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid y"))?,
-            parse_f32(&min[2]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid z"))?,
+            parse_f32(&min[0])
+                .ok_or_else(|| ParseError::InvalidField("position domain min x".into()))?,
+            parse_f32(&min[1])
+                .ok_or_else(|| ParseError::InvalidField("position domain min y".into()))?,
+            parse_f32(&min[2])
+                .ok_or_else(|| ParseError::InvalidField("position domain min z".into()))?,
         );
 
         let position_domain_max = Vec3::new(
-            parse_f32(&max[0]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid x"))?,
-            parse_f32(&max[1]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid y"))?,
-            parse_f32(&max[2]).ok_or_else(|| Error::new(ErrorKind::InvalidData, "Invalid z"))?,
+            parse_f32(&max[0])
+                .ok_or_else(|| ParseError::InvalidField("position domain max x".into()))?,
+            parse_f32(&max[1])
+                .ok_or_else(|| ParseError::InvalidField("Invalid position domain max y".into()))?,
+            parse_f32(&max[2])
+                .ok_or_else(|| ParseError::InvalidField("Invalid position domain max z".into()))?,
         );
 
         let position_bytes = parse_binary(map, "Position")?;
         let mut positions = Vec::new();
         if position_bytes.len() % 6 != 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Position data length is not a multiple of 6",
+            return Err(ParseError::MeshError(
+                "Position data length is not a multiple of 6".into(),
             ));
         }
 
@@ -251,9 +267,8 @@ impl MeshGeometry {
         // Parse triangle indices
         let triangle_bytes = parse_binary(map, "TriangleList")?;
         if triangle_bytes.len() % 2 != 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "TriangleList data has odd length",
+            return Err(ParseError::MeshError(
+                "TriangleList data has odd length (should be even)".into(),
             ));
         }
 
@@ -261,77 +276,16 @@ impl MeshGeometry {
         for chunk in triangle_bytes.chunks_exact(2) {
             triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]));
         }
-
-        let mut weights = Vec::new();
-        let data = parse_binary(map, "Weights")?;
-        let mut iter = data.iter().cloned(); // iterator over bytes, cloning to get u8 values
-        while let Some(_) = iter.clone().next() {
-            let mut joint_indices = [0u8; 4];
-            let mut joint_weights = [0u16; 4];
-
-            for i in 0..4 {
-                let joint = match iter.next() {
-                    Some(j) => j,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::UnexpectedEof,
-                            "Unexpected end of weight data",
-                        ));
-                    }
-                };
-                if joint == 0xFF {
-                    break; // end of influences for this vertex
-                }
-
-                // Next 2 bytes for weight
-                let w1 = match iter.next() {
-                    Some(b) => b,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::UnexpectedEof,
-                            "Unexpected end while reading weight value",
-                        ));
-                    }
-                };
-                let w2 = match iter.next() {
-                    Some(b) => b,
-                    None => {
-                        return Err(Error::new(
-                            ErrorKind::UnexpectedEof,
-                            "Unexpected end while reading weight value",
-                        ));
-                    }
-                };
-                let weight = u16::from_le_bytes([w1, w2]);
-
-                joint_indices[i] = joint;
-                joint_weights[i] = weight;
-            }
-            let raw_f32: [f32; 4] = joint_weights.map(|w| w as f32);
-            let total: f32 = raw_f32.iter().sum();
-
-            let normalized_weights: [f32; 4] = if total > 0.0 {
-                raw_f32.map(|w| w / total)
-            } else {
-                [0.25, 0.25, 0.25, 0.25]
-            };
-            weights.push(JointWeight {
-                indices: joint_indices,
-                weights: normalized_weights,
-                joint_name: [
-                    joint_names[joint_indices[0] as usize],
-                    joint_names[joint_indices[1] as usize],
-                    joint_names[joint_indices[2] as usize],
-                    joint_names[joint_indices[3] as usize],
-                ],
-            });
-        }
+        let weights = map
+            .get("Weights")
+            .and_then(|weights_llsd| skin.as_ref().map(|skin| (weights_llsd, skin)))
+            .map(|(weights_llsd, skin)| handle_skin(weights_llsd, skin.joint_names.as_ref()))
+            .transpose()?;
 
         let data = parse_binary(map, "TexCoord0")?;
         if data.len() % 4 != 0 {
-            return Err(Error::new(
-                ErrorKind::InvalidData,
-                "TexCoord0 data length is not a multiple of 4",
+            return Err(ParseError::InvalidField(
+                "TexCoord0 is not a multiple of 4".into(),
             ));
         }
 
@@ -347,15 +301,14 @@ impl MeshGeometry {
         // Parse TexCoord0Domain map
         let domain_value = map
             .get("TexCoord0Domain")
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Missing TexCoord0Domain"))?;
+            .ok_or_else(|| ParseError::MissingField("TexCoord0Domain".into()))?;
 
         let domain_map = match domain_value {
             LLSDValue::Map(m) => m,
             _ => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "TexCoord0Domain is not a Map",
-                ));
+                return Err(ParseError::InvalidField(
+                    "TexCoord0Domain is not a Map".into(),
+                ))
             }
         };
 
@@ -364,30 +317,15 @@ impl MeshGeometry {
             Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
                 let x = match &arr[1] {
                     LLSDValue::Real(f) => *f as f32,
-                    _ => {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Invalid Min value",
-                        ));
-                    }
+                    _ => return Err(ParseError::InvalidField("Invalid Min value".into())),
                 };
                 let y = match &arr[0] {
                     LLSDValue::Real(f) => *f as f32,
-                    _ => {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Invalid Min value",
-                        ));
-                    }
+                    _ => return Err(ParseError::InvalidField("Invalid Min value".into())),
                 };
                 [x, y]
             }
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Min is missing or invalid",
-                ));
-            }
+            _ => return Err(ParseError::InvalidField("Min is missing or invalid".into())),
         };
 
         // parse "Max" array (same as Min)
@@ -395,30 +333,15 @@ impl MeshGeometry {
             Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
                 let x = match &arr[0] {
                     LLSDValue::Real(f) => *f as f32,
-                    _ => {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Invalid Max value",
-                        ));
-                    }
+                    _ => return Err(ParseError::InvalidField("Invalid Max value".into())),
                 };
                 let y = match &arr[1] {
                     LLSDValue::Real(f) => *f as f32,
-                    _ => {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Invalid Max value",
-                        ));
-                    }
+                    _ => return Err(ParseError::InvalidField("Invalid Max value".into())),
                 };
                 [x, y]
             }
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Max is missing or invalid",
-                ));
-            }
+            _ => return Err(ParseError::InvalidField("Max is missing or invalid".into())),
         };
 
         let texture_coordinate_domain = TextureCoordinateDomain { min, max };
@@ -436,6 +359,74 @@ impl MeshGeometry {
             indices: triangle_indices,
         })
     }
+}
+
+fn handle_skin(data: &LLSDValue, joints: &Vec<JointName>) -> Result<Vec<JointWeight>, ParseError> {
+    let map = match data {
+        LLSDValue::Binary(map) => map,
+        _ => return Err(ParseError::InvalidField("Weights".into())),
+    };
+    let mut weights = Vec::new();
+    let mut iter = map.iter().cloned(); // iterator over bytes, cloning to get u8 values
+    while let Some(_) = iter.clone().next() {
+        let mut joint_indices = [0u8; 4];
+        let mut joint_weights = [0u16; 4];
+
+        for i in 0..4 {
+            let joint = match iter.next() {
+                Some(j) => j,
+                None => {
+                    return Err(ParseError::InvalidField(
+                        "Unexpected end of weight data".into(),
+                    ))
+                }
+            };
+            if joint == 0xFF {
+                break; // end of influences for this vertex
+            }
+
+            // Next 2 bytes for weight
+            let w1 = match iter.next() {
+                Some(b) => b,
+                None => {
+                    return Err(ParseError::InvalidField(
+                        "Unexpected end while reading weight value".into(),
+                    ))
+                }
+            };
+            let w2 = match iter.next() {
+                Some(b) => b,
+                None => {
+                    return Err(ParseError::InvalidField(
+                        "Unexpected end while reading weight value".into(),
+                    ))
+                }
+            };
+            let weight = u16::from_le_bytes([w1, w2]);
+
+            joint_indices[i] = joint;
+            joint_weights[i] = weight;
+        }
+        let raw_f32: [f32; 4] = joint_weights.map(|w| w as f32);
+        let total: f32 = raw_f32.iter().sum();
+
+        let normalized_weights: [f32; 4] = if total > 0.0 {
+            raw_f32.map(|w| w / total)
+        } else {
+            [0.25, 0.25, 0.25, 0.25]
+        };
+        weights.push(JointWeight {
+            indices: joint_indices,
+            weights: normalized_weights,
+            joint_name: [
+                joints[joint_indices[0] as usize],
+                joints[joint_indices[1] as usize],
+                joints[joint_indices[2] as usize],
+                joints[joint_indices[3] as usize],
+            ],
+        });
+    }
+    Ok(weights)
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -500,94 +491,71 @@ pub struct Skin {
     pub bind_shape_matrix: Mat4,
 }
 impl Skin {
-    fn from_llsd(data: LLSDValue) -> std::io::Result<Self> {
+    fn from_llsd(data: LLSDValue) -> Result<Self, ParseError> {
         let map = data
             .as_map()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected map"))?;
+            .ok_or_else(|| ParseError::MissingField("Expected top level map".into()))?;
 
         // Parse joint_names
         let joint_names: Vec<JointName> = map
             .get("joint_names")
             .and_then(LLSDValue::as_array)
-            .ok_or_else(|| std::io::Error::new(ErrorKind::InvalidData, "Missing joint_names"))?
+            .ok_or_else(|| ParseError::MissingField("joint_names".into()))?
             .iter()
             .map(|v| {
                 v.as_string()
-                    .ok_or_else(|| {
-                        std::io::Error::new(
-                            ErrorKind::InvalidData,
-                            "Invalid joint name (not a string)",
-                        )
-                    })
+                    .ok_or_else(|| ParseError::InvalidField("joint name (not a string)".into()))
                     .and_then(|s| {
                         JointName::from_str(s).map_err(|e| {
-                            std::io::Error::new(
-                                ErrorKind::InvalidData,
-                                format!("Unknown joint name: {}, {}", s, e),
-                            )
+                            ParseError::InvalidField(format!("Unknown joint name: {}, {}", s, e))
                         })
                     })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         // Parse inverse_bind_matrix
-        let inverse_bind_matrices = map
-            .get("inverse_bind_matrix")
-            .and_then(LLSDValue::as_array)
-            .ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Missing inverse_bind_matrix",
-                )
-            })?
-            .iter()
-            .map(|matrix_val| {
-                let flat = matrix_val.as_array().ok_or_else(|| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, "Expected matrix array")
-                })?;
+        let inverse_bind_matrices =
+            map.get("inverse_bind_matrix")
+                .and_then(LLSDValue::as_array)
+                .ok_or_else(|| ParseError::MissingField("inverse_bind_matrix".into()))?
+                .iter()
+                .map(|matrix_val| {
+                    let flat = matrix_val
+                        .as_array()
+                        .ok_or_else(|| ParseError::InvalidField("Expected matrix array".into()))?;
 
-                if flat.len() != 16 {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        "Matrix must have 16 elements",
-                    ));
-                }
+                    if flat.len() != 16 {
+                        return Err(ParseError::InvalidField(
+                            "Matrix must have 16 elements".into(),
+                        ));
+                    }
 
-                let mut floats = [0.0f32; 16];
-                for (i, val) in flat.iter().enumerate() {
-                    floats[i] = *val.as_real().ok_or_else(|| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "Matrix element not real",
-                        )
-                    })? as f32;
-                }
-                Ok(Mat4::from_cols_array(&floats))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                    let mut floats = [0.0f32; 16];
+                    for (i, val) in flat.iter().enumerate() {
+                        floats[i] = *val.as_real().ok_or_else(|| {
+                            ParseError::InvalidField("Matrix element not real".into())
+                        })? as f32;
+                    }
+                    Ok(Mat4::from_cols_array(&floats))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
 
         // Parse bind_shape_matrix
         let bind_shape_vals = map
             .get("bind_shape_matrix")
             .and_then(LLSDValue::as_array)
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing bind_shape_matrix")
-            })?;
+            .ok_or_else(|| ParseError::MissingField("bind_shape_matrix".into()))?;
 
         if bind_shape_vals.len() != 16 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "bind_shape_matrix must have 16 elements",
+            return Err(ParseError::InvalidField(
+                "bind_shape_matrix must have 16 elements".into(),
             ));
         }
 
         let mut bind_shape_array = [0.0f32; 16];
         for (i, val) in bind_shape_vals.iter().enumerate() {
             bind_shape_array[i] = *val.as_real().ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Invalid bind_shape_matrix element",
-                )
+                ParseError::InvalidField("Invalid bind shape matrix element".into())
             })? as f32;
         }
 
@@ -601,36 +569,26 @@ impl Skin {
     }
 }
 
-fn decompress_slice(slice: &[u8]) -> std::io::Result<Vec<u8>> {
+fn decompress_slice(slice: &[u8]) -> Result<Vec<u8>, ParseError> {
     let mut decoder = ZlibDecoder::new(slice);
     let mut decoded = Vec::new();
     decoder.read_to_end(&mut decoded)?;
     Ok(decoded)
 }
 
-fn extract_offset_size(map: &LLSDValue) -> std::io::Result<(usize, usize)> {
+fn extract_offset_size(map: &LLSDValue) -> Result<(usize, usize), ParseError> {
     if let LLSDValue::Map(inner) = map {
         let offset = match inner.get("offset") {
             Some(LLSDValue::Integer(val)) => *val as usize,
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Missing or invalid 'offset'",
-                ));
-            }
+            _ => return Err(ParseError::MissingField("offset".into())),
         };
         let size = match inner.get("size") {
             Some(LLSDValue::Integer(val)) => *val as usize,
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::InvalidData,
-                    "Missing or invalid 'size'",
-                ));
-            }
+            _ => return Err(ParseError::MissingField("size".into())),
         };
         Ok((offset, size))
     } else {
-        Err(Error::new(ErrorKind::InvalidData, "Expected a map"))
+        Err(ParseError::MissingField("Expected a map".into()))
     }
 }
 
@@ -644,12 +602,12 @@ fn parse_f32(value: &LLSDValue) -> Option<f32> {
 }
 
 /// helper function for parsing binary data
-fn parse_binary(map: &HashMap<String, LLSDValue>, key: &str) -> Result<Vec<u8>, std::io::Error> {
+fn parse_binary(map: &HashMap<String, LLSDValue>, key: &str) -> Result<Vec<u8>, ParseError> {
     match map.get(key) {
         Some(LLSDValue::Binary(data)) => Ok(data.clone()),
-        _ => Err(Error::new(
-            ErrorKind::InvalidData,
-            format!("Missing or invalid binary data for key: {}", key),
-        )),
+        _ => Err(ParseError::InvalidField(format!(
+            "Missing or invalid binary data for key: {}",
+            key
+        ))),
     }
 }

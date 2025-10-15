@@ -1,7 +1,7 @@
 use super::header::PacketFrequency;
+use crate::errors::ParseError;
 use crate::legacy::udp::agent_wearables_request::AgentWearablesRequest;
 use crate::legacy::udp::agent_wearables_update::AgentWearablesUpdate;
-use crate::packet::errors::PacketError;
 use crate::packet::packet::PacketData;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::logout_request::LogoutRequest;
@@ -39,21 +39,14 @@ macro_rules! define_packets {
                 }
             }
             /// Determine the type of a packet using the ID and frequency
-            pub fn from_id(id: u16, frequency: PacketFrequency, bytes: &[u8]) -> Result<Self, PacketError> {
+            pub fn from_id(id: u16, frequency: PacketFrequency, bytes: &[u8]) -> Result<Self, ParseError> {
                 $(
                     if id == $id && frequency == PacketFrequency::$freq {
                         return Ok(PacketType::$variant(Box::new(PacketData::from_bytes(bytes)?)));
                     }
                 )*
 
-                Err(PacketError::InvalidData { id, frequency })
-            }
-            pub fn variant_name(&self) -> &'static str {
-                match self {
-                    $(
-                        PacketType::$variant(_) => stringify!($variant),
-                    )*
-                }
+                Err(ParseError::UnknownPacket{id, frequency})
             }
         }
     }

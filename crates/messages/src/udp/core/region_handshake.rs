@@ -1,6 +1,6 @@
 use crate::{
+    errors::ParseError,
     packet::{
-        errors::PacketError,
         header::{Header, PacketFrequency},
         packet::{Packet, PacketData},
         packet_types::PacketType,
@@ -34,18 +34,9 @@ impl Packet {
     }
 }
 
-impl PacketData for RegionHandshake {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
-        Ok(serde_json::from_str::<RegionHandshake>(from_utf8(bytes)?)?)
-    }
-    fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_string(&self).unwrap().into_bytes()
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// The simulator sends this in response to CompleteAgentMovement from the viewer.
-/// The viewer responds with RegionHandshakereply, which starts object updats via
+/// The viewer responds with RegionHandshakereply, which starts object updates via
 /// CoarseLocationUpdate
 pub struct RegionHandshake {
     /// undocumented
@@ -131,7 +122,7 @@ impl RegionHandshake {
     }
 
     /// Convert bytes to a region handshake object
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
         // these region flags are almost certainly super messed up
@@ -243,5 +234,14 @@ impl RegionHandshake {
             terrain_height_range_2,
             terrain_height_range_3,
         })
+    }
+}
+
+impl PacketData for RegionHandshake {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        Ok(serde_json::from_str::<RegionHandshake>(from_utf8(bytes)?)?)
+    }
+    fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_string(&self).unwrap().into_bytes()
     }
 }

@@ -3,7 +3,10 @@ use serde_llsd::LLSDValue;
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
-use crate::utils::{item_metadata::ItemMetadata, object_types::ObjectType};
+use crate::{
+    errors::ParseError,
+    utils::{item_metadata::ItemMetadata, object_types::ObjectType},
+};
 
 #[derive(Debug, Clone, Message)]
 #[rtype(result = "()")]
@@ -29,46 +32,59 @@ pub struct Category {
     /// version. Used to trigger redownloading on update
     pub version: i32,
 }
+
 impl Category {
-    /// converts a Category parsed with LLSD to a local type
-    pub fn from_llsd(category: &LLSDValue) -> std::io::Result<Category> {
-        if let Some(category_info) = category.as_map() {
-            let name = match category_info.get("name") {
-                Some(LLSDValue::String(name)) => name.to_string(),
-                _ => "".to_string(),
-            };
-            let category_id = match category_info.get("category_id") {
-                Some(LLSDValue::UUID(category_id)) => *category_id,
-                _ => Uuid::nil(),
-            };
-            let type_default = match category_info.get("type_default") {
-                Some(LLSDValue::Integer(type_default)) => {
-                    ObjectType::from_bytes(&if *type_default >= 0 {
-                        *type_default as u8
-                    } else {
-                        99
-                    })
-                }
-                _ => ObjectType::Unknown,
-            };
-            let version = match category_info.get("version") {
-                Some(LLSDValue::Integer(version)) => *version,
-                _ => 0,
-            };
-            Ok(Category {
-                name,
-                category_id,
-                type_default,
-                version,
-            })
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Missing or invalid category data",
-            ))
-        }
+    /// Converts a Category parsed with LLSD to a local type
+    pub fn from_llsd(category: &LLSDValue) -> Result<Category, ParseError> {
+        let category_info = category
+            .as_map()
+            .ok_or_else(|| ParseError::Message("Expected category to be a map".into()))?;
+
+        let name = match category_info.get("name") {
+            Some(LLSDValue::String(name)) => name.clone(),
+            Some(_) => return Err(ParseError::Message("Field 'name' is not a string".into()))?,
+            None => return Err(ParseError::Message("Missing field 'name'".into()))?,
+        };
+
+        let category_id = match category_info.get("category_id") {
+            Some(LLSDValue::UUID(id)) => *id,
+            Some(_) => {
+                return Err(ParseError::Message(
+                    "Field 'category_id' is not a UUID".into(),
+                ))?
+            }
+            None => return Err(ParseError::Message("Missing field 'category_id'".into()))?,
+        };
+
+        let type_default = match category_info.get("type_default") {
+            Some(LLSDValue::Integer(i)) if *i >= 0 => ObjectType::from_bytes(&(*i as u8)),
+            Some(LLSDValue::Integer(_)) => ObjectType::Unknown,
+            Some(_) => {
+                return Err(ParseError::Message(
+                    "Field 'type_default' is not an integer".into(),
+                ))?
+            }
+            None => ObjectType::Unknown,
+        };
+
+        let version = match category_info.get("version") {
+            Some(LLSDValue::Integer(v)) => *v,
+            Some(_) => {
+                return Err(ParseError::Message(
+                    "Field 'version' is not an integer".into(),
+                ))?
+            }
+            None => 0,
+        };
+        Ok(Category {
+            name,
+            category_id,
+            type_default,
+            version,
+        })
     }
 }
+
 #[derive(Debug, Clone)]
 /// The folder struct. Contains things like items and categories
 pub struct Folder {
@@ -87,62 +103,103 @@ pub struct Folder {
     /// sub-folders within the folder
     pub categories: Vec<Category>,
 }
-impl Folder {
-    /// When the server responds with
-    pub fn from_llsd(parsed_data: LLSDValue) -> std::io::Result<Vec<Self>> {
-        let mut folders_vec = Vec::new();
-        if let Ok(data) = parsed_data.into_map()
-            && let Some(folders) = data.get("folders")
-                && let Some(folders) = folders.as_array() {
-                    for folder in folders {
-                        if let Some(folder_data) = folder.as_map() {
-                            let folder_id = match folder_data.get("folder_id") {
-                                Some(LLSDValue::UUID(id)) => *id,
-                                _ => Uuid::nil(),
-                            };
-                            let owner_id = match folder_data.get("owner_id") {
-                                Some(LLSDValue::UUID(id)) => *id,
-                                _ => Uuid::nil(),
-                            };
-                            let descendent_count = match folder_data.get("descendents") {
-                                Some(LLSDValue::Integer(int)) => *int,
-                                _ => 0,
-                            };
-                            let version = match folder_data.get("version") {
-                                Some(LLSDValue::Integer(int)) => *int,
-                                _ => 0,
-                            };
 
-                            let agent_id = match folder_data.get("agent_id") {
-                                Some(LLSDValue::UUID(id)) => *id,
-                                _ => Uuid::nil(),
-                            };
-                            let mut items_vec = Vec::new();
-                            if let Some(items) = folder_data.get("items")
-                                && let Some(items) = items.as_array() {
-                                    for item in items {
-                                        items_vec.push(ItemMetadata::from_llsd(item)?)
-                                    }
-                                };
-                            let mut category_vec = Vec::new();
-                            if let Some(categories) = folder_data.get("categories")
-                                && let Some(categories) = categories.as_array() {
-                                    for category in categories {
-                                        category_vec.push(Category::from_llsd(category)?);
-                                    }
-                                };
-                            folders_vec.push(Folder {
-                                folder_id,
-                                owner_id,
-                                descendent_count,
-                                version,
-                                agent_id,
-                                items: items_vec,
-                                categories: category_vec,
-                            });
-                        }
-                    }
+impl Folder {
+    /// convert from LLSD to a vector of folders
+    pub fn from_llsd(parsed_data: LLSDValue) -> Result<Vec<Self>, ParseError> {
+        let mut folders_vec = Vec::new();
+
+        let data = parsed_data
+            .into_map()
+            .map_err(|_| ParseError::Message("Expected top-level map".into()))?;
+
+        let folders = data
+            .get("folders")
+            .and_then(|v| v.as_array())
+            .ok_or(ParseError::Message(
+                "Missing or invalid 'folders' array".into(),
+            ))?;
+
+        for folder in folders {
+            let folder_data = folder
+                .as_map()
+                .ok_or(ParseError::Message("Folder entry is not a map".into()))?;
+
+            let folder_id = match folder_data.get("folder_id") {
+                Some(LLSDValue::UUID(id)) => *id,
+                Some(_) => {
+                    return Err(ParseError::Message(
+                        "Field 'folder_id' is not a UUID".into(),
+                    ))
                 }
+                None => return Err(ParseError::Message("Missing field 'folder_id'".into())),
+            };
+
+            let owner_id = match folder_data.get("owner_id") {
+                Some(LLSDValue::UUID(id)) => *id,
+                Some(_) => {
+                    return Err(ParseError::Message("Field 'owner_id' is not a UUID".into()))
+                }
+                None => return Err(ParseError::Message("Missing field 'owner_id'".into())),
+            };
+
+            let descendent_count = match folder_data.get("descendents") {
+                Some(LLSDValue::Integer(int)) => *int,
+                Some(_) => {
+                    return Err(ParseError::Message(
+                        "Field 'descendents' is not an integer".into(),
+                    ))
+                }
+                None => 0,
+            };
+
+            let version = match folder_data.get("version") {
+                Some(LLSDValue::Integer(int)) => *int,
+                Some(_) => {
+                    return Err(ParseError::Message(
+                        "Field 'version' is not an integer".into(),
+                    ))
+                }
+                None => 0,
+            };
+
+            let agent_id = match folder_data.get("agent_id") {
+                Some(LLSDValue::UUID(id)) => *id,
+                Some(_) => {
+                    return Err(ParseError::Message("Field 'agent_id' is not a UUID".into()))
+                }
+                None => return Err(ParseError::Message("Missing field 'agent_id'".into())),
+            };
+
+            // Parse items
+            let mut items_vec = Vec::new();
+            if let Some(items) = folder_data.get("items").and_then(|v| v.as_array()) {
+                for item in items {
+                    let item = ItemMetadata::from_llsd(item)?;
+                    items_vec.push(item);
+                }
+            }
+
+            // Parse categories
+            let mut category_vec = Vec::new();
+            if let Some(categories) = folder_data.get("categories").and_then(|v| v.as_array()) {
+                for category in categories {
+                    let category = Category::from_llsd(category)?;
+                    category_vec.push(category);
+                }
+            }
+
+            folders_vec.push(Folder {
+                folder_id,
+                owner_id,
+                descendent_count,
+                version,
+                agent_id,
+                items: items_vec,
+                categories: category_vec,
+            });
+        }
+
         Ok(folders_vec)
     }
 }

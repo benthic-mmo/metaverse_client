@@ -11,10 +11,8 @@
 //! packet to_bytes functions. Contributions welcome!
 
 #![warn(missing_docs)]
-/// Errors
-/// Contains errors that can arise when handling packets
+/// Definitions for errors that can arise when handling packets
 pub mod errors;
-
 /// Definitions for things related to the packet, such as the packet itself and headers.
 pub mod packet;
 /// Packets related to UI
@@ -23,9 +21,9 @@ pub mod packet;
 pub mod ui;
 /// Utilities. Mostly constants used throughout the crate.
 pub mod utils;
-
-/// HTTP packet definitions
+// HTTP packet definitions
 pub mod http;
+/// Legacy packet definitions. These are no longer used.
 pub mod legacy;
 /// UDP packet definitions
 pub mod udp;

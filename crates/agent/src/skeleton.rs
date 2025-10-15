@@ -35,7 +35,7 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
 
         let mut joints = IndexMap::new();
         // for every joint in the skin
-        for (i, name) in mesh.skin.joint_names.iter().enumerate() {
+        for (i, name) in mesh.skin.as_ref().unwrap().joint_names.iter().enumerate() {
             // apply the rotations from the default skeleton to the object
             // the default skeleton's transforms are stored in [0]
             // these rotations need to be applied, because the IBMs from -> *mut c_charthe server are mostly
@@ -45,7 +45,8 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
             let mut default_transform = default_joints.transforms[0].transform;
 
             default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
-            let transform_matrix = default_transform * mesh.skin.inverse_bind_matrices[i];
+            let transform_matrix =
+                default_transform * mesh.skin.as_ref().unwrap().inverse_bind_matrices[i];
 
             let transform = Transform {
                 name: scene_root.name.clone(),
@@ -78,11 +79,13 @@ pub fn create_skeleton(scene_root: SceneObject) -> Option<Skeleton> {
         // Attach the IBMs to their corresponding joint name
         let ibm_map: IndexMap<JointName, Mat4> = mesh
             .skin
+            .as_ref()
+            .unwrap()
             .joint_names
             .iter()
             .cloned()
             .enumerate()
-            .map(|(i, name)| (name, mesh.skin.inverse_bind_matrices[i]))
+            .map(|(i, name)| (name, mesh.skin.as_ref().unwrap().inverse_bind_matrices[i]))
             .collect();
 
         let last_transforms: IndexMap<JointName, Mat4> = joints

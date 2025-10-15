@@ -1,28 +1,6 @@
-use crate::{
-    core::{
-        environment::EnvironmentCache,
-        inventory::{InventoryData, RefreshInventoryEvent},
-        session::{handle_login, Mailbox, Session},
-    },
-    http_handler::login_to_simulator,
-};
-use log::{error, info, warn};
-use metaverse_messages::{
-    errors::errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError},
-    http::capabilities::{Capability, CapabilityRequest},
-    packet::{
-        message::{UIMessage, UIResponse},
-        packet::Packet,
-    },
-    udp::core::{circuit_code::CircuitCode, complete_agent_movement::CompleteAgentMovementData},
-    ui::{
-        errors::{MailboxSessionError, SessionError},
-        login_event::Login,
-        login_response::LoginResponse as LoginResponseUiMessage,
-    },
-};
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
+use crate::core::session::Mailbox;
+use log::warn;
+use metaverse_messages::packet::message::UIResponse;
 use tokio::net::UdpSocket;
 
 /// This is used to enable the core to listen to messages coming in from the UI.
@@ -74,19 +52,7 @@ pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: act
                         continue;
                     }
                 };
-                if let UIResponse::Login(login) = event {
-                    match handle_login(login.clone(), &mailbox_addr).await {
-                        Ok(_) => info!("Successfully logged in"),
-                        Err(e) => {
-                            // send the error to the UI to handle
-                            warn!("Error logging in: {:?}", e);
-                            mailbox_addr.do_send(UIMessage::new_session_error(e));
-                        }
-                    };
-                } else {
-                    // send the event to the core to handle
-                    mailbox_addr.do_send(event);
-                }
+                mailbox_addr.do_send(event);
             }
             Err(e) => {
                 warn!("Core failed to read buffer sent from UI {}", e)

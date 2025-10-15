@@ -1,5 +1,5 @@
+use crate::errors::ParseError;
 use crate::packet::{
-    errors::PacketError,
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
@@ -482,7 +482,7 @@ pub struct QuatBytes(pub Quat);
 
 impl QuatBytes {
     /// convert bytes to a quaternion
-    pub fn from_bytes(bytes: &[u8]) -> Result<Quat, PacketError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Quat, ParseError> {
         let x = f32::from_le_bytes(bytes[0..4].try_into()?);
         let y = f32::from_le_bytes(bytes[4..8].try_into()?);
         let z = f32::from_le_bytes(bytes[8..12].try_into()?);
@@ -501,7 +501,7 @@ impl QuatBytes {
 }
 
 impl PacketData for AgentUpdate {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         // THIS DOES NOT WORK AT ALL
         // THIS WILL CRASH AND BREAK YOUR SHIT
         let agent_id = Uuid::from_slice(&bytes[0..16])?;

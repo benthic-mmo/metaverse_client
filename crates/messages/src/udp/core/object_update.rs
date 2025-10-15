@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    errors::ParseError,
     packet::{
-        errors::PacketError,
         header::{Header, PacketFrequency},
         packet::{Packet, PacketData},
         packet_types::PacketType,
@@ -167,7 +167,7 @@ pub struct ObjectUpdate {
 }
 
 impl PacketData for ObjectUpdate {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
         // read the regionhandle as two u32s instead of one u64
@@ -216,8 +216,7 @@ impl PacketData for ObjectUpdate {
         cursor.read_exact(&mut texture_entry)?;
 
         let texture_anim_length = cursor.read_u8()?;
-        let mut texture_anim = vec![0u8; texture_anim_length as usize];
-        cursor.read_exact(&mut texture_anim)?;
+        let texture_anim = vec![0u8; texture_anim_length as usize];
 
         let name_value_length = cursor.read_u16::<BigEndian>()?;
         let mut name_value = vec![0u8; name_value_length as usize];

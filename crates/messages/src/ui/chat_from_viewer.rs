@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{packet::message::UIResponse, udp::chat::ChatType};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+/// the chat event sent from the UI
 pub struct ChatFromUI {
     /// the message of the chat
     pub message: String,

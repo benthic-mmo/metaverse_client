@@ -1,12 +1,19 @@
 use crate::{
-    http::login::login_errors::{LoginError, Reason},
-    utils::agent_access::AgentAccess,
+    errors::ParseError, http::login::login_error::LoginError, utils::agent_access::AgentAccess,
 };
-use chrono::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
+use serde_llsd::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
 use serde_llsd::LLSDValue;
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Represents the result of a login attempt parsed from a valid LLSD XML response.
+pub enum LoginStatus {
+    /// Login succeeded and contains a valid LoginResponse
+    Success(LoginResponse),
+    /// Login failed, and contains error information
+    Failure(LoginError),
+}
 
 /// This is the full response struct of a successful opensimulator login.
 /// you can find more information about it at <http://opensimulator.org/wiki/SimulatorLoginProtocol>
@@ -104,7 +111,19 @@ pub struct LoginResponse {
 }
 
 impl LoginResponse {
-    pub fn from_xml(data: &str) -> Result<Self, LoginError> {
+    /// Parses an LLSD-formatted XML login response into a `LoginResponse` struct.
+    ///
+    /// If the login failed, returns a `LoginError` with details from the response.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A string slice containing the LLSD XML returned by the login server.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(LoginResponse)` if the login succeeded and the XML could be parsed.
+    /// * `Err(LoginError)` if the login failed or the XML was invalid.
+    pub fn from_xml(data: &str) -> Result<LoginStatus, ParseError> {
         match serde_llsd::de::auto_from_str(data) {
             Ok(xml) => match xml {
                 LLSDValue::Map(ref map) => {
@@ -112,9 +131,10 @@ impl LoginResponse {
                     // If the login response fails, return a loginError instead
                     let login: bool = get("login", map);
                     if !login {
-                        return Err(LoginError::from_llsd(&xml).unwrap());
+                        return Ok(LoginStatus::Failure(LoginError::from_llsd(&xml)));
                     }
-                    Ok(LoginResponse {
+
+                    Ok(LoginStatus::Success(LoginResponse {
                         first_name: get("first_name", map),
                         last_name: get("last_name", map),
                         agent_id: get("agent_id", map),
@@ -128,7 +148,7 @@ impl LoginResponse {
                         message: get_opt("message", map),
                         ui_config: get_nested_vec("ui_config", map),
                         event_notifications: get_opt("event_notifications", map),
-                        inventory_root: Some(get_inventory_root(map)),
+                        inventory_root: get_inventory_root(map),
                         inventory_lib_root: get_nested_vec("inventory-lib-root", map),
                         inventory_skeleton: get_nested_vec("inventory-skeleton", map),
                         inventory_skeleton_lib: get_nested_vec("inventory-skel-lib", map),
@@ -151,169 +171,34 @@ impl LoginResponse {
                         home: get_opt("home", map),
                         global_textures: get_nested_vec("global_textures", map),
                         ..Default::default()
-                    })
+                    }))
                 }
-                err => Err(LoginError::new(
-                    Reason::Unknown,
-                    &format!("Failed to parse XMLRPC login response {:?}", err),
-                )),
+                err => Err(err)?,
             },
-            Err(e) => Err(LoginError::new(
-                Reason::Unknown,
-                &format!("Failed to deserialize xml : {:?}", e),
-            )),
+            Err(e) => Err(e)?,
         }
     }
 }
 
-pub trait FromLLSDValue: Sized {
-    fn from_llsd(value: &LLSDValue) -> Option<Self>;
-}
-
-pub fn get<T: FromLLSDValue + Default>(key: &str, map: &HashMap<String, LLSDValue>) -> T {
-    get_opt::<T>(key, map).unwrap_or_default()
-}
-
-fn get_opt<T: FromLLSDValue>(key: &str, map: &HashMap<String, LLSDValue>) -> Option<T> {
-    map.get(key).and_then(|v| T::from_llsd(v))
-}
-
-fn get_vec<T: FromLLSDValue>(key: &str, map: &HashMap<String, LLSDValue>) -> Option<Vec<T>> {
-    map.get(key).and_then(|v| {
-        if let LLSDValue::Array(arr) = v {
-            Some(
-                arr.iter()
-                    .filter_map(|item| T::from_llsd(item))
-                    .collect::<Vec<_>>(),
-            )
-        } else {
-            None
-        }
-    })
-}
-
-fn get_nested_vec<T: FromLLSDValue>(key: &str, map: &HashMap<String, LLSDValue>) -> Option<Vec<T>> {
-    map.get(key).and_then(|v| {
-        if let LLSDValue::Array(arr) = v {
-            let mut result = Vec::new();
-            for inner in arr {
-                if let LLSDValue::Array(inner_arr) = inner {
-                    for item in inner_arr {
-                        if let Some(parsed) = T::from_llsd(item) {
-                            result.push(parsed);
-                        }
+// this needs to get handled differently because it's different from all the others by it not
+// having a  custom type, and is just a UUID. I don't want to make a useless wrapper type for it.
+fn get_inventory_root(map: &HashMap<String, LLSDValue>) -> Option<Vec<Uuid>> {
+    match map.get("inventory-root") {
+        Some(LLSDValue::Array(arr)) => Some(
+            arr.iter()
+                .filter_map(|item| {
+                    if let LLSDValue::Map(inner_map) = item {
+                        get_opt::<Uuid>("folder_id", inner_map)
+                    } else {
+                        None
                     }
-                }
-            }
-            Some(result)
-        } else {
-            None
-        }
-    })
-}
-
-fn get_inventory_root(map: &HashMap<String, LLSDValue>) -> Vec<uuid::Uuid> {
-    map.get("inventory-root")
-        .and_then(|v| {
-            if let LLSDValue::Array(arr) = v {
-                Some(
-                    arr.iter()
-                        .filter_map(|item| {
-                            if let LLSDValue::Map(inner_map) = item {
-                                Some(get::<uuid::Uuid>("folder_id", inner_map))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                )
-            } else {
-                None
-            }
-        })
-        .unwrap_or_default()
-}
-
-impl FromLLSDValue for String {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::String(s) = value {
-            Some(s.clone())
-        } else {
-            None
-        }
+                })
+                .collect(),
+        ),
+        _ => None,
     }
 }
 
-impl FromLLSDValue for DateTime<Utc> {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Date(s) = value {
-            match Utc.timestamp_opt(*s, 0) {
-                chrono::LocalResult::Single(dt) => Some(dt),
-                _ => None, // None if ambiguous or invalid
-            }
-        } else {
-            None
-        }
-    }
-}
-impl FromLLSDValue for Uuid {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::UUID(u) = value {
-            Some(*u)
-        } else {
-            None
-        }
-    }
-}
-
-impl FromLLSDValue for u16 {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Integer(i) = value {
-            Some(*i as u16)
-        } else {
-            None
-        }
-    }
-}
-
-impl FromLLSDValue for bool {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Boolean(b) = value {
-            Some(*b)
-        } else {
-            None
-        }
-    }
-}
-impl FromLLSDValue for i32 {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Integer(i) = value {
-            Some(*i) // convert i32 stored in LLSDValue to i32
-        } else {
-            None
-        }
-    }
-}
-
-impl FromLLSDValue for u32 {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Integer(i) = value {
-            Some(*i as u32) // convert i32 stored in LLSDValue to i32
-        } else {
-            None
-        }
-    }
-}
-
-impl FromLLSDValue for i64 {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Integer(i) = value {
-            Some(*i as i64) // convert i32 stored in LLSDValue to i32
-        } else {
-            None
-        }
-    }
-}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// Classified categories values. Used for storing the ID and name of classified categories.
 pub struct ClassifiedCategoriesValues {
@@ -490,6 +375,32 @@ pub struct FriendsRights {
     /// true if friends can modify objects on the target avater
     pub can_modify_objects: bool,
 }
+impl FriendsRights {
+    fn _from_int(rights: u8) -> Self {
+        match rights {
+            1 => FriendsRights {
+                can_see_online: true,
+                can_see_on_map: false,
+                can_modify_objects: false,
+            },
+            2 => FriendsRights {
+                can_see_online: true,
+                can_see_on_map: true,
+                can_modify_objects: false,
+            },
+            4 => FriendsRights {
+                can_see_online: true,
+                can_see_on_map: false,
+                can_modify_objects: true,
+            },
+            _ => FriendsRights {
+                can_see_online: false,
+                can_see_on_map: false,
+                can_modify_objects: false,
+            },
+        }
+    }
+}
 impl FromLLSDValue for FriendsRights {
     fn from_llsd(value: &LLSDValue) -> Option<Self> {
         if let LLSDValue::Map(map) = value {
@@ -658,31 +569,5 @@ impl FromLLSDValue for HomeValues {
         } else {
             None
         }
-    }
-}
-
-/// converts friendRights int values to a FriendsRights struct
-fn generate_friends_rights(rights: i32) -> FriendsRights {
-    match rights {
-        1 => FriendsRights {
-            can_see_online: true,
-            can_see_on_map: false,
-            can_modify_objects: false,
-        },
-        2 => FriendsRights {
-            can_see_online: true,
-            can_see_on_map: true,
-            can_modify_objects: false,
-        },
-        4 => FriendsRights {
-            can_see_online: true,
-            can_see_on_map: false,
-            can_modify_objects: true,
-        },
-        _ => FriendsRights {
-            can_see_online: false,
-            can_see_on_map: false,
-            can_modify_objects: false,
-        },
     }
 }

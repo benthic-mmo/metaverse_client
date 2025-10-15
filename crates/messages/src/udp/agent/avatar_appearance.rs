@@ -2,11 +2,13 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 use uuid::Uuid;
 
-use crate::packet::{
-    errors::PacketError,
-    header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
-    packet_types::PacketType,
+use crate::{
+    errors::ParseError,
+    packet::{
+        header::{Header, PacketFrequency},
+        packet::{Packet, PacketData},
+        packet_types::PacketType,
+    },
 };
 
 impl Packet {
@@ -45,7 +47,7 @@ pub struct AvatarAppearance {
 }
 
 impl PacketData for AvatarAppearance {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PacketError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         println!("avatar appearance packet received : {:?}", bytes);
         let mut cursor = Cursor::new(bytes);
 
