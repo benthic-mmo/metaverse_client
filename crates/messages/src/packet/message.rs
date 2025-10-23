@@ -34,7 +34,7 @@ impl UIResponse {
 
     /// Converts bytes to a UIEvent.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        serde_json::from_slice(bytes).map_err(|e| ParseError::SerdeError(e))
+        serde_json::from_slice(bytes).map_err(ParseError::SerdeError)
     }
 }
 
@@ -67,6 +67,6 @@ impl UIMessage {
 
     /// Converts bytes to a UIEvent.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        serde_json::from_slice(bytes).map_err(|e| ParseError::SerdeError(e))
+        serde_json::from_slice(bytes).map_err(ParseError::SerdeError)
     }
 }

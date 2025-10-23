@@ -1,7 +1,7 @@
 use crate::layer_handler::PatchData;
 use glam::U16Vec2;
-use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::udp::environment::layer_data::LayerData;
+use metaverse_messages::utils::render_data::RenderObject;
 use std::collections::HashMap;
 
 /// TODO: unimplemented
@@ -16,7 +16,7 @@ impl PatchData for Wind {
         self,
         _: &mut HashMap<U16Vec2, Self>,
         _: &HashMap<U16Vec2, Self>,
-    ) -> Option<Mesh> {
+    ) -> Option<(RenderObject, U16Vec2)> {
         None
     }
 }

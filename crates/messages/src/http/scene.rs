@@ -6,16 +6,16 @@ use crate::{
         object_types::ObjectType,
     },
 };
-use glam::{bool, Vec3, Vec4};
+use glam::{Vec3, Vec4, bool};
 use quick_xml::{
+    Reader,
     escape::unescape,
     events::{BytesText, Event},
-    Reader,
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use std::{
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
     time::SystemTime,
 };
 use uuid::Uuid;
@@ -204,9 +204,10 @@ impl SceneObject {
                     let tag_bytes = e.name(); // get the raw name
                     let tag = from_utf8(tag_bytes.as_ref())?; // convert to &str
                     if let Some(last) = path.last()
-                        && last == tag {
-                            path.pop();
-                        }
+                        && last == tag
+                    {
+                        path.pop();
+                    }
                     // Exit if we've closed the original SceneObjectPart
                     if tag == "SceneObjectPart" {
                         break;

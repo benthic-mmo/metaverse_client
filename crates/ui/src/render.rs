@@ -45,21 +45,11 @@ pub fn handle_mesh_update(
 ) {
     for renderable in ev_mesh_update.read() {
         // this needs to be done because Bevy and the Core crate might be using different versions of Glam
-        let mut position = Vec3::from_array([
+        let position = Vec3::from_array([
             renderable.value.position.x,
             renderable.value.position.z,
             renderable.value.position.y,
         ]);
-        match renderable.value.mesh_type {
-            // the land's XYZ positions need to be multiplied by their size.
-            // TODO: These might not always be 16x16 tiles
-            MeshType::Land => {
-                position *= 16.0;
-            }
-            MeshType::Avatar => {
-                info!("Rendering Avatar: {:?}", renderable.value.id.unwrap())
-            }
-        }
 
         let handle: Handle<Gltf> = asset_server.load(renderable.value.path.clone());
         mesh_queue.items.push(Renderable {

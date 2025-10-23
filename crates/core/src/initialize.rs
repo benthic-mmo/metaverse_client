@@ -1,4 +1,4 @@
-use crate::core::session::Mailbox;
+use crate::session::Mailbox;
 use actix::Actor;
 use actix_rt::time;
 use log::error;
@@ -16,9 +16,9 @@ use tokio::task::JoinHandle;
 
 use portpicker::pick_unused_port;
 
-use crate::core::session::PingInfo;
-use crate::core::session::ServerState;
-use crate::core_subscriber::listen_for_ui_messages;
+use crate::session::PingInfo;
+use crate::session::ServerState;
+use crate::transport::ui_event_listener::listen_for_ui_messages;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.

@@ -1,7 +1,7 @@
 use bitreader::{BitReader, BitReaderError};
 use metaverse_messages::{
-    http::mesh::Mesh,
     udp::environment::layer_data::{LayerData, LayerType},
+    utils::render_data::RenderObject,
 };
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{u16, u32, usize, U16Vec2};
+use glam::{U16Vec2, u16, u32, usize};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -73,7 +73,7 @@ pub trait PatchData: Sized {
         self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Option<Mesh>;
+    ) -> Option<(RenderObject, U16Vec2)>;
 }
 
 /// This is the header that begins each new terrain patch, containing information required for

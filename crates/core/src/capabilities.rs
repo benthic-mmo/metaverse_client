@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::error;
 use metaverse_messages::http::capabilities::{Capability, CapabilityRequest};
+use std::collections::HashMap;
 
 /// Message to update the capability urls
 #[derive(Debug, Message)]

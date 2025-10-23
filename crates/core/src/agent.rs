@@ -1,12 +1,12 @@
 use super::session::Mailbox;
-use crate::http_handler::{download_item, download_mesh, download_object};
 use crate::initialize::create_sub_agent_dir;
+use crate::transport::http_handler::{download_item, download_mesh, download_object};
 use actix::{Addr, AsyncContext, Handler, Message, WrapFuture};
 use glam::{Vec3, Vec4};
 use log::{error, warn};
 use metaverse_agent::avatar::{Avatar, OutfitObject, RiggedObject};
 use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
-use metaverse_gltf::skinned_mesh::generate_skinned_mesh;
+use metaverse_mesh::skinned_mesh::generate_skinned_mesh;
 use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::{

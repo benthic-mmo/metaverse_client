@@ -1,241 +1,202 @@
-use glam::Vec3;
-
 use crate::land::Land;
+use glam::Vec3;
+use metaverse_messages::utils::render_data::RenderObject;
+use std::collections::HashMap;
 
-/// Generate the triangles of the patch's land data.
-/// Requires the north layer, east layer and top corner in order to preform stitching on the
-/// patches. The raw layer data comes in with a gap between tiles, for the viewer to stitch
-/// together manually.
-pub fn generate_triangles(
+/// Generate a terrain patch with shared vertices and indexed triangles.
+///
+/// Includes edge stitching with north, east, and top-corner patches.
+pub fn generate_mesh_with_indices(
     layer: &Land,
     north_layer: &Land,
     east_layer: &Land,
     top_corner: &Land,
-) -> Vec<Vec3> {
+) -> RenderObject {
     let scale = 1.0;
-    let mut triangles: Vec<Vec3> = Vec::new();
     let grid_size = layer.terrain_header.patch_size;
+
+    let mut vertices: Vec<Vec3> = Vec::new();
+    let mut indices: Vec<u16> = Vec::new();
+    let mut vertex_map: HashMap<(i32, i32, i32), u16> = HashMap::new();
+
+    // Helper closure for deduplicating vertices
+    let mut add_vertex = |v: Vec3| -> u16 {
+        // Convert position to integer key for hashing
+        let key = (
+            (v.x * 1_000.0) as i32,
+            (v.y * 1_000.0) as i32,
+            (v.z * 1_000.0) as i32,
+        );
+        if let Some(&i) = vertex_map.get(&key) {
+            i
+        } else {
+            let i = vertices.len() as u16;
+            vertices.push(v);
+            vertex_map.insert(key, i);
+            i
+        }
+    };
+
     for row in 0..grid_size - 1 {
         for col in 0..grid_size - 1 {
+            // Base terrain vertices
             let top_left = row * grid_size + col;
             let top_right = top_left + 1;
             let bottom_left = (row + 1) * grid_size + col;
             let bottom_right = bottom_left + 1;
 
-            let x0 = col as f32 * scale;
-            let y0 = layer.heightmap[top_left as usize] * scale;
-            let z0 = row as f32 * scale;
+            let v0 = Vec3::new(col as f32, layer.heightmap[top_left as usize], row as f32);
+            let v1 = Vec3::new(
+                (col + 1) as f32,
+                layer.heightmap[top_right as usize],
+                row as f32,
+            );
+            let v2 = Vec3::new(
+                col as f32,
+                layer.heightmap[bottom_left as usize],
+                (row + 1) as f32,
+            );
+            let v3 = Vec3::new(
+                (col + 1) as f32,
+                layer.heightmap[bottom_right as usize],
+                (row + 1) as f32,
+            );
 
-            let x1 = (col + 1) as f32 * scale;
-            let y1 = layer.heightmap[top_right as usize] * scale;
-            let z1 = row as f32 * scale;
+            let i0 = add_vertex(v0);
+            let i1 = add_vertex(v1);
+            let i2 = add_vertex(v2);
+            let i3 = add_vertex(v3);
 
-            let x2 = col as f32 * scale;
-            let y2 = layer.heightmap[bottom_left as usize] * scale;
-            let z2 = (row + 1) as f32 * scale;
+            // Two triangles per quad
+            indices.extend_from_slice(&[i0, i2, i1]);
+            indices.extend_from_slice(&[i1, i2, i3]);
 
-            let x3 = (col + 1) as f32 * scale;
-            let y3 = layer.heightmap[bottom_right as usize] * scale;
-            let z3 = (row + 1) as f32 * scale;
-
-            triangles.push(Vec3 {
-                x: x0,
-                y: y0,
-                z: z0,
-            });
-            triangles.push(Vec3 {
-                x: x2,
-                y: y2,
-                z: z2,
-            });
-            triangles.push(Vec3 {
-                x: x1,
-                y: y1,
-                z: z1,
-            });
-            triangles.push(Vec3 {
-                x: x1,
-                y: y1,
-                z: z1,
-            });
-            triangles.push(Vec3 {
-                x: x2,
-                y: y2,
-                z: z2,
-            });
-            triangles.push(Vec3 {
-                x: x3,
-                y: y3,
-                z: z3,
-            });
-            // create the stitch geometry
-            stitch_patches(
+            // Stitching
+            stitch_patches_with_indices(
                 layer,
                 north_layer,
                 east_layer,
                 top_corner,
-                &mut triangles,
+                &mut add_vertex,
+                &mut indices,
                 col,
                 row,
                 scale,
             );
         }
     }
-    triangles
+
+    RenderObject {
+        vertices,
+        indices,
+        name: layer.terrain_header.location.to_string(),
+        skin: None,
+    }
 }
 
-fn stitch_patches(
+/// Stitch patch edges together using indices.
+fn stitch_patches_with_indices<F>(
     layer: &Land,
     north_layer: &Land,
     east_layer: &Land,
     top_corner: &Land,
-    triangles: &mut Vec<Vec3>,
+    add_vertex: &mut F,
+    indices: &mut Vec<u16>,
     col: u8,
     row: u8,
     scale: f32,
-) {
+) where
+    F: FnMut(Vec3) -> u16,
+{
     let grid_size = layer.terrain_header.patch_size;
+
+    // Base layer
     let top_left = row * grid_size + col;
     let top_right = top_left + 1;
-    let bottom_left = (row + 1) * grid_size + col;
-    let bottom_right = bottom_left + 1;
+    let bottom_right = (row + 1) * grid_size + col + 1;
 
-    let x0 = col as f32 * scale;
-    let y0 = layer.heightmap[top_left as usize] * scale;
-    let z0 = row as f32 * scale;
+    let v0 = Vec3::new(
+        col as f32,
+        layer.heightmap[top_left as usize] * scale,
+        row as f32,
+    );
+    let v1 = Vec3::new(
+        (col + 1) as f32,
+        layer.heightmap[top_right as usize] * scale,
+        row as f32,
+    );
+    let v3 = Vec3::new(
+        (col + 1) as f32,
+        layer.heightmap[bottom_right as usize] * scale,
+        (row + 1) as f32,
+    );
 
-    let x1 = (col + 1) as f32 * scale;
-    let y1 = layer.heightmap[top_right as usize] * scale;
-    let z1 = row as f32 * scale;
-
-    let x3 = (col + 1) as f32 * scale;
-    let y3 = layer.heightmap[bottom_right as usize] * scale;
-    let z3 = (row + 1) as f32 * scale;
-
+    // North patch
     let top_left_north = (grid_size - 1) * grid_size + col;
     let top_right_north = top_left_north + 1;
 
-    let north_x0 = col as f32 * scale;
-    let north_y0 = north_layer.heightmap[top_left_north as usize] * scale;
-    let north_z0 = (row as f32 - 1.0) * scale;
+    let n0 = Vec3::new(
+        col as f32,
+        north_layer.heightmap[top_left_north as usize] * scale,
+        row as f32 - 1.0,
+    );
+    let n1 = Vec3::new(
+        (col + 1) as f32,
+        north_layer.heightmap[top_right_north as usize] * scale,
+        row as f32 - 1.0,
+    );
 
-    let north_x1 = (col + 1) as f32 * scale;
-    let north_y1 = north_layer.heightmap[top_right_north as usize] * scale;
-    let north_z1 = (row as f32 - 1.0) * scale;
+    // East patch
     let top_left_east = grid_size * row;
     let bottom_left_east = grid_size * (row + 1);
 
-    let east_x0 = (col as f32 + 2.0) * scale;
-    let east_y0 = east_layer.heightmap[top_left_east as usize] * scale;
-    let east_z0 = row as f32 * scale;
+    let e0 = Vec3::new(
+        (col as f32 + 2.0) * scale,
+        east_layer.heightmap[top_left_east as usize] * scale,
+        row as f32,
+    );
+    let e1 = Vec3::new(
+        (col as f32 + 2.0) * scale,
+        east_layer.heightmap[bottom_left_east as usize] * scale,
+        (row + 1) as f32,
+    );
 
-    let east_x1 = (col as f32 + 2.0) * scale;
-    let east_y1 = east_layer.heightmap[bottom_left_east as usize] * scale;
-    let east_z1 = (row + 1) as f32 * scale;
-
+    // Top-corner patch
     let top_corner_coord = grid_size * (grid_size - 1);
-    let top_corner_x0 = (col as f32 + 2.0) * scale;
-    let top_corner_y0 = top_corner.heightmap[top_corner_coord as usize] * scale;
-    let top_corner_z0 = (row as f32 - 1.0) * scale;
+    let c0 = Vec3::new(
+        (col as f32 + 2.0) * scale,
+        top_corner.heightmap[top_corner_coord as usize] * scale,
+        row as f32 - 1.0,
+    );
 
+    // Create stitching triangles using indices
     if row == 0 {
-        triangles.push(Vec3 {
-            x: north_x0,
-            y: north_y0,
-            z: north_z0,
-        });
-        triangles.push(Vec3 {
-            x: x0,
-            y: y0,
-            z: z0,
-        });
-        triangles.push(Vec3 {
-            x: north_x1,
-            y: north_y1,
-            z: north_z1,
-        });
+        let i_n0 = add_vertex(n0);
+        let i_n1 = add_vertex(n1);
+        let i_v0 = add_vertex(v0);
+        let i_v1 = add_vertex(v1);
 
-        triangles.push(Vec3 {
-            x: north_x1,
-            y: north_y1,
-            z: north_z1,
-        });
-        triangles.push(Vec3 {
-            x: x0,
-            y: y0,
-            z: z0,
-        });
-        triangles.push(Vec3 {
-            x: x1,
-            y: y1,
-            z: z1,
-        });
+        indices.extend_from_slice(&[i_n0, i_v0, i_n1]);
+        indices.extend_from_slice(&[i_n1, i_v0, i_v1]);
     }
-    if col == grid_size - 2 {
-        triangles.push(Vec3 {
-            x: x1,
-            y: y1,
-            z: z1,
-        });
-        triangles.push(Vec3 {
-            x: x3,
-            y: y3,
-            z: z3,
-        });
-        triangles.push(Vec3 {
-            x: east_x0,
-            y: east_y0,
-            z: east_z0,
-        });
 
-        triangles.push(Vec3 {
-            x: east_x0,
-            y: east_y0,
-            z: east_z0,
-        });
-        triangles.push(Vec3 {
-            x: x3,
-            y: y3,
-            z: z3,
-        });
-        triangles.push(Vec3 {
-            x: east_x1,
-            y: east_y1,
-            z: east_z1,
-        });
+    if col == grid_size - 2 {
+        let i_v1 = add_vertex(v1);
+        let i_v3 = add_vertex(v3);
+        let i_e0 = add_vertex(e0);
+        let i_e1 = add_vertex(e1);
+
+        indices.extend_from_slice(&[i_v1, i_v3, i_e0]);
+        indices.extend_from_slice(&[i_e0, i_v3, i_e1]);
     }
 
     if col == grid_size - 2 && row == 0 {
-        triangles.push(Vec3 {
-            x: north_x1,
-            y: north_y1,
-            z: north_z1,
-        });
-        triangles.push(Vec3 {
-            x: x1,
-            y: y1,
-            z: z1,
-        });
-        triangles.push(Vec3 {
-            x: top_corner_x0,
-            y: top_corner_y0,
-            z: top_corner_z0,
-        });
+        let i_n1 = add_vertex(n1);
+        let i_v1 = add_vertex(v1);
+        let i_e0 = add_vertex(e0);
+        let i_c0 = add_vertex(c0);
 
-        triangles.push(Vec3 {
-            x: top_corner_x0,
-            y: top_corner_y0,
-            z: top_corner_z0,
-        });
-        triangles.push(Vec3 {
-            x: x1,
-            y: y1,
-            z: z1,
-        });
-        triangles.push(Vec3 {
-            x: east_x0,
-            y: east_y0,
-            z: east_z0,
-        });
+        indices.extend_from_slice(&[i_n1, i_v1, i_c0]);
+        indices.extend_from_slice(&[i_c0, i_v1, i_e0]);
     }
 }

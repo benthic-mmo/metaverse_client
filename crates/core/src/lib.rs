@@ -9,18 +9,21 @@
 //! This isn't ready for any kind of serious use yet! Check back later for updates!
 
 #![warn(missing_docs)]
-/// This module handles packet IO and logic
-/// serves as the core of the project, handling scheduling and packet processing
-pub mod core;
-/// This module is to allow the server to receive messages from the UI.
-pub mod core_subscriber;
+/// Handles mailbox events to do with handling agents
+pub mod agent;
+/// Handles mailbox events required for establishing viewer capabilities
+pub mod capabilities;
+/// Handles mailbox events for generating land and environment
+pub mod environment;
 /// This module stores custom error definitions
 pub mod errors;
-/// This module handles sending http requests to the enabled capability endpoints.
-pub mod http_handler;
 /// This module initializes the mailbox
 pub mod initialize;
-/// This module handles all incoming UDP packets from the server
-pub mod udp_handler;
-/// This module is for running in your client to subscribe to the server events
-pub mod ui_subscriber;
+/// Handles mailbox events for handling and updating inventory
+pub mod inventory;
+/// Handles mailbox events for retrieving and rendering objects
+pub mod objects;
+/// Handles mailbox events required for opening and maintaining the session
+pub mod session;
+/// handles packet sending between UI and core, and core and server
+pub mod transport;

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_llsd::converter::get;
 use serde_llsd::LLSDValue;
+use serde_llsd::converter::get;
 use thiserror::Error;
 
 use crate::errors::ParseError;
