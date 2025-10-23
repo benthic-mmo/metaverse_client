@@ -2,8 +2,8 @@ use crate::{
     errors::ParseError, http::login::login_error::LoginError, utils::agent_access::AgentAccess,
 };
 use serde::{Deserialize, Serialize};
-use serde_llsd::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
 use serde_llsd::LLSDValue;
+use serde_llsd::converter::{FromLLSDValue, get, get_nested_vec, get_opt, get_vec};
 use std::collections::HashMap;
 use uuid::Uuid;
 

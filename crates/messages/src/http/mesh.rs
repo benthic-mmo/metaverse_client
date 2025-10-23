@@ -308,7 +308,7 @@ impl MeshGeometry {
             _ => {
                 return Err(ParseError::InvalidField(
                     "TexCoord0Domain is not a Map".into(),
-                ))
+                ));
             }
         };
 
@@ -378,7 +378,7 @@ fn handle_skin(data: &LLSDValue, joints: &Vec<JointName>) -> Result<Vec<JointWei
                 None => {
                     return Err(ParseError::InvalidField(
                         "Unexpected end of weight data".into(),
-                    ))
+                    ));
                 }
             };
             if joint == 0xFF {
@@ -391,7 +391,7 @@ fn handle_skin(data: &LLSDValue, joints: &Vec<JointName>) -> Result<Vec<JointWei
                 None => {
                     return Err(ParseError::InvalidField(
                         "Unexpected end while reading weight value".into(),
-                    ))
+                    ));
                 }
             };
             let w2 = match iter.next() {
@@ -399,7 +399,7 @@ fn handle_skin(data: &LLSDValue, joints: &Vec<JointName>) -> Result<Vec<JointWei
                 None => {
                     return Err(ParseError::InvalidField(
                         "Unexpected end while reading weight value".into(),
-                    ))
+                    ));
                 }
             };
             let weight = u16::from_le_bytes([w1, w2]);
@@ -449,7 +449,6 @@ pub struct JointWeight {
     /// How strongly the joint influences the vertex
     pub weights: [f32; 4],
     /// The name of the joint that the weight corresponds to.
-    /// TODO:will override indices.
     pub joint_name: [JointName; 4],
 }
 

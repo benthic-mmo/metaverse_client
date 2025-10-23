@@ -1,5 +1,5 @@
 use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
-use uuid::{uuid, Uuid};
+use uuid::{Uuid, uuid};
 const PACKET: [u8; 169] = [
     192, 0, 3, 4, 0, 1, 12, 0, 1, 232, 3, 0, 2, 232, 3, 0, 1, 255, 255, 1, 246, 81, 208, 22, 0, 1,
     157, 193, 139, 177, 4, 79, 76, 104, 144, 107, 44, 182, 8, 178, 225, 151, 0, 4, 47, 4, 0, 1,

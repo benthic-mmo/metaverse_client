@@ -9,7 +9,6 @@ use metaverse_messages::{
 };
 use std::io::Error;
 
-/// This file is used to send HTTP requests to capability endpoints.
 pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginError> {
     let url = login.url.clone();
     let client = awc::Client::default();

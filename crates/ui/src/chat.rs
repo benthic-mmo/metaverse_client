@@ -1,10 +1,10 @@
 use crate::errors::ChatError;
-use crate::plugin::{send_packet_to_core, ChatMessages, Sockets};
+use crate::plugin::{ChatMessages, Sockets, send_packet_to_core};
 use bevy::ecs::error::Result;
 use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
 use bevy::prelude::Resource;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
 use metaverse_messages::packet::message::UIResponse;
 use metaverse_messages::udp::chat::ChatType;
 use metaverse_messages::ui::chat_from_viewer::ChatFromUI;

@@ -1,3 +1,4 @@
+use bevy::gltf::GltfMeshName;
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
@@ -7,16 +8,16 @@ use std::path::PathBuf;
 
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    check_model_loaded, handle_mesh_update, setup_environment, MeshQueue, MeshUpdateEvent,
+    MeshQueue, MeshUpdateEvent, check_model_loaded, handle_mesh_update, setup_environment,
 };
+use crate::subscriber::listen_for_core_events;
 use crate::{chat, login};
 use actix_rt::System;
 use bevy::app::App;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use crossbeam_channel::{unbounded, Receiver, Sender};
-use metaverse_core::ui_subscriber::listen_for_core_events;
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use metaverse_messages::http::login::login_error::LoginError;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
@@ -161,6 +162,7 @@ impl Plugin for MetaversePlugin {
             .register_type::<Mesh3d>()
             .register_type::<bevy::camera::primitives::Aabb>()
             .register_type::<SkinnedMesh>()
+            .register_type::<GltfMeshName>()
             .add_systems(Startup, start_listener)
             .add_systems(Startup, setup_timers)
             .add_systems(Startup, setup_environment)

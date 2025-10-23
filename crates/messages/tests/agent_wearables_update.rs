@@ -2,7 +2,7 @@ use metaverse_messages::{
     legacy::udp::agent_wearables_update::AgentWearablesUpdate, packet::packet::PacketData,
     utils::object_types::WearableType,
 };
-use uuid::{uuid, Uuid};
+use uuid::{Uuid, uuid};
 const DATA1: [u8; 235] = [
     157, 193, 139, 177, 4, 79, 76, 104, 144, 107, 44, 182, 8, 178, 225, 151, 17, 97, 227, 166, 218,
     153, 78, 239, 134, 183, 97, 62, 174, 87, 147, 40, 0, 0, 0, 0, 6, 33, 44, 119, 51, 59, 61, 78,

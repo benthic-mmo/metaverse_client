@@ -51,7 +51,7 @@ impl Category {
             Some(_) => {
                 return Err(ParseError::Message(
                     "Field 'category_id' is not a UUID".into(),
-                ))?
+                ))?;
             }
             None => return Err(ParseError::Message("Missing field 'category_id'".into()))?,
         };
@@ -62,7 +62,7 @@ impl Category {
             Some(_) => {
                 return Err(ParseError::Message(
                     "Field 'type_default' is not an integer".into(),
-                ))?
+                ))?;
             }
             None => ObjectType::Unknown,
         };
@@ -72,7 +72,7 @@ impl Category {
             Some(_) => {
                 return Err(ParseError::Message(
                     "Field 'version' is not an integer".into(),
-                ))?
+                ))?;
             }
             None => 0,
         };
@@ -130,7 +130,7 @@ impl Folder {
                 Some(_) => {
                     return Err(ParseError::Message(
                         "Field 'folder_id' is not a UUID".into(),
-                    ))
+                    ));
                 }
                 None => return Err(ParseError::Message("Missing field 'folder_id'".into())),
             };
@@ -138,7 +138,7 @@ impl Folder {
             let owner_id = match folder_data.get("owner_id") {
                 Some(LLSDValue::UUID(id)) => *id,
                 Some(_) => {
-                    return Err(ParseError::Message("Field 'owner_id' is not a UUID".into()))
+                    return Err(ParseError::Message("Field 'owner_id' is not a UUID".into()));
                 }
                 None => return Err(ParseError::Message("Missing field 'owner_id'".into())),
             };
@@ -148,7 +148,7 @@ impl Folder {
                 Some(_) => {
                     return Err(ParseError::Message(
                         "Field 'descendents' is not an integer".into(),
-                    ))
+                    ));
                 }
                 None => 0,
             };
@@ -158,7 +158,7 @@ impl Folder {
                 Some(_) => {
                     return Err(ParseError::Message(
                         "Field 'version' is not an integer".into(),
-                    ))
+                    ));
                 }
                 None => 0,
             };
@@ -166,7 +166,7 @@ impl Folder {
             let agent_id = match folder_data.get("agent_id") {
                 Some(LLSDValue::UUID(id)) => *id,
                 Some(_) => {
-                    return Err(ParseError::Message("Field 'agent_id' is not a UUID".into()))
+                    return Err(ParseError::Message("Field 'agent_id' is not a UUID".into()));
                 }
                 None => return Err(ParseError::Message("Missing field 'agent_id'".into())),
             };

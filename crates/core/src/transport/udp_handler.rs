@@ -1,12 +1,10 @@
+use crate::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
 use actix::Addr;
-use std::{collections::HashSet, sync::Arc};
-use tokio::net::UdpSocket;
-
 use log::{error, warn};
 use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_types::PacketType};
 use std::sync::Mutex;
-
-use crate::core::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
+use std::{collections::HashSet, sync::Arc};
+use tokio::net::UdpSocket;
 /// This file is for handling the UDP messages that are sent from the server to the client.
 
 impl Mailbox {
@@ -55,8 +53,6 @@ impl Mailbox {
                             {
                                 warn!("failed to handle pong {:?}", e)
                             };
-
-                            // Send AckList every ping.
                         }
                         PacketType::RegionHandshake(_) => {
                             if let Err(e) = mailbox_address.send(RegionHandshakeMessage {}).await {

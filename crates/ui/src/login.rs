@@ -1,11 +1,11 @@
 use crate::{
     errors::{CredentialDeleteError, CredentialLoadError, CredentialStoreError, PacketSendError},
     login,
-    plugin::{send_packet_to_core, ShareDir, Sockets, ViewerState, VIEWER_NAME},
+    plugin::{ShareDir, Sockets, VIEWER_NAME, ViewerState, send_packet_to_core},
 };
 use bevy::log::error;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
 use keyring::Entry;
 use metaverse_messages::{packet::message::UIResponse, ui::login_event::Login};
 use std::{fs, path::PathBuf};
@@ -66,10 +66,9 @@ pub fn login_screen(
                 login = ui.button("Login").clicked();
             });
         });
-    if login
-        && let Err(e) = send_login(viewer_state, login_data, share_dir, sockets) {
-            error!("{:?}", e)
-        };
+    if login && let Err(e) = send_login(viewer_state, login_data, share_dir, sockets) {
+        error!("{:?}", e)
+    };
     Ok(())
 }
 

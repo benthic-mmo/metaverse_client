@@ -32,8 +32,8 @@ use tokio::time::Duration;
 use uuid::Uuid;
 
 #[cfg(feature = "inventory")]
-use crate::core::inventory::RefreshInventoryEvent;
-use crate::http_handler::login_to_simulator;
+use crate::inventory::RefreshInventoryEvent;
+use crate::transport::http_handler::login_to_simulator;
 
 use super::{environment::EnvironmentCache, inventory::InventoryData};
 
@@ -207,47 +207,48 @@ impl Handler<Session> for Mailbox {
 
         // if the session doesn't already have a UDP socket to watch, create one
         if let Some(session) = self.session.as_ref()
-            && session.socket.is_none() {
-                let addr = format!("0.0.0.0:{}", self.client_socket);
+            && session.socket.is_none()
+        {
+            let addr = format!("0.0.0.0:{}", self.client_socket);
 
-                let addr_clone = addr.clone();
-                let mailbox_addr = ctx.address();
+            let addr_clone = addr.clone();
+            let mailbox_addr = ctx.address();
 
-                info!("session established, starting UDP processing");
-                let ack_queue = self.ack_queue.clone();
+            info!("session established, starting UDP processing");
+            let ack_queue = self.ack_queue.clone();
 
-                let fut = async move {
-                    match UdpSocket::bind(&addr).await {
-                        Ok(sock) => {
-                            info!("Successfully bound to {}", &addr);
-                            let sock = Arc::new(sock);
-                            // Spawn a new Tokio task for reading from the socket
-                            tokio::spawn(Mailbox::start_udp_read(
-                                ack_queue,
-                                sock.clone(),
-                                mailbox_addr,
-                            ));
-                            Ok(sock) // Return the socket wrapped in Arc
-                        }
-                        Err(e) => {
-                            error!("Failed to bind to {}: {}", &addr_clone, e);
-                            Err(e)
-                        }
-                    }
-                };
-
-                // wait for the socket to be successfully bound and then assign it
-                ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
+            let fut = async move {
+                match UdpSocket::bind(&addr).await {
                     Ok(sock) => {
-                        if let Some(session) = &mut act.session {
-                            session.socket = Some(sock);
-                        }
+                        info!("Successfully bound to {}", &addr);
+                        let sock = Arc::new(sock);
+                        // Spawn a new Tokio task for reading from the socket
+                        tokio::spawn(Mailbox::start_udp_read(
+                            ack_queue,
+                            sock.clone(),
+                            mailbox_addr,
+                        ));
+                        Ok(sock) // Return the socket wrapped in Arc
                     }
-                    Err(_) => {
-                        panic!("Socket binding failed");
+                    Err(e) => {
+                        error!("Failed to bind to {}: {}", &addr_clone, e);
+                        Err(e)
                     }
-                }));
-            }
+                }
+            };
+
+            // wait for the socket to be successfully bound and then assign it
+            ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
+                Ok(sock) => {
+                    if let Some(session) = &mut act.session {
+                        session.socket = Some(sock);
+                    }
+                }
+                Err(_) => {
+                    panic!("Socket binding failed");
+                }
+            }));
+        }
     }
 }
 

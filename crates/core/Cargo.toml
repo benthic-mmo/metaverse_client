@@ -11,7 +11,7 @@ metaverse_messages = {path = "../messages/"}
 metaverse_environment = {path = "../environment/", optional = true}
 metaverse_agent = {path = "../agent/", optional = true}
 metaverse_inventory = {path = "../inventory/", optional = true}
-metaverse_gltf = {path = "../../../metaverse_gltf/"}
+metaverse_mesh = {path = "../../../metaverse_mesh/"}
 serde-llsd = {path="../../../serde-llsd/"}
 tokio = { version = "1.47.1", features = ["full"] }
 log = "0.4"

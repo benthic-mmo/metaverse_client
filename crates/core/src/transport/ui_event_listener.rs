@@ -1,4 +1,4 @@
-use crate::core::session::Mailbox;
+use crate::session::Mailbox;
 use log::warn;
 use metaverse_messages::packet::message::UIResponse;
 use tokio::net::UdpSocket;
@@ -8,7 +8,7 @@ use tokio::net::UdpSocket;
 /// would be sent to and from the core
 /// all of these packets and their byte representations are defined by the spec here.
 /// <https://wiki.secondlife.com/wiki/Category:Messages>
-/// Messages are sent to the core using UDS.
+/// Messages are sent to the core using UDP.
 ///
 /// Once this is running, users can send messages like
 /// ```rust

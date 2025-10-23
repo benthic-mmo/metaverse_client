@@ -159,9 +159,10 @@ where
 
     // If we didn’t find a non-zero match, check rank 0.
     if let Some(first) = transforms.first()
-        && first.transform.abs_diff_eq(transform.transform, 1e-4) {
-            matched_rank0 = true;
-        }
+        && first.transform.abs_diff_eq(transform.transform, 1e-4)
+    {
+        matched_rank0 = true;
+    }
 
     // If it matched only rank 0 or none at all, create a new transform
     if matched_rank0

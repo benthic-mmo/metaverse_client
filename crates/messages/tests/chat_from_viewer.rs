@@ -1,8 +1,8 @@
 use metaverse_messages::{
     packet::{packet::Packet, packet_types::PacketType},
-    udp::chat::{chat_from_viewer::ChatFromViewer, ChatType},
+    udp::chat::{ChatType, chat_from_viewer::ChatFromViewer},
 };
-use uuid::{uuid, Uuid};
+use uuid::{Uuid, uuid};
 
 const TEST_PACKET: [u8; 51] = [
     64, 0, 0, 17, 6, 0, 255, 255, 0, 80, 50, 13, 255, 138, 122, 89, 71, 32, 160, 247, 90, 141, 243,

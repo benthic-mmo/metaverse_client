@@ -2,15 +2,15 @@ use std::collections::HashMap;
 
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
-use glam::{U16Vec2, Vec3};
+use glam::U16Vec2;
 use log::warn;
-use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::udp::environment::layer_data::LayerData;
+use metaverse_messages::utils::render_data::RenderObject;
 use twox_hash::XxHash32;
 
 use crate::{
     error::PatchError,
-    generate_triangles::generate_triangles,
+    generate_triangles::generate_mesh_with_indices,
     layer_handler::{
         bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
     },
@@ -20,6 +20,8 @@ use crate::{
 // The LayerData packet system is very poorly documented.
 
 /// This is the default size of the patch
+/// TODO: This default is true only for secondlife. OpenSim does not have a standard patch size.
+/// This will require some serious refactoring
 const PATCHES_PER_EDGE: u16 = 16;
 /// The land struct. Can contain both LandExtended and Land.
 #[derive(Debug, Clone)]
@@ -99,7 +101,7 @@ impl PatchData for Land {
         self,
         retry_queue: &mut HashMap<U16Vec2, Self>,
         total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Option<Mesh> {
+    ) -> Option<(RenderObject, U16Vec2)> {
         let location = self.terrain_header.location;
         let north_xy = U16Vec2 {
             x: location.x,
@@ -119,22 +121,14 @@ impl PatchData for Land {
         let top_corner = total_patches.get(&top_corner_xy);
 
         if north_layer.is_some() && east_layer.is_some() && top_corner.is_some() {
-            let mut layer_mesh = Mesh {
-                ..Default::default()
-            };
-            layer_mesh.high_level_of_detail.triangles = Some(generate_triangles(
+            let object = generate_mesh_with_indices(
                 total_patches.get(&location).unwrap(),
                 north_layer.unwrap(),
                 east_layer.unwrap(),
                 top_corner.unwrap(),
-            ));
-            layer_mesh.position = Some(Vec3 {
-                x: self.terrain_header.location.x as f32,
-                y: self.terrain_header.location.y as f32,
-                z: 0.0,
-            });
+            );
             retry_queue.remove(&location);
-            Some(layer_mesh)
+            Some((object, self.terrain_header.location))
         } else {
             retry_queue.insert(location, self);
             None
