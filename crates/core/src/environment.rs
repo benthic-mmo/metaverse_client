@@ -5,7 +5,7 @@ use glam::U16Vec2;
 use glam::Vec3;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{parse_layer_data, PatchData, PatchLayer},
+    layer_handler::{PatchData, PatchLayer, parse_layer_data},
 };
 use metaverse_mesh::gltf::generate_mesh;
 use metaverse_messages::packet::message::UIMessage;
@@ -62,13 +62,15 @@ impl Handler<LayerData> for Mailbox {
                         }
                         for (mesh, coordinate) in layer_meshes {
                             if let Ok(dir) = create_sub_share_dir("land") {
-
                                 let path =
                                     dir.join(format!("{}_high.gltf", land.terrain_header.filename));
 
                                 if let Ok(_) = generate_mesh(mesh, path.clone()) {
                                     ctx.address()
                                         .do_send(UIMessage::new_mesh_update(MeshUpdate {
+                                            // TODO: This is hardcoded to 16 because the patch
+                                            // sizes are all hardcoded to 16 right now. This should
+                                            // be fixed when that bug is resolved.
                                             position: Vec3 {
                                                 x: (coordinate.x as f32) * 16.0,
                                                 y: (coordinate.y as f32) * 16.0,

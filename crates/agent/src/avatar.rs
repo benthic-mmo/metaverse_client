@@ -56,19 +56,13 @@ impl Avatar {
 pub enum OutfitObject {
     /// A generic item
     Item(Item),
-    /// A SceneGroup, containing mesh and render data
-    RiggedObject(RiggedObject),
+    /// A MeshObject, containing a json containing mesh data that can be rendered ``
+    MeshObject(MeshObject),
 }
 
 // TODO: this may be better as just a scenegroup object
 #[derive(Debug, Clone)]
-pub struct RiggedObject {
-    /// The scenegroup for the rigged object
-    pub scene_group: SceneGroup,
-    /// the skeleton that defines the joint data of the object
-    /// not the global skeleton of the agent
-    pub skeleton: Skeleton,
-    // TODO: Find a better place for this.
-    // the path to the json cache for the object
+pub struct MeshObject {
+    /// the path on disk to the RenderObject json
     pub json_path: PathBuf,
 }

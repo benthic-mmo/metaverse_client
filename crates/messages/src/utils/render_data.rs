@@ -1,13 +1,20 @@
-use glam::Vec3;
-use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-use crate::{http::mesh::JointWeight, utils::skeleton::Skeleton};
+use glam::{Mat4, Vec3};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{
+    http::mesh::JointWeight,
+    utils::skeleton::{JointName, Skeleton},
+};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// This contains required data that will be used for rendering.
 pub struct RenderObject {
     /// Name of the object to render
     pub name: String,
+    pub id: Uuid,
     /// full list of vertices
     pub vertices: Vec<Vec3>,
     /// full list of indices
@@ -25,4 +32,12 @@ pub struct SkinData {
     pub skeleton: Skeleton,
     /// Weight information for the mesh's joints
     pub weights: Vec<JointWeight>,
+    pub joint_names: Vec<JointName>,
+    pub inverse_bind_matrices: Vec<Mat4>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct AvatarObject {
+    pub objects: Vec<PathBuf>,
+    pub global_skeleton: Skeleton,
 }
