@@ -12,7 +12,7 @@ use crate::{
     error::PatchError,
     generate_triangles::generate_mesh_with_indices,
     layer_handler::{
-        bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
+        END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
     },
 };
 

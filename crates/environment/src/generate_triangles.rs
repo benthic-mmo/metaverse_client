@@ -2,6 +2,7 @@ use crate::land::Land;
 use glam::Vec3;
 use metaverse_messages::utils::render_data::RenderObject;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Generate a terrain patch with shared vertices and indexed triangles.
 ///
@@ -89,6 +90,7 @@ pub fn generate_mesh_with_indices(
     RenderObject {
         vertices,
         indices,
+        id: Uuid::nil(),
         name: layer.terrain_header.location.to_string(),
         skin: None,
     }
