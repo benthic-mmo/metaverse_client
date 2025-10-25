@@ -1,5 +1,5 @@
 use crate::packet::header::PacketFrequency;
-use serde_llsd::LLSDValue;
+use serde_llsd_benthic::LLSDValue;
 use std::{array::TryFromSliceError, str::Utf8Error, string::FromUtf8Error};
 use thiserror::Error;
 

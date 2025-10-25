@@ -2,7 +2,8 @@ use std::{collections::HashMap, fs::create_dir_all, path::PathBuf};
 
 use log::{info, warn};
 use metaverse_messages::http::folder_types::{Folder, FolderNode};
-use serde_llsd::{LLSDValue, ser::xml};
+use serde_llsd_benthic::from_str;
+use serde_llsd_benthic::{ser::xml, LLSDValue};
 use uuid::Uuid;
 
 use crate::errors::InventoryError;
@@ -89,7 +90,7 @@ async fn establish_inventory_dirs(
     mut current_dir: PathBuf,
 ) -> Result<FolderNode, InventoryError> {
     let data = String::from_utf8_lossy(data);
-    let parsed_data = serde_llsd::from_str(&data)?;
+    let parsed_data = from_str(&data)?;
     let folders = Folder::from_llsd(parsed_data)?;
 
     if let Some(data_dir) = dirs::data_dir() {

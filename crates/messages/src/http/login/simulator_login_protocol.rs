@@ -2,7 +2,7 @@ use crate::ui::login_event::Login;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
-use serde_llsd::{LLSDValue, ser::xml_rpc};
+use serde_llsd_benthic::{ser::xml_rpc, LLSDValue};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;

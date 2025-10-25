@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use serde_llsd::LLSDValue;
+use serde_llsd_benthic::LLSDValue;
 use uuid::Uuid;
 
 use super::object_types::ObjectType;

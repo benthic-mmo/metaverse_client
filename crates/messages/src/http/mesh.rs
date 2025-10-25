@@ -2,7 +2,7 @@ use crate::{errors::ParseError, utils::skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd::LLSDValue;
+use serde_llsd_benthic::{de::binary, LLSDValue};
 use std::{collections::HashMap, io::Read, str::FromStr};
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data
@@ -65,7 +65,7 @@ impl Mesh {
         let mut mesh = Mesh {
             ..Default::default()
         };
-        let data = serde_llsd::de::binary::from_bytes(bytes)?;
+        let data = binary::from_bytes(bytes)?;
         // Get the first ocurrence of the zlib magic number, which denotes the beginning of the
         // first data block.
         let sentinel_location = bytes
@@ -130,39 +130,22 @@ impl Mesh {
 
         if skin_size > 0 {
             let skin = decompress_slice(&compressed_data[skin_offset..skin_offset + skin_size])?;
-            mesh.skin = Some(Skin::from_llsd(serde_llsd::de::binary::from_bytes(&skin)?)?);
+            mesh.skin = Some(Skin::from_llsd(binary::from_bytes(&skin)?)?);
         }
 
-        mesh.high_level_of_detail = MeshGeometry::from_llsd(
-            serde_llsd::de::binary::from_bytes(&high_level_of_detail)?,
-            &mesh.skin,
-        )?;
+        mesh.high_level_of_detail =
+            MeshGeometry::from_llsd(binary::from_bytes(&high_level_of_detail)?, &mesh.skin)?;
         mesh.medium_level_of_detail = medium_level_of_detail
             .as_ref()
-            .map(|bytes| {
-                MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
-                    &mesh.skin,
-                )
-            })
+            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
             .transpose()?;
         mesh.low_level_of_detail = low_level_of_detail
             .as_ref()
-            .map(|bytes| {
-                MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
-                    &mesh.skin,
-                )
-            })
+            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
             .transpose()?;
         mesh.lowest_level_of_detail = lowest_level_of_detail
             .as_ref()
-            .map(|bytes| {
-                MeshGeometry::from_llsd(
-                    serde_llsd::de::binary::from_bytes(bytes).unwrap(),
-                    &mesh.skin,
-                )
-            })
+            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
             .transpose()?;
         Ok(mesh)
     }

@@ -2,8 +2,8 @@ use crate::{
     errors::ParseError, http::login::login_error::LoginError, utils::agent_access::AgentAccess,
 };
 use serde::{Deserialize, Serialize};
-use serde_llsd::LLSDValue;
-use serde_llsd::converter::{FromLLSDValue, get, get_nested_vec, get_opt, get_vec};
+use serde_llsd_benthic::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
+use serde_llsd_benthic::{auto_from_str, LLSDValue};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -114,7 +114,7 @@ impl LoginResponse {
     /// Parses an LLSD-formatted XML login response into a `LoginResponse` struct.
     /// If the login failed, returns a `LoginError` with details from the response.
     pub fn from_xml(data: &str) -> Result<LoginStatus, ParseError> {
-        match serde_llsd::de::auto_from_str(data) {
+        match auto_from_str(data) {
             Ok(xml) => match xml {
                 LLSDValue::Map(ref map) => {
                     // Login is false when the login fails, and true when it succeeds.

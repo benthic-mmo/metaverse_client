@@ -1,5 +1,5 @@
 use actix::Message;
-use serde_llsd::LLSDValue;
+use serde_llsd_benthic::LLSDValue;
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
