@@ -12,7 +12,7 @@ metaverse_environment = {path = "../environment/", optional = true}
 metaverse_agent = {path = "../agent/", optional = true}
 metaverse_inventory = {path = "../inventory/", optional = true}
 metaverse_mesh = {path = "../../../metaverse_mesh/"}
-serde-llsd = {path="../../../serde-llsd/"}
+serde-llsd-benthic = "0.0.1"
 tokio = { version = "1.47.1", features = ["full"] }
 log = "0.4"
 actix = "0.13.5"

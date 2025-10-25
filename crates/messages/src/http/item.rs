@@ -1,9 +1,9 @@
 use super::mesh::Mesh;
 use crate::{errors::ParseError, utils::item_metadata::ItemMetadata};
-use serde_llsd::converter::get;
+use serde_llsd_benthic::{auto_from_str, converter::get};
 use std::{
     collections::HashMap,
-    str::{FromStr, from_utf8},
+    str::{from_utf8, FromStr},
 };
 use uuid::Uuid;
 
@@ -84,8 +84,7 @@ impl ItemData {
     /// ```
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let data = from_utf8(bytes)?;
-        let llsd =
-            serde_llsd::de::auto_from_str(data).map_err(|e| ParseError::Message(e.to_string()))?;
+        let llsd = auto_from_str(data).map_err(|e| ParseError::Message(e.to_string()))?;
 
         let map = llsd.as_map().ok_or(ParseError::LLSDError())?;
         Ok(ItemData {

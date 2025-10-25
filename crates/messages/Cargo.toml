@@ -7,7 +7,7 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-serde-llsd = {path = "../../../serde-llsd/"}
+serde-llsd-benthic = "0.0.1"
 log = "0.4"
 byteorder = "1.5.0"
 mac_address = "1.1.8"

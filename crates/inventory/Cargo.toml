@@ -8,7 +8,7 @@ anyhow = "1.0.100"
 awc = "3.8.1"
 dirs = "6.0.0"
 log = "0.4.28"
-serde-llsd = {path = "../../../serde-llsd/"}
+serde-llsd-benthic = "0.0.1"
 metaverse_messages = {path = "../messages/"}
 quick-xml = "0.38.3"
 serde = "1.0.228"

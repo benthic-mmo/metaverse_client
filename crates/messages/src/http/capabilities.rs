@@ -2,7 +2,7 @@ use core::fmt;
 use std::{collections::HashMap, fmt::Display};
 
 use actix::Message;
-use serde_llsd::LLSDValue;
+use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
 
 use crate::errors::ParseError;
 
@@ -65,7 +65,7 @@ impl CapabilityRequest {
         for capability in capabilities {
             capability_vec.push(LLSDValue::String(capability.to_string()));
         }
-        let caps = serde_llsd::ser::xml::to_string(&LLSDValue::Array(capability_vec), false)?;
+        let caps = xml::to_string(&LLSDValue::Array(capability_vec), false)?;
 
         Ok(CapabilityRequest { capabilities: caps })
     }
@@ -74,7 +74,7 @@ impl CapabilityRequest {
     pub fn response_from_llsd(xml_bytes: &[u8]) -> Result<HashMap<Capability, String>, ParseError> {
         let mut result = HashMap::new();
         let xml = String::from_utf8_lossy(xml_bytes).to_string();
-        let parsed = serde_llsd::from_str(&xml)?;
+        let parsed = from_str(&xml)?;
 
         if let Some(parsed_map) = parsed.as_map() {
             for (key, val) in parsed_map {
