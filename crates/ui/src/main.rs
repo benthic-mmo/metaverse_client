@@ -1,14 +1,14 @@
+use benthic_ui::chat::chat_screen;
+use benthic_ui::loading::loading_screen;
+use benthic_ui::login::login_screen;
+use benthic_ui::plugin::MetaversePlugin;
+use benthic_ui::plugin::ViewerState;
 use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_egui::EguiPrimaryContextPass;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use ui::chat::chat_screen;
-use ui::loading::loading_screen;
-use ui::login::login_screen;
-use ui::plugin::MetaversePlugin;
-use ui::plugin::ViewerState;
 
 pub const CONFIG_FILE: &str = "login_conf.json";
 
