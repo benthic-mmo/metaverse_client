@@ -70,12 +70,14 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                     };
                                 // write the object to disk as json, to give to the code that will
                                 // generate the 3d model.
-                                // TODO: DO NOT LEAVE THIS AS NAME PERMANENTLY. FIGURE OUT WHY THE
-                                // SCENEOBJECT'S METADATA IS NOT POPULATING
                                 let json_path_2 = write_json(
                                     &render_objects,
                                     msg.agent_id,
-                                    scene_group.parts[0].name.clone(),
+                                    format!(
+                                        "{:?}_{}",
+                                        scene_group.parts[0].sculpt.texture,
+                                        scene_group.parts[0].name
+                                    ),
                                 )
                                 .unwrap();
 
@@ -173,54 +175,62 @@ async fn download_render_object(
     url: &str,
 ) -> Result<Vec<RenderObject>, std::io::Error> {
     let mut meshes = Vec::new();
+
     for scene in &scene_group.parts {
         let mut metadata = scene.item_metadata.clone();
         metadata.item_type = ObjectType::Mesh;
         metadata.asset_id = scene.sculpt.texture;
-        let mesh = download_mesh(metadata, url).await?;
-        // apply the skin bind shape matrix to the retrieved
-        // vertices
-        let vertices_transformed: Vec<Vec3> = mesh
-            .high_level_of_detail
-            .vertices
-            .iter()
-            .map(|v| {
-                let v4 =
-                    mesh.skin.as_ref().unwrap().bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                Vec3::new(v4.x, v4.y, v4.z)
-            })
-            .collect();
 
-        let skin = if mesh.skin.is_some() {
-            // create the object specific skeleton. This contains no default
-            // bone information, and only contains the skeleton data relevant
-            // to this specific object.
-            let skeleton = create_skeleton(
-                scene.name.clone(),
-                scene.sculpt.texture,
-                mesh.skin.as_ref().unwrap(),
-            )
-            .unwrap_or_else(|e| {
-                println!("Failed to create skeleton: {:?}", e);
-                Skeleton::default()
+        let mesh = download_mesh(metadata, url).await?;
+
+        if let Some(skin) = &mesh.skin {
+            // Apply bind shape matrix
+            let vertices: Vec<Vec3> = mesh
+                .high_level_of_detail
+                .vertices
+                .iter()
+                .map(|v| {
+                    let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
+                    Vec3::new(v4.x, v4.y, v4.z)
+                })
+                .collect();
+
+            let skeleton = create_skeleton(scene.name.clone(), scene.sculpt.texture, skin)
+                .unwrap_or_else(|e| {
+                    println!("Failed to create skeleton: {:?}", e);
+                    Skeleton::default()
+                });
+
+            let skin_data = SkinData {
+                skeleton,
+                weights: mesh
+                    .high_level_of_detail
+                    .weights
+                    .clone()
+                    .unwrap_or_default(),
+                joint_names: skin.joint_names.clone(),
+                inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
+            };
+
+            meshes.push(RenderObject {
+                name: scene.name.clone(),
+                id: scene.sculpt.texture,
+                indices: mesh.high_level_of_detail.indices,
+                vertices,
+                skin: Some(skin_data),
             });
-            Some(SkinData {
-                skeleton: skeleton,
-                weights: mesh.high_level_of_detail.weights.unwrap(),
-                joint_names: mesh.skin.clone().unwrap().joint_names,
-                inverse_bind_matrices: mesh.skin.clone().unwrap().inverse_bind_matrices,
-            })
         } else {
-            None
-        };
-        meshes.push(RenderObject {
-            name: scene.name.clone(),
-            id: scene.sculpt.texture,
-            indices: mesh.high_level_of_detail.indices,
-            vertices: vertices_transformed,
-            skin: skin,
-        });
+            // No skin
+            meshes.push(RenderObject {
+                name: scene.name.clone(),
+                id: scene.sculpt.texture,
+                indices: mesh.high_level_of_detail.indices,
+                vertices: mesh.high_level_of_detail.vertices,
+                skin: None,
+            });
+        }
     }
+
     Ok(meshes)
 }
 

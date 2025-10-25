@@ -14,6 +14,7 @@ use crate::{
 pub struct RenderObject {
     /// Name of the object to render
     pub name: String,
+    /// ID of the object to render
     pub id: Uuid,
     /// full list of vertices
     pub vertices: Vec<Vec3>,
@@ -32,12 +33,17 @@ pub struct SkinData {
     pub skeleton: Skeleton,
     /// Weight information for the mesh's joints
     pub weights: Vec<JointWeight>,
+    /// Names of all of the joints. In order to correspond to weights and inverse bind matrices.
     pub joint_names: Vec<JointName>,
+    /// Inverse bind matrix. Used to determine the shape of the skeleton in relation to the mesh.
     pub inverse_bind_matrices: Vec<Mat4>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Object that contains the global skeleton for the agent object,  
 pub struct AvatarObject {
+    /// Path to the RenderObject json on file for the component parts of the outfit
     pub objects: Vec<PathBuf>,
+    /// global skeleton tat is applied to all objects in the outfit
     pub global_skeleton: Skeleton,
 }

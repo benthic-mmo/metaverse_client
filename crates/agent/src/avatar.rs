@@ -6,10 +6,7 @@ use metaverse_messages::utils::skeleton::JointName;
 use metaverse_messages::utils::skeleton::Transform;
 
 use glam::Vec3;
-use metaverse_messages::{
-    http::{item::Item, scene::SceneGroup},
-    utils::skeleton::Skeleton,
-};
+use metaverse_messages::{http::item::Item, utils::skeleton::Skeleton};
 use uuid::Uuid;
 
 // Definitions for an avatar object

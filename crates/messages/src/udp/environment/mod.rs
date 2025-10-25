@@ -20,7 +20,6 @@
 /// | Patch Size| 1 byte  | [u8]  | The size of the patches. Should always be 16.       |
 /// | Type[^1]  | 1 byte  | [u8]  | A redundant type value.                             |
 /// | Content   | variable bytes (read to end) | PatchData | Compressed patch data      |
-
 /// ## Patch Spec
 /// This is the header structure for each of the internal patches.
 /// | Patch data|                   |                                                                      |                                                                    |

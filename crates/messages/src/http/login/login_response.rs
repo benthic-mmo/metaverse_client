@@ -10,7 +10,7 @@ use uuid::Uuid;
 /// Represents the result of a login attempt parsed from a valid LLSD XML response.
 pub enum LoginStatus {
     /// Login succeeded and contains a valid LoginResponse
-    Success(LoginResponse),
+    Success(Box<LoginResponse>),
     /// Login failed, and contains error information
     Failure(LoginError),
 }
@@ -112,17 +112,7 @@ pub struct LoginResponse {
 
 impl LoginResponse {
     /// Parses an LLSD-formatted XML login response into a `LoginResponse` struct.
-    ///
     /// If the login failed, returns a `LoginError` with details from the response.
-    ///
-    /// # Arguments
-    ///
-    /// * `data` - A string slice containing the LLSD XML returned by the login server.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(LoginResponse)` if the login succeeded and the XML could be parsed.
-    /// * `Err(LoginError)` if the login failed or the XML was invalid.
     pub fn from_xml(data: &str) -> Result<LoginStatus, ParseError> {
         match serde_llsd::de::auto_from_str(data) {
             Ok(xml) => match xml {
@@ -134,7 +124,7 @@ impl LoginResponse {
                         return Ok(LoginStatus::Failure(LoginError::from_llsd(&xml)));
                     }
 
-                    Ok(LoginStatus::Success(LoginResponse {
+                    Ok(LoginStatus::Success(Box::new(LoginResponse {
                         first_name: get("first_name", map),
                         last_name: get("last_name", map),
                         agent_id: get("agent_id", map),
@@ -171,7 +161,7 @@ impl LoginResponse {
                         home: get_opt("home", map),
                         global_textures: get_nested_vec("global_textures", map),
                         ..Default::default()
-                    }))
+                    })))
                 }
                 err => Err(err)?,
             },

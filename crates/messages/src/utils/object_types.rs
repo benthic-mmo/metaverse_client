@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter, Result};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -66,11 +68,11 @@ pub enum ObjectType {
     Unknown,
 }
 
-impl ObjectType {
-    /// Convert the object to its string representation. Useful for retrieving from the capability
-    /// endpoint.
-    pub fn to_string(&self) -> String {
-        match self {
+/// Convert the object to its string representation. Useful for retrieving from the capability
+/// endpoint.
+impl Display for ObjectType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let s = match self {
             ObjectType::Texture => "texture".to_string(),
             ObjectType::Sound => "sound".to_string(),
             ObjectType::CallingCard => "calling_card".to_string(),
@@ -100,8 +102,11 @@ impl ObjectType {
             ObjectType::ParticleSystem => "particle_system".to_string(),
             ObjectType::Tree => "tree".to_string(),
             ObjectType::Unknown => "unknown".to_string(),
-        }
+        };
+        write!(f, "{}", s)
     }
+}
+impl ObjectType {
     /// Maps the byte values of ObjectTypes to their correct data type
     pub fn to_bytes(&self) -> u8 {
         match self {

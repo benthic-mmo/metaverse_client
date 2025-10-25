@@ -78,7 +78,7 @@ impl PacketData for AgentWearablesUpdate {
         let wearable_count = cursor.read_u8()?;
         let mut wearables = Vec::new();
 
-        for _ in [0..wearable_count] {
+        for _ in (0..wearable_count).collect::<std::vec::Vec<u8>>() {
             let mut item_id_bytes = [0u8; 16];
             cursor.read_exact(&mut item_id_bytes)?;
             let item_id = Uuid::from_bytes(item_id_bytes);
