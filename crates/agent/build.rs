@@ -11,12 +11,10 @@ use uuid::Uuid;
 /// in.
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let mut base_skeleton_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    base_skeleton_path.pop();
-    base_skeleton_path.push("agent");
-    base_skeleton_path.push("src");
-    base_skeleton_path.push("benthic_default_model");
-    base_skeleton_path.push("skeleton.gltf");
+    let base_skeleton_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("benthic_default_model")
+        .join("skeleton.gltf");
 
     let skeleton = skeleton_from_gltf(base_skeleton_path);
     let generated_code = generate_skeleton_code(&skeleton);
