@@ -361,7 +361,7 @@ impl MeshGeometry {
     }
 }
 
-fn handle_skin(data: &LLSDValue, joints: &Vec<JointName>) -> Result<Vec<JointWeight>, ParseError> {
+fn handle_skin(data: &LLSDValue, joints: &[JointName]) -> Result<Vec<JointWeight>, ParseError> {
     let map = match data {
         LLSDValue::Binary(map) => map,
         _ => return Err(ParseError::InvalidField("Weights".into())),

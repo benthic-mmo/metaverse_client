@@ -20,8 +20,6 @@ use std::{
 };
 use uuid::Uuid;
 
-use super::mesh::Mesh;
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// The group of scenes received from the server, used for rendering meshes.
 ///
@@ -660,9 +658,6 @@ pub struct Sculpt {
     /// The last point the object was attached to. Helps reattach items to the same place when
     /// logging in or putting on again.
     pub last_attach_point: i32,
-    /// The optional downloaded mesh, retrieved from the AssetServer.
-    /// Will be empty until the mesh data is retrieved from the server.
-    pub mesh: Option<Mesh>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

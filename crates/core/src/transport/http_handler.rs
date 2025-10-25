@@ -9,6 +9,7 @@ use metaverse_messages::{
 };
 use std::io::Error;
 
+/// send the login to simulator xml-rpc request
 pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginError> {
     let url = login.url.clone();
     let client = awc::Client::default();
@@ -35,7 +36,7 @@ pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginErro
 
     match LoginResponse::from_xml(&xml_string) {
         Ok(login) => match login {
-            LoginStatus::Success(success) => Ok(success),
+            LoginStatus::Success(success) => Ok(*success),
             LoginStatus::Failure(failure) => Err(failure),
         },
         Err(e) => Err(e)?,

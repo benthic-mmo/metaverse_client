@@ -25,7 +25,7 @@ impl Handler<CapabilityRequest> for Mailbox {
     fn handle(&mut self, msg: CapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &self.session {
             let seed_capability_url = session.seed_capability_url.clone();
-
+            println!("{:?}", seed_capability_url);
             let address = ctx.address().clone();
             ctx.spawn(
                 async move {
@@ -42,7 +42,9 @@ impl Handler<CapabilityRequest> for Mailbox {
                                     Ok(capability_urls) => {
                                         address.do_send(SetCapabilityUrls { capability_urls })
                                     }
-                                    Err(e) => error!("Capabilities failed to parse: {:?}", e),
+                                    Err(e) => {
+                                        error!("Capabilities failed to parse: {:?}: {:?}", e, body)
+                                    }
                                 };
                             }
                             Err(e) => {
