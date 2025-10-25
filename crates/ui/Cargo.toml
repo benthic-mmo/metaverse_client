@@ -6,7 +6,7 @@ resolver = "2"
 
 [dependencies]
 metaverse_core = {path = "../core/"}
-metaverse_messages = {path = "../messages/"}
+metaverse_messages = "0.2.0"
 
 #disable sound for bevy
 bevy = { version = "0.17", default-features = false, features = [

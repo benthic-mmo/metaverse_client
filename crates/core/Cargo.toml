@@ -7,7 +7,7 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-metaverse_messages = {path = "../messages/"}
+metaverse_messages = "0.2.0"
 metaverse_environment = {path = "../environment/", optional = true}
 metaverse_agent = {path = "../agent/", optional = true}
 metaverse_inventory = {path = "../inventory/", optional = true}

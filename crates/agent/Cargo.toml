@@ -3,6 +3,12 @@ name = "metaverse_agent"
 version = "0.0.1"
 edition = "2024"
 build = "build.rs"
+include = [
+    "src/**",
+    "Cargo.toml",
+    "build.rs",
+    "src/benthic_default_model/skeleton.gltf",
+]
 
 [dependencies]
 metaverse_messages = {path = "../messages/"}
