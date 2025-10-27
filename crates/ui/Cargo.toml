@@ -8,8 +8,8 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
-metaverse_core = "0.2.0"
-metaverse_messages = "0.2.0"
+metaverse_core = {path="../core"}
+metaverse_messages = {path="../messages"}
 
 #disable sound for bevy
 bevy = { version = "0.17", default-features = false, features = [

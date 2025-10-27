@@ -113,7 +113,7 @@ pub struct LoginResponse {
 impl LoginResponse {
     /// Parses an LLSD-formatted XML login response into a `LoginResponse` struct.
     /// If the login failed, returns a `LoginError` with details from the response.
-    pub fn from_xml(data: &str) -> Result<LoginStatus, ParseError> {
+    pub fn from_xmlrpc(data: &str) -> Result<LoginStatus, ParseError> {
         match auto_from_str(data) {
             Ok(xml) => match xml {
                 LLSDValue::Map(ref map) => {

@@ -4,7 +4,7 @@ use std::net::UdpSocket;
 
 use log::{info, warn};
 
-/// This is for your client to listen on the data coming out of the server.
+/// This is for your UI to listen on the data coming out of the core.
 /// import this and use directly, or modify to suit your own needs.
 /// By default you can use this to run in the background, and subscribe to the outgoing events
 /// using crossbeam.
@@ -17,8 +17,6 @@ use log::{info, warn};
 /// use tokio::runtime::Runtime;
 /// use portpicker::pick_unused_port;
 ///
-///
-///
 /// let server_to_ui_socket = pick_unused_port().map_or_else(|| "No port found".to_string(), |port| port.to_string());
 ///
 /// spawn(move || {
@@ -29,7 +27,7 @@ use log::{info, warn};
 /// });
 /// ```
 ///
-/// In your client you can use something like this to handle events.
+/// In your UI you can use something like this to handle events.
 /// just remember to keep your crossbeam_channels as shared resources.
 /// for example, create the crossbeam_channels in your main function, start your thread, save that
 /// channel to a global variable, and then run handle_queue once per frame.
