@@ -467,7 +467,7 @@ impl MotionData {
             16 => Ok(Self::from_bytes_low(bytes)?),
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "Unknown ObjectData size",
+                "Unknown MotionData size",
             )),
         }
     }

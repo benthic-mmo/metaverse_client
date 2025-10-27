@@ -29,7 +29,7 @@ impl UIResponse {
     /// converts a UiEvent object to bytes using serde.
     /// Bytes can be decoded directly as JSON objects
     pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("Failed to serialize UiEvent")
+        serde_json::to_vec(self).expect("Failed to serialize UIResponse")
     }
 
     /// Converts bytes to a UIEvent.
@@ -62,7 +62,7 @@ impl UIMessage {
     /// converts a UiEvent object to bytes using serde.
     /// Bytes can be decoded directly as JSON objects
     pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("Failed to serialize UiEvent")
+        serde_json::to_vec(self).expect("Failed to serialize UIMessage")
     }
 
     /// Converts bytes to a UIEvent.

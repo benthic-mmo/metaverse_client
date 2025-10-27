@@ -14,7 +14,7 @@ pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginErro
     let url = login.url.clone();
     let client = awc::Client::default();
     // Serialize login data to XML-RPC
-    let xml = SimulatorLoginProtocol::new(login).to_xml();
+    let xml = SimulatorLoginProtocol::new(login).to_xmlrpc();
     // Send POST request
     let mut response = client
         .post(&url)
@@ -34,7 +34,7 @@ pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginErro
     let xml_string = String::from_utf8(body_bytes.to_vec()).unwrap();
     // Parse XML-RPC response
 
-    match LoginResponse::from_xml(&xml_string) {
+    match LoginResponse::from_xmlrpc(&xml_string) {
         Ok(login) => match login {
             LoginStatus::Success(success) => Ok(*success),
             LoginStatus::Failure(failure) => Err(failure),

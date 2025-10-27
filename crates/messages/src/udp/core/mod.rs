@@ -224,8 +224,8 @@ pub mod circuit_code;
 /// | joint_axis_or_anchor_y | 4 bytes | [f32] | y location of the offset or axis. Legacy |
 /// | joint_axis_or_anchor_z | 4 bytes | [f32] | z location of the offset or axis. Legacy |
 ///
-/// ## Object Data
-/// ObjectData is read differently based on the length of the objectadata field.
+/// ## Motion Data
+/// MotionData is read differently based on the length of the objectadata field.
 /// There are high precision updates, medium precision updates and low precision updates,
 /// which read different sized integers. High precision updates use the largest amount of
 /// bytes, using f32s for its value, and low precision updates use the smallest amount of bytes,
@@ -233,7 +233,7 @@ pub mod circuit_code;
 ///
 /// ### High Precision Update with Foot Collision Plane
 ///
-/// | Object Data       | 76 bytes|||
+/// | Motion Data       | 76 bytes|||
 /// |-------------------|---------|-------|--------------------------------------|
 /// | collision_plane_a | 4 bytes | [f32] | a corner of the collision plane      |
 /// | collision_plane_b | 4 bytes | [f32] | b corner of the collision plane      |
@@ -245,7 +245,7 @@ pub mod circuit_code;
 /// the angular velocity when receiving a 76 byte object data will always be 0.0, 0.0, 0.0.
 ///
 /// ### High Precision Update
-/// | Object Data       | 60 bytes|||
+/// | Motion Data       | 60 bytes|||
 /// |-------------------|---------|-------|--------------------------------------|
 /// | position_x        | 4 bytes | [f32] | the x position of the object         |
 /// | position_y        | 4 bytes | [f32] | the y position of the object         |
@@ -265,7 +265,7 @@ pub mod circuit_code;
 /// | angular_velocity_z| 4 bytes | [f32] | the z angular velocity of the object |
 ///
 /// ### Medium Precision Update With Foot Collision Plane
-/// | Object Data       | 48 bytes|||
+/// | Motion Data       | 48 bytes|||
 /// |-------------------|---------|-------|--------------------------------------|
 /// | collision_plane_a | 4 bytes | [f32] | a corner of the collision plane      |
 /// | collision_plane_b | 4 bytes | [f32] | b corner of the collision plane      |
@@ -275,7 +275,7 @@ pub mod circuit_code;
 ///
 ///
 /// ### Medium Precision Update
-/// | Object Data       | 32 bytes|||
+/// | Motion Data       | 32 bytes|||
 /// |-------------------|---------|-------|--------------------------------------|
 /// | position_x        | 2 bytes | [u16] | the x position of the object         |
 /// | position_y        | 2 bytes | [u16] | the y position of the object         |
@@ -295,7 +295,7 @@ pub mod circuit_code;
 /// | angular_velocity_z| 2 bytes | [u16] | the z angular velocity of the object |
 ///
 /// ### Low Precision Update
-/// | Object Data       | 16 bytes|||
+/// | Motion Data       | 16 bytes|||
 /// |-------------------|---------|-------|--------------------------------------|
 /// | position_x        | 1 byte  | [u8] | the x position of the object         |
 /// | position_y        | 1 byte  | [u8] | the y position of the object         |

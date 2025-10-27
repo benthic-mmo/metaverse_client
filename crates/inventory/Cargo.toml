@@ -7,7 +7,7 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-metaverse_messages = "0.2.0"
+metaverse_messages = {path="../messages/"}
 anyhow = "1.0.100"
 awc = "3.8.1"
 dirs = "6.0.0"

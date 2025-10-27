@@ -7,12 +7,12 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-metaverse_messages = "0.2.0"
-metaverse_environment = {version="0.2.0", optional = true}
-metaverse_agent = {version="0.2.0", optional = true}
-metaverse_inventory = {version="0.2.0", optional = true}
-metaverse_mesh = {version="0.1.0"}
-serde-llsd-benthic = "0.0.1"
+metaverse_messages = {path="../messages"}
+metaverse_environment = {path="../environment", optional = true}
+metaverse_agent = {path="../agent", optional = true}
+metaverse_inventory = {path="../inventory", optional = true}
+metaverse_mesh = {path="../../../metaverse_mesh"}
+serde-llsd-benthic = {path="../../../benthic-serde-llsd"}
 tokio = { version = "1.47.1", features = ["full"] }
 log = "0.4"
 actix = "0.13.5"
