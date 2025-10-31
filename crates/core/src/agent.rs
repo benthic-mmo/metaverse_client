@@ -8,7 +8,7 @@ use glam::{Vec3, Vec4};
 use log::{error, info, warn};
 use metaverse_agent::avatar::{Avatar, MeshObject, OutfitObject};
 use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
-use metaverse_mesh::skinned_mesh::generate_skinned_mesh;
+use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::utils::render_data::{AvatarObject, RenderObject, SkinData};
@@ -20,7 +20,6 @@ use metaverse_messages::{
 use serde::Serialize;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 use std::{path::PathBuf, sync::Mutex};
 use uuid::Uuid;
