@@ -93,6 +93,7 @@ pub fn generate_mesh_with_indices(
         id: Uuid::nil(),
         name: layer.terrain_header.location.to_string(),
         skin: None,
+        texture: None,
     }
 }
 

@@ -5,15 +5,16 @@ use glam::U16Vec2;
 use glam::Vec3;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{PatchData, PatchLayer, parse_layer_data},
+    layer_handler::{parse_layer_data, PatchData, PatchLayer},
 };
-use metaverse_mesh::gltf::generate_mesh;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::{
     udp::environment::layer_data::LayerData,
     ui::mesh_update::{MeshType, MeshUpdate},
 };
 use std::collections::HashMap;
+
+use metaverse_mesh::gltf::build_mesh_gltf;
 
 #[cfg(feature = "environment")]
 #[derive(Debug, Message)]
@@ -62,10 +63,12 @@ impl Handler<LayerData> for Mailbox {
                         }
                         for (mesh, coordinate) in layer_meshes {
                             if let Ok(dir) = create_sub_share_dir("land") {
+
+
                                 let path =
                                     dir.join(format!("{}_high.gltf", land.terrain_header.filename));
 
-                                if let Ok(_) = generate_mesh(mesh, path.clone()) {
+                                if let Ok(_) = build_mesh_gltf(mesh, path.clone()) {
                                     ctx.address()
                                         .do_send(UIMessage::new_mesh_update(MeshUpdate {
                                             // TODO: This is hardcoded to 16 because the patch

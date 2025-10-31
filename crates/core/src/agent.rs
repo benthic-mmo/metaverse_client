@@ -1,6 +1,8 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
-use crate::transport::http_handler::{download_item, download_mesh, download_object};
+use crate::transport::http_handler::{
+    download_item, download_mesh, download_object, download_texture,
+};
 use actix::{Addr, AsyncContext, Handler, Message, WrapFuture};
 use glam::{Vec3, Vec4};
 use log::{error, info, warn};
@@ -18,6 +20,7 @@ use metaverse_messages::{
 use serde::Serialize;
 use std::fs::{self, File};
 use std::io::{self, Write};
+use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 use std::{path::PathBuf, sync::Mutex};
 use uuid::Uuid;
@@ -67,8 +70,9 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             .await
                             {
                                 Ok(scene_group) => {
-                                    let render_objects = match download_render_object(
+                                    let json_path = match download_render_object(
                                         &scene_group,
+                                        msg.agent_id,
                                         &msg.url,
                                     )
                                     .await
@@ -79,26 +83,12 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                             return; // or handle error differently
                                         }
                                     };
-                                    // write the object to disk as json, to give to the code that will
-                                    // generate the 3d model.
-                                    let json_path_2 = write_json(
-                                        &render_objects,
-                                        msg.agent_id,
-                                        format!(
-                                            "{:?}_{}",
-                                            scene_group.parts[0].sculpt.texture,
-                                            scene_group.parts[0].metadata.name
-                                        ),
-                                    )
-                                    .unwrap();
 
                                     // add the item to the global agent object.
                                     add_item_to_agent_list(
                                         agent_list,
                                         msg.agent_id,
-                                        OutfitObject::MeshObject(MeshObject {
-                                            json_path: json_path_2,
-                                        }),
+                                        OutfitObject::MeshObject(MeshObject { json_path }),
                                         address,
                                     );
                                 }
@@ -190,12 +180,22 @@ impl Handler<Agent> for Mailbox {
 
 async fn download_render_object(
     scene_group: &SceneGroup,
+    agent_id: Uuid,
     url: &str,
-) -> Result<Vec<RenderObject>, std::io::Error> {
+) -> Result<PathBuf, std::io::Error> {
     let mut meshes = Vec::new();
 
     for scene in &scene_group.parts {
         let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
+        let texture = download_texture(
+            ObjectType::Texture.to_string(),
+            scene.shape.texture.texture_id,
+            url,
+        )
+        .await?;
+        let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
+        let texture_path = base_dir.join(format!("{:?}.png", scene.shape.texture.texture_id));
+        texture.save(&texture_path).unwrap();
 
         if let Some(skin) = &mesh.skin {
             // Apply bind shape matrix
@@ -232,6 +232,7 @@ async fn download_render_object(
                 indices: mesh.high_level_of_detail.indices,
                 vertices,
                 skin: Some(skin_data),
+                texture: Some(texture_path),
             });
         } else {
             // No skin
@@ -241,11 +242,23 @@ async fn download_render_object(
                 indices: mesh.high_level_of_detail.indices,
                 vertices: mesh.high_level_of_detail.vertices,
                 skin: None,
+                texture: Some(texture_path),
             });
         }
     }
+    // write the object to disk as json, to give to the code that will
+    // generate the 3d model.
+    let json_path = write_json(
+        &meshes,
+        agent_id,
+        format!(
+            "{:?}_{}",
+            scene_group.parts[0].sculpt.texture, scene_group.parts[0].metadata.name
+        ),
+    )
+    .unwrap();
 
-    Ok(meshes)
+    Ok(json_path)
 }
 
 /// When an outfit item is fully downloaded, it should be added to the agent, and its global
