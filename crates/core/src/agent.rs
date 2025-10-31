@@ -142,8 +142,8 @@ impl Handler<Agent> for Mailbox {
             .outfit_items
             .iter()
             .filter_map(|obj| match obj {
-                OutfitObject::MeshObject(r) => Some(r.json_path.clone()), // extract path
-                _ => None,                                                // skip other variants
+                OutfitObject::MeshObject(r) => Some(r.json_path.clone()),
+                _ => None,
             })
             .collect();
 
@@ -183,7 +183,6 @@ async fn download_render_object(
     url: &str,
 ) -> Result<PathBuf, std::io::Error> {
     let mut meshes = Vec::new();
-
     for scene in &scene_group.parts {
         let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
         let texture = download_texture(
@@ -195,6 +194,19 @@ async fn download_render_object(
         let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
         let texture_path = base_dir.join(format!("{:?}.png", scene.shape.texture.texture_id));
         texture.save(&texture_path).unwrap();
+
+        let uvs: Vec<[f32; 2]> = mesh
+            .high_level_of_detail
+            .texture_coordinate
+            .iter()
+            .map(|tc| {
+                let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
+                [
+                    domain.min[0] + tc.u as f32 * (domain.max[0] - domain.min[0]),
+                    domain.min[1] + tc.v as f32 * (domain.max[1] - domain.min[1]),
+                ]
+            })
+            .collect();
 
         if let Some(skin) = &mesh.skin {
             // Apply bind shape matrix
