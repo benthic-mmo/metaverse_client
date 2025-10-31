@@ -1,3 +1,5 @@
+use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
+use jpeg2k::{Image, ImagePixelData};
 use metaverse_messages::http::login::login_error::{LoginError, Reason};
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
@@ -102,6 +104,50 @@ pub async fn download_mesh(
 ) -> std::io::Result<Mesh> {
     Mesh::from_bytes(&download_asset(item_type, asset_id, server_endpoint).await?)
         .map_err(|e| Error::other(format!("Failed to parse SceneGroup XML: {}", e)))
+}
+
+/// Retrieve a texture from the ViewerAsset endpoint.
+pub async fn download_texture(
+    item_type: String,
+    asset_id: Uuid,
+    server_endpoint: &str,
+) -> std::io::Result<DynamicImage> {
+    let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
+    let img = Image::from_bytes(tex).unwrap();
+    let pixels = img.get_pixels(None).unwrap();
+    // Determine output format
+
+    match pixels.data {
+        ImagePixelData::L8(data) => {
+            Ok(
+                ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                    .map(DynamicImage::ImageLuma8)
+                    .unwrap(),
+            )
+        }
+        ImagePixelData::La8(data) => {
+            Ok(
+                ImageBuffer::<LumaA<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                    .map(DynamicImage::ImageLumaA8)
+                    .unwrap(),
+            )
+        }
+        ImagePixelData::Rgb8(data) => {
+            Ok(
+                ImageBuffer::<Rgb<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                    .map(DynamicImage::ImageRgb8)
+                    .unwrap(),
+            )
+        }
+        ImagePixelData::Rgba8(data) => {
+            Ok(
+                ImageBuffer::<Rgba<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                    .map(DynamicImage::ImageRgba8)
+                    .unwrap(),
+            )
+        }
+        _ => Err(Error::other(format!("Unknown pixel format"))),
+    }
 }
 
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {

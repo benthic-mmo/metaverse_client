@@ -24,6 +24,8 @@ pub struct RenderObject {
     pub indices: Vec<u16>,
     /// The skeleton of the object.
     pub skin: Option<SkinData>,
+    /// The optional png texture of the object
+    pub texture: Option<PathBuf>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
