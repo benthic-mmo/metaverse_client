@@ -58,45 +58,63 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                 async move {
                     match msg.item.item_type {
                         // if an item's type is Object, that means it has a mesh.
-                        ObjectType::Object => match download_object(msg.item, &msg.url).await {
-                            Ok(scene_group) => {
-                                let render_objects =
-                                    match download_render_object(&scene_group, &msg.url).await {
+                        ObjectType::Object => {
+                            match download_object(
+                                msg.item.item_type.to_string(),
+                                msg.item.asset_id,
+                                &msg.url,
+                            )
+                            .await
+                            {
+                                Ok(scene_group) => {
+                                    let render_objects = match download_render_object(
+                                        &scene_group,
+                                        &msg.url,
+                                    )
+                                    .await
+                                    {
                                         Ok(objects) => objects,
                                         Err(e) => {
                                             error!("{:?}", e);
                                             return; // or handle error differently
                                         }
                                     };
-                                // write the object to disk as json, to give to the code that will
-                                // generate the 3d model.
-                                let json_path_2 = write_json(
-                                    &render_objects,
-                                    msg.agent_id,
-                                    format!(
-                                        "{:?}_{}",
-                                        scene_group.parts[0].sculpt.texture,
-                                        scene_group.parts[0].name
-                                    ),
-                                )
-                                .unwrap();
+                                    // write the object to disk as json, to give to the code that will
+                                    // generate the 3d model.
+                                    let json_path_2 = write_json(
+                                        &render_objects,
+                                        msg.agent_id,
+                                        format!(
+                                            "{:?}_{}",
+                                            scene_group.parts[0].sculpt.texture,
+                                            scene_group.parts[0].metadata.name
+                                        ),
+                                    )
+                                    .unwrap();
 
-                                // add the item to the global agent object.
-                                add_item_to_agent_list(
-                                    agent_list,
-                                    msg.agent_id,
-                                    OutfitObject::MeshObject(MeshObject {
-                                        json_path: json_path_2,
-                                    }),
-                                    address,
-                                );
+                                    // add the item to the global agent object.
+                                    add_item_to_agent_list(
+                                        agent_list,
+                                        msg.agent_id,
+                                        OutfitObject::MeshObject(MeshObject {
+                                            json_path: json_path_2,
+                                        }),
+                                        address,
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                }
                             }
-                            Err(e) => {
-                                error!("{:?}", e);
-                            }
-                        },
+                        }
                         ObjectType::Link => {}
-                        _ => match download_item(msg.item, &msg.url).await {
+                        _ => match download_item(
+                            msg.item.item_type.to_string(),
+                            msg.item.asset_id,
+                            &msg.url,
+                        )
+                        .await
+                        {
                             Ok(item) => {
                                 add_item_to_agent_list(
                                     agent_list,
@@ -177,11 +195,7 @@ async fn download_render_object(
     let mut meshes = Vec::new();
 
     for scene in &scene_group.parts {
-        let mut metadata = scene.item_metadata.clone();
-        metadata.item_type = ObjectType::Mesh;
-        metadata.asset_id = scene.sculpt.texture;
-
-        let mesh = download_mesh(metadata, url).await?;
+        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
 
         if let Some(skin) = &mesh.skin {
             // Apply bind shape matrix
@@ -195,7 +209,7 @@ async fn download_render_object(
                 })
                 .collect();
 
-            let skeleton = create_skeleton(scene.name.clone(), scene.sculpt.texture, skin)
+            let skeleton = create_skeleton(scene.metadata.name.clone(), scene.sculpt.texture, skin)
                 .unwrap_or_else(|e| {
                     println!("Failed to create skeleton: {:?}", e);
                     Skeleton::default()
@@ -213,7 +227,7 @@ async fn download_render_object(
             };
 
             meshes.push(RenderObject {
-                name: scene.name.clone(),
+                name: scene.metadata.name.clone(),
                 id: scene.sculpt.texture,
                 indices: mesh.high_level_of_detail.indices,
                 vertices,
@@ -222,7 +236,7 @@ async fn download_render_object(
         } else {
             // No skin
             meshes.push(RenderObject {
-                name: scene.name.clone(),
+                name: scene.metadata.name.clone(),
                 id: scene.sculpt.texture,
                 indices: mesh.high_level_of_detail.indices,
                 vertices: mesh.high_level_of_detail.vertices,

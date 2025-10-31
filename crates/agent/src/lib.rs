@@ -1,4 +1,4 @@
-pub mod avatar_appearance_handler;
+pub mod texture;
 
 pub mod avatar;
 

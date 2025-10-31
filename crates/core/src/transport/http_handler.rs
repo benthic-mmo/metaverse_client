@@ -2,12 +2,10 @@ use metaverse_messages::http::login::login_error::{LoginError, Reason};
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::http::mesh::Mesh;
+use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::ui::login_event::Login;
-use metaverse_messages::{
-    http::{item::Item, scene::SceneGroup},
-    utils::item_metadata::ItemMetadata,
-};
 use std::io::Error;
+use uuid::Uuid;
 
 /// send the login to simulator xml-rpc request
 pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginError> {
@@ -50,12 +48,11 @@ pub async fn login_to_simulator(login: Login) -> Result<LoginResponse, LoginErro
 /// http://da4b15ea-1d97-4140-afe3-2dd1ce5560710000?bodypart_id=da4b15ea-1d97-4140-afe3-2dd1ce5560710000
 /// If successful, this returns bytes that contain the object's information.
 pub async fn download_asset(
-    metadata: ItemMetadata,
+    item_type: String,
+    asset_id: Uuid,
     server_endpoint: &str,
 ) -> std::io::Result<bytes::Bytes> {
     let client = awc::Client::default();
-    let item_type = metadata.item_type.to_string();
-    let asset_id = metadata.asset_id;
     let url = format!("{}?{}_id={}", server_endpoint, item_type, asset_id);
     let mut response = client
         .get(&url)
@@ -77,24 +74,33 @@ pub async fn download_asset(
 /// retrieve an Object from the ViewerAsset endpoint.
 /// this needs to be parsed as a SceneGroup.
 pub async fn download_object(
-    metadata: ItemMetadata,
+    item_type: String,
+    asset_id: Uuid,
     server_endpoint: &str,
 ) -> std::io::Result<SceneGroup> {
-    SceneGroup::from_xml(&download_asset(metadata, server_endpoint).await?)
+    SceneGroup::from_xml(&download_asset(item_type, asset_id, server_endpoint).await?)
         .map_err(|e| Error::other(format!("Failed to parse object: {}", e)))
 }
 
 /// Retrieve an inventory item from the ViewerAsset endpoint.
 /// this needs to be parsed as an Item object
-pub async fn download_item(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Item> {
-    Item::from_bytes(&download_asset(metadata, server_endpoint).await?)
+pub async fn download_item(
+    item_type: String,
+    asset_id: Uuid,
+    server_endpoint: &str,
+) -> std::io::Result<Item> {
+    Item::from_bytes(&download_asset(item_type, asset_id, server_endpoint).await?)
         .map_err(|e| Error::other(format!("Failed to parse item: {}", e)))
 }
 
 /// Retrieve a mesh from the ViewerAsset endpoint.
 /// This needs to be parsed as a Mesh object.
-pub async fn download_mesh(metadata: ItemMetadata, server_endpoint: &str) -> std::io::Result<Mesh> {
-    Mesh::from_bytes(&download_asset(metadata, server_endpoint).await?)
+pub async fn download_mesh(
+    item_type: String,
+    asset_id: Uuid,
+    server_endpoint: &str,
+) -> std::io::Result<Mesh> {
+    Mesh::from_bytes(&download_asset(item_type, asset_id, server_endpoint).await?)
         .map_err(|e| Error::other(format!("Failed to parse SceneGroup XML: {}", e)))
 }
 
