@@ -1,21 +1,24 @@
 use crate::{
     errors::ParseError,
-    udp::core::object_update::{MaterialType, ObjectUpdate},
     utils::{
-        item_metadata::{ItemMetadata, SaleType},
+        item_metadata::{Permissions, SaleInfo, SaleType},
+        material::MaterialType,
         object_types::ObjectType,
+        path::Path,
+        sound::AttachedSound,
+        texture::Texture,
     },
 };
-use glam::{Vec3, Vec4, bool};
+use glam::{bool, Vec3, Vec4};
 use quick_xml::{
-    Reader,
     escape::unescape,
     events::{BytesText, Event},
+    Reader,
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use std::{
-    str::{FromStr, from_utf8},
+    str::{from_utf8, FromStr},
     time::SystemTime,
 };
 use uuid::Uuid;
@@ -29,6 +32,8 @@ use uuid::Uuid;
 /// to the server, each multipart mesh is broken up into its component pieces, and given a unique
 /// UUID. SceneGroups describe how those individual pieces should be reconstituted back into a
 /// single mesh.
+///
+/// An example SceneGroup can be found here: https://opensimulator.org/wiki/Object_Formats
 pub struct SceneGroup {
     /// The parts of the root object. These contain different meshes that make up the whole object.
     /// The root object is always at position 0 of the vec.
@@ -89,74 +94,106 @@ impl SceneGroup {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-/// An object within a scene
-///
-/// This contains information about the object, and how it relates to other objects within the
-/// scene.
-pub struct SceneObject {
-    /// ID of the person who created the object
-    pub creator_id: Uuid,
-    /// The folder the object is located in
-    pub folder_id: Uuid,
-    /// A serial number that gets incrimented upon every change of the object.
-    /// This is used to ensure the inventory is up to date.
-    pub inventory_serial: i32,
-    /// The name of the mesh
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// metadata for Scene objects. Includes things like ID, name, description, etc.
+pub struct SceneMetadata {
+    /// the name of the scene
     pub name: String,
-    /// A flag that determines if a prim passes on click events to prims behind it.
-    /// This is useful for things like HUDs where things are visually in front, but should not
-    /// block input to things behind.
-    pub pass_touches: bool,
-    /// A flag that determines if a prim passes collision events to the prim behind it.
-    /// useful for things like dresses where you don't want to set the collision for the dress
-    /// itself, but the body wearing it.
-    pub pass_collisions: bool,
-    /// X location of the agent in the world. Parsed from RegionHandle.
-    pub region_x: u32,
-    /// Y location of the agent of the world. Parsed from RegionHandle
-    pub region_y: u32,
-    /// A pin to prevent unauthorized script injections. Kind of like a password.
-    /// This is very insecure and should be phased out.
-    pub script_access_pin: u64,
-    /// World position of the root. The true location of the object.
-    pub group_position: Vec3,
-    /// offset of the object. If it is the root, this is the offset from the group position. if it
-    /// is a child, it's the offset from the root.
-    pub offset_position: Vec3,
-    /// Description of the object. Could be used for image descriptions for MUD based viewers.
+    /// information about the item's sale properties, like price and cost to own
+    pub sale_info: SaleInfo,
+    /// Information about the item's permissions
+    pub permissions: Permissions,
+    /// the ID of the scene
+    pub id: Uuid,
+    /// The description of the scene. Could be used for building MUDs
     pub description: String,
-    /// Deprecated commerce type
-    pub category: String,
-    /// Tint applied to the object when rendering
-    pub color: Rgba<i32>,
-    /// Label returned when the object is clicked
-    pub touch_name: String,
-    /// Index of the prim in the scene. 1 is the root.
-    pub link_num: i32,
-    /// UUID of the thing that most recently rezzed te object.
-    pub rezzer_id: Uuid,
-    /// The sound the object makes on collision
-    pub collision_sound: Uuid,
-    /// The volume of the collision sound
-    pub collision_sound_volume: i32,
-    /// Information about the Sculpt.
-    /// Contains information about how the viewer will render the geometry of the object.
+    /// the time the scene was created
+    pub created_at: std::time::SystemTime,
+    /// TODO: unknown
+    pub flags: i32,
+}
+impl Default for SceneMetadata {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            sale_info: Default::default(),
+            permissions: Default::default(),
+            id: Default::default(),
+            description: Default::default(),
+            flags: Default::default(),
+            created_at: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+/// Shape information. This includes data for building meshes, stretching objects, creating sculpt
+/// texture objects, light and physics.
+pub struct Shape {
+    /// Path information, used for drawing paths
+    pub path: Path,
+    /// TODO: Unknown
+    pub extra_params: Vec<u8>,
+    /// The type of the object
+    pub pcode: ObjectType,
+    /// The state of the object
+    pub state: i32,
+    /// The last point the object was attached to. Helps reattach items to the same place when
+    /// logging in or putting on again.
+    pub last_attach_point: i32,
+    /// Sculpt information. Contains data for creating a Scullpted prim (now legacy), and
+    /// information about the mesh
     pub sculpt: Sculpt,
-    /// Information about sitting
-    /// contains information about how the position and orientation of agent sitting.
-    pub sit_data: SitData,
-    /// Information about the item's metadata
-    /// This contains things like the permissions, sale info, item and asset ID and etc.
-    pub item_metadata: ItemMetadata,
-    /// Information about the ObjectUpdate
-    /// THis contains things like the primitive geometry, motion data, materials and etc
-    pub object_update: ObjectUpdate,
-    /// Used by vendors to populate pricetags
-    pub pay_price: [i32; 5],
-    /// Offset of the attachment relative to the avatar bone when worn
-    /// allows repositioning of attachments without editing the root.
-    pub attached_pos: Vec3,
+    /// Information about the flex attributes
+    /// Contains information about how the object bends, sways and moves using gravity, tension and
+    /// wind.
+    pub flex: Flex,
+    /// Information about the light attributes.
+    /// Contains information about how the object emits lights.
+    pub light: Light,
+    /// Informaiton about the shape's texture
+    pub texture: Texture,
+    /// TODO: Not handled yet
+    pub texture_animation: Vec<u8>,
+    /// TODO: not handled yet
+    pub particle_system: Vec<u8>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Sculpt information
+/// <https://wiki.secondlife.com/wiki/Sculpted_Prims:_FAQ>
+///
+/// Sculpts were used before meshes became widespread. They were created using SculptTextures,
+/// which was a standard RGB texture where the R,G and B values were mapped onto values in x,y,z
+/// space. This allowed low-bandwith distribution for meshes, and easy animation. Flash animations
+/// could easily generate animations, by playing the sculpt textures like a traditional animation,
+/// and compression and decompression were very straightforward.
+///
+/// This has been almost completely replaced by modern meshes, but the name "Sculpt" remains the
+/// standard.
+pub struct Sculpt {
+    /// a boolean to signify that the scene has sculpt data
+    pub entry: bool,
+    /// The UUID of the "sculpt texture".
+    /// This used to contain the UUID of the SculptTexture image, but now contains the UUID of the
+    /// mesh object.
+    pub texture: Uuid,
+    /// Tells the engine what base to use when deforming based on the SculptTexture.
+    /// For example, the SculptTexture applied to a sphere would deform that sphere, or a
+    /// SculptTexture applied to a plane would deform differently.
+    /// Mostly legacy now. Always set to 5 when displaying meshes.
+    pub sculpt_type: SculptType,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Information about an object's motion within the scene
+pub struct SceneMotionData {
+    /// the velocity of the prim in the scene
+    pub velocity: Vec3,
+    /// the angular velocity of the prim in the scene
+    pub angular_velocity: Vec3,
+    /// the acceleration of the prim in the scene
+    pub acceleration: Vec3,
     /// determines the effect of gravity on the object.
     /// 0 = normal gravity
     /// 1 = floating
@@ -166,6 +203,77 @@ pub struct SceneObject {
     pub force: Vec3,
     /// Constant torque applied by physics each frame. Used for things like spinners and wheels.
     pub torque: Vec3,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// information about an object's sound
+pub struct SceneSound {
+    /// The sound the object makes on collision
+    pub collision_sound: Uuid,
+    /// The volume of the collision sound
+    pub collision_sound_volume: i32,
+    /// Flag for preventing sounds from overlapping by queuing them instead. Used to prevent audio
+    /// spam.
+    pub sound_queueing: bool,
+    /// data to determine which sound to play
+    pub attached: AttachedSound,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// An object within a scene
+///
+/// This contains information about the object, and how it relates to other objects within the
+/// scene.
+pub struct SceneObject {
+    /// If the object is allowed to be dropped or not
+    pub allowed_drop: bool,
+    /// ID of the person who created the object
+    pub creator_id: Uuid,
+    /// The folder the object is located in
+    pub folder_id: Uuid,
+    /// A serial number that gets incrimented upon every change of the object.
+    /// This is used to ensure the inventory is up to date.
+    pub inventory_serial: i32,
+    /// Type of material the object is made from
+    pub material: MaterialType,
+    /// A flag that determines if a prim passes on click events to prims behind it.
+    /// This is useful for things like HUDs where things are visually in front, but should not
+    /// block input to things behind.
+    pub pass_touches: bool,
+    /// A flag that determines if a prim passes collision events to the prim behind it.
+    /// useful for things like dresses where you don't want to set the collision for the dress
+    /// itself, but the body wearing it.
+    pub pass_collisions: bool,
+    /// World position of the root. The true location of the object.
+    pub group_position: Vec3,
+    /// offset of the object. If it is the root, this is the offset from the group position. if it
+    /// is a child, it's the offset from the root.
+    pub offset_position: Vec3,
+    /// The rotation compared to the rotation of the root prim. This is in quaternion format where the components are <X>, <Y>, <Z> and <W>.
+    pub rotation_offset: Vec3,
+    /// The color of the prim.
+    /// This is expressed as a 0-255 value of red <R>, green <G>, blue <B> and alpha <A>, where alpha = 0 is fully transparent.
+    pub color: Rgba<i32>,
+    /// text that hovers over the object in-world
+    pub text: String,
+    /// Label returned when the object is clicked
+    pub touch_name: String,
+    /// The number of this prim in the SceneObjectGroup.
+    /// The root prim will always have LinkNum = 0. Subsequent prims will have consecutive numbers, 1, 2, 3
+    pub link_num: i32,
+    /// TODO: unknown
+    pub click_action: u8,
+    /// XYZ scale of the object
+    pub scale: Vec3,
+    /// Deprecated commerce type
+    pub legacy_category: String,
+    /// UUID of the thing that most recently rezzed te object.
+    pub rezzer_id: Uuid,
+    /// Used by vendors to populate pricetags
+    pub pay_price: [i32; 5],
+    /// Offset of the attachment relative to the avatar bone when worn
+    /// allows repositioning of attachments without editing the root.
+    pub attached_pos: Vec3,
     /// Flag for determining if the object is a non-solid "Sensor volume" that triggers on
     /// collisions. Used for triggers without physical shape.
     pub volume_detect_active: bool,
@@ -177,9 +285,38 @@ pub struct SceneObject {
     /// "Look at" focus offset for the camera eye offset. For things like changing camera angle
     /// when driving a car.
     pub camera_at_offset: Vec3,
-    /// Flag for preventing sounds from overlapping by queuing them instead. Used to prevent audio
-    /// spam.
-    pub sound_queueing: bool,
+
+    /// metadata about the scene, such as SaleInfo, Permissions, etc
+    pub metadata: SceneMetadata,
+    /// shape information. Contains information about paths, sculpted prims, and meshes.
+    pub shape: Shape,
+    /// data about the sound the object makes
+    pub sound: SceneSound,
+    /// Information about how the object is moving in the scene
+    pub motion_data: SceneMotionData,
+    /// Information about the Sculpt.
+    /// Contains information about how the viewer will render the geometry of the object.
+    pub sculpt: Sculpt,
+    /// Information about sitting
+    /// contains information about how the position and orientation of agent sitting.
+    pub sit_data: SitData,
+
+    /// temporary ID to a prim within a scene.
+    /// legacy
+    pub legacy_local_id: u32,
+    /// region that the part was in when it was last serialized.
+    /// legacy
+    pub legacy_region_handle: u32,
+    /// X location of the scene in the world. Parsed from RegionHandle.
+    pub legacy_region_x: u32,
+    /// Y location of the scene of the world. Parsed from RegionHandle
+    pub legacy_region_y: u32,
+    /// A pin to prevent unauthorized script injections. Kind of like a password.
+    /// Insecure, legacy code
+    pub legacy_script_access_pin: u64,
+    /// temporary local ID of the parent prim
+    /// legacy
+    pub legacy_parent_id: u32,
 }
 
 impl SceneObject {
@@ -256,16 +393,16 @@ impl SceneObject {
                 scene_object.inventory_serial = val.parse::<i32>()?;
             }
             ["UUID", "UUID"] => {
-                scene_object.object_update.full_id = Uuid::parse_str(&val)?;
+                scene_object.metadata.id = Uuid::parse_str(&val)?;
             }
             ["LocalId"] => {
-                scene_object.object_update.id = val.parse()?;
+                scene_object.legacy_local_id = val.parse()?;
             }
             ["Name"] => {
-                scene_object.name = val;
+                scene_object.metadata.name = val;
             }
             ["Material"] => {
-                scene_object.object_update.material = MaterialType::from_bytes(&val.parse::<u8>()?);
+                scene_object.material = MaterialType::from_bytes(&val.parse::<u8>()?);
             }
             ["PassTouches"] => {
                 scene_object.pass_touches = val.parse::<bool>()?;
@@ -275,11 +412,11 @@ impl SceneObject {
             }
             ["RegionHandle"] => {
                 let region_handle = val.parse::<u64>()?;
-                scene_object.region_x = (region_handle >> 32) as u32;
-                scene_object.region_y = (region_handle & 0xFFFF_FFFF) as u32;
+                scene_object.legacy_region_x = (region_handle >> 32) as u32;
+                scene_object.legacy_region_y = (region_handle & 0xFFFF_FFFF) as u32;
             }
             ["ScriptAccessPin"] => {
-                scene_object.script_access_pin = val.parse::<u64>()?;
+                scene_object.legacy_script_access_pin = val.parse::<u64>()?;
             }
 
             ["GroupPosition", rest @ ..] => match rest {
@@ -295,37 +432,31 @@ impl SceneObject {
                 _ => {}
             },
             ["RotationOffset", rest @ ..] => match rest {
-                ["X"] => scene_object.object_update.motion_data.rotation[0] = val.parse()?,
-                ["Y"] => scene_object.object_update.motion_data.rotation[1] = val.parse()?,
-                ["Z"] => scene_object.object_update.motion_data.rotation[2] = val.parse()?,
+                ["X"] => scene_object.rotation_offset[0] = val.parse()?,
+                ["Y"] => scene_object.rotation_offset[1] = val.parse()?,
+                ["Z"] => scene_object.rotation_offset[2] = val.parse()?,
                 _ => {}
             },
             ["Velocity", rest @ ..] => match rest {
-                ["X"] => scene_object.object_update.motion_data.velocity[0] = val.parse()?,
-                ["Y"] => scene_object.object_update.motion_data.velocity[1] = val.parse()?,
-                ["Z"] => scene_object.object_update.motion_data.velocity[2] = val.parse()?,
+                ["X"] => scene_object.motion_data.velocity[0] = val.parse()?,
+                ["Y"] => scene_object.motion_data.velocity[1] = val.parse()?,
+                ["Z"] => scene_object.motion_data.velocity[2] = val.parse()?,
                 _ => {}
             },
             ["AngularVelocity", rest @ ..] => match rest {
-                ["X"] => {
-                    scene_object.object_update.motion_data.angular_velocity[0] = val.parse()?
-                }
-                ["Y"] => {
-                    scene_object.object_update.motion_data.angular_velocity[1] = val.parse()?
-                }
-                ["Z"] => {
-                    scene_object.object_update.motion_data.angular_velocity[2] = val.parse()?
-                }
+                ["X"] => scene_object.motion_data.angular_velocity[0] = val.parse()?,
+                ["Y"] => scene_object.motion_data.angular_velocity[1] = val.parse()?,
+                ["Z"] => scene_object.motion_data.angular_velocity[2] = val.parse()?,
                 _ => {}
             },
             ["Acceleration", rest @ ..] => match rest {
-                ["X"] => scene_object.object_update.motion_data.acceleration[0] = val.parse()?,
-                ["Y"] => scene_object.object_update.motion_data.acceleration[1] = val.parse()?,
-                ["Z"] => scene_object.object_update.motion_data.acceleration[2] = val.parse()?,
+                ["X"] => scene_object.motion_data.acceleration[0] = val.parse()?,
+                ["Y"] => scene_object.motion_data.acceleration[1] = val.parse()?,
+                ["Z"] => scene_object.motion_data.acceleration[2] = val.parse()?,
                 _ => {}
             },
             ["Description"] => {
-                scene_object.description = val;
+                scene_object.metadata.description = val;
             }
             ["Color", rest @ ..] => match rest {
                 ["R"] => {
@@ -343,7 +474,7 @@ impl SceneObject {
                 _ => {}
             },
             ["Text"] => {
-                scene_object.object_update.text = val;
+                scene_object.text = val;
             }
             ["SitName"] => {
                 scene_object.sit_data.sit_name = val;
@@ -355,134 +486,72 @@ impl SceneObject {
                 scene_object.link_num = val.parse::<i32>()?;
             }
             ["ClickAction"] => {
-                scene_object.object_update.click_action = val.parse()?;
+                scene_object.click_action = val.parse()?;
             }
             ["Shape", rest @ ..] => match rest {
-                ["ProfileCurve"] => {
-                    scene_object.object_update.primitive_geometry.profile_curve =
-                        val.parse::<u8>()?
-                }
+                ["ProfileCurve"] => scene_object.shape.path.profile_curve = val.parse::<u8>()?,
                 ["TextureEntry"] => {
-                    scene_object.object_update.texture_entry = val.as_bytes().to_vec()
+                    scene_object.shape.texture = Texture::from_bytes(val.as_bytes())?
                 }
-                ["ExtraParams"] => {
-                    scene_object.object_update.extra_params = val.as_bytes().to_vec()
-                }
-                ["PathBegin"] => {
-                    scene_object.object_update.primitive_geometry.path_begin = val.parse::<u16>()?
-                }
-                ["PathCurve"] => {
-                    scene_object.object_update.primitive_geometry.path_curve = val.parse::<u8>()?
-                }
-                ["PathEnd"] => {
-                    scene_object.object_update.primitive_geometry.path_end = val.parse::<u16>()?
-                }
+                ["ExtraParams"] => scene_object.shape.extra_params = val.as_bytes().to_vec(),
+                ["PathBegin"] => scene_object.shape.path.begin = val.parse::<u16>()?,
+                ["PathCurve"] => scene_object.shape.path.curve = val.parse::<u8>()?,
+                ["PathEnd"] => scene_object.shape.path.end = val.parse::<u16>()?,
                 ["PathRadiusOffset"] => {
-                    scene_object
-                        .object_update
-                        .primitive_geometry
-                        .path_radius_offset = val.parse::<i8>()?
+                    scene_object.shape.path.radius_offset = val.parse::<i8>()?
                 }
-                ["PathRevolutions"] => {
-                    scene_object
-                        .object_update
-                        .primitive_geometry
-                        .path_revolutions = val.parse::<u8>()?
-                }
-                ["PathScaleX"] => {
-                    scene_object.object_update.primitive_geometry.path_scale_x =
-                        val.parse::<u8>()?
-                }
-                ["PathScaleY"] => {
-                    scene_object.object_update.primitive_geometry.path_scale_y =
-                        val.parse::<u8>()?
-                }
-                ["PathShearX"] => {
-                    scene_object.object_update.primitive_geometry.path_shear_x =
-                        val.parse::<u8>()?
-                }
-                ["PathShearY"] => {
-                    scene_object.object_update.primitive_geometry.path_shear_y =
-                        val.parse::<u8>()?
-                }
-                ["PathSkew"] => {
-                    scene_object.object_update.primitive_geometry.path_skew = val.parse::<i8>()?
-                }
-                ["PathTaperX"] => {
-                    scene_object.object_update.primitive_geometry.path_taper_x =
-                        val.parse::<i8>()?
-                }
-                ["PathTaperY"] => {
-                    scene_object.object_update.primitive_geometry.path_taper_y =
-                        val.parse::<i8>()?
-                }
-                ["PathTwist"] => {
-                    scene_object.object_update.primitive_geometry.path_twist_end =
-                        val.parse::<i8>()?
-                }
-                ["PathTwistBegin"] => {
-                    scene_object
-                        .object_update
-                        .primitive_geometry
-                        .path_twist_begin = val.parse::<i8>()?
-                }
+                ["PathRevolutions"] => scene_object.shape.path.revolutions = val.parse::<u8>()?,
+                ["PathScaleX"] => scene_object.shape.path.scale_x = val.parse::<u8>()?,
+                ["PathScaleY"] => scene_object.shape.path.scale_y = val.parse::<u8>()?,
+                ["PathShearX"] => scene_object.shape.path.shear_x = val.parse::<u8>()?,
+                ["PathShearY"] => scene_object.shape.path.shear_y = val.parse::<u8>()?,
+                ["PathSkew"] => scene_object.shape.path.skew = val.parse::<i8>()?,
+                ["PathTaperX"] => scene_object.shape.path.taper_x = val.parse::<i8>()?,
+                ["PathTaperY"] => scene_object.shape.path.taper_y = val.parse::<i8>()?,
+                ["PathTwist"] => scene_object.shape.path.twist_end = val.parse::<i8>()?,
+                ["PathTwistBegin"] => scene_object.shape.path.twist_begin = val.parse::<i8>()?,
                 ["PCode"] => {
-                    scene_object.object_update.pcode = ObjectType::from_bytes(&val.parse::<u8>()?);
+                    scene_object.shape.pcode = ObjectType::from_bytes(&val.parse::<u8>()?);
                 }
-                ["ProfileBegin"] => {
-                    scene_object.object_update.primitive_geometry.profile_begin =
-                        val.parse::<u16>()?
-                }
-                ["ProfileEnd"] => {
-                    scene_object.object_update.primitive_geometry.profile_end =
-                        val.parse::<u16>()?
-                }
-                ["ProfileHollow"] => {
-                    scene_object.object_update.primitive_geometry.profile_hollow =
-                        val.parse::<f32>()?
-                }
-                ["ProfileShape"] => {
-                    scene_object.object_update.primitive_geometry.profile_shape = Some(val)
-                }
-                ["HollowShape"] => {
-                    scene_object.object_update.primitive_geometry.hollow_shape = Some(val)
-                }
+                ["ProfileBegin"] => scene_object.shape.path.profile_begin = val.parse::<u16>()?,
+                ["ProfileEnd"] => scene_object.shape.path.profile_end = val.parse::<u16>()?,
+                ["ProfileHollow"] => scene_object.shape.path.profile_hollow = val.parse::<f32>()?,
+                ["ProfileShape"] => scene_object.shape.path.profile_shape = Some(val),
+                ["HollowShape"] => scene_object.shape.path.hollow_shape = Some(val),
 
-                ["State"] => scene_object.sculpt.state = val.parse::<i32>()?,
-                ["LastAttachPoint"] => {
-                    scene_object.sculpt.last_attach_point = val.parse::<i32>()?
-                }
+                ["State"] => scene_object.shape.state = val.parse::<i32>()?,
+                ["LastAttachPoint"] => scene_object.shape.last_attach_point = val.parse::<i32>()?,
                 ["SculptTexture", "UUID"] => scene_object.sculpt.texture = Uuid::parse_str(&val)?,
                 ["SculptType"] => {
                     scene_object.sculpt.sculpt_type = SculptType::from_bytes(val.parse::<i32>()?)
                 }
                 ["SculptEntry"] => scene_object.sculpt.entry = val.parse::<bool>()?,
-                ["FlexiSoftness"] => scene_object.sculpt.flex.softness = val.parse::<i32>()?,
-                ["FlexiTension"] => scene_object.sculpt.flex.tension = val.parse::<i32>()?,
-                ["FlexiDrag"] => scene_object.sculpt.flex.drag = val.parse::<i32>()?,
-                ["FlexiGravity"] => scene_object.sculpt.flex.gravity = val.parse::<i32>()?,
-                ["FlexiWind"] => scene_object.sculpt.flex.wind = val.parse::<i32>()?,
+                ["FlexiSoftness"] => scene_object.shape.flex.softness = val.parse::<i32>()?,
+                ["FlexiTension"] => scene_object.shape.flex.tension = val.parse::<i32>()?,
+                ["FlexiDrag"] => scene_object.shape.flex.drag = val.parse::<i32>()?,
+                ["FlexiGravity"] => scene_object.shape.flex.gravity = val.parse::<i32>()?,
+                ["FlexiWind"] => scene_object.shape.flex.wind = val.parse::<i32>()?,
 
-                ["FlexiForceX"] => scene_object.sculpt.flex.force[0] = val.parse::<f32>()?,
-                ["FlexiForceY"] => scene_object.sculpt.flex.force[1] = val.parse::<f32>()?,
-                ["FlexiForceZ"] => scene_object.sculpt.flex.force[2] = val.parse::<f32>()?,
-                ["LightColorR"] => scene_object.sculpt.light.color.r = val.parse::<i32>()?,
-                ["LightColorG"] => scene_object.sculpt.light.color.g = val.parse::<i32>()?,
-                ["LightColorB"] => scene_object.sculpt.light.color.b = val.parse::<i32>()?,
-                ["LightColorA"] => scene_object.sculpt.light.color.a = val.parse::<i32>()?,
-                ["LightRadius"] => scene_object.sculpt.light.radius = val.parse::<i32>()?,
-                ["LightCutoff"] => scene_object.sculpt.light.cutoff = val.parse::<i32>()?,
-                ["LightFalloff"] => scene_object.sculpt.light.falloff = val.parse::<i32>()?,
-                ["LightIntensity"] => scene_object.sculpt.light.intensity = val.parse::<i32>()?,
-                ["FlexiEntry"] => scene_object.sculpt.flex.entry = val.parse::<bool>()?,
-                ["LightEntry"] => scene_object.sculpt.light.entry = val.parse::<bool>()?,
+                ["FlexiForceX"] => scene_object.shape.flex.force[0] = val.parse::<f32>()?,
+                ["FlexiForceY"] => scene_object.shape.flex.force[1] = val.parse::<f32>()?,
+                ["FlexiForceZ"] => scene_object.shape.flex.force[2] = val.parse::<f32>()?,
+                ["LightColorR"] => scene_object.shape.light.color.r = val.parse::<i32>()?,
+                ["LightColorG"] => scene_object.shape.light.color.g = val.parse::<i32>()?,
+                ["LightColorB"] => scene_object.shape.light.color.b = val.parse::<i32>()?,
+                ["LightColorA"] => scene_object.shape.light.color.a = val.parse::<i32>()?,
+                ["LightRadius"] => scene_object.shape.light.radius = val.parse::<i32>()?,
+                ["LightCutoff"] => scene_object.shape.light.cutoff = val.parse::<i32>()?,
+                ["LightFalloff"] => scene_object.shape.light.falloff = val.parse::<i32>()?,
+                ["LightIntensity"] => scene_object.shape.light.intensity = val.parse::<i32>()?,
+                ["FlexiEntry"] => scene_object.shape.flex.entry = val.parse::<bool>()?,
+                ["LightEntry"] => scene_object.shape.light.entry = val.parse::<bool>()?,
                 _ => {}
             },
 
             ["Scale", rest @ ..] => match rest {
-                ["X"] => scene_object.object_update.scale[0] = val.parse()?,
-                ["Y"] => scene_object.object_update.scale[1] = val.parse()?,
-                ["Z"] => scene_object.object_update.scale[2] = val.parse()?,
+                ["X"] => scene_object.scale[0] = val.parse()?,
+                ["Y"] => scene_object.scale[1] = val.parse()?,
+                ["Z"] => scene_object.scale[2] = val.parse()?,
                 _ => {}
             },
             ["SitTargetOrientation", rest @ ..] => match rest {
@@ -492,9 +561,9 @@ impl SceneObject {
                 _ => {}
             },
             ["SitTargetOrientationLL", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.orientation_ll[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.orientation_ll[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.orientation_ll[2] = val.parse()?,
+                ["X"] => scene_object.sit_data.legacy_orientation_ll[0] = val.parse()?,
+                ["Y"] => scene_object.sit_data.legacy_orientation_ll[1] = val.parse()?,
+                ["Z"] => scene_object.sit_data.legacy_orientation_ll[2] = val.parse()?,
                 _ => {}
             },
             ["SitTargetPosition", rest @ ..] => match rest {
@@ -504,91 +573,83 @@ impl SceneObject {
                 _ => {}
             },
             ["SitTargetPositionLL", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.position_ll[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.position_ll[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.position_ll[2] = val.parse()?,
+                ["X"] => scene_object.sit_data.legacy_position_ll[0] = val.parse()?,
+                ["Y"] => scene_object.sit_data.legacy_position_ll[1] = val.parse()?,
+                ["Z"] => scene_object.sit_data.legacy_position_ll[2] = val.parse()?,
                 _ => {}
             },
             ["ParentID"] => {
-                scene_object.item_metadata.parent_id_local = if val == "0" {
-                    Some(0)
-                } else {
-                    Some(u32::from_str(&val)?)
-                };
+                scene_object.legacy_parent_id = if val == "0" { 0 } else { u32::from_str(&val)? };
             }
             ["CreationDate"] => {
-                scene_object.item_metadata.created_at =
+                scene_object.metadata.created_at =
                     SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(val.parse::<u64>()?)
             }
-            ["Category"] => scene_object.category = val,
-            ["SalePrice"] => scene_object.item_metadata.sale_info.price = val.parse::<i32>()?,
+            ["Category"] => scene_object.legacy_category = val,
+            ["SalePrice"] => scene_object.metadata.sale_info.price = val.parse::<i32>()?,
             ["ObjectSaleType"] => {
-                scene_object.item_metadata.sale_info.sale_type = SaleType::from_string(&val)
+                scene_object.metadata.sale_info.sale_type = SaleType::from_string(&val)
             }
 
             ["OwnershipCost"] => {
-                scene_object.item_metadata.sale_info.ownership_cost = Some(val.parse::<i32>()?)
+                scene_object.metadata.sale_info.ownership_cost = Some(val.parse::<i32>()?)
             }
             ["GroupID", "UUID"] => {
-                scene_object.item_metadata.permissions.group_id = Uuid::from_str(&val)?
+                scene_object.metadata.permissions.group_id = Uuid::from_str(&val)?
             }
             ["OwnerID", "UUID"] => {
-                scene_object.item_metadata.permissions.owner_id = Uuid::from_str(&val)?
+                scene_object.metadata.permissions.owner_id = Uuid::from_str(&val)?
             }
             ["LastOwnerID", "UUID"] => {
-                scene_object.item_metadata.permissions.last_owner_id = Some(Uuid::from_str(&val)?)
+                scene_object.metadata.permissions.last_owner_id = Some(Uuid::from_str(&val)?)
             }
             ["RezzerID", "UUID"] => scene_object.rezzer_id = Uuid::from_str(&val)?,
-            ["BaseMask"] => {
-                scene_object.item_metadata.permissions.base_mask = val.parse::<i32>()?
-            }
-            ["OwnerMask"] => {
-                scene_object.item_metadata.permissions.owner_mask = val.parse::<i32>()?
-            }
-            ["Groupmask"] => {
-                scene_object.item_metadata.permissions.group_mask = val.parse::<i32>()?
-            }
+            ["BaseMask"] => scene_object.metadata.permissions.base_mask = val.parse::<i32>()?,
+            ["OwnerMask"] => scene_object.metadata.permissions.owner_mask = val.parse::<i32>()?,
+            ["Groupmask"] => scene_object.metadata.permissions.group_mask = val.parse::<i32>()?,
             ["EveryoneMask"] => {
-                scene_object.item_metadata.permissions.everyone_mask = val.parse::<i32>()?
+                scene_object.metadata.permissions.everyone_mask = val.parse::<i32>()?
             }
             ["NextOwnerMask"] => {
-                scene_object.item_metadata.permissions.next_owner_mask = val.parse::<i32>()?
+                scene_object.metadata.permissions.next_owner_mask = val.parse::<i32>()?
             }
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.item_metadata.flags = 0
+                    scene_object.metadata.flags = 0
                 } else {
-                    scene_object.item_metadata.flags = val.parse::<i32>()?
+                    scene_object.metadata.flags = val.parse::<i32>()?
                 }
             }
-            ["CollisionSound", "UUID"] => scene_object.collision_sound = Uuid::from_str(&val)?,
-            ["CollisionSoundVolume"] => scene_object.collision_sound_volume = val.parse::<i32>()?,
+            ["CollisionSound", "UUID"] => {
+                scene_object.sound.collision_sound = Uuid::from_str(&val)?
+            }
+            ["CollisionSoundVolume"] => {
+                scene_object.sound.collision_sound_volume = val.parse::<i32>()?
+            }
             ["AttachedPos", rest @ ..] => match rest {
                 ["X"] => scene_object.attached_pos[0] = val.parse()?,
                 ["Y"] => scene_object.attached_pos[1] = val.parse()?,
                 ["Z"] => scene_object.attached_pos[2] = val.parse()?,
                 _ => {}
             },
-            ["Textureanimation"] => scene_object.object_update.texture_anim = val.into_bytes(),
-            ["ParticleSystem"] => {
-                scene_object.object_update.particle_system_block = val.into_bytes()
-            }
+            ["Textureanimation"] => scene_object.shape.texture_animation = val.into_bytes(),
+            ["ParticleSystem"] => scene_object.shape.particle_system = val.into_bytes(),
             ["PayPrice0"] => scene_object.pay_price[0] = val.parse::<i32>()?,
             ["PayPrice1"] => scene_object.pay_price[1] = val.parse::<i32>()?,
             ["PayPrice2"] => scene_object.pay_price[2] = val.parse::<i32>()?,
             ["PayPrice3"] => scene_object.pay_price[3] = val.parse::<i32>()?,
             ["PayPrice4"] => scene_object.pay_price[4] = val.parse::<i32>()?,
-            ["Buoyancy"] => scene_object.buoyancy = val.parse::<i32>()?,
+            ["Buoyancy"] => scene_object.motion_data.buoyancy = val.parse::<i32>()?,
             ["Force", rest @ ..] => match rest {
-                ["X"] => scene_object.force[0] = val.parse()?,
-                ["Y"] => scene_object.force[1] = val.parse()?,
-                ["Z"] => scene_object.force[2] = val.parse()?,
+                ["X"] => scene_object.motion_data.force[0] = val.parse()?,
+                ["Y"] => scene_object.motion_data.force[1] = val.parse()?,
+                ["Z"] => scene_object.motion_data.force[2] = val.parse()?,
                 _ => {}
             },
             ["Torque", rest @ ..] => match rest {
-                ["x"] => scene_object.torque[0] = val.parse()?,
-                ["y"] => scene_object.torque[1] = val.parse()?,
-                ["z"] => scene_object.torque[2] = val.parse()?,
+                ["x"] => scene_object.motion_data.torque[0] = val.parse()?,
+                ["y"] => scene_object.motion_data.torque[1] = val.parse()?,
+                ["z"] => scene_object.motion_data.torque[2] = val.parse()?,
                 _ => {}
             },
             ["VolumeDetectActive"] => scene_object.volume_detect_active = val.parse::<bool>()?,
@@ -607,57 +668,16 @@ impl SceneObject {
                 ["z"] => scene_object.camera_at_offset[2] = val.parse()?,
                 _ => {}
             },
-            ["SoundID", "UUID"] => {
-                scene_object.object_update.sound.sound_id = Uuid::from_str(&val)?
-            }
-            ["SoundGain"] => scene_object.object_update.sound.gain = val.parse::<f32>()?,
-            ["SoundFlags"] => scene_object.object_update.sound.flags = val.parse::<u8>()?,
-            ["SoundRadius"] => scene_object.object_update.sound.radius = val.parse::<f32>()?,
-            ["SoundQueueing"] => scene_object.sound_queueing = val.parse::<bool>()?,
+            ["SoundID", "UUID"] => scene_object.sound.attached.sound_id = Uuid::from_str(&val)?,
+            ["SoundGain"] => scene_object.sound.attached.gain = val.parse::<f32>()?,
+            ["SoundFlags"] => scene_object.sound.attached.flags = val.parse::<u8>()?,
+            ["SoundRadius"] => scene_object.sound.attached.radius = val.parse::<f32>()?,
+            ["SoundQueueing"] => scene_object.sound.sound_queueing = val.parse::<bool>()?,
             _ => {}
         }
 
         Ok(())
     }
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-/// Sculpt information
-/// <https://wiki.secondlife.com/wiki/Sculpted_Prims:_FAQ>
-///
-/// Sculpts were used before meshes became widespread. They were created using SculptTextures,
-/// which was a standard RGB texture where the R,G and B values were mapped onto values in x,y,z
-/// space. This allowed low-bandwith distribution for meshes, and easy animation. Flash animations
-/// could easily generate animations, by playing the sculpt textures like a traditional animation,
-/// and compression and decompression were very straightforward.
-///
-/// This has been almost completely replaced by modern meshes, but the name "Sculpt" remains the
-/// standard.
-pub struct Sculpt {
-    /// The UUID of the "sculpt texture".
-    /// This used to contain the UUID of the SculptTexture image, but now contains the UUID of the
-    /// mesh object.
-    pub texture: Uuid,
-    /// Tells the engine what base to use when deforming based on the SculptTexture.
-    /// For example, the SculptTexture applied to a sphere would deform that sphere, or a
-    /// SculptTexture applied to a plane would deform differently.
-    /// Mostly legacy now. Always set to 5 when displaying meshes.
-    pub sculpt_type: SculptType,
-    /// Used to determine if the object can be entered and walked through.
-    pub entry: bool,
-    /// Information about the flex attributes
-    /// Contains information about how the object bends, sways and moves using gravity, tension and
-    /// wind.
-    pub flex: Flex,
-    /// Information about the light attributes.
-    /// Contains information about how the object emits lights.
-    pub light: Light,
-    /// Describes the script state of the object. Default, on, off, etc. Helps resume script
-    /// execution after duplication or region restart.
-    pub state: i32,
-    /// The last point the object was attached to. Helps reattach items to the same place when
-    /// logging in or putting on again.
-    pub last_attach_point: i32,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -691,11 +711,11 @@ pub struct SitData {
     /// How to rotate the avatar that sits down
     pub orientation: Vec3,
     /// Undocumented. Maybe legacy rotation vector
-    pub orientation_ll: Vec3,
+    pub legacy_orientation_ll: Vec3,
     /// XYZ position the avatar should be placed when sitting.
     pub position: Vec3,
     /// Undocumented. Maybe legacy position vector.
-    pub position_ll: Vec3,
+    pub legacy_position_ll: Vec3,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

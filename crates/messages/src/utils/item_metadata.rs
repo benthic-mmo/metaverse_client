@@ -11,20 +11,17 @@ use super::object_types::ObjectType;
 /// this is received by the FetchInventory endpoint, and can be used to retrieve additional items
 /// data from the ViewerAsset endpoint.
 pub struct ItemMetadata {
-    /// Permissions attached to the item. Who can create, copy, transfer, sell etc.
-    pub permissions: Permissions,
     /// name of the item
     pub name: String,
+    /// Permissions attached to the item. Who can create, copy, transfer, sell etc.
+    pub permissions: Permissions,
     /// Sale information of the item. Is it for sale, how much, etc.
     pub sale_info: SaleInfo,
     /// The ID of the item, used for retrieving from the ViewerAsset endpoint
     pub asset_id: Uuid,
     /// The parent object. If the object is the root, the id is zeroed out.
     pub parent_id: Uuid,
-    /// The optional local parent ID. Some places in the code store the parent ID as a u32 to save
-    /// space and not save the full UUID.
-    pub parent_id_local: Option<u32>,
-    /// local ID of the item
+    /// global ID of the item
     pub item_id: Uuid,
     /// Description of the object.
     pub description: String,
@@ -45,7 +42,6 @@ impl Default for ItemMetadata {
             permissions: Default::default(),
             asset_id: Default::default(),
             parent_id: Default::default(),
-            parent_id_local: Default::default(),
             item_id: Default::default(),
             description: Default::default(),
             created_at: SystemTime::UNIX_EPOCH,
@@ -213,7 +209,6 @@ impl ItemMetadata {
                 item_type,
                 flags,
                 parent_id,
-                parent_id_local: None,
             })
         } else {
             Err(std::io::Error::new(

@@ -12,7 +12,7 @@ use crate::{
         packet::{Packet, PacketData},
         packet_types::PacketType,
     },
-    utils::object_types::ObjectType,
+    utils::{material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound},
 };
 use std::io::{self, Cursor, Read};
 
@@ -32,69 +32,6 @@ impl Packet {
                 size: None,
             },
             body: PacketType::ObjectUpdate(Box::new(object_update)),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-/// the types of materials that exist in opensimulator.
-/// used for assigning textures and shaders
-pub enum MaterialType {
-    /// Stones and rocks
-    Stone,
-    /// Reflective metal
-    Metal,
-    /// transparent glass
-    Glass,
-    /// Wood
-    Wood,
-    /// Skin
-    Flesh,
-    /// Plastic
-    Plastic,
-    /// Rubber
-    Rubber,
-    /// Light. Deprecated
-    Light,
-    /// Undocumented
-    End,
-    /// Undocumented
-    Mask,
-    /// default unknown type
-    #[default]
-    Unknown,
-}
-impl MaterialType {
-    /// Convert a MaterialType to its byte representation
-    pub fn to_bytes(&self) -> u8 {
-        match self {
-            MaterialType::Stone => 0,
-            MaterialType::Metal => 1,
-            MaterialType::Glass => 2,
-            MaterialType::Wood => 3,
-            MaterialType::Flesh => 4,
-            MaterialType::Plastic => 5,
-            MaterialType::Rubber => 6,
-            MaterialType::Light => 7,
-            MaterialType::End => 8,
-            MaterialType::Mask => 15,
-            MaterialType::Unknown => 99,
-        }
-    }
-    /// Convert a byte to its MaterialType value
-    pub fn from_bytes(bytes: &u8) -> Self {
-        match bytes {
-            0 => MaterialType::Stone,
-            1 => MaterialType::Metal,
-            2 => MaterialType::Glass,
-            3 => MaterialType::Wood,
-            4 => MaterialType::Flesh,
-            5 => MaterialType::Plastic,
-            6 => MaterialType::Rubber,
-            7 => MaterialType::Light,
-            8 => MaterialType::End,
-            15 => MaterialType::Mask,
-            _ => MaterialType::Unknown,
         }
     }
 }
@@ -135,7 +72,7 @@ pub struct ObjectUpdate {
     /// etc
     pub update_flags: u32,
     /// Strores imformation about primitive geometry
-    pub primitive_geometry: PrimitiveGeometry,
+    pub primitive_geometry: Path,
     /// Full property list for each object's face, including textures and colors.
     pub texture_entry: Vec<u8>,
     /// Properties to set up texture animations for each face
@@ -154,10 +91,8 @@ pub struct ObjectUpdate {
     pub particle_system_block: Vec<u8>,
     /// Data related to flexible primitives, sculpt data, or attached light data.
     pub extra_params: Vec<u8>,
-
     /// Sound attached to the object
-    pub sound: Sound,
-
+    pub sound: AttachedSound,
     /// Type of joint associated with the object. Should be unused
     pub joint_type: u8,
     /// Pivot of joint associated with the object. Should be unused.
@@ -209,11 +144,13 @@ impl PacketData for ObjectUpdate {
 
         let mut geometry_bytes = [0u8; 23];
         cursor.read_exact(&mut geometry_bytes)?;
-        let primitive_geometry = PrimitiveGeometry::from_bytes(&geometry_bytes)?;
+        let primitive_geometry = Path::from_bytes(&geometry_bytes)?;
         let texture_entry_length = cursor.read_u8()?;
 
-        let mut texture_entry = vec![0u8; texture_entry_length as usize];
-        cursor.read_exact(&mut texture_entry)?;
+        let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
+        cursor.read_exact(&mut texture_entry_bytes)?;
+        let texture_entry = texture_entry_bytes;
+        //let texture_entry = Texture::from_bytes(&texture_entry_bytes)?;
 
         let texture_anim_length = cursor.read_u8()?;
         let texture_anim = vec![0u8; texture_anim_length as usize];
@@ -257,7 +194,7 @@ impl PacketData for ObjectUpdate {
 
         let mut sound_bytes = [0u8; 41];
         cursor.read_exact(&mut sound_bytes)?;
-        let sound = Sound::from_bytes(&sound_bytes)?;
+        let sound = AttachedSound::from_bytes(&sound_bytes)?;
 
         let joint_type = cursor.read_u8()?;
         let joint_pivot_x = cursor.read_f32::<LittleEndian>()?;
@@ -314,127 +251,6 @@ impl PacketData for ObjectUpdate {
 
     fn to_bytes(&self) -> Vec<u8> {
         Vec::new()
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-/// Handles sounds attached to the object
-pub struct Sound {
-    /// Asset UUID of any attached looped sounds
-    pub sound_id: Uuid,
-    /// UUID of the owner of the object. Null if there is no looped sound or particle system
-    /// attached to the object.
-    pub owner_id: Uuid,
-    /// Gain of the attached sound
-    pub gain: f32,
-    /// Stores flags related to attached sounds
-    pub flags: u8,
-    /// Radius from the center of the object that the sound should be audible from
-    pub radius: f32,
-}
-impl Sound {
-    /// Convert bytes into a Sound object
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let mut cursor = Cursor::new(bytes);
-        let mut sound_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut sound_id_bytes)?;
-
-        let mut owner_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut owner_id_bytes)?;
-
-        Ok(Self {
-            sound_id: Uuid::from_bytes(sound_id_bytes),
-            owner_id: Uuid::from_bytes(owner_id_bytes),
-            gain: cursor.read_f32::<LittleEndian>()?,
-            flags: cursor.read_u8()?,
-            radius: cursor.read_f32::<LittleEndian>()?,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-/// This contains primitive geometry information. This contains information about how a basic shape
-/// can be stretched, tapered, twisted, sheared and deformed.
-pub struct PrimitiveGeometry {
-    /// This determines the type of path the shape follows.
-    /// if it is a straight line, a circle, or etc
-    /// 0x00 is Linear,
-    /// 0x10 is Circular
-    /// 0x20 is a flexible path
-    pub path_curve: u8,
-    /// The start point of the path. Controls hwo much of the extrustion is used and cuts off parts
-    /// of the shape along the path.
-    pub path_begin: u16,
-    /// The end point of the path.
-    pub path_end: u16,
-    /// x Scaling at the end of the extrusion. 128 means no scaling.
-    pub path_scale_x: u8,
-    /// y Scaling at the end of the extrusion. 128 means no scaling.
-    pub path_scale_y: u8,
-    /// x axis shear. 128 is no shear.  
-    pub path_shear_x: u8,
-    /// y axis shear. 128 is no shear.
-    pub path_shear_y: u8,
-    /// twist applied at the end of the path. 128 is no twist.
-    pub path_twist_end: i8,
-    /// twist applied at the beginning of the path. 128 is no twist.
-    pub path_twist_begin: i8,
-    /// how much the shape's path moves away from the axis. 128 is no offset.
-    pub path_radius_offset: i8,
-    /// Tapers the shape from thick to thin on y axis. 128 is no taper.
-    pub path_taper_y: i8,
-    /// tapers the shape from thick to thin on x axis. 128 is no taper.
-    pub path_taper_x: i8,
-    /// number of times the shape revolves around its path. 128 is one revolution.
-    pub path_revolutions: u8,
-    /// skews the shape along its path. 128 is no skew.
-    pub path_skew: i8,
-    /// What the shape looks like from profile
-    /// 0x00 is a circle
-    /// 0x01 is a square
-    /// 0x02 is a triangle
-    pub profile_curve: u8,
-    /// The start point of the profile. Controls how much extrusion is used and cuts off parts of
-    /// the shape horizontally along the profile.
-    pub profile_begin: u16,
-    /// the end point of the profile.
-    pub profile_end: u16,
-    /// Makes a hollow in the shape. EG, a hollow cylinder becomes a tube.
-    pub profile_hollow: f32,
-    /// Optional object update info populated from the mesh.
-    /// The shape of the hollow made into the object
-    pub hollow_shape: Option<String>,
-    /// Optional object update info populated from the mesh.
-    /// The shape of the profile of the object.
-    pub profile_shape: Option<String>,
-}
-
-impl PrimitiveGeometry {
-    /// converts bytes into a PrimitiveGeometry object
-    pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let mut cursor = Cursor::new(bytes);
-        Ok(Self {
-            path_curve: cursor.read_u8()?,
-            profile_curve: cursor.read_u8()?,
-            path_begin: cursor.read_u16::<LittleEndian>()?,
-            path_end: cursor.read_u16::<LittleEndian>()?,
-            path_scale_x: cursor.read_u8()?,
-            path_scale_y: cursor.read_u8()?,
-            path_shear_x: cursor.read_u8()?,
-            path_shear_y: cursor.read_u8()?,
-            path_twist_end: cursor.read_i8()?,
-            path_twist_begin: cursor.read_i8()?,
-            path_radius_offset: cursor.read_i8()?,
-            path_taper_x: cursor.read_i8()?,
-            path_taper_y: cursor.read_i8()?,
-            path_revolutions: cursor.read_u8()?,
-            path_skew: cursor.read_i8()?,
-            profile_begin: cursor.read_u16::<LittleEndian>()?,
-            profile_end: cursor.read_u16::<LittleEndian>()?,
-            profile_hollow: cursor.read_u16::<LittleEndian>()? as f32 / 500.0,
-            hollow_shape: None,
-            profile_shape: None,
-        })
     }
 }
 
