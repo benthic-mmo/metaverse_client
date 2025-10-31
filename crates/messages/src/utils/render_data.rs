@@ -26,6 +26,8 @@ pub struct RenderObject {
     pub skin: Option<SkinData>,
     /// The optional png texture of the object
     pub texture: Option<PathBuf>,
+    /// UV values for applying textures
+    pub uv: Option<Vec<[f32; 2]>>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
