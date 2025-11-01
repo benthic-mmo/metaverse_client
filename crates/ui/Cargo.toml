@@ -27,7 +27,9 @@ bevy = { version = "0.17", default-features = false, features = [
     "bevy_log",
     "tonemapping_luts",
     "dynamic_linking",
-    "zstd_rust"
+    "zstd_rust",
+    "png",
+    "jpeg"
 ]}
 
 bevy_egui = "0.37.1"
