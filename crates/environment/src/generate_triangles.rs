@@ -94,6 +94,7 @@ pub fn generate_mesh_with_indices(
         name: layer.terrain_header.location.to_string(),
         skin: None,
         texture: None,
+        uv: None,
     }
 }
 

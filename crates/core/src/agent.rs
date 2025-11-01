@@ -244,6 +244,7 @@ async fn download_render_object(
                 vertices,
                 skin: Some(skin_data),
                 texture: Some(texture_path),
+                uv: Some(uvs),
             });
         } else {
             // No skin
@@ -254,6 +255,7 @@ async fn download_render_object(
                 vertices: mesh.high_level_of_detail.vertices,
                 skin: None,
                 texture: Some(texture_path),
+                uv: Some(uvs),
             });
         }
     }
