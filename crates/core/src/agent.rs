@@ -195,15 +195,23 @@ async fn download_render_object(
         let texture_path = base_dir.join(format!("{:?}.png", scene.shape.texture.texture_id));
         texture.save(&texture_path).unwrap();
 
+        let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
+
         let uvs: Vec<[f32; 2]> = mesh
             .high_level_of_detail
             .texture_coordinate
             .iter()
             .map(|tc| {
-                let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
+                // Normalize U and V from 0..65535 to 0..1
+                let u_norm = tc.u as f32 / 65535.0;
+                let v_norm = tc.v as f32 / 65535.0;
+
+                // Flip V axis
+                let v_flipped = 1.0 - v_norm;
+
                 [
-                    domain.min[0] + tc.u as f32 * (domain.max[0] - domain.min[0]),
-                    domain.min[1] + tc.v as f32 * (domain.max[1] - domain.min[1]),
+                    domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
+                    domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
                 ]
             })
             .collect();
