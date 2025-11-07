@@ -12,11 +12,4 @@ impl PatchData for Cloud {
     fn from_packet(_: &LayerData, _: bool) -> Result<Vec<Self>, PatchError> {
         Ok(vec![])
     }
-    fn generate_mesh(
-        self,
-        _: &mut HashMap<U16Vec2, Self>,
-        _: &HashMap<U16Vec2, Self>,
-    ) -> Option<(RenderObject, U16Vec2)> {
-        None
-    }
 }

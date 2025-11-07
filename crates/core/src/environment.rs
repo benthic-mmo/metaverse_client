@@ -5,9 +5,10 @@ use glam::U16Vec2;
 use glam::Vec3;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{parse_layer_data, PatchData, PatchLayer},
+    layer_handler::{parse_layer_data, PatchLayer},
 };
 use metaverse_messages::packet::message::UIMessage;
+#[cfg(feature = "environment")]
 use metaverse_messages::{
     udp::environment::layer_data::LayerData,
     ui::mesh_update::{MeshType, MeshUpdate},

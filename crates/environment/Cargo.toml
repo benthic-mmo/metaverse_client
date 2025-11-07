@@ -17,5 +17,6 @@ log = "0.4.28"
 metaverse_messages = {path= "../messages/"}
 once_cell = "1.21.3"
 twox-hash = "2.1.2"
-metaverse_mesh = "0.1.0"
+metaverse_mesh = {path="../../../metaverse_mesh/"}
 uuid = "1.18.1"
+image = "0.25.8"

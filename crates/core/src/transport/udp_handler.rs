@@ -1,4 +1,4 @@
-use crate::session::{Mailbox, Ping, RegionHandshakeMessage, SendAckList};
+use crate::session::{Mailbox, Ping, SendAckList};
 use actix::Addr;
 use log::{error, warn};
 use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_types::PacketType};
@@ -54,8 +54,9 @@ impl Mailbox {
                                 warn!("failed to handle pong {:?}", e)
                             };
                         }
-                        PacketType::RegionHandshake(_) => {
-                            if let Err(e) = mailbox_address.send(RegionHandshakeMessage {}).await {
+                        PacketType::RegionHandshake(data) => {
+                            error!("{:?}", data);
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
                                 error!("error: {:?}", e)
                             }
                         }

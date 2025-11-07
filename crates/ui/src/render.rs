@@ -7,9 +7,14 @@ pub struct MeshUpdateEvent {
     pub value: MeshUpdate,
 }
 
+pub enum RenderableHandle {
+    Gltf(Handle<Gltf>),
+    Mesh(Handle<Mesh>),
+}
+
 #[derive(Resource)]
 pub struct Renderable {
-    pub handle: Handle<Gltf>,
+    pub handle: RenderableHandle,
     pub position: Vec3,
     pub mesh_type: MeshType,
 }
@@ -53,7 +58,7 @@ pub fn handle_mesh_update(
 
         let handle: Handle<Gltf> = asset_server.load(renderable.value.path.clone());
         mesh_queue.items.push(Renderable {
-            handle,
+            handle: RenderableHandle::Gltf(handle),
             position,
             mesh_type: renderable.value.mesh_type.clone(),
         });
@@ -64,36 +69,50 @@ pub fn check_model_loaded(
     mut commands: Commands,
     mut mesh_queue: ResMut<MeshQueue>,
     layer_assets: Res<Assets<Gltf>>,
+    meshes: Res<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let mut ready = vec![];
     for (i, layer) in mesh_queue.items.iter().enumerate() {
-        if let Some(gltf) = layer_assets.get(&layer.handle) {
-            let white_material = materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                ..Default::default()
-            });
-            let scale = match layer.mesh_type {
-                MeshType::Avatar => Vec3::splat(20.0), // Make avatars huge for debugging
-                MeshType::Land => Vec3::ONE,
-            };
-            commands.spawn((
-                SceneRoot(gltf.scenes[0].clone()),
-                Transform {
-                    translation: layer.position,
-                    scale,
-                    ..Default::default()
-                },
-                MeshMaterial3d::from(white_material.clone()),
-            ));
-            commands.spawn((
-                SceneRoot(gltf.scenes[0].clone()),
-                Transform::from_translation(layer.position),
-                MeshMaterial3d::from(white_material.clone()),
-            ));
-            ready.push(i)
+        let white_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            ..Default::default()
+        });
+
+        match &layer.handle {
+            RenderableHandle::Gltf(gltf) => {
+                if let Some(gltf) = layer_assets.get(gltf) {
+                    commands.spawn((
+                        SceneRoot(gltf.scenes[0].clone()),
+                        Transform {
+                            translation: layer.position,
+                            scale: match layer.mesh_type {
+                                MeshType::Avatar => Vec3::splat(20.0),
+                                MeshType::Land => Vec3::ONE,
+                            },
+                            ..Default::default()
+                        },
+                        MeshMaterial3d::from(white_material.clone()),
+                    ));
+                    ready.push(i);
+                }
+            }
+            RenderableHandle::Mesh(mesh) => {
+                if meshes.get(mesh).is_some() {
+                    commands.spawn((
+                        Mesh3d(mesh.clone()),
+                        Transform {
+                            translation: layer.position,
+                            ..Default::default()
+                        },
+                        MeshMaterial3d::from(white_material.clone()),
+                    ));
+                    ready.push(i);
+                }
+            }
         }
     }
+
     for i in ready.iter().rev() {
         mesh_queue.items.remove(*i);
     }

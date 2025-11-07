@@ -1,10 +1,11 @@
 use std::env;
 
 use glam::U16Vec2;
-use metaverse_environment::generate_triangles::generate_mesh_with_indices;
+use metaverse_environment::generate_triangles::{generate_mesh_with_indices, stitch_heightmap};
 use metaverse_environment::land::Land;
 use metaverse_environment::layer_handler::TerrainHeader;
-use metaverse_gltf::gltf::generate_model_2;
+use metaverse_mesh::generate::generate_mesh;
+use metaverse_mesh::gltf::build_mesh_gltf;
 use once_cell::sync::Lazy;
 
 static NORTH: Lazy<Land> = Lazy::new(|| Land {
@@ -150,10 +151,16 @@ fn generate_render_object() {
     let mut path = env::temp_dir();
     path.push("land_data.glb");
     println!("{:?}", path);
-    match generate_model_2(data, path) {
+    match build_mesh_gltf(data, path) {
         Ok(e) => {
             println!("{:?}", e)
         }
         Err(e) => panic!("{:?}", e),
     };
+}
+
+#[test]
+fn generate_heightmap() {
+    let data = stitch_heightmap(&CURRENT, &NORTH, &EAST, &TOP);
+    println!("{:?}", data);
 }

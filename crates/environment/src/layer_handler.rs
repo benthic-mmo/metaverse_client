@@ -13,7 +13,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{U16Vec2, u16, u32, usize};
+use glam::{u16, u32, usize, U16Vec2};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -67,13 +67,6 @@ pub fn parse_layer_data(data: &LayerData) -> Result<PatchLayer, PatchError> {
 pub trait PatchData: Sized {
     /// from_packet converts the LayerData packet into a vector of self
     fn from_packet(packet: &LayerData, extended: bool) -> Result<Vec<Self>, PatchError>;
-
-    /// generate_ui_event generates a vector of LayerUpdate for the UI to handle
-    fn generate_mesh(
-        self,
-        retry_queue: &mut HashMap<U16Vec2, Self>,
-        total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Option<(RenderObject, U16Vec2)>;
 }
 
 /// This is the header that begins each new terrain patch, containing information required for

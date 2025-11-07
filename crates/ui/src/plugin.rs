@@ -242,7 +242,7 @@ fn handle_queue(
     mut ev_loginresponse: MessageWriter<LoginResponseEvent>,
     mut ev_coarselocationupdate: MessageWriter<CoarseLocationUpdateEvent>,
     mut ev_disable_simulator: MessageWriter<DisableSimulatorEvent>,
-    mut ev_layer_update: MessageWriter<MeshUpdateEvent>,
+    mut ev_mesh_update: MessageWriter<MeshUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
@@ -256,7 +256,7 @@ fn handle_queue(
                 info!("got LoginResponse")
             }
             UIMessage::MeshUpdate(mesh_update) => {
-                ev_layer_update.write(MeshUpdateEvent { value: mesh_update });
+                ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
             }
             UIMessage::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.write(CoarseLocationUpdateEvent {

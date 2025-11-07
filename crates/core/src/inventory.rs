@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
-use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
+use metaverse_inventory::inventory_root::{refresh_inventory, FolderRequest};
 use metaverse_messages::http::{capabilities::Capability, folder_types::FolderNode};
 use uuid::Uuid;
 
@@ -31,8 +31,8 @@ pub struct InventoryData {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Called when the inventory needs to be refreshed. Does a full fetch of the inventory and
-/// rebuilds the inventory folders on the disk.
+/// Called when the inventory needs to be refreshed. Does a full fetch of the inventory from the
+/// root and rebuilds the inventory folders on the disk.
 pub struct RefreshInventoryEvent {
     /// The agent ID for the inventory refresh. Determines which endpoint to use. If it's the
     /// current user, fetch the FetchInventoryDescendents2. If it isn't, fetch from the

@@ -12,7 +12,7 @@ use crate::{
     error::PatchError,
     generate_triangles::generate_mesh_with_indices,
     layer_handler::{
-        END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
+        bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
     },
 };
 
@@ -32,7 +32,53 @@ pub struct Land {
     /// The generated heightmap. This contains the array of decoded height values.
     pub heightmap: Vec<f32>,
 }
+impl Land {
+    /// This handles generating the geometry for the land packet, and sending the UI signals to load
+    /// the patch geometry.
+    /// Accepts the land data to render. The patch queue is the queue that contains all patches that
+    /// failed to be generated on the first pass. Total patches contains all of the patches that have been
+    /// read to this point.
+    ///
+    /// This should be called in a loop against the output of Layer::parse_packet.
+    /// Currently this is called from within the actix mailbox. It receives the layer
+    pub fn generate_mesh(
+        self,
+        retry_queue: &mut HashMap<U16Vec2, Self>,
+        total_patches: &HashMap<U16Vec2, Self>,
+    ) -> Option<(RenderObject, U16Vec2)> {
+        let location = self.terrain_header.location;
+        let north_xy = U16Vec2 {
+            x: location.x,
+            y: location.y.saturating_sub(1),
+        };
+        let east_xy = U16Vec2 {
+            x: location.x + 1,
+            y: location.y,
+        };
+        let top_corner_xy = U16Vec2 {
+            x: location.x + 1,
+            y: location.y.saturating_sub(1),
+        };
 
+        let north = total_patches.get(&north_xy).cloned();
+        let east = total_patches.get(&east_xy).cloned();
+        let corner = total_patches.get(&top_corner_xy).cloned();
+
+        if let (Some(north_layer), Some(east_layer), Some(top_corner)) = (north, east, corner) {
+            let object = generate_mesh_with_indices(
+                total_patches.get(&location).unwrap(),
+                &north_layer,
+                &east_layer,
+                &top_corner,
+            );
+            retry_queue.remove(&location);
+            Some((object, self.terrain_header.location))
+        } else {
+            retry_queue.insert(location, self);
+            None
+        }
+    }
+}
 /// creates a Land object from a LayerData packet
 impl PatchData for Land {
     fn from_packet(packet: &LayerData, extended: bool) -> Result<Vec<Self>, PatchError> {
@@ -87,52 +133,6 @@ impl PatchData for Land {
             });
         }
         Ok(patches)
-    }
-
-    /// This handles generating the geometry for the land packet, and sending the UI signals to load
-    /// the patch geometry.
-    /// Accepts the land data to render. The patch queue is the queue that contains all patches that
-    /// failed to be generated on the first pass. Total patches contains all of the patches that have been
-    /// read to this point.
-    ///
-    /// This should be called in a loop against the output of Layer::parse_packet.
-    /// Currently this is called from within the actix mailbox. It receives the layer
-    fn generate_mesh(
-        self,
-        retry_queue: &mut HashMap<U16Vec2, Self>,
-        total_patches: &HashMap<U16Vec2, Self>,
-    ) -> Option<(RenderObject, U16Vec2)> {
-        let location = self.terrain_header.location;
-        let north_xy = U16Vec2 {
-            x: location.x,
-            y: location.y.saturating_sub(1),
-        };
-        let east_xy = U16Vec2 {
-            x: location.x + 1,
-            y: location.y,
-        };
-        let north_layer = total_patches.get(&north_xy);
-        let east_layer = total_patches.get(&east_xy);
-
-        let top_corner_xy = U16Vec2 {
-            x: location.x + 1,
-            y: location.y.saturating_sub(1),
-        };
-        let top_corner = total_patches.get(&top_corner_xy);
-
-        if north_layer.is_some() && east_layer.is_some() && top_corner.is_some() {
-            let object = generate_mesh_with_indices(
-                total_patches.get(&location).unwrap(),
-                north_layer.unwrap(),
-                east_layer.unwrap(),
-                top_corner.unwrap(),
-            );
-            retry_queue.remove(&location);
-            Some((object, self.terrain_header.location))
-        } else {
-            retry_queue.insert(location, self);
-            None
-        }
     }
 }
 

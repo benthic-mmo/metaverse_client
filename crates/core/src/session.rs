@@ -14,6 +14,7 @@ use metaverse_messages::udp::core::complete_agent_movement::CompleteAgentMovemen
 use metaverse_messages::udp::core::complete_ping_check::CompletePingCheck;
 use metaverse_messages::udp::core::logout_request::LogoutRequest;
 use metaverse_messages::udp::core::packet_ack::PacketAck;
+use metaverse_messages::udp::core::region_handshake::RegionHandshake;
 use metaverse_messages::udp::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::ui::errors::CapabilityError;
 use metaverse_messages::ui::errors::CircuitCodeError;
@@ -113,11 +114,6 @@ pub struct Ping {
     pub ping_id: u8,
 }
 
-/// message to send when receiving a RegionHandshake
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct RegionHandshakeMessage;
-
 /// The state of the Mailbox
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServerState {
@@ -164,9 +160,9 @@ impl Actor for Mailbox {
     }
 }
 
-impl Handler<RegionHandshakeMessage> for Mailbox {
+impl Handler<RegionHandshake> for Mailbox {
     type Result = ();
-    fn handle(&mut self, _: RegionHandshakeMessage, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RegionHandshake, ctx: &mut Self::Context) -> Self::Result {
         ctx.address()
             .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
                 session_id: self.session.as_ref().unwrap().session_id,
