@@ -3,7 +3,7 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use glam::{Vec3, Vec4};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use uuid::{uuid, Uuid};
 
 use crate::{
     errors::ParseError,
@@ -434,5 +434,59 @@ impl MotionData {
             rotation,
             angular_velocity,
         })
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Access {
+    ReadOnly,
+    WriteOnly,
+    ReadWrite,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    Global,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttachItem {
+    id: Uuid,
+    access: Access,
+    scope: Scope,
+}
+
+impl AttachItem {
+    /// Primitive objects rezzed from inventory have their metadata stored in a reference to the
+    /// object in the user or the global inventory. This is stored in a string that needs to be
+    /// parsed.
+    pub fn parse_attach_item(data: String) -> Result<Self, ParseError> {
+        let parts: Vec<&str> = data.split_whitespace().collect();
+        if parts.len() != 5 {
+            return Err(ParseError::Message(format!(
+                "AttachItem has incorrect length: {:?}",
+                data,
+            )));
+        }
+        let id = Uuid::parse_str(parts[4])?;
+        let access = match parts[2] {
+            "RW" => Access::ReadWrite,
+            "R" => Access::ReadOnly,
+            "W" => Access::WriteOnly,
+            _ => {
+                return Err(ParseError::Message(format!(
+                    "AttachItem has incorrect access value: {:?}, {:?}",
+                    parts[3], data
+                )))
+            }
+        };
+
+        let scope = match parts[3] {
+            "SV" => Scope::Global,
+            _ => {
+                return Err(ParseError::Message(format!(
+                    "AttachItem has incorrect scope value: {:?}, {:?}",
+                    parts[2], data
+                )))
+            }
+        };
+        Ok(AttachItem { id, scope, access })
     }
 }
