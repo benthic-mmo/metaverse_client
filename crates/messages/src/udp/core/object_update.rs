@@ -321,11 +321,12 @@ impl MotionData {
 
     fn from_bytes_high(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
-        let position = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-        );
+        let x = cursor.read_f32::<LittleEndian>()?;
+        let y = cursor.read_f32::<LittleEndian>()?;
+        let z = cursor.read_f32::<LittleEndian>()?;
+
+        // Swap Y and Z for easy use with coordinate systems.
+        let position = Vec3::new(x, z, y);
 
         let velocity = Vec3::new(
             cursor.read_f32::<LittleEndian>()?,

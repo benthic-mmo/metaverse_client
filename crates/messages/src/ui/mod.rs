@@ -16,3 +16,5 @@ pub mod chat_from_viewer;
 pub mod login_event;
 /// UI message for requesting a logout
 pub mod logout;
+
+pub mod land_update;

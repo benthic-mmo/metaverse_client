@@ -5,3 +5,4 @@ pub mod login;
 pub mod plugin;
 pub mod render;
 pub mod subscriber;
+pub mod textures;

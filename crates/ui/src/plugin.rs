@@ -2,22 +2,25 @@ use bevy::gltf::{GltfMaterialName, GltfMeshName};
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
+use metaverse_messages::ui::land_update::LandUpdate;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
 
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    check_model_loaded, handle_mesh_update, setup_environment, MeshQueue, MeshUpdateEvent,
+    LandUpdateEvent, MeshQueue, MeshUpdateEvent, check_model_loaded, handle_land_update,
+    handle_mesh_update, setup_environment,
 };
 use crate::subscriber::listen_for_core_events;
+use crate::textures::environment::HeightMaterial;
 use crate::{chat, login};
 use actix_rt::System;
 use bevy::app::App;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use metaverse_messages::http::login::login_error::LoginError;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
@@ -124,6 +127,7 @@ impl Plugin for MetaversePlugin {
         };
 
         app.init_state::<ViewerState>()
+            .add_plugins(MaterialPlugin::<HeightMaterial>::default())
             .insert_resource(SessionData {
                 login_response: None,
             })
@@ -148,6 +152,7 @@ impl Plugin for MetaversePlugin {
             .add_message::<LoginResponseEvent>()
             .add_message::<CoarseLocationUpdateEvent>()
             .add_message::<MeshUpdateEvent>()
+            .add_message::<LandUpdateEvent>()
             .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
             .register_type::<Transform>()
@@ -175,6 +180,7 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_login_response)
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
+            .add_systems(Update, handle_land_update)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
@@ -243,12 +249,16 @@ fn handle_queue(
     mut ev_coarselocationupdate: MessageWriter<CoarseLocationUpdateEvent>,
     mut ev_disable_simulator: MessageWriter<DisableSimulatorEvent>,
     mut ev_mesh_update: MessageWriter<MeshUpdateEvent>,
+    mut ev_land_update: MessageWriter<LandUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
     while let Ok(event) = receiver.try_recv() {
         match event {
+            UIMessage::LandUpdate(land_update) => {
+                ev_land_update.write(LandUpdateEvent { value: land_update });
+            }
             UIMessage::LoginResponse(login_response) => {
                 ev_loginresponse.write(LoginResponseEvent {
                     value: Ok(login_response),
