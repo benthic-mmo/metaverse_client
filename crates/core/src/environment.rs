@@ -1,4 +1,5 @@
 use super::session::Mailbox;
+use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_share_dir;
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
@@ -13,8 +14,15 @@ use metaverse_messages::{
     udp::environment::layer_data::LayerData,
     ui::mesh_update::{MeshType, MeshUpdate},
 };
+use serde::Serialize;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::PathBuf;
+use uuid::Uuid;
 
+use log::{error, info, warn};
 use metaverse_mesh::gltf::build_mesh_gltf;
 
 #[cfg(feature = "environment")]
@@ -63,29 +71,45 @@ impl Handler<LayerData> for Mailbox {
                             }
                         }
                         for (mesh, coordinate) in layer_meshes {
-                            if let Ok(dir) = create_sub_share_dir("land") {
+                            use metaverse_messages::ui::land_update::{LandData, LandUpdate};
+                            let scale = land.terrain_header.patch_size as f32;
+                            let json_path = write_json(
+                                &LandData {
+                                    vertices: mesh.vertices,
+                                    indices: mesh.indices,
+                                    position: Vec3 {
+                                        x: ((coordinate.x as f32) * scale),
+                                        y: 0.0,
+                                        z: ((coordinate.y as f32) * scale),
+                                    },
+                                },
+                                land.terrain_header.filename.clone(),
+                            )
+                            .unwrap();
+                            ctx.address()
+                                .do_send(UIMessage::new_land_update(LandUpdate {
+                                    path: json_path,
+                                }));
 
+                            //let path =
+                            //    dir.join(format!("{}_high.glb", land.terrain_header.filename));
 
-                                let path =
-                                    dir.join(format!("{}_high.gltf", land.terrain_header.filename));
-
-                                if let Ok(_) = build_mesh_gltf(mesh, path.clone()) {
-                                    ctx.address()
-                                        .do_send(UIMessage::new_mesh_update(MeshUpdate {
-                                            // TODO: This is hardcoded to 16 because the patch
-                                            // sizes are all hardcoded to 16 right now. This should
-                                            // be fixed when that bug is resolved.
-                                            position: Vec3 {
-                                                x: (coordinate.x as f32) * 16.0,
-                                                y: (coordinate.y as f32) * 16.0,
-                                                z: 0.0,
-                                            },
-                                            path,
-                                            mesh_type: MeshType::Land,
-                                            id: None,
-                                        }));
-                                }
-                            }
+                            //if let Ok(_) = build_mesh_gltf(mesh, path.clone()) {
+                            //    ctx.address()
+                            //        .do_send(UIMessage::new_mesh_update(MeshUpdate {
+                            //            // TODO: This is hardcoded to 16 because the patch
+                            //            // sizes are all hardcoded to 16 right now. This should
+                            //            // be fixed when that bug is resolved.
+                            //            position: Vec3 {
+                            //                x: (coordinate.x as f32) * 16.0,
+                            //                y: (coordinate.y as f32) * 16.0,
+                            //                z: 0.0,
+                            //            },
+                            //            path,
+                            //            mesh_type: MeshType::Land,
+                            //            id: None,
+                            //        }));
+                            //}
                         }
                     }
                 }
@@ -93,6 +117,33 @@ impl Handler<LayerData> for Mailbox {
                 PatchLayer::Water(_patches) => {}
                 PatchLayer::Cloud(_patches) => {}
             }
+        }
+    }
+}
+
+/// When an object is retrieved in full, the data will be written in serializable json format, to
+/// create a cache. The JSON will then be sent to another crate to convert it into a 3d model that
+/// can be rendered.
+fn write_json<T: Serialize>(data: &T, filename: String) -> io::Result<PathBuf> {
+    match create_sub_share_dir("land") {
+        Ok(mut agent_dir) => match serde_json::to_string(&data) {
+            Ok(json) => {
+                agent_dir.push(format!("{}.json", filename));
+                let mut file = File::create(&agent_dir).unwrap();
+                file.write_all(json.as_bytes()).unwrap();
+                Ok(agent_dir)
+            }
+            Err(e) => {
+                error!("Failed to serialize scene group {:?}, {:?}", filename, e);
+                Err(io::Error::other(e))
+            }
+        },
+        Err(e) => {
+            error!(
+                "Failed to create agent dir for {:?}. Unable to cache downloaded items.",
+                e
+            );
+            Err(io::Error::other(e))
         }
     }
 }

@@ -5,8 +5,8 @@ use crate::{
         chat::chat_from_simulator::ChatFromSimulator, core::disable_simulator::DisableSimulator,
     },
     ui::{
-        chat_from_viewer::ChatFromUI, errors::SessionError, login_event::Login,
-        login_response::LoginResponse, logout::Logout, mesh_update::MeshUpdate,
+        chat_from_viewer::ChatFromUI, errors::SessionError, land_update::LandUpdate,
+        login_event::Login, login_response::LoginResponse, logout::Logout, mesh_update::MeshUpdate,
     },
 };
 use actix::Message;
@@ -56,6 +56,8 @@ pub enum UIMessage {
     Error(SessionError),
     /// Message for informing the core and UI of a server disconnect
     DisableSimulator(DisableSimulator),
+
+    LandUpdate(LandUpdate),
 }
 
 impl UIMessage {
