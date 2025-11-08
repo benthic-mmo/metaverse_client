@@ -1,8 +1,12 @@
+use awc::error::{PayloadError, SendRequestError};
 use metaverse_messages::errors::ParseError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum InventoryError {
+    #[error("Sqlite error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+
     #[error("XML error: {0}")]
     Xml(#[from] quick_xml::Error),
 
@@ -23,4 +27,10 @@ pub enum InventoryError {
 
     #[error("Messges error: {0}")]
     Messages(#[from] ParseError),
+
+    #[error("RequestError: {0}")]
+    RequestError(#[from] SendRequestError),
+
+    #[error("PayloadError: {0}")]
+    PayloadError(#[from] PayloadError),
 }

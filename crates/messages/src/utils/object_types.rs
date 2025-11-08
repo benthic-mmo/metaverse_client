@@ -1,4 +1,7 @@
-use std::fmt::{Display, Formatter, Result};
+use std::{
+    fmt::{Display, Formatter, Result},
+    str::FromStr,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -106,6 +109,48 @@ impl Display for ObjectType {
         write!(f, "{}", s)
     }
 }
+impl From<&str> for ObjectType {
+    fn from(s: &str) -> Self {
+        match s {
+            "texture" => ObjectType::Texture,
+            "sound" => ObjectType::Sound,
+            "calling_card" => ObjectType::CallingCard,
+            "landmark" => ObjectType::Landmark,
+            "clothing" => ObjectType::Clothing,
+            "object" => ObjectType::Object,
+            "notecard" => ObjectType::Notecard,
+            "prim" => ObjectType::Prim,
+            "script" => ObjectType::Script,
+            "bodypart" => ObjectType::Bodypart,
+            "trash" => ObjectType::Trash,
+            "photo_album" => ObjectType::PhotoAlbum,
+            "lost_and_found" => ObjectType::LostAndFound,
+            "animation" => ObjectType::Animation,
+            "gesture" => ObjectType::Gesture,
+            "favorite" => ObjectType::Favorite,
+            "current_outfit" => ObjectType::CurrentOutfit,
+            "avatar" => ObjectType::Avatar,
+            "my_outfit" => ObjectType::MyOutfit,
+            "mesh" => ObjectType::Mesh,
+            "link" => ObjectType::Link,
+            "received_item" => ObjectType::ReceivedItem,
+            "setting" => ObjectType::Setting,
+            "material" => ObjectType::Material,
+            "grass" => ObjectType::Grass,
+            "new_tree" => ObjectType::NewTree,
+            "particle_system" => ObjectType::ParticleSystem,
+            "tree" => ObjectType::Tree,
+            _ => ObjectType::Unknown,
+        }
+    }
+}
+
+impl From<String> for ObjectType {
+    fn from(s: String) -> Self {
+        ObjectType::from(s.as_str())
+    }
+}
+
 impl ObjectType {
     /// Maps the byte values of ObjectTypes to their correct data type
     pub fn to_bytes(&self) -> u8 {

@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::{fmt::Display, time::SystemTime};
 
 use serde::{Deserialize, Serialize};
 use serde_llsd_benthic::LLSDValue;
@@ -246,8 +246,10 @@ pub struct Permissions {
     /// Permissions the current owner has on the object.
     pub owner_mask: i32,
     /// indicates if the owner is the group istelf, rather than an individual user
+    /// TODO: remove the option here. Make sure that this isn't acutally optional
     pub is_owner_group: Option<bool>,
     /// Stores the UUID of the last owner
+    /// TODO: Remove the option here. Make sure that this isn't actually optional
     pub last_owner_id: Option<Uuid>,
 }
 impl Permissions {
@@ -374,6 +376,19 @@ pub enum SaleType {
     /// unknown
     Unknown,
 }
+
+impl Display for SaleType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Not => write!(f, "Not"),
+            Self::Original => write!(f, "Original"),
+            Self::Copy => write!(f, "Copy"),
+            Self::Contents => write!(f, "Contents"),
+            Self::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
 impl SaleType {
     /// Convert the SaleType from an i32
     pub fn from_i32(byte: i32) -> Self {

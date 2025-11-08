@@ -26,3 +26,6 @@ pub mod mesh;
 
 /// Contains login information sent over http
 pub mod login;
+
+/// requests a folder from the capability endpoint
+pub mod folder_request;

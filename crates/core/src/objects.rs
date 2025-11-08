@@ -5,6 +5,8 @@ use glam::Vec3;
 use log::error;
 use log::warn;
 use metaverse_agent::avatar::Avatar;
+
+use metaverse_inventory::agent::get_current_outfit;
 use metaverse_messages::http::item::Item;
 use metaverse_messages::udp::core::object_update::AttachItem;
 use metaverse_messages::utils::item_metadata::ItemMetadata;
@@ -47,18 +49,12 @@ impl Handler<ObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
-            let inventory = match session.inventory_data.inventory_tree.as_ref() {
-                Some(inventory) => inventory,
-                None => {
-                    // Wait until the user's inventory is loaded before handling object update
-                    // data.
-                    // if the inventory never loads, this will wait forever.
-                    // TODO: this should probably timeout somehow.
-                    warn!("Inventory not yet populated. Queueing object update...");
-                    ctx.notify_later(msg, Duration::from_secs(1));
-                    return;
-                }
-            };
+            if !session.inventory_data.inventory_init {
+                warn!("Inventory not yet populated. Queueing object update...");
+                ctx.notify_later(msg, Duration::from_secs(1));
+                return;
+            }
+
             match msg.pcode {
                 ObjectType::Prim => {
                     let item = match AttachItem::parse_attach_item(msg.name_value) {
@@ -99,11 +95,11 @@ impl Handler<ObjectUpdate> for Mailbox {
                     // if the ID of the object is your agent ID, you are downloading your own
                     // current outfit.
                     if session.agent_id == msg.full_id {
-                        let current_outfit = inventory
-                            .children
-                            .get(&ObjectType::CurrentOutfit)
-                            .expect("User does not have a current outfit");
-                        let elements = current_outfit.folder.items.clone();
+                        let elements =
+                            get_current_outfit(&self.inventory_db_connection.lock().unwrap())
+                                .unwrap_or_else(|e| panic!("Failed to get current outfit: {}", e));
+                        println!("ELEMENTS: {:?}", elements);
+
                         //add the agent to the global agent list. This will be used to look up
                         //the position of agents and what they are wearing.
                         {
@@ -112,7 +108,7 @@ impl Handler<ObjectUpdate> for Mailbox {
                                 Avatar::new(
                                     msg.full_id,
                                     msg.motion_data.position,
-                                    current_outfit.folder.items.len() / 2,
+                                    elements.len() / 2,
                                 ),
                             );
                         }
@@ -130,7 +126,9 @@ impl Handler<ObjectUpdate> for Mailbox {
                                     .get(&Capability::ViewerAsset)
                                     .unwrap()
                                     .to_string(),
-                                item: element,
+                                item_id: element.1,
+                                item_name: element.0,
+                                item_type: element.2,
                                 agent_id: msg.full_id,
                                 position: msg.motion_data.position,
                             });

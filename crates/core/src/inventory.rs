@@ -1,9 +1,11 @@
-use std::{path::PathBuf, time::Duration};
+use log::error;
+use std::time::Duration;
 
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
-use metaverse_inventory::inventory_root::{FolderRequest, refresh_inventory};
-use metaverse_messages::http::{capabilities::Capability, folder_types::FolderNode};
+use metaverse_inventory::inventory_root::refresh_inventory_2;
+use metaverse_messages::http::capabilities::Capability;
+use metaverse_messages::http::folder_request::FolderRequest;
 use uuid::Uuid;
 
 use super::session::Mailbox;
@@ -24,10 +26,13 @@ pub struct InventoryData {
     pub inventory_lib_root: Option<Vec<Uuid>>,
     /// The UUID of the owner of the inventory lib. Used to create the FetchLibDescendents2 call.
     pub inventory_lib_owner: Option<Vec<Uuid>>,
-
-    /// The in-memory representation of the inventory file tree. Constructed as a tree of Folders.
-    pub inventory_tree: Option<FolderNode>,
+    pub inventory_init: bool,
 }
+
+/// an empty struct to notify the mailbox the inventory has been initialized
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct InventoryInit;
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
@@ -72,11 +77,14 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                         .unwrap_or(Uuid::nil());
 
                     let owner_id = session.agent_id;
-                    let addr = ctx.address();
                     let url = url.clone();
+                    let addr = ctx.address();
+                    let conn = self.inventory_db_connection.clone();
                     ctx.spawn(
                         async move {
-                            match refresh_inventory(
+                            let mut conn = conn.lock().unwrap();
+                            match refresh_inventory_2(
+                                &mut *conn,
                                 FolderRequest {
                                     folder_id,
                                     owner_id,
@@ -85,16 +93,14 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                                     sort_order: 0,
                                 },
                                 url,
-                                PathBuf::new(),
                             )
                             .await
                             {
-                                Ok(inventory_nodes) => {
-                                    // set the session's inventory data in memory
-                                    addr.do_send(inventory_nodes);
+                                Ok(_) => {
+                                    addr.do_send(InventoryInit);
                                 }
                                 Err(e) => {
-                                    println!("REFRESH INVENTORY EVENT {:?}", e)
+                                    error!("REFRESH INVENTORY EVENT {:?}", e)
                                 }
                             }
                         }
@@ -107,11 +113,11 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
 }
 
 #[cfg(feature = "inventory")]
-impl Handler<FolderNode> for Mailbox {
+impl Handler<InventoryInit> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: FolderNode, _: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            session.inventory_data.inventory_tree = Some(msg);
+    fn handle(&mut self, _: InventoryInit, _: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &mut self.session {
+            session.inventory_data.inventory_init = true;
         }
     }
 }

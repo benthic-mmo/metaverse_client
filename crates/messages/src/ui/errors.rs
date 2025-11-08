@@ -48,6 +48,14 @@ pub struct CapabilityError {
     pub message: String,
 }
 
+/// this is for returning SessionErrors that result from optoinal features
+#[derive(Clone, Debug, Error, Serialize, Deserialize)]
+pub enum FeatureError {
+    #[error("Inventory: {0}")]
+    /// for handling inventory related errors
+    Inventory(String),
+}
+
 /// Represents errors that arise from failures within the core.
 /// These are sent as packets to the UI to inform the UI of errors within the core.
 #[derive(Clone, Debug, Error, Serialize, Deserialize)]
@@ -70,6 +78,10 @@ pub enum SessionError {
     /// This is sent when setting the capabilities fail
     #[error("CapabilityError: {0}")]
     Capability(#[from] CapabilityError),
+
+    /// This is sent when optional features fail
+    #[error("FeatureError: {0}")]
+    FeatureError(#[from] FeatureError),
 
     /// This is sent when files fail to create and IO errors are thrown
     #[error("IOError: {0}")]
