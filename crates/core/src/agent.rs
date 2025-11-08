@@ -15,7 +15,7 @@ use metaverse_messages::utils::render_data::{AvatarObject, RenderObject, SkinDat
 use metaverse_messages::utils::skeleton::Skeleton;
 use metaverse_messages::{
     ui::mesh_update::{MeshType, MeshUpdate},
-    utils::{item_metadata::ItemMetadata, object_types::ObjectType},
+    utils::object_types::ObjectType,
 };
 use serde::Serialize;
 use std::fs::{self, File};
@@ -40,7 +40,11 @@ pub struct DownloadAgentAsset {
     /// The url of the capability url to retrieve data from
     pub url: String,
     /// The metadata of the item to download
-    pub item: ItemMetadata,
+    pub item_type: ObjectType,
+
+    pub item_name: String,
+
+    pub item_id: Uuid,
     /// The agent ID of the avatar
     pub agent_id: Uuid,
     /// The location of the agent in space
@@ -58,15 +62,11 @@ impl Handler<DownloadAgentAsset> for Mailbox {
             // do the downloading asyncronously.
             ctx.spawn(
                 async move {
-                    match msg.item.item_type {
+                    match msg.item_type {
                         // if an item's type is Object, that means it has a mesh.
                         ObjectType::Object => {
-                            match download_object(
-                                msg.item.item_type.to_string(),
-                                msg.item.asset_id,
-                                &msg.url,
-                            )
-                            .await
+                            match download_object(msg.item_type.to_string(), msg.item_id, &msg.url)
+                                .await
                             {
                                 Ok(scene_group) => {
                                     let json_path = match download_render_object(
@@ -97,12 +97,8 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             }
                         }
                         ObjectType::Link => {}
-                        _ => match download_item(
-                            msg.item.item_type.to_string(),
-                            msg.item.asset_id,
-                            &msg.url,
-                        )
-                        .await
+                        _ => match download_item(msg.item_type.to_string(), msg.item_id, &msg.url)
+                            .await
                         {
                             Ok(item) => {
                                 add_item_to_agent_list(

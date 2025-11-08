@@ -22,6 +22,7 @@ use metaverse_messages::ui::errors::CompleteAgentMovementError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
+use rusqlite::Connection;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::net::UdpSocket as SyncUdpSocket;
@@ -45,6 +46,9 @@ pub struct Mailbox {
     pub client_socket: u16,
     /// UDP socket for connecting mailbox to the UI
     pub server_to_ui_socket: String,
+    /// the connection to the inventory sqlite DB
+    /// this stores folder data and inventory metadata
+    pub inventory_db_connection: Arc<Mutex<Connection>>,
 
     /// queue of ack packets to handle
     pub ack_queue: Arc<Mutex<HashSet<u32>>>,
@@ -80,8 +84,6 @@ pub struct Session {
     /// The HashMap for storing capability URLs
     pub capability_urls: HashMap<Capability, String>,
 
-    /// this stores information about the Inventory, like the rootID and the current inventory
-    /// tree in memory.
     #[cfg(feature = "inventory")]
     pub inventory_data: InventoryData,
 
@@ -162,7 +164,7 @@ impl Actor for Mailbox {
 
 impl Handler<RegionHandshake> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: RegionHandshake, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, _: RegionHandshake, ctx: &mut Self::Context) -> Self::Result {
         ctx.address()
             .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
                 session_id: self.session.as_ref().unwrap().session_id,
@@ -380,7 +382,7 @@ async fn handle_login(
                 inventory_root: login_response.inventory_root,
                 inventory_lib_root: login_response.inventory_lib_root,
                 inventory_lib_owner: login_response.inventory_lib_owner,
-                inventory_tree: None,
+                inventory_init: false,
             },
             #[cfg(feature = "agent")]
             agent_list: Arc::new(Mutex::new(HashMap::new())),

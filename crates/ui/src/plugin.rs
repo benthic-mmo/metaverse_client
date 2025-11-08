@@ -9,8 +9,8 @@ use std::path::PathBuf;
 
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    LandUpdateEvent, MeshQueue, MeshUpdateEvent, check_model_loaded, handle_land_update,
-    handle_mesh_update, setup_environment,
+    check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, LandUpdateEvent,
+    MeshQueue, MeshUpdateEvent,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -20,7 +20,7 @@ use bevy::app::App;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use crossbeam_channel::{Receiver, Sender, unbounded};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_messages::http::login::login_error::LoginError;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
 use metaverse_messages::ui::errors::SessionError;
@@ -298,6 +298,9 @@ fn handle_queue(
                 }
                 SessionError::IOError(e) => {
                     info!("IOError {:?}", e)
+                }
+                SessionError::FeatureError(e) => {
+                    info!("FeatureError {:?}", e)
                 }
             },
             UIMessage::ChatFromSimulator(chat_from_simulator) => {

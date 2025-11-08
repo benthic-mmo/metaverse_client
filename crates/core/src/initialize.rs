@@ -3,6 +3,8 @@ use actix::Actor;
 use actix_rt::time;
 use log::error;
 use log::info;
+use metaverse_inventory::initialize_sqlite::init_sqlite;
+use metaverse_messages::ui::errors::FeatureError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use std::collections::HashSet;
@@ -60,12 +62,15 @@ pub async fn initialize(
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
-    initialize_share_dir()?;
+    let share_dir = initialize_share_dir()?;
+    let connection = Arc::new(Mutex::new(
+        init_sqlite(share_dir).map_err(|e| FeatureError::Inventory(e.to_string()))?,
+    ));
 
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
-
+        inventory_db_connection: connection,
         ack_queue: Arc::new(Mutex::new(HashSet::new())),
 
         state: state.clone(),
