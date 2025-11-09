@@ -21,8 +21,8 @@ impl Mailbox {
                 Ok((size, _addr)) => {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
-                        Err(_) => {
-                            //println!("{:?}", e);
+                        Err(e) => {
+                            println!("{:?}", e);
                             //this currently has a lot of packets that don't parse. If this error
                             //were to be visible it would be a constant spam. Someday this will not
                             //be the case.
@@ -90,7 +90,9 @@ impl Mailbox {
                                 error!("Failed to handle chatfromsimulator{:?}", e)
                             }
                         }
-                        _ => {}
+                        other => {
+                            println!("{:?}", other);
+                        }
                     }
                 }
                 Err(e) => {

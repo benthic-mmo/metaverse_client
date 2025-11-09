@@ -370,3 +370,12 @@ pub mod object_update;
 /// | SessionID             | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user session (sent from server to client with login)|
 /// | CircuitCode           | 4 bytes  | [u32]              | The CircuitCode (sent from server to client with login) |
 pub mod complete_agent_movement;
+
+pub mod improved_terse_object_update;
+pub mod multiple_object_update;
+pub mod object_update_cached;
+pub mod object_update_compressed;
+
+pub mod agent_movement_complete;
+pub mod sim_stats;
+pub mod test_packet;

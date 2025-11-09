@@ -3,9 +3,17 @@ use crate::errors::ParseError;
 use crate::legacy::udp::agent_wearables_request::AgentWearablesRequest;
 use crate::legacy::udp::agent_wearables_update::AgentWearablesUpdate;
 use crate::packet::packet::PacketData;
+use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
+use crate::udp::core::agent_movement_complete::AgentMovementComplete;
+use crate::udp::core::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use crate::udp::core::logout_request::LogoutRequest;
+use crate::udp::core::multiple_object_update::MultipleObjectUpdate;
 use crate::udp::core::object_update::ObjectUpdate;
+use crate::udp::core::object_update_cached::ObjectUpdateCached;
+use crate::udp::core::object_update_compressed::ObjectUpdateCompressed;
+use crate::udp::core::sim_stats::SimStats;
+use crate::udp::core::test_packet::TestPacket;
 use crate::{
     udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
     udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
@@ -60,17 +68,25 @@ define_packets! {
     4 [High] => AgentUpdate,
     11 [High] => LayerData,
     12 [High] => ObjectUpdate,
+    13 [High] => ObjectUpdateCompressed,
+    14 [High] => ObjectUpdateCached,
+    15 [High] => ImprovedTerseObjectUpdate,
+    20 [High] => AvatarAnimation,
 
+    2 [Medium] => MultipleObjectUpdate,
     6 [Medium] => CoarseLocationUpdate,
 
+    1 [Low] => TestPacket,
     3 [Low] => CircuitCode,
     80 [Low] => ChatFromViewer,
     139 [Low] => ChatFromSimulator,
+    140 [Low] => SimStats,
     148 [Low] => RegionHandshake,
     149 [Low] => RegionHandshakeReply,
     152 [Low] => DisableSimulator,
     158 [Low] => AvatarAppearance,
     249 [Low] => CompleteAgentMovementData,
+    250 [Low]=> AgentMovementComplete,
     252 [Low] => LogoutRequest,
     251 [Low] => PacketAck,
 
