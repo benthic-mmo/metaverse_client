@@ -45,6 +45,8 @@ pub struct DownloadAgentAsset {
     pub item_name: String,
 
     pub item_id: Uuid,
+
+    pub asset_id: Uuid,
     /// The agent ID of the avatar
     pub agent_id: Uuid,
     /// The location of the agent in space
@@ -65,7 +67,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                     match msg.item_type {
                         // if an item's type is Object, that means it has a mesh.
                         ObjectType::Object => {
-                            match download_object(msg.item_type.to_string(), msg.item_id, &msg.url)
+                            match download_object(msg.item_type.to_string(), msg.asset_id, &msg.url)
                                 .await
                             {
                                 Ok(scene_group) => {
