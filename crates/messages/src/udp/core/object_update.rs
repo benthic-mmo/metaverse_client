@@ -3,7 +3,7 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use glam::{Vec3, Vec4};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
-use uuid::{uuid, Uuid};
+use uuid::Uuid;
 
 use crate::{
     errors::ParseError,

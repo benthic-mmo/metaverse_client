@@ -84,7 +84,7 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                         async move {
                             let mut conn = conn.lock().unwrap();
                             match refresh_inventory_2(
-                                &mut *conn,
+                                &mut conn,
                                 FolderRequest {
                                     folder_id,
                                     owner_id,

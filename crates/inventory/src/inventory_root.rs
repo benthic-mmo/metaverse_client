@@ -16,7 +16,7 @@ pub async fn refresh_inventory_2(
     server_endpoint: String,
 ) -> Result<(), InventoryError> {
     use std::collections::HashSet;
-    use std::pin::Pin;
+    
 
     // Define the recursive helper
     async fn refresh_recursive(
@@ -56,20 +56,20 @@ pub async fn refresh_inventory_2(
 
             for category in &folder.categories {
                 let category_request = FolderRequest {
-                    folder_id: category.category_id.clone(),
-                    owner_id: folder.owner_id.clone(),
+                    folder_id: category.category_id,
+                    owner_id: folder.owner_id,
                     fetch_items: true,
                     fetch_folders: true,
                     sort_order: 0,
                 };
 
                 // Box the recursive async call
-                Pin::from(Box::pin(refresh_recursive(
+                Box::pin(refresh_recursive(
                     conn,
                     category_request,
                     server_endpoint,
                     visited,
-                )))
+                ))
                 .await?;
             }
         }

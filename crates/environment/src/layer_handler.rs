@@ -1,9 +1,5 @@
 use bitreader::{BitReader, BitReaderError};
-use metaverse_messages::{
-    udp::environment::layer_data::{LayerData, LayerType},
-    utils::render_data::RenderObject,
-};
-use std::collections::HashMap;
+use metaverse_messages::udp::environment::layer_data::{LayerData, LayerType};
 
 use crate::{
     cloud::Cloud,

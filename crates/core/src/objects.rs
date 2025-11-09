@@ -1,8 +1,7 @@
 use super::agent::DownloadAgentAsset;
 use super::session::Mailbox;
-use actix::{AsyncContext, Handler, Message, WrapFuture};
+use actix::{AsyncContext, Handler, Message};
 use glam::Vec3;
-use log::error;
 use log::warn;
 use metaverse_agent::avatar::Avatar;
 
@@ -18,7 +17,6 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use crate::initialize::create_sub_agent_dir;
-use crate::transport::http_handler::download_object;
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
@@ -57,27 +55,15 @@ impl Handler<ObjectUpdate> for Mailbox {
 
             match msg.pcode {
                 ObjectType::Prim => {
-                    let item = match AttachItem::parse_attach_item(msg.name_value) {
+                    // this object type can be used to parent objects to bones on models.
+                    // TODO: handle this later.
+                    let _ = match AttachItem::parse_attach_item(msg.name_value) {
                         Ok(item) => item,
-                        Err(e) => {
-                            error!("{:?}", e);
+                        Err(_) => {
+                            // error!("{:?}", e);
                             return;
                         }
                     };
-                    println!("{:?}", item);
-                    println!("{:?}", msg.id);
-                    println!("{:?}", msg.full_id);
-
-                    //ctx.address().do_send(DownloadPrim {
-                    //    url: session
-                    //        .capability_urls
-                    //        .get(&Capability::ViewerAsset)
-                    //        .unwrap()
-                    //        .to_string(),
-                    //    id: msg.full_id,
-                    //    position: msg.motion_data.position,
-                    //});
-                    //println!("got prim: {:?}", msg)
                 }
                 ObjectType::Tree
                 | ObjectType::Grass
@@ -149,31 +135,6 @@ impl Handler<ObjectUpdate> for Mailbox {
                     println!("Unknown object type");
                 }
             }
-        }
-    }
-}
-
-impl Handler<DownloadPrim> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: DownloadPrim, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            let address = ctx.address().clone();
-            // do the downloading asyncronously.
-            ctx.spawn(
-                async move {
-                    match download_object(
-                        msg.item.item_type.to_string(),
-                        msg.item.asset_id,
-                        &msg.url,
-                    )
-                    .await
-                    {
-                        Ok(scene_group) => {}
-                        Err(e) => {}
-                    }
-                }
-                .into_actor(self),
-            );
         }
     }
 }

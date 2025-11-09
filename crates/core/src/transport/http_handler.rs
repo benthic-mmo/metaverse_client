@@ -146,7 +146,7 @@ pub async fn download_texture(
                     .unwrap(),
             )
         }
-        _ => Err(Error::other(format!("Unknown pixel format"))),
+        _ => Err(Error::other("Unknown pixel format".to_string())),
     }
 }
 

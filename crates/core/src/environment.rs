@@ -1,5 +1,4 @@
 use super::session::Mailbox;
-use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_share_dir;
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
@@ -10,20 +9,15 @@ use metaverse_environment::{
 };
 use metaverse_messages::packet::message::UIMessage;
 #[cfg(feature = "environment")]
-use metaverse_messages::{
-    udp::environment::layer_data::LayerData,
-    ui::mesh_update::{MeshType, MeshUpdate},
-};
+use metaverse_messages::udp::environment::layer_data::LayerData;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
-use uuid::Uuid;
 
-use log::{error, info, warn};
-use metaverse_mesh::gltf::build_mesh_gltf;
+use log::error;
 
 #[cfg(feature = "environment")]
 #[derive(Debug, Message)]
