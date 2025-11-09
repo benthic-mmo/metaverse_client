@@ -98,7 +98,14 @@ impl Handler<ObjectUpdate> for Mailbox {
                         let elements =
                             get_current_outfit(&self.inventory_db_connection.lock().unwrap())
                                 .unwrap_or_else(|e| panic!("Failed to get current outfit: {}", e));
-                        println!("ELEMENTS: {:?}", elements);
+
+                        // just count the objects for now.
+                        // TODO: fix this. Figure out the proper size.
+                        // keep only elements with type Object
+                        let object_elements: Vec<_> = elements
+                            .into_iter()
+                            .filter(|(_, _, _, t)| *t == ObjectType::Object)
+                            .collect();
 
                         //add the agent to the global agent list. This will be used to look up
                         //the position of agents and what they are wearing.
@@ -108,7 +115,7 @@ impl Handler<ObjectUpdate> for Mailbox {
                                 Avatar::new(
                                     msg.full_id,
                                     msg.motion_data.position,
-                                    elements.len() / 2,
+                                    object_elements.len(),
                                 ),
                             );
                         }
@@ -119,16 +126,17 @@ impl Handler<ObjectUpdate> for Mailbox {
                         }
 
                         // download all of the assets in the inventory
-                        for element in elements {
+                        for element in object_elements {
                             ctx.address().do_send(DownloadAgentAsset {
                                 url: session
                                     .capability_urls
                                     .get(&Capability::ViewerAsset)
                                     .unwrap()
                                     .to_string(),
-                                item_id: element.1,
                                 item_name: element.0,
-                                item_type: element.2,
+                                item_id: element.1,
+                                asset_id: element.2,
+                                item_type: element.3,
                                 agent_id: msg.full_id,
                                 position: msg.motion_data.position,
                             });

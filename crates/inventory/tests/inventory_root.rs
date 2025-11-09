@@ -1,4 +1,4 @@
-use metaverse_inventory::get_current_outfit::{self, get_current_outfit};
+use metaverse_inventory::agent::get_current_outfit;
 use metaverse_inventory::initialize_sqlite::init_sqlite;
 use metaverse_inventory::{errors::InventoryError, inventory_root::refresh_inventory_2};
 use metaverse_messages::http::folder_request::FolderRequest;
