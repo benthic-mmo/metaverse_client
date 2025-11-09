@@ -75,3 +75,5 @@ pub mod coarse_location_update;
 /// | v_param_len  | 1 byte   | [u8]               | length of visual param block |
 /// | visual_param_data | variable byes |          | Bytes containing the visual param data |
 pub mod avatar_appearance;
+
+pub mod avatar_animation;

@@ -4,12 +4,13 @@
 /// *PacketName*    is the name of the packet like "RegionHandshake"
 /// *id*            is the ID of the packet 
 /// 
-use std::io::{self, Cursor};
+use std::io::{Cursor};
 use crate::packet::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::errors::ParseError;
 
 impl Packet{
     pub fn new_*local_name*(*local_name*: *PacketName* ) -> Self{
@@ -37,7 +38,7 @@ pub struct *PacketName*{
 }
 
 impl PacketData for *PacketName* {
-    fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
         // handle from bytes
         Ok(*PacketName*{
