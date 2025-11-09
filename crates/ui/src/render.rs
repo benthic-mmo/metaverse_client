@@ -1,5 +1,4 @@
 use bevy::asset::RenderAssetUsages;
-use bevy::color::palettes::css::WHITE;
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};

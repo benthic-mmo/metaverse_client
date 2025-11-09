@@ -292,7 +292,7 @@ fn add_item_to_agent_list(
         // update the global avatar skeleton with the calculated object skeleton
         if let OutfitObject::MeshObject(object) = &item {
             let json_str = fs::read_to_string(&object.json_path)
-                .expect(&format!("Failed to read {:?}", object.json_path));
+                .unwrap_or_else(|_| panic!("Failed to read {:?}", object.json_path));
             let parts: Vec<RenderObject> = serde_json::from_str(&json_str).unwrap();
 
             if let Some(skin) = &parts[0].skin {

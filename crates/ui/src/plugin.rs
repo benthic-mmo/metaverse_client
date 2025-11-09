@@ -2,7 +2,6 @@ use bevy::gltf::{GltfMaterialName, GltfMeshName};
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
-use metaverse_messages::ui::land_update::LandUpdate;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
