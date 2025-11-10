@@ -19,13 +19,17 @@ use metaverse_messages::udp::core::region_handshake_reply::RegionHandshakeReply;
 use metaverse_messages::ui::errors::CapabilityError;
 use metaverse_messages::ui::errors::CircuitCodeError;
 use metaverse_messages::ui::errors::CompleteAgentMovementError;
+#[cfg(feature = "inventory")]
+use metaverse_messages::ui::errors::FeatureError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::net::UdpSocket as SyncUdpSocket;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::UdpSocket;
@@ -49,6 +53,7 @@ pub struct Mailbox {
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
     pub inventory_db_connection: Arc<Mutex<Connection>>,
+    pub inventory_db_location: PathBuf,
 
     /// queue of ack packets to handle
     pub ack_queue: Arc<Mutex<HashSet<u32>>>,
@@ -283,6 +288,11 @@ impl Handler<UIResponse> for Mailbox {
                             agent_id: session.agent_id,
                         }));
                 }
+                UIResponse::AgentUpdate(mut data) => {
+                    data.agent_id = session.agent_id;
+                    data.session_id = session.session_id;
+                    ctx.address().do_send(Packet::new_agent_update(data));
+                }
                 data => {
                     error!("Unrecognized UIMessage: {:?}", data)
                 }
@@ -379,9 +389,16 @@ async fn handle_login(
 
             #[cfg(feature = "inventory")]
             inventory_data: InventoryData {
-                inventory_root: login_response.inventory_root,
-                inventory_lib_root: login_response.inventory_lib_root,
-                inventory_lib_owner: login_response.inventory_lib_owner,
+                inventory_root: login_response.inventory_root.ok_or_else(|| {
+                    FeatureError::Inventory(
+                        "Login response contained no inventory_root".to_string(),
+                    )
+                })?,
+                inventory_lib_owner: login_response.inventory_lib_owner.ok_or_else(|| {
+                    FeatureError::Inventory(
+                        "Login response contained no inventory_lib_owner".to_string(),
+                    )
+                })?,
                 inventory_init: false,
             },
             #[cfg(feature = "agent")]

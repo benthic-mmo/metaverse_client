@@ -3,10 +3,11 @@ use std::time::Duration;
 
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
-use metaverse_inventory::inventory_root::refresh_inventory_2;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;
 use uuid::Uuid;
+
+use metaverse_inventory::inventory_root::refresh_inventory;
 
 use super::session::Mailbox;
 
@@ -18,14 +19,9 @@ pub struct InventoryData {
     /// The root of the inventory, received from the LoginResponse. This is a vector of the base
     /// UUIDs that will be used to create the root of the inventory tree using a
     /// FetchInventoryDescendents2 call.
-    pub inventory_root: Option<Vec<Uuid>>,
-    /// The root of the inventory lib, received from the LoginResponse. This is a vector of base
-    /// UUIDs that will be used to create the root of the inventory lib tree using a
-    /// FetchLibDescendents2 call. The library contains the public inventory for the simulator and
-    /// is used to retrieve other people's items and appearances.
-    pub inventory_lib_root: Option<Vec<Uuid>>,
+    pub inventory_root: Uuid,
     /// The UUID of the owner of the inventory lib. Used to create the FetchLibDescendents2 call.
-    pub inventory_lib_owner: Option<Vec<Uuid>>,
+    pub inventory_lib_owner: Uuid,
     pub inventory_init: bool,
 }
 
@@ -54,36 +50,33 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                 warn!("Capabilities not ready yet. Queueing inventory refresh...");
                 ctx.notify_later(msg, Duration::from_secs(1));
             } else {
-                let capability_url = if msg.agent_id == session.agent_id {
-                    session
-                        .capability_urls
-                        .get(&Capability::FetchInventoryDescendents2)
+                // if the message's agent id is the session ID, use the FetchInventoryDescendents2
+                // endpoint.
+                let (capability_url, folder_id, owner_id) = if msg.agent_id == session.agent_id {
+                    (
+                        session
+                            .capability_urls
+                            .get(&Capability::FetchInventoryDescendents2),
+                        session.inventory_data.inventory_root,
+                        session.agent_id,
+                    )
                 } else {
-                    session
-                        .capability_urls
-                        .get(&Capability::FetchLibDescendents2)
+                    (
+                        session
+                            .capability_urls
+                            .get(&Capability::FetchLibDescendents2),
+                        Uuid::nil(),
+                        session.inventory_data.inventory_lib_owner,
+                    )
                 };
                 if let Some(url) = capability_url {
-                    // good lord
-                    // this is obviously wrong but it works kind of
-                    // TODO please god fix this immediately
-                    // people are reading this code now
-                    let folder_id = session
-                        .inventory_data
-                        .inventory_root
-                        .as_ref()
-                        .and_then(|vec| vec.first())
-                        .copied()
-                        .unwrap_or(Uuid::nil());
-
-                    let owner_id = session.agent_id;
                     let url = url.clone();
                     let addr = ctx.address();
                     let conn = self.inventory_db_connection.clone();
                     ctx.spawn(
                         async move {
                             let mut conn = conn.lock().unwrap();
-                            match refresh_inventory_2(
+                            match refresh_inventory(
                                 &mut conn,
                                 FolderRequest {
                                     folder_id,
@@ -100,7 +93,7 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                                     addr.do_send(InventoryInit);
                                 }
                                 Err(e) => {
-                                    error!("REFRESH INVENTORY EVENT {:?}", e)
+                                    error!("REFRESH INVENTORY EVENT FAILED {:?}", e)
                                 }
                             }
                         }

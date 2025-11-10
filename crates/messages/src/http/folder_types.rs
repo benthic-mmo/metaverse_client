@@ -1,24 +1,10 @@
-use actix::Message;
 use serde_llsd_benthic::LLSDValue;
-use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 use crate::{
     errors::ParseError,
     utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
-
-#[derive(Debug, Clone, Message)]
-#[rtype(result = "()")]
-/// The data structure for storing the folder tree
-pub struct FolderNode {
-    /// The folder object itself that contains the owner id, items, and etc
-    pub folder: Folder,
-    /// The child folders of the folder
-    pub children: HashMap<ObjectType, FolderNode>,
-    /// the path of the folder on the disk
-    pub path: PathBuf,
-}
 
 #[derive(Debug, Clone)]
 /// Category folders. Contains information about cateogies under the root folder.
@@ -83,6 +69,18 @@ impl Category {
             version,
         })
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum FolderResult {
+    Success(Folder),
+    Failure(FolderError),
+}
+
+#[derive(Debug, Clone)]
+pub struct FolderError {
+    pub folder_id: Uuid,
+    pub error: String,
 }
 
 #[derive(Debug, Clone)]

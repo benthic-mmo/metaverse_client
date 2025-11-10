@@ -78,7 +78,7 @@ impl Mailbox {
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
                             if let Err(e) = mailbox_address.send(*data.clone()).await {
-                                error!("Failed to handle AgentWearablesUpdate {:?}", e)
+                                error!("Failed to handle LayerData {:?}", e)
                             };
                         }
                         // Send UI packets to the UI as UiMessages.

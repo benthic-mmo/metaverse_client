@@ -63,14 +63,17 @@ pub async fn initialize(
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let share_dir = initialize_share_dir()?;
+
+    let db_path = share_dir.join("inventory.db");
     let connection = Arc::new(Mutex::new(
-        init_sqlite(share_dir).map_err(|e| FeatureError::Inventory(e.to_string()))?,
+        init_sqlite(db_path.clone()).map_err(|e| FeatureError::Inventory(e.to_string()))?,
     ));
 
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
         inventory_db_connection: connection,
+        inventory_db_location: db_path,
         ack_queue: Arc::new(Mutex::new(HashSet::new())),
 
         state: state.clone(),

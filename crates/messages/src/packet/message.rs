@@ -1,8 +1,9 @@
 use crate::{
     errors::ParseError,
     udp::{
-        agent::coarse_location_update::CoarseLocationUpdate,
-        chat::chat_from_simulator::ChatFromSimulator, core::disable_simulator::DisableSimulator,
+        agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
+        chat::chat_from_simulator::ChatFromSimulator,
+        core::disable_simulator::DisableSimulator,
     },
     ui::{
         chat_from_viewer::ChatFromUI, errors::SessionError, land_update::LandUpdate,
@@ -24,6 +25,10 @@ pub enum UIResponse {
     ChatFromViewer(ChatFromUI),
     /// Message for sending logout events from the UI to the core to the server.
     Logout(Logout),
+
+    /// Message for informing the server of updates to the agent, like head position, motion, and
+    /// FOV.
+    AgentUpdate(AgentUpdate),
 }
 impl UIResponse {
     /// converts a UiEvent object to bytes using serde.

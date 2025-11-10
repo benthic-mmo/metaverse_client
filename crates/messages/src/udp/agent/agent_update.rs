@@ -1,10 +1,12 @@
 use crate::errors::ParseError;
+use crate::packet::message::UIResponse;
 use crate::packet::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
 use glam::{Quat, Vec3};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Flag for setting typing state
@@ -101,7 +103,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// User states. Currently only typing and editing.
 /// used to display typing animations, and edit mode indicators.
 pub struct State {
@@ -138,7 +140,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Defines the actions an Agent Update packet can take
 pub struct ControlFlags {
     /// undocumented
@@ -384,7 +386,7 @@ impl ControlFlags {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// Struct for hide title flags.
 pub struct Flags {
     /// no flags at all
@@ -419,7 +421,7 @@ impl Flags {
         bits
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// AgentUpdate struct. Regularly sent to the viewer in order to keep the viewer updated about the
 /// user's location and movement.
 pub struct AgentUpdate {
@@ -464,6 +466,12 @@ impl Default for AgentUpdate {
             control_flags: ControlFlags::default(),
             flags: Flags::default(),
         }
+    }
+}
+
+impl UIResponse {
+    pub fn new_agent_update(data: AgentUpdate) -> Self {
+        UIResponse::AgentUpdate(data)
     }
 }
 

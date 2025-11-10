@@ -2,6 +2,7 @@ use bevy::gltf::{GltfMaterialName, GltfMeshName};
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
+use metaverse_messages::udp::agent::agent_update::AgentUpdate;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
@@ -372,31 +373,17 @@ pub fn retrieve_login_response<'a>(
     }
 }
 
-// TODO: reimpliment this. This will send the location of the user to the server for motion, and
-// needs to be handled by the ui.
-fn send_agent_update(
-    _session_data: Res<SessionData>,
-    _sockets: Res<Sockets>,
-    time: Res<Time>,
-    mut timer: ResMut<AgentUpdateTimer>,
-) {
-    if !timer.0.tick(time.delta()).just_finished() {}
-
-    //let data = session_data.login_response.as_ref().unwrap();
-    //let packet = Packet::new_agent_update(AgentUpdate {
-    //    agent_id: data.agent_id,
-    //    session_id: data.session_id,
-    //    ..Default::default()
-    //})
-    //.to_bytes();
-    //println!("{:?}", packet);
-
-    // let client_socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    // match client_socket.send_to(
-    //     &packet,
-    //     format!("127.0.0.1:{}", sockets.ui_to_server_socket),
-    // ) {
-    //     Ok(_) => {}
-    //     Err(e) => println!("Error sending agent update from UI {:?}", e),
-    // };
+// Send an agent update every second
+fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, mut timer: ResMut<AgentUpdateTimer>) {
+    if !timer.0.tick(time.delta()).just_finished() {
+        if let Err(e) = send_packet_to_core(
+            &UIResponse::new_agent_update(AgentUpdate {
+                ..Default::default()
+            })
+            .to_bytes(),
+            &sockets,
+        ) {
+            error!("{:?}", e)
+        };
+    }
 }

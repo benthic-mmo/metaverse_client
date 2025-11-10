@@ -1,24 +1,19 @@
 use std::time::SystemTime;
-use std::{collections::HashMap, fs::create_dir_all, path::PathBuf};
-
-use log::{info, warn};
 use metaverse_messages::http::folder_request::FolderRequest;
-use metaverse_messages::http::folder_types::{Category, Folder, FolderNode};
+use metaverse_messages::http::folder_types::{Category, Folder};
 use metaverse_messages::utils::item_metadata::ItemMetadata;
 use rusqlite::{params, Connection};
 use serde_llsd_benthic::from_str;
 use uuid::Uuid;
 use crate::errors::InventoryError;
 
-pub async fn refresh_inventory_2(
+pub async fn refresh_inventory(
     conn: &mut Connection,
     folder_request: FolderRequest,
     server_endpoint: String,
 ) -> Result<(), InventoryError> {
     use std::collections::HashSet;
-    
 
-    // Define the recursive helper
     async fn refresh_recursive(
         conn: &mut Connection,
         folder_request: FolderRequest,
@@ -41,16 +36,19 @@ pub async fn refresh_inventory_2(
             .await?;
 
         let data = String::from_utf8_lossy(&body_bytes);
+        if data == "<llsd><map><key>folders</key><array /></map></llsd>" ||  data == ""{
+            return Err(InventoryError::Error("Empty endpoint response".to_string())); 
+        }
         let parsed_data = from_str(&data)?;
         let folders = Folder::from_llsd(parsed_data)?;
 
-        for folder in folders {
+        for mut folder in folders {
             if !visited.insert(folder.folder_id) {
                 // Already processed, skip to prevent infinite recursion
                 continue;
             }
 
-            insert_folder(conn, &folder)?;
+            insert_folder(conn, &mut folder)?;
             insert_items(conn, &folder.folder_id, &folder.items)?;
             insert_categories(conn, &folder.folder_id, &folder.categories)?;
 
@@ -82,7 +80,7 @@ pub async fn refresh_inventory_2(
 }
 
 
-fn insert_folder(conn: &mut Connection, folder: &Folder) -> Result<(), InventoryError> {
+fn insert_folder(conn: &mut Connection, folder: &mut Folder) -> Result<(), InventoryError> {
     conn.execute(
         "INSERT OR REPLACE INTO folders (id, owner_id, agent_id, descendent_count, version)
          VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -98,6 +96,7 @@ fn insert_folder(conn: &mut Connection, folder: &Folder) -> Result<(), Inventory
 }
 
 fn insert_categories(conn: &mut Connection, folder_id:&Uuid, categories: &[Category]) -> Result<(), InventoryError>{
+    
     for category in categories{
         conn.execute(
             "INSERT OR REPLACE INTO categories (folder_id, name, id, type_default, version)
@@ -168,100 +167,3 @@ fn insert_items(
     Ok(())
 }
 
-pub async fn refresh_inventory(
-    folder_request: FolderRequest,
-    server_endpoint: String,
-    inventory_current_dir: PathBuf,
-) -> Result<FolderNode, InventoryError> {
-    println!("inventory_current_dir: {:?}", inventory_current_dir);
-    let client = awc::Client::default();
-    let url = server_endpoint.to_string();
-    let data = match client
-        .post(url)
-        .insert_header(("Content-Type", "application/llsd+xml"))
-        .send_body(folder_request.to_llsd()?)
-        .await
-    {
-        Ok(mut response) => match response.body().await {
-            Ok(body_bytes) => body_bytes,
-            Err(e) => {
-                return Err(InventoryError::Error(format!(
-                    "Failed to read body: {:?}",
-                    e
-                )));
-            }
-        },
-        Err(e) => {
-            return Err(InventoryError::Error(format!(
-                "Failed to send with: {:?}",
-                e
-            )));
-        }
-    };
-
-    let node = Box::pin(establish_inventory_dirs(
-        data.as_ref(),
-        server_endpoint,
-        inventory_current_dir,
-    ))
-    .await?;
-    Ok(node)
-}
-
-async fn establish_inventory_dirs(
-    data: &[u8],
-    server_endpoint: String,
-    mut current_dir: PathBuf,
-) -> Result<FolderNode, InventoryError> {
-    let data = String::from_utf8_lossy(data);
-    let parsed_data = from_str(&data)?;
-    let folders = Folder::from_llsd(parsed_data)?;
-
-    if let Some(data_dir) = dirs::data_dir() {
-        let local_share_dir = data_dir.join("benthic");
-        if !local_share_dir.exists() {
-            if let Err(e) = create_dir_all(&local_share_dir) {
-                warn!("Failed to create local share benthic: {}", e);
-            };
-            info!("Created Directory: {:?}", local_share_dir);
-        }
-        let inventory_root = local_share_dir.join("inventory");
-        if !inventory_root.exists() {
-            if let Err(e) = create_dir_all(&inventory_root) {
-                warn!("Failed to create inventory {:?}", e);
-            };
-            info!("Created Directory: {:?}", inventory_root);
-        }
-
-        if let Some(folder) = folders.into_iter().next() {
-            current_dir.push(folder.folder_id.to_string());
-            let inventory_current_dir = inventory_root.join(current_dir.clone());
-            let mut root_node = FolderNode {
-                folder: folder.clone(),
-                path: inventory_current_dir,
-                children: HashMap::new(),
-            };
-
-            let mut children_nodes = HashMap::new();
-            for category in folder.categories {
-                let category_request = FolderRequest {
-                    folder_id: category.category_id,
-                    owner_id: folder.owner_id,
-                    fetch_items: true,
-                    fetch_folders: true,
-                    sort_order: 0,
-                };
-                let child_node = refresh_inventory(
-                    category_request,
-                    server_endpoint.clone(),
-                    current_dir.clone(),
-                )
-                .await?;
-                children_nodes.insert(category.type_default, child_node);
-            }
-            root_node.children.extend(children_nodes);
-            return Ok(root_node);
-        }
-    }
-    Err(InventoryError::Error("No folders found".to_string()))
-}
