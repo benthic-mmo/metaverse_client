@@ -377,5 +377,7 @@ pub mod object_update_cached;
 pub mod object_update_compressed;
 
 pub mod agent_movement_complete;
+pub mod kill_object;
 pub mod sim_stats;
 pub mod test_packet;
+pub mod viewer_effect;

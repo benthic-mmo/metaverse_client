@@ -12,7 +12,7 @@ fn parse_login_response() {
     file.read_to_end(&mut buffer).unwrap();
 
     let xml_string = String::from_utf8(buffer).unwrap();
-    let response = LoginResponse::from_xml(&xml_string).unwrap();
+    let response = LoginResponse::from_xmlrpc(&xml_string).unwrap();
     match response {
         LoginStatus::Success(response) => {
             assert_eq!(response.first_name, "Justin".to_string());
@@ -20,10 +20,19 @@ fn parse_login_response() {
                 response.inventory_skeleton.unwrap()[0].folder_id,
                 uuid!("004d663b-9980-46ae-8559-bb60e9d67d28")
             );
+            assert_eq!(
+                response.inventory_root,
+                Some(uuid!("37c4cfe3-ea39-4ef7-bda3-bee73bd46d95"))
+            );
+            assert_eq!(
+                response.inventory_lib_owner,
+                Some(uuid!("11111111-1111-0000-0000-000100bba000"))
+            );
         }
         _ => panic!("login response failed"),
     }
 }
+
 #[test]
 fn parse_login_response_live() {
     let mut file = File::open("tests/data/login_response_2.txt").unwrap();
@@ -31,7 +40,7 @@ fn parse_login_response_live() {
     file.read_to_end(&mut buffer).unwrap();
 
     let xml_string = String::from_utf8(buffer).unwrap();
-    let response = LoginResponse::from_xml(&xml_string).unwrap();
+    let response = LoginResponse::from_xmlrpc(&xml_string).unwrap();
     match response {
         LoginStatus::Success(response) => {
             assert_eq! {
@@ -49,7 +58,7 @@ fn parse_login_failure() {
     file.read_to_end(&mut buffer).unwrap();
 
     let xml_string = String::from_utf8(buffer).unwrap();
-    let response = LoginResponse::from_xml(&xml_string).unwrap();
+    let response = LoginResponse::from_xmlrpc(&xml_string).unwrap();
     match response {
         LoginStatus::Failure(response) => {
             assert_eq!(response.reason, Reason::Presence)

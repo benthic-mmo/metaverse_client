@@ -34,15 +34,15 @@ pub struct LoginResponse {
     /// The URL that the viewer should use to request further capabilities
     pub seed_capability: Option<String>,
     /// The ID of the user's root folder
-    pub inventory_root: Option<Vec<Uuid>>,
+    pub inventory_root: Option<Uuid>,
     /// Details about the child folders of the root folder
     pub inventory_skeleton: Option<Vec<InventorySkeletonValues>>,
     /// The ID of the library root folder
-    pub inventory_lib_root: Option<Vec<Uuid>>,
+    pub inventory_lib_root: Option<Uuid>,
     /// Details about the child folders of the library root folder
     pub inventory_skeleton_lib: Option<Vec<InventorySkeletonValues>>,
     /// The ID of the user that owns the library
-    pub inventory_lib_owner: Option<Vec<Uuid>>,
+    pub inventory_lib_owner: Option<Uuid>,
     /// home: the home location of the user
     pub home: Option<HomeValues>,
     /// look_at: the direction the avatar should be facing
@@ -139,7 +139,8 @@ impl LoginResponse {
                         ui_config: get_nested_vec("ui_config", map),
                         event_notifications: get_opt("event_notifications", map),
                         inventory_root: get_inventory_root(map),
-                        inventory_lib_root: get_nested_vec("inventory-lib-root", map),
+                        inventory_lib_root: get_nested_value("inventory-lib-root", map),
+                        inventory_lib_owner: get_inventory_lib_owner(map),
                         inventory_skeleton: get_nested_vec("inventory-skeleton", map),
                         inventory_skeleton_lib: get_nested_vec("inventory-skel-lib", map),
                         classified_categories: get_nested_vec("classified_categories", map),
@@ -148,7 +149,6 @@ impl LoginResponse {
                         region_y: get_opt("region_y", map),
                         start_location: get_opt("start_location", map),
                         event_categories: get_opt("event_categories", map),
-                        inventory_lib_owner: get_nested_vec("inventory_lib_owner", map),
                         buddy_list: get_vec("buddy_list", map),
                         region_size_x: get_opt("region_size_x", map),
                         region_size_y: get_opt("region_size_y", map),
@@ -170,25 +170,55 @@ impl LoginResponse {
     }
 }
 
-// this needs to get handled differently because it's different from all the others by it not
-// having a  custom type, and is just a UUID. I don't want to make a useless wrapper type for it.
-fn get_inventory_root(map: &HashMap<String, LLSDValue>) -> Option<Vec<Uuid>> {
-    match map.get("inventory-root") {
-        Some(LLSDValue::Array(arr)) => Some(
-            arr.iter()
-                .filter_map(|item| {
-                    if let LLSDValue::Map(inner_map) = item {
-                        get_opt::<Uuid>("folder_id", inner_map)
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
-        ),
-        _ => None,
-    }
+fn get_inventory_root(map: &HashMap<String, LLSDValue>) -> Option<Uuid> {
+    map.get("inventory-root").and_then(|v| {
+        if let LLSDValue::Array(arr) = v {
+            arr.iter().find_map(|item| {
+                if let LLSDValue::Map(inner_map) = item {
+                    get_opt::<Uuid>("folder_id", inner_map)
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        }
+    })
 }
-
+pub fn get_inventory_lib_owner(map: &HashMap<String, LLSDValue>) -> Option<Uuid> {
+    map.get("inventory-lib-owner").and_then(|v| {
+        if let LLSDValue::Array(arr) = v {
+            for item in arr {
+                if let LLSDValue::Map(inner_map) = item {
+                    // each inner_map represents the <struct> with agent_id
+                    if let Some(uuid) = get_opt::<Uuid>("agent_id", inner_map) {
+                        return Some(uuid); // return first agent_id found
+                    }
+                }
+            }
+        }
+        None
+    })
+}
+pub fn get_nested_value<T: FromLLSDValue>(
+    key: &str,
+    map: &HashMap<String, LLSDValue>,
+) -> Option<T> {
+    map.get(key).and_then(|v| {
+        if let LLSDValue::Array(arr) = v {
+            for inner in arr {
+                if let LLSDValue::Array(inner_arr) = inner {
+                    for item in inner_arr {
+                        if let Some(parsed) = T::from_llsd(item) {
+                            return Some(parsed); // return the first parsed value
+                        }
+                    }
+                }
+            }
+        }
+        None
+    })
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// Classified categories values. Used for storing the ID and name of classified categories.
 pub struct ClassifiedCategoriesValues {

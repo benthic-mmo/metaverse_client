@@ -7,6 +7,7 @@ use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;
 use crate::udp::core::improved_terse_object_update::ImprovedTerseObjectUpdate;
+use crate::udp::core::kill_object::KillObject;
 use crate::udp::core::logout_request::LogoutRequest;
 use crate::udp::core::multiple_object_update::MultipleObjectUpdate;
 use crate::udp::core::object_update::ObjectUpdate;
@@ -14,6 +15,7 @@ use crate::udp::core::object_update_cached::ObjectUpdateCached;
 use crate::udp::core::object_update_compressed::ObjectUpdateCompressed;
 use crate::udp::core::sim_stats::SimStats;
 use crate::udp::core::test_packet::TestPacket;
+use crate::udp::core::viewer_effect::ViewerEffect;
 use crate::{
     udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
     udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
@@ -72,9 +74,11 @@ define_packets! {
     14 [High] => ObjectUpdateCached,
     15 [High] => ImprovedTerseObjectUpdate,
     20 [High] => AvatarAnimation,
+    16 [High] => KillObject,
 
     2 [Medium] => MultipleObjectUpdate,
     6 [Medium] => CoarseLocationUpdate,
+    17 [Medium] => ViewerEffect,
 
     1 [Low] => TestPacket,
     3 [Low] => CircuitCode,
