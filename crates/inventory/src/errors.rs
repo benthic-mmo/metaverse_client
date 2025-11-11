@@ -1,11 +1,20 @@
+use std::time::SystemTimeError;
+
 use awc::error::{PayloadError, SendRequestError};
 use metaverse_messages::errors::ParseError;
+use sqlx::migrate::MigrateError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum InventoryError {
-    #[error("Sqlite error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
+    #[error("Parse Error: {0}")]
+    ParseError(#[from] uuid::Error),
+
+    #[error("Migration Error: {0}")]
+    MigrationError(#[from] MigrateError),
+
+    #[error("Sqlx Error: {0}")]
+    SqlxError(#[from] sqlx::Error),
 
     #[error("XML error: {0}")]
     Xml(#[from] quick_xml::Error),
@@ -33,4 +42,10 @@ pub enum InventoryError {
 
     #[error("PayloadError: {0}")]
     PayloadError(#[from] PayloadError),
+
+    #[error("SerdeError: {0}")]
+    SerdeError(#[from] serde_json::Error),
+
+    #[error("System time error {0}")]
+    SystemTimeError(#[from] SystemTimeError),
 }

@@ -24,10 +24,10 @@ use metaverse_messages::ui::errors::FeatureError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
-use rusqlite::Connection;
+use sqlx::Pool;
+use sqlx::Sqlite;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs;
 use std::net::UdpSocket as SyncUdpSocket;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,7 +52,8 @@ pub struct Mailbox {
     pub server_to_ui_socket: String,
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
-    pub inventory_db_connection: Arc<Mutex<Connection>>,
+    pub inventory_db_connection: Pool<Sqlite>,
+    /// the location on disk of the inventory sqlite DB.
     pub inventory_db_location: PathBuf,
 
     /// queue of ack packets to handle
@@ -90,6 +91,7 @@ pub struct Session {
     pub capability_urls: HashMap<Capability, String>,
 
     #[cfg(feature = "inventory")]
+    /// inventory details retrieved from initial login
     pub inventory_data: InventoryData,
 
     /// The environment cache. Contains things for handling and generating the environment.
@@ -98,7 +100,7 @@ pub struct Session {
 
     /// The agent list. Contains information about the appearances of all loaded agents
     #[cfg(feature = "agent")]
-    pub agent_list: Arc<Mutex<HashMap<Uuid, Avatar>>>,
+    pub avatars: HashMap<Uuid, Avatar>,
 }
 
 /// contains information about pings sent to the server
@@ -401,9 +403,10 @@ async fn handle_login(
                 })?,
                 inventory_init: false,
             },
-            #[cfg(feature = "agent")]
-            agent_list: Arc::new(Mutex::new(HashMap::new())),
             socket: None,
+
+            #[cfg(feature = "agent")]
+            avatars: HashMap::new(),
         })
         .await
     {

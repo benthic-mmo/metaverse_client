@@ -72,14 +72,20 @@ impl Category {
 }
 
 #[derive(Debug, Clone)]
+/// contains success and failure for retrieving folders from the capability endpoint
 pub enum FolderResult {
+    /// Folder retrieved successfully  
     Success(Folder),
+    /// Failed to retrieve folder
     Failure(FolderError),
 }
 
 #[derive(Debug, Clone)]
+/// Describes the folder error returned from the capability endpoint
 pub struct FolderError {
+    /// ID of failed folder
     pub folder_id: Uuid,
+    /// Error string of failed folder
     pub error: String,
 }
 

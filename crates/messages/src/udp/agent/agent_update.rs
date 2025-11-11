@@ -470,6 +470,7 @@ impl Default for AgentUpdate {
 }
 
 impl UIResponse {
+    /// create a new UI message to allow the client to inform the server of agent updates
     pub fn new_agent_update(data: AgentUpdate) -> Self {
         UIResponse::AgentUpdate(data)
     }

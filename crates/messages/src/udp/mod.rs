@@ -11,3 +11,6 @@ pub mod core;
 /// Packets related to environment rendering
 /// Contains packets related to Layer and object handling.
 pub mod environment;
+
+/// Packets related to object handling
+pub mod object;

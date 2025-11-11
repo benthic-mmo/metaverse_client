@@ -5,14 +5,21 @@ use serde_llsd_benthic::{ser::xml, LLSDValue};
 use uuid::Uuid;
 
 #[derive(Debug)]
+/// The struct to define a request for a folder
 pub struct FolderRequest {
+    /// ID of the folder being requested
     pub folder_id: Uuid,
+    /// owner of the folder being requested
     pub owner_id: Uuid,
+    /// bool to fetch folders
     pub fetch_folders: bool,
+    /// bool to fetch items
     pub fetch_items: bool,
+    /// sort order
     pub sort_order: u8,
 }
 impl FolderRequest {
+    /// convert folder request to LLSD for sending to the capabilty endpoint
     pub fn to_llsd(&self) -> Result<String, ParseError> {
         let mut map = HashMap::new();
         map.insert("folder_id".to_string(), LLSDValue::UUID(self.folder_id));

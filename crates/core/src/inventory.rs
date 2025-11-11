@@ -22,6 +22,7 @@ pub struct InventoryData {
     pub inventory_root: Uuid,
     /// The UUID of the owner of the inventory lib. Used to create the FetchLibDescendents2 call.
     pub inventory_lib_owner: Uuid,
+    /// boolean to signify the inventory has successfully loaded and is ready for use.
     pub inventory_init: bool,
 }
 
@@ -75,9 +76,8 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                     let conn = self.inventory_db_connection.clone();
                     ctx.spawn(
                         async move {
-                            let mut conn = conn.lock().unwrap();
                             match refresh_inventory(
-                                &mut conn,
+                                &conn,
                                 FolderRequest {
                                     folder_id,
                                     owner_id,

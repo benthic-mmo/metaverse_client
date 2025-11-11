@@ -6,16 +6,17 @@ use crate::packet::packet::PacketData;
 use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;
-use crate::udp::core::improved_terse_object_update::ImprovedTerseObjectUpdate;
-use crate::udp::core::kill_object::KillObject;
 use crate::udp::core::logout_request::LogoutRequest;
-use crate::udp::core::multiple_object_update::MultipleObjectUpdate;
-use crate::udp::core::object_update::ObjectUpdate;
-use crate::udp::core::object_update_cached::ObjectUpdateCached;
-use crate::udp::core::object_update_compressed::ObjectUpdateCompressed;
 use crate::udp::core::sim_stats::SimStats;
 use crate::udp::core::test_packet::TestPacket;
 use crate::udp::core::viewer_effect::ViewerEffect;
+use crate::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
+use crate::udp::object::kill_object::KillObject;
+use crate::udp::object::multiple_object_update::MultipleObjectUpdate;
+use crate::udp::object::object_update::ObjectUpdate;
+use crate::udp::object::object_update_cached::ObjectUpdateCached;
+use crate::udp::object::object_update_compressed::ObjectUpdateCompressed;
+use crate::udp::object::request_multiple_objects::RequestMultipleObjects;
 use crate::{
     udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
     udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
@@ -61,6 +62,7 @@ macro_rules! define_packets {
         }
     }
 }
+
 // The packet type implementation for each packet.
 // packets are determined based on their ID and Frequency.
 // this macro allows for simple assinging IDs and Frequencies to packets
@@ -77,6 +79,7 @@ define_packets! {
     16 [High] => KillObject,
 
     2 [Medium] => MultipleObjectUpdate,
+    3 [Medium] => RequestMultipleObjects,
     6 [Medium] => CoarseLocationUpdate,
     17 [Medium] => ViewerEffect,
 

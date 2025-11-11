@@ -11,5 +11,5 @@ fn parse_login_failure() {
     let serialized = String::from_utf8(buffer).unwrap();
     let response: SimulatorLoginProtocol = serde_json::from_str(&serialized).unwrap();
     let _llsd = response.to_llsd_map();
-    let _xml = response.to_xml();
+    let _xml = response.to_xmlrpc();
 }

@@ -4,14 +4,14 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-
-use std::io::{self, Cursor};
+use std::io::Cursor;
 
 impl Packet {
-    pub fn new_object_update_compressed(object_update_compressed: ObjectUpdateCompressed) -> Self {
+    /// create a new object update cached packet
+    pub fn new_object_update_cached(object_update_cached: ObjectUpdateCached) -> Self {
         Packet {
             header: Header {
-                id: 13,
+                id: 14,
                 reliable: true,
                 resent: false,
                 zerocoded: false,
@@ -21,26 +21,22 @@ impl Packet {
                 ack_list: None,
                 size: None,
             },
-            body: PacketType::ObjectUpdateCompressed(Box::new(object_update_compressed)),
+            body: PacketType::ObjectUpdateCached(Box::new(object_update_cached)),
         }
     }
 }
 
-/// add your struct fields here
 #[derive(Debug, Clone)]
-pub struct ObjectUpdateCompressed {}
+/// TODO: UNIMPLEMENTED
+pub struct ObjectUpdateCached {}
 
-impl PacketData for ObjectUpdateCompressed {
+impl PacketData for ObjectUpdateCached {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let mut cursor = Cursor::new(bytes);
-        // handle from bytes
-        Ok(ObjectUpdateCompressed{
-            // Struct fields 
-        })
+        let mut _cursor = Cursor::new(bytes);
+        Ok(ObjectUpdateCached {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
-        // push your data into the new vector
-        bytes
+        
+        Vec::new()
     }
 }
