@@ -63,11 +63,10 @@ pub async fn initialize(
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
     let share_dir = initialize_share_dir()?;
-
     let db_path = share_dir.join("inventory.db");
-    let connection = Arc::new(Mutex::new(
-        init_sqlite(db_path.clone()).map_err(|e| FeatureError::Inventory(e.to_string()))?,
-    ));
+    let connection = init_sqlite(db_path.clone())
+        .await
+        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
 
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),

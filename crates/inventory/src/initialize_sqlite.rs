@@ -1,18 +1,26 @@
-use std::{fs, path::PathBuf, sync::LazyLock};
-
-use include_dir::{include_dir, Dir};
-use rusqlite::Connection;
-use rusqlite_migration::Migrations;
-
 use crate::errors::InventoryError;
+use sqlx::migrate::Migrator;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use std::{fs, io::ErrorKind, path::PathBuf};
 
-static MIGRATIONS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/migrations");
-static MIGRATIONS: LazyLock<Migrations<'static>> =
-    LazyLock::new(|| Migrations::from_directory(&MIGRATIONS_DIR).unwrap());
+static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
-pub fn init_sqlite(path: PathBuf) -> Result<Connection, InventoryError> {
-    fs::remove_file(&path)?;
-    let mut conn = Connection::open(path)?;
-    MIGRATIONS.to_latest(&mut conn).unwrap();
-    Ok(conn)
+pub async fn init_sqlite(path: PathBuf) -> Result<SqlitePool, InventoryError> {
+    // Remove existing DB if it exists
+    match fs::remove_file(&path) {
+        Ok(_) => (),
+        Err(ref e) if e.kind() == ErrorKind::NotFound => (),
+        Err(e) => return Err(e.into()),
+    }
+    fs::File::create(&path)?;
+    let database_url = format!("sqlite:{}", path.display());
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await?;
+
+    MIGRATOR.run(&pool).await?;
+
+    Ok(pool)
 }

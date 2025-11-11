@@ -1,120 +1,117 @@
-use std::str::FromStr;
-
+use crate::errors::InventoryError;
+use std::collections::HashSet;
 use metaverse_messages::utils::object_types::ObjectType;
-use rusqlite::Connection;
+use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use crate::errors::InventoryError;
+use sqlx::Row; // needed for .get()
 
-pub fn get_agent_outfit(
-    conn: &Connection,
+pub async fn get_agent_outfit(
+    pool: &SqlitePool,
     agent_id: Uuid,
 ) -> Result<Vec<(String, Uuid, Uuid, ObjectType)>, InventoryError> {
-    let mut stmt = conn.prepare(
-        "SELECT name, item_id, asset_id, item_type
-         FROM items
-         WHERE folder_id = ?1",
-    )?;
-    let rows = stmt
-        .query_map([agent_id.to_string()], |row| {
-            let name: String = row.get(0)?;
-            let item_id_str: String = row.get(1)?;
-            let asset_id_str: String = row.get(2)?;
-            let item_type_str: String = row.get(3)?;
-            let item_type = ObjectType::from(item_type_str.clone());
+    let folder_id = agent_id.to_string();
 
-            let item_id = Uuid::from_str(&item_id_str).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    1,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            let asset_id = Uuid::from_str(&asset_id_str).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    1,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            Ok((name, item_id, asset_id, item_type))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    let rows = sqlx::query(
+        r#"
+        SELECT name, item_id, asset_id, item_type
+        FROM items
+        WHERE folder_id = ?
+        "#,
+    )
+    .bind(folder_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut result = Vec::with_capacity(rows.len());
+
+    for row in rows {
+        // Use row.get::<Type, _>("column_name")
+        let name: String = row.get("name");
+        let item_id_str: Option<String> = row.get("item_id");
+        let asset_id_str: Option<String> = row.get("asset_id");
+        let item_type_str: Option<String> = row.get("item_type");
+
+        let item_id = Uuid::parse_str(
+            item_id_str
+                .as_ref()
+                .ok_or_else(|| InventoryError::Error("item_id is null".into()))?,
+        )?;
+        let asset_id = Uuid::parse_str(
+            asset_id_str
+                .as_ref()
+                .ok_or_else(|| InventoryError::Error("asset_id is null".into()))?,
+        )?;
+        let item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
+
+        result.push((name, item_id, asset_id, item_type));
+    }
+
+    Ok(result)
 }
 
-pub fn get_current_outfit(
-    conn: &Connection,
-) -> Result<Vec<(String, Uuid, Uuid, ObjectType)>, InventoryError> {
-    let folder_id: String = conn.query_row(
-        "SELECT id
-         FROM categories
-         WHERE name = 'Current Outfit'
-         LIMIT 1", // just in case there are multiple
-        [],
-        |row| row.get(0),
-    )?;
-    let mut item = conn.prepare(
-        "SELECT name, item_id, asset_id, item_type 
-         FROM items
-         WHERE folder_id = ?1",
-    )?;
-    let rows = item
-        .query_map([folder_id], |row| {
-            let mut name: String = row.get(0)?;
-            let mut item_id_str: String = row.get(1)?;
-            let mut asset_id_str: String = row.get(2)?;
-            let mut item_type_str: String = row.get(3)?;
-            let item_type = ObjectType::from(item_type_str.clone());
+pub async fn get_current_outfit(
+    pool: &SqlitePool,
+) -> Result<HashSet<(Uuid, Uuid, ObjectType)>, InventoryError> {
+    // Get the folder_id for "Current Outfit"
+    let folder_row = sqlx::query(
+        r#"
+        SELECT id
+        FROM categories
+        WHERE name = 'Current Outfit'
+        LIMIT 1
+        "#,
+    )
+    .fetch_one(pool)
+    .await?;
 
-            // If the item is a link, retrieve and shadow the actual linked item
-            // the linked item's asset_id is the same as the real object's item_id.
-            if item_type == ObjectType::Link {
-                let mut stmt = conn.prepare(
-                    "SELECT name, item_id, asset_id, item_type
-                     FROM items
-                     WHERE item_id = ?1",
-                )?;
+    let folder_id: String = folder_row.get("id");
 
-                let mut rows = stmt.query_map([asset_id_str.clone()], |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                    ))
-                })?;
+    // Fetch items in that folder
+    let items_rows = sqlx::query(
+        r#"
+        SELECT name, item_id, asset_id, item_type
+        FROM items
+        WHERE folder_id = ?
+        "#,
+    )
+    .bind(&folder_id)
+    .fetch_all(pool)
+    .await?;
 
-                if let Some(Ok((linked_name, linked_item_id, linked_asset_id, linked_item_type))) =
-                    rows.next()
-                {
-                    // Shadow the original variables
-                    name = linked_name;
-                    item_id_str = linked_item_id;
-                    asset_id_str = linked_asset_id;
-                    item_type_str = linked_item_type;
-                }
+    let mut result: HashSet<(Uuid, Uuid, ObjectType)> = HashSet::new();
+
+    for row in items_rows {
+        let mut _name: String = row.get("name");
+        let mut item_id_str: Option<String> = row.get("item_id");
+        let mut asset_id_str: Option<String> = row.get("asset_id");
+        let mut item_type_str: Option<String> = row.get("item_type");
+        let mut item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
+
+        // If the item is a link, fetch the actual linked item
+        if item_type == ObjectType::Link
+            && let Ok(linked_row) = sqlx::query(
+                r#"
+                SELECT name, item_id, asset_id, item_type
+                FROM items
+                WHERE item_id = ?
+                "#,
+            )
+            .bind(asset_id_str.as_deref())
+            .fetch_one(pool)
+            .await
+            {
+                _name = linked_row.get("name");
+                item_id_str = linked_row.get("item_id");
+                asset_id_str = linked_row.get("asset_id");
+                item_type_str = linked_row.get("item_type");
+                item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
             }
-            // ensure the ObjectType is correct, if it was a link
-            let item_type = ObjectType::from(item_type_str);
 
-            let item_id = Uuid::from_str(&item_id_str).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    1,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            let asset_id = Uuid::from_str(&asset_id_str).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    1,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
+        let item_id = Uuid::parse_str(item_id_str.as_deref().unwrap_or_default())?;
+        let asset_id = Uuid::parse_str(asset_id_str.as_deref().unwrap_or_default())?;
+result.insert((item_id, asset_id, item_type));
+    }
 
-            Ok((name, item_id, asset_id, item_type))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    Ok(result)
 }

@@ -9,8 +9,8 @@
 //! This isn't ready for any kind of serious use yet! Check back later for updates!
 
 #![warn(missing_docs)]
-/// Handles mailbox events to do with handling agents
-pub mod agent;
+/// Handles mailbox events to do with handling avatars
+pub mod avatar;
 /// Handles mailbox events required for establishing viewer capabilities
 pub mod capabilities;
 /// Handles mailbox events for generating land and environment

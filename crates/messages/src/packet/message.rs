@@ -61,7 +61,7 @@ pub enum UIMessage {
     Error(SessionError),
     /// Message for informing the core and UI of a server disconnect
     DisableSimulator(DisableSimulator),
-
+    /// Message for informing the UI of a land packet
     LandUpdate(LandUpdate),
 }
 

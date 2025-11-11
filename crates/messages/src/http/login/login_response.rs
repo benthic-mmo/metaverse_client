@@ -185,6 +185,8 @@ fn get_inventory_root(map: &HashMap<String, LLSDValue>) -> Option<Uuid> {
         }
     })
 }
+
+/// retrieve inventory lib owner from llsd
 pub fn get_inventory_lib_owner(map: &HashMap<String, LLSDValue>) -> Option<Uuid> {
     map.get("inventory-lib-owner").and_then(|v| {
         if let LLSDValue::Array(arr) = v {
@@ -200,6 +202,8 @@ pub fn get_inventory_lib_owner(map: &HashMap<String, LLSDValue>) -> Option<Uuid>
         None
     })
 }
+
+/// retrieve nested value from llsd
 pub fn get_nested_value<T: FromLLSDValue>(
     key: &str,
     map: &HashMap<String, LLSDValue>,

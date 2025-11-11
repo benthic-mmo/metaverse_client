@@ -1,74 +1,74 @@
-use super::agent::DownloadAgentAsset;
 use super::session::Mailbox;
-use actix::{AsyncContext, Handler, Message, WrapFuture};
-use glam::Vec3;
-use log::warn;
-use metaverse_agent::avatar::Avatar;
-
 use crate::initialize::create_sub_agent_dir;
-use crate::inventory::RefreshInventoryEvent;
-use metaverse_inventory::agent::{get_agent_outfit, get_current_outfit};
-use metaverse_messages::http::item::Item;
-use metaverse_messages::udp::core::object_update::AttachItem;
-use metaverse_messages::utils::item_metadata::ItemMetadata;
-use metaverse_messages::{
-    http::capabilities::Capability, udp::core::object_update::ObjectUpdate,
-    utils::object_types::ObjectType,
-};
-use std::time::Duration;
-use uuid::Uuid;
+use actix::AsyncContext;
+#[cfg(any(feature = "agent", feature = "environment"))]
+use actix::ResponseFuture;
+use actix::{Handler, Message};
+use log::{error, warn};
+use metaverse_agent::avatar::Avatar;
+use metaverse_inventory::object_update::get_object_update;
+use metaverse_inventory::object_update::insert_object_update;
+use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::udp::object::object_update::AttachItem;
+#[cfg(any(feature = "agent", feature = "environment"))]
+use metaverse_messages::udp::object::object_update::ObjectUpdate;
+use metaverse_messages::udp::object::request_multiple_objects::CacheMissType;
+use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
+use metaverse_messages::utils::object_types::ObjectType;
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Trigger the function that creates the user model, and sends the data to the UI.
-pub struct RenderAgent {
-    /// The ID of the agent to render
-    pub agent_id: Uuid,
-    /// all of the items the agent is wearing
-    pub outfit: Vec<Item>,
+pub struct HandleObject {
+    pub object: ObjectUpdate,
 }
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Retrieve prim data from a capability url  
-pub struct DownloadPrim {
-    /// The url of the capability url to retrieve data from
-    pub url: String,
-    /// The metadata of the item to download
-    pub item: ItemMetadata,
-    /// The agent ID of the avatar
-    pub id: Uuid,
-    /// The location of the agent in space
-    pub position: Vec3,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct ForeignAgentUpdate {
-    pub id: Uuid,
+pub struct HandleAttachment {
+    pub object: ObjectUpdate,
+    pub item: AttachItem,
 }
 
 #[cfg(any(feature = "agent", feature = "environment"))]
 impl Handler<ObjectUpdate> for Mailbox {
-    type Result = ();
+    type Result = ResponseFuture<()>;
     fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if !session.inventory_data.inventory_init {
-                warn!("Inventory not yet populated. Queueing object update...");
-                ctx.notify_later(msg, Duration::from_secs(1));
-                return;
-            }
+        println!("{:?}", msg);
+
+        let db_pool = self.inventory_db_connection.clone();
+        let addr = ctx.address();
+        let msg_cloned = msg.clone();
+
+        if self.session.is_none() {
+            return Box::pin(async {});
+        };
+        Box::pin(async move {
+            // all object updates first should be added to the db.
+            // if they cannot be added, the object should be retried.
+            insert_object_update(&db_pool, &msg)
+                .await
+                .unwrap_or_else(|e| {
+                    error!("Object Update Error: {:?}, {:?}", e, msg.full_id);
+                    addr.do_send(msg.clone());
+                    return;
+                });
 
             match msg.pcode {
                 ObjectType::Prim => {
-                    // this object type can be used to parent objects to bones on models.
-                    // If the AttachItem fails to parse, then it's not an object attachment
-                    if let Ok(item) = AttachItem::parse_attach_item(msg.name_value) {
-                        // do item attachment stuff here :(
-                        println!("ATTACHMENT ITEM_____________: {:?}", item);
-                        return;
-                    }
+                    // if the msg.name_value can be parsed as an attachment, handle it as an
+                    // attachment.
+                    match AttachItem::parse_attach_item(msg.name_value.clone()) {
+                        Ok(item) => {
+                            addr.do_send(HandleAttachment { object: msg, item });
+                        }
+                        // if not, ignore the error and handle it as a generic object.
+                        Err(_) => {
+                            addr.do_send(HandleObject { object: msg });
+                            return;
+                        }
+                    };
                 }
+
                 ObjectType::Tree
                 | ObjectType::Grass
                 | ObjectType::Unknown
@@ -82,85 +82,63 @@ impl Handler<ObjectUpdate> for Mailbox {
                 }
                 ObjectType::Avatar => {
                     #[cfg(feature = "agent")]
-                    // if the ID of the object is your agent ID, you are downloading your own
-                    // current outfit.
-                    if session.agent_id == msg.full_id {
-                        // this retrieves the current outfit from the sqlite DB.
-                        // This returns just the relevant info, which is a tuple of
-                        // (name, item ID, asset ID, type)
-                        let elements =
-                            get_current_outfit(&self.inventory_db_connection.lock().unwrap())
-                                .unwrap_or_else(|e| panic!("Failed to get current outfit: {}", e));
-                        // create the agent directory that will contain the agent's
-                        // files, such as skeleton json, clothing jsons, and rendered 3d files.
-                        if let Err(e) = create_sub_agent_dir(&msg.full_id.to_string()) {
-                            warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
-                        }
-                        // TODO: fix this. Figure out the proper size.
-                        // keep only elements with type Object
-                        let object_elements: Vec<_> = elements
-                            .into_iter()
-                            .filter(|(_, _, _, t)| *t == ObjectType::Object)
-                            .collect();
-
-                        //add the agent to the global agent list. This will be used to look up
-                        //the position of agents and what they are wearing.
-                        {
-                            session.agent_list.lock().unwrap().insert(
-                                msg.full_id,
-                                Avatar::new(
-                                    msg.full_id,
-                                    msg.motion_data.position,
-                                    object_elements.len(),
-                                ),
-                            );
-                        }
-
-                        // download all of the assets in the inventory
-                        for element in object_elements {
-                            ctx.address().do_send(DownloadAgentAsset {
-                                url: session
-                                    .capability_urls
-                                    .get(&Capability::ViewerAsset)
-                                    .unwrap()
-                                    .to_string(),
-                                item_name: element.0,
-                                item_id: element.1,
-                                asset_id: element.2,
-                                item_type: element.3,
-                                agent_id: msg.full_id,
-                                position: msg.motion_data.position,
-                            });
-                        }
-                    } else {
-                        println!("{:?}", msg);
-                        //ctx.address()
-                        //    .do_send(ForeignAgentUpdate { id: msg.full_id });
-                    };
+                    if let Err(e) = create_sub_agent_dir(&msg.full_id.to_string()) {
+                        warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
+                    }
+                    // create a new avatar object in the session
+                    addr.do_send(Avatar::new(
+                        msg_cloned.full_id,
+                        msg_cloned.motion_data.position,
+                    ));
                 }
                 _ => {
                     println!("Unknown object type");
                 }
             }
+        })
+    }
+}
+
+impl Handler<HandleObject> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandleObject, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            // send a requestmultipleobject packet
+            println!("{:?}", msg);
+            println!("sending a requestmultipleobject packet");
+            ctx.address().do_send(Packet::new_request_multiple_objects(
+                RequestMultipleObjects {
+                    agent_id: session.agent_id,
+                    session_id: session.session_id,
+                    requests: [(CacheMissType::Normal, msg.object.id)].to_vec(),
+                },
+            ));
         }
     }
 }
 
-impl Handler<ForeignAgentUpdate> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: ForeignAgentUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let id = msg.id.clone();
-        let addr = ctx.address().clone();
-        let db_conn = self.inventory_db_connection.clone();
+impl Handler<HandleAttachment> for Mailbox {
+    type Result = ResponseFuture<()>;
+    fn handle(&mut self, msg: HandleAttachment, _ctx: &mut Self::Context) -> Self::Result {
+        let db_pool = self.inventory_db_connection.clone();
+        Box::pin(async move {
+            let mut current_id = msg.object.parent_id;
+            loop {
+                let obj = match get_object_update(&db_pool, current_id).await {
+                    Ok(obj) => obj,
+                    Err(e) => {
+                        error!("Error fetching parent {:?}: {:?}", current_id, e);
+                        return;
+                    }
+                };
 
-        ctx.spawn(
-            async move {
-                println!("SENDING REFRESH INVENTORY EVENT FOR FOREIGN AGENT UPDATE____________________________________________________________________________________________________________________");
-                let _ = addr.send(RefreshInventoryEvent { agent_id: id }).await;
-                let elements = get_agent_outfit(&db_conn.lock().unwrap(), id);
-                println!("{:?}", elements);
+                if obj.parent_id == 0 {
+                    break;
+                    // root object found
+                } else {
+                    current_id = obj.parent_id;
+                }
             }
-            .into_actor(self),
-        );
+        })
     }
 }

@@ -54,6 +54,8 @@ pub mod agent_update;
 /// | Prey                   | 2 bytes          | [i16]         | Index of who you are following in the list|
 pub mod coarse_location_update;
 
+/// TODO: UNIMPLEMENTED
+pub mod avatar_animation;
 /// # Avatar Appearance
 /// <https://wiki.secondlife.com/wiki/AvatarAppearance>
 ///
@@ -75,5 +77,3 @@ pub mod coarse_location_update;
 /// | v_param_len  | 1 byte   | [u8]               | length of visual param block |
 /// | visual_param_data | variable byes |          | Bytes containing the visual param data |
 pub mod avatar_appearance;
-
-pub mod avatar_animation;

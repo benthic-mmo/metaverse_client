@@ -138,15 +138,14 @@ impl PacketData for ObjectUpdate {
         let mut motion_data = vec![0u8; motion_data_length as usize];
         cursor.read_exact(&mut motion_data)?;
         let motion_data = MotionData::from_bytes(&motion_data)?;
-
         let parent_id = cursor.read_u32::<LittleEndian>()?;
         let update_flags = cursor.read_u32::<LittleEndian>()?;
 
         let mut geometry_bytes = [0u8; 23];
         cursor.read_exact(&mut geometry_bytes)?;
         let primitive_geometry = Path::from_bytes(&geometry_bytes)?;
-        let texture_entry_length = cursor.read_u8()?;
 
+        let texture_entry_length = cursor.read_u8()?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
         cursor.read_exact(&mut texture_entry_bytes)?;
         let texture_entry = texture_entry_bytes;
@@ -168,7 +167,6 @@ impl PacketData for ObjectUpdate {
         let mut text = vec![0u8; text_length as usize];
         cursor.read_exact(&mut text)?;
         let text = String::from_utf8_lossy(&text).to_string();
-
         let text_color_r = cursor.read_u8()?;
         let text_color_g = cursor.read_u8()?;
         let text_color_b = cursor.read_u8()?;
@@ -183,7 +181,6 @@ impl PacketData for ObjectUpdate {
         let mut media_url = vec![0u8; media_url_length as usize];
         cursor.read_exact(&mut media_url)?;
         let media_url = String::from_utf8_lossy(&media_url).to_string();
-
         let particle_system_block_length = cursor.read_u8()?;
         let mut particle_system_block = vec![0u8; particle_system_block_length as usize];
         cursor.read_exact(&mut particle_system_block)?;
@@ -438,20 +435,30 @@ impl MotionData {
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Access {
+/// the access levels found in AttachItem data
+pub enum Access {
+    /// user is unable to modify
     ReadOnly,
+    /// user is able to write but not read the contents
     WriteOnly,
+    /// user is able to both modify and read
     ReadWrite,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Scope {
+/// the scope of the AttachItem data
+pub enum Scope {
+    /// object is shared globally, and not owned by a user
     Global,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Objects that are attached to other objects contain AttachItem data in the ObjectUpdate name.
 pub struct AttachItem {
-    id: Uuid,
-    access: Access,
-    scope: Scope,
+    /// the ID of the object that can be used to look up this object in the user's inventory
+    pub id: Uuid,
+    /// the user's access level of the object
+    pub access: Access,
+    /// the object's scope
+    pub scope: Scope,
 }
 
 impl AttachItem {

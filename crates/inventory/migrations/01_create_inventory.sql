@@ -1,6 +1,6 @@
 CREATE TABLE items (
   name TEXT NOT NULL,
-  item_id TEXT PRIMARY KEY,
+  item_id TEXT PRIMARY KEY NOT NULL,
   asset_id TEXT, 
   parent_id TEXT, 
   description TEXT, 
@@ -28,7 +28,7 @@ CREATE TABLE items (
 );
 
 CREATE TABLE folders (
-  id TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY NOT NULL,
   owner_id TEXT,
   agent_id TEXT,
   version INTEGER DEFAULT 1, 
@@ -38,7 +38,7 @@ CREATE TABLE folders (
 );
 
 CREATE TABLE categories (
-  id TEXT PRIMARY KEY, 
+  id TEXT PRIMARY KEY NOT NULL, 
   name TEXT NOT NULL, 
   type_default TEXT, 
   version INTEGER DEFAULT 1, 

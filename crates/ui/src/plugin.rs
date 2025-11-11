@@ -375,8 +375,8 @@ pub fn retrieve_login_response<'a>(
 
 // Send an agent update every second
 fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, mut timer: ResMut<AgentUpdateTimer>) {
-    if !timer.0.tick(time.delta()).just_finished() {
-        if let Err(e) = send_packet_to_core(
+    if !timer.0.tick(time.delta()).just_finished()
+        && let Err(e) = send_packet_to_core(
             &UIResponse::new_agent_update(AgentUpdate {
                 ..Default::default()
             })
@@ -385,5 +385,4 @@ fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, mut timer: ResMut<A
         ) {
             error!("{:?}", e)
         };
-    }
 }

@@ -7,33 +7,33 @@ use crate::packet::{
 use std::io::Cursor;
 
 impl Packet {
-    /// create a new test packet
-    pub fn new_test_packet(test_packet: TestPacket) -> Self {
+    /// create a new kill object packet
+    pub fn new_kill_object(kill_object: KillObject) -> Self {
         Packet {
             header: Header {
-                id: 1,
+                id: 16,
                 reliable: true,
                 resent: false,
                 zerocoded: false,
                 appended_acks: false,
                 sequence_number: 0,
-                frequency: PacketFrequency::Low,
+                frequency: PacketFrequency::High,
                 ack_list: None,
                 size: None,
             },
-            body: PacketType::TestPacket(Box::new(test_packet)),
+            body: PacketType::KillObject(Box::new(kill_object)),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 /// TODO: UNIMPLEMENTED
-pub struct TestPacket {}
+pub struct KillObject {}
 
-impl PacketData for TestPacket {
+impl PacketData for KillObject {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut _cursor = Cursor::new(bytes);
-        Ok(TestPacket {})
+        Ok(KillObject {})
     }
     fn to_bytes(&self) -> Vec<u8> {
         

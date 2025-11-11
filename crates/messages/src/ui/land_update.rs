@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::packet::message::UIMessage;
 
-/// this is the struct for sending mesh updates from the core to the UI.
-/// the path is the path to the generated gltf file, and the position is where to place it in the
-/// world.
+/// Struct for sending land updates from the core to the UI.
+/// Land is stored as a JSON array of serialized LandData, which can be used by the UI to generate
+/// terrain which can be affected by shaders.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct LandUpdate {
+    /// Path to the generated JSON
     pub path: PathBuf,
 }
 
@@ -21,8 +22,12 @@ impl UIMessage {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+/// Struct for defining land updates used by the UI
 pub struct LandData {
+    /// list of terrain vertices
     pub vertices: Vec<Vec3>,
+    /// indices of terrain vertices
     pub indices: Vec<u16>,
+    /// position in-world where the terrain goes
     pub position: Vec3,
 }

@@ -5,7 +5,6 @@ use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_type
 use std::sync::Mutex;
 use std::{collections::HashSet, sync::Arc};
 use tokio::net::UdpSocket;
-/// This file is for handling the UDP messages that are sent from the server to the client.
 
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
