@@ -8,7 +8,30 @@ pub mod multiple_object_update;
 pub mod object_update_cached;
 /// TODO: UNIMPLEMENTED
 pub mod object_update_compressed;
-/// TODO: UNIMPLEMENTED
+
+/// # Request Multiple Objects
+/// <https://wiki.secondlife.com/wiki/RequestMultipleObjects>
+///
+/// Sent by the client to request multiple objects from the server. Uses the local u32 ID of the
+/// object
+///
+/// ## Header
+/// | RequestMultipleObjects |             |                |                  |                 |
+/// |------------------------|-------------|----------------|------------------|-----------------|
+/// | Packet Header          | id:3        | reliable: true | zerocoded: true  |frequency: Medium|
+///
+/// ## Packet Structure
+/// | RequestMultipleObjects| |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// |AgentID        | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// |SessionID      | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// |[object_data](#object-data)| variable byes|   | List of data to request     |
+///
+/// ## Object Data
+/// | Object Data ||||
+/// |---------------|---------|------|------------------|
+/// |Cache Miss Type| 1 byte  | [u8] | Type of data to request from the cache |
+/// |ID             | 4 bytes | [u32]| Local ID of the data to request |
 pub mod request_multiple_objects;
 
 /// # Object Update
@@ -24,11 +47,12 @@ pub mod request_multiple_objects;
 /// | Packet Header| id:12       | reliable: false| zerocoded: true  |     frequency: High |
 ///
 /// ## Packet Structure
-/// | ObjectUpdate ||||
+/// | ObjectUpdate  ||||
 /// |---------------|---------|-------|--------------------------------------|
 /// | region_x      | 4 bytes | [u32] | Global x coordinate of the simulator |
 /// | region_y      | 4 bytes | [u32] | Global y coordinate of the simulator |
 /// | time_dilation | 2 bytes | [u16] | The current lag from the server. Used by physics simulations to keep up with real time. |
+/// | offset        | 1 byte  |       | Unused byte                          |
 /// | id            | 4 bytes | [u32] | region local ID. used for most operations in lieu of the object's full UUID. |
 /// | state         | 1 byte  | [u8]  | Unused except by grass to determine grass species |
 /// | full_id       | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
@@ -36,15 +60,15 @@ pub mod request_multiple_objects;
 /// | pcode         | 1 byte  | [u8]  | Type of object represented by the packet. Avatar, grass, tree, etc |
 /// | material      | 1 byte  | [u8]  | Type of material the object is made of. Wood, plastic, flesh, etc |
 /// | click_action  | 1 byte  | [u8]  | The default action taken when the object is clicked. Open, sit, etc |
-/// | scale_x       | 4 bytes | [u32] | The x value of the object's scale |
-/// | scale_y       | 4 bytes | [u32] | The y value of the object's scale |
-/// | scale_z       | 4 bytes | [u32] | the z value of the object's scale |
-/// | data_length   | 1 byte  | [u8]  | Number of bytes to read for the object_data |
-/// | [object_data](#object-data) | variable bytes | | Velocity, position and rotation values|
+/// | scale_x       | 4 bytes | [f32] | The x value of the object's scale |
+/// | scale_y       | 4 bytes | [f32] | The y value of the object's scale |
+/// | scale_z       | 4 bytes | [f32] | the z value of the object's scale |
+/// | data_length   | 1 byte  | [u8]  | Number of bytes to read for the motion_data |
+/// | [motion_data](#motion-data) | variable bytes | | Velocity, position and rotation values|
 /// | parent_id     | 4 bytes | [u32] | Local ID of an object this object is a child of. 0 if none is present. |
 /// | update_flags  | 4 bytes | [u32] | Gives various pieces of information to the viewer, like empty inventory or scripted |
-/// | [Primitive geometry](#primitive-geometry) | 23 bytes | | Data for the viewer to draw primitive objects |
-/// | texture_length| 1 byte  | [u8]  |  Number of bytes to read for the texture_entry data |
+/// | [primitive_geometry](#primitive-geometry) | 23 bytes | | Data for the viewer to draw primitive objects |
+/// | texture_length| 2 bytes | [u16]  |  Number of bytes to read for the texture_entry data |
 /// | texture_entry | variable bytes || Full property list of each object's face, including textures and colors. |
 /// | anim_length   | 1 byte  | [u8]  | Number of bytes to read for the texture_anim_data |
 /// | texture_anim  | variable bytes || Properties to set up texture animations of the face of the object |
@@ -52,18 +76,19 @@ pub mod request_multiple_objects;
 /// | name_value    | variable bytes || Name value pairs specific to the object. Used for avatar names. |
 /// | data_length   | 2 bytes | [u16] | Number of bytes to read for the generic appended data |
 /// | data          | variable bytes || Generic appended data |
-/// | text_length   | 1 byte  | [u8]  | Number of bytes to read for the text data |
+/// | text_length   | 2 bytes | [u16]  | Number of bytes to read for the text data |
 /// | text          | variable bytes || Text that hovers over the object |
-/// | text_color_r  | 1 byte  | [u8]  | Hover text color's red value |
-/// | text_color_g  | 1 byte  | [u8]  | Hover text color's green value |
-/// | text_color_b  | 1 byte  | [u8]  | Hover text color's blue value |
-/// | text_color_a  | 1 byte  | [u8]  | Hover text color's alpha value |
+/// | text_color_r  | 1 or 0 bytes| [u8]| Hover text color's red val. If text_length is zero, don't read.|
+/// | text_color_g  | 1 or 0 bytes| [u8]| Hover text color's green value. If text_length is zero, don't read.|
+/// | text_color_b  | 1 or 0 bytes| [u8]| Hover text color's blue value. If text_length is zero, don't read.|
+/// | text_color_a  | 1 or 0 bytes| [u8]| Hover text color's alpha value. If text_length is zero, don't read. |
+/// | offset        | 0 or 3 bytes| [u8]| If text_color is not read, read 3 bytes of padding after the text_length.|
 /// | media_length  | 1 byte  | [u8]  | Number of bytes to read for the media URL |
 /// | media_url     | variable bytes || URL for any media attached to the object. Will always be a webpage. |
 /// | particle_len  | 1 byte  | [u8]  | Number of bytes to read for the particle system data |
 /// | particle_system | variable bytes || Attached particles for the object |
 /// | extra_len     | 1 byte  | [u8]  | Number of bytes to read for the extra parameters |
-/// | extra_params  | variable bytes || Data related to flexible primitives, sculpt data or light |
+/// | [extra_params](#extra-params)  | variable bytes || Data related to flexible primitives, sculpt data or light |
 /// |[sound](#sound)| 41 bytes | | Data for looping sound the object emits |
 /// | joint_type    | 1 byte  | [u8]  | Type of joint the object uses. Legacy.|
 /// | joint_pivot_x | 4 bytes | [f32] | x location of pivot. Legacy. |
@@ -193,10 +218,44 @@ pub mod request_multiple_objects;
 ///
 /// ObjectData values to do with sounds the object may emit
 /// | Sound ||||
-/// |---------------|---------|-------|--------------------------------------|
-/// | sound_id      | 16 bytes| [Uuid](uuid::Uuid) | The UUID of attached looped sounds |
-/// | owner_id      | 16 bytes| [Uuid](uuid::Uuid) | UUID of the owner object. Null if there is no sound attached. |
-/// | gain          | 4 bytes | [f32] | The gain of the attached sound |
-/// | flags         | 1 byte  | [u8]  | Flags related to attached sound |
-/// | radius        | 4 bytes | [f32] | Radius from the center of the object that the sound is audible from |
+/// |----------|---------|-------|--------------------------------------|
+/// | sound_id | 16 bytes| [Uuid](uuid::Uuid) | The UUID of attached looped sounds |
+/// | owner_id | 16 bytes| [Uuid](uuid::Uuid) | UUID of the owner object. Null if there is no sound attached. |
+/// | gain     | 4 bytes | [f32] | The gain of the attached sound |
+/// | flags    | 1 byte  | [u8]  | Flags related to attached sound |
+/// | radius   | 4 bytes | [f32] | Radius from the center of the object that the sound is audible from |
+///
+/// ## Extra Params
+///
+/// Extra parameters containing sculpt, light, flex, and other data.
+/// | Extra Params ||||
+/// |--------|---------|-------|--------------------------------------|
+/// | extra_params_count| 1 byte | [u8] | Number of objects in the extra params field |
+/// | tag    | 1 byte  |[u8]   | The type of parameter this is        |
+/// | offset | 3 bytes |       | Three unused bytes of padding        |
+/// | [sculpt_param](#sculpt_param), [flexi_param](#flexi_param), [light_param](#light_param), [projection_param](#projection_param),   [mesh_flags_param](#mesh_flags_param),   [reflection_probe_param](#reflection_probe_param), |variable bytes||Optional parameters describing various data. Each packet can contain multiple parameters. This is stored as a list.|
+///
+/// ## Sculpt Param
+/// | Sculpt Param |        |                    |                                                                 |
+/// |--------------|--------|--------------------|-----------------------------------------------------------------|
+/// | texture_id | 16 bytes | [Uuid](uuid::Uuid) | The ID of the sculpt texture. This is also used as the mesh ID. |
+/// | sculpt_type| 1 byte   | [u8]               | The type of the sculpt. 5 denotes a mesh.                       |
+///
+/// ## Flexi Param
+/// TODO: UNIMPLEMENTED
+///
+/// ## Light Param
+/// TODO: UNIMPLEMENTED
+///
+/// ## Projection Param
+/// TODO: UNIMPLEMENTED
+///
+/// ## Mesh Flags Param
+/// TODO: UNIMPLEMENTED
+///
+/// ## Materials Param
+/// TODO: UNIMPLEMENTED
+///
+/// ## Reflection Probe Param
+/// TODO:UNIMPLEMENTED
 pub mod object_update;
