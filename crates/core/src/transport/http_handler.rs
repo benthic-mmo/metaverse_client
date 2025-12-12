@@ -1,12 +1,19 @@
+use glam::{Vec3, Vec4};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
+use metaverse_agent::skeleton::create_skeleton;
 use metaverse_messages::http::login::login_error::{LoginError, Reason};
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::ui::login_event::Login;
+use metaverse_messages::utils::object_types::ObjectType;
+use metaverse_messages::utils::render_data::{RenderObject, SkinData};
+use metaverse_messages::utils::skeleton::Skeleton;
 use std::io::Error;
+use std::path::PathBuf;
+use uuid::uuid;
 use uuid::Uuid;
 
 /// send the login to simulator xml-rpc request
@@ -66,7 +73,6 @@ pub async fn download_asset(
         .body()
         .await
         .map_err(|e| io_error("Failed to read response body", e))?;
-
     if body_bytes.is_empty() {
         return Err(Error::other("Empty response body"));
     }
@@ -111,45 +117,202 @@ pub async fn download_texture(
     item_type: String,
     asset_id: Uuid,
     server_endpoint: &str,
+    path: &PathBuf,
 ) -> std::io::Result<DynamicImage> {
     let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
     let img = Image::from_bytes(tex).unwrap();
     let pixels = img.get_pixels(None).unwrap();
     // Determine output format
 
-    match pixels.data {
+    let output = match pixels.data {
         ImagePixelData::L8(data) => {
-            Ok(
-                ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
-                    .map(DynamicImage::ImageLuma8)
-                    .unwrap(),
-            )
+            ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageLuma8)
+                .unwrap()
         }
         ImagePixelData::La8(data) => {
-            Ok(
-                ImageBuffer::<LumaA<u8>, _>::from_raw(pixels.width, pixels.height, data)
-                    .map(DynamicImage::ImageLumaA8)
-                    .unwrap(),
-            )
+            ImageBuffer::<LumaA<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageLumaA8)
+                .unwrap()
         }
         ImagePixelData::Rgb8(data) => {
-            Ok(
-                ImageBuffer::<Rgb<u8>, _>::from_raw(pixels.width, pixels.height, data)
-                    .map(DynamicImage::ImageRgb8)
-                    .unwrap(),
-            )
+            ImageBuffer::<Rgb<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageRgb8)
+                .unwrap()
         }
         ImagePixelData::Rgba8(data) => {
-            Ok(
-                ImageBuffer::<Rgba<u8>, _>::from_raw(pixels.width, pixels.height, data)
-                    .map(DynamicImage::ImageRgba8)
-                    .unwrap(),
-            )
+            ImageBuffer::<Rgba<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageRgba8)
+                .unwrap()
         }
-        _ => Err(Error::other("Unknown pixel format".to_string())),
-    }
+        _ => return Err(Error::other("Unknown pixel format".to_string())),
+    };
+    output.save(&path).unwrap();
+    Ok(output)
 }
-
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
     Error::other(format!("{}: {:?}", msg, err))
+}
+
+pub async fn download_render_object(
+    scene_group: &SceneGroup,
+    url: &str,
+    texture_path: &PathBuf,
+) -> Result<Vec<RenderObject>, std::io::Error> {
+    let mut meshes = Vec::new();
+    for scene in &scene_group.parts {
+        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
+        let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
+        let uvs: Vec<[f32; 2]> = mesh
+            .high_level_of_detail
+            .texture_coordinate
+            .iter()
+            .map(|tc| {
+                // Normalize U and V from 0..65535 to 0..1
+                let u_norm = tc.u as f32 / 65535.0;
+                let v_norm = tc.v as f32 / 65535.0;
+
+                // Flip V axis
+                let v_flipped = 1.0 - v_norm;
+
+                [
+                    domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
+                    domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
+                ]
+            })
+            .collect();
+
+        if let Some(skin) = &mesh.skin {
+            // Apply bind shape matrix
+            let vertices: Vec<Vec3> = mesh
+                .high_level_of_detail
+                .vertices
+                .iter()
+                .map(|v| {
+                    let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
+                    Vec3::new(v4.x, v4.y, v4.z)
+                })
+                .collect();
+
+            let skeleton = create_skeleton(scene.metadata.name.clone(), scene.sculpt.texture, skin)
+                .unwrap_or_else(|e| {
+                    println!("Failed to create skeleton: {:?}", e);
+                    Skeleton::default()
+                });
+
+            let skin_data = SkinData {
+                skeleton,
+                weights: mesh
+                    .high_level_of_detail
+                    .weights
+                    .clone()
+                    .unwrap_or_default(),
+                joint_names: skin.joint_names.clone(),
+                inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
+            };
+
+            meshes.push(RenderObject {
+                name: scene.metadata.name.clone(),
+                id: scene.sculpt.texture,
+                indices: mesh.high_level_of_detail.indices,
+                vertices,
+                skin: Some(skin_data),
+                texture: Some(texture_path.clone()),
+                uv: Some(uvs),
+            });
+        } else {
+            // No skin
+            meshes.push(RenderObject {
+                name: scene.metadata.name.clone(),
+                id: scene.sculpt.texture,
+                indices: mesh.high_level_of_detail.indices,
+                vertices: mesh.high_level_of_detail.vertices,
+                skin: None,
+                texture: Some(texture_path.clone()),
+                uv: Some(uvs),
+            });
+        }
+    }
+
+    Ok(meshes)
+}
+
+pub async fn create_object_render_object(
+    asset_id: Uuid,
+    name: String,
+    url: &str,
+    texture_path: &PathBuf,
+) -> Result<RenderObject, std::io::Error> {
+    let mesh = download_mesh(ObjectType::Mesh.to_string(), asset_id, url).await?;
+    let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
+    let uvs: Vec<[f32; 2]> = mesh
+        .high_level_of_detail
+        .texture_coordinate
+        .iter()
+        .map(|tc| {
+            // Normalize U and V from 0..65535 to 0..1
+            let u_norm = tc.u as f32 / 65535.0;
+            let v_norm = tc.v as f32 / 65535.0;
+
+            // Flip V axis
+            let v_flipped = 1.0 - v_norm;
+
+            [
+                domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
+                domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
+            ]
+        })
+        .collect();
+
+    let object = if let Some(skin) = &mesh.skin {
+        // Apply bind shape matrix
+        let vertices: Vec<Vec3> = mesh
+            .high_level_of_detail
+            .vertices
+            .iter()
+            .map(|v| {
+                let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
+                Vec3::new(v4.x, v4.y, v4.z)
+            })
+            .collect();
+
+        let skeleton = create_skeleton(name.clone(), asset_id, skin).unwrap_or_else(|e| {
+            println!("Failed to create skeleton: {:?}", e);
+            Skeleton::default()
+        });
+
+        let skin_data = SkinData {
+            skeleton,
+            weights: mesh
+                .high_level_of_detail
+                .weights
+                .clone()
+                .unwrap_or_default(),
+            joint_names: skin.joint_names.clone(),
+            inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
+        };
+
+        RenderObject {
+            name: name,
+            id: asset_id,
+            indices: mesh.high_level_of_detail.indices,
+            vertices,
+            skin: Some(skin_data),
+            texture: Some(texture_path.clone()),
+            uv: Some(uvs),
+        }
+    } else {
+        // No skin
+        RenderObject {
+            name: name,
+            id: asset_id,
+            indices: mesh.high_level_of_detail.indices,
+            vertices: mesh.high_level_of_detail.vertices,
+            skin: None,
+            texture: Some(texture_path.clone()),
+            uv: Some(uvs),
+        }
+    };
+
+    Ok(object)
 }

@@ -1,6 +1,8 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
-use crate::transport::http_handler::{download_mesh, download_object, download_texture};
+use crate::transport::http_handler::{
+    download_mesh, download_object, download_render_object, download_texture,
+};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use glam::{Vec3, Vec4};
 use log::{error, info, warn};
@@ -183,11 +185,37 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                         .await
                     {
                         Ok(scene_group) => {
-                            // if there is a scene group, download the renderable objects
-                            let json_path = match download_render_object(
-                                &scene_group,
-                                msg.agent_id,
+                            let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
+                                Ok(base_dir) => base_dir,
+                                Err(e) => {
+                                    error!("failed to create base dir: {:?}", e);
+                                    return;
+                                }
+                            };
+
+                            // download the texture of the base object, which will have the texture
+                            // for the rest of the object
+                            let texture_id = scene_group.parts[0].shape.texture.texture_id;
+                            let texture_path = base_dir.join(format!("{:?}.png", texture_id));
+                            match download_texture(
+                                ObjectType::Texture.to_string(),
+                                texture_id,
                                 &server_endpoint,
+                                &texture_path,
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Failed to download texture: {:?}", e)
+                                }
+                            }
+
+                            // Download the mesh itself
+                            let render_objects = match download_render_object(
+                                &scene_group,
+                                &server_endpoint,
+                                &texture_path,
                             )
                             .await
                             {
@@ -197,8 +225,25 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                     return;
                                 }
                             };
+
+                            let json_path = format!(
+                                "{:?}_{}",
+                                scene_group.parts[0].sculpt.texture,
+                                scene_group.parts[0].metadata.name
+                            );
+
+                            // write the json
+                            let json = match write_json(&render_objects, msg.agent_id, json_path) {
+                                Ok(json) => json,
+                                Err(e) => {
+                                    error!("Failed to write json: {:?}", e);
+                                    return;
+                                }
+                            };
+
+                            // add the object to the avatar
                             addr.do_send(AddObjectToAvatar {
-                                object: OutfitObject::MeshObject(json_path),
+                                object: OutfitObject::MeshObject(json),
                                 agent_id: msg.agent_id,
                             });
                         }
@@ -282,111 +327,6 @@ impl Handler<Avatar> for Mailbox {
             }
         }
     }
-}
-
-async fn download_render_object(
-    scene_group: &SceneGroup,
-    root_id: Uuid,
-    url: &str,
-) -> Result<PathBuf, std::io::Error> {
-    let mut meshes = Vec::new();
-    for scene in &scene_group.parts {
-        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
-        let texture = download_texture(
-            ObjectType::Texture.to_string(),
-            scene.shape.texture.texture_id,
-            url,
-        )
-        .await?;
-        let base_dir = create_sub_agent_dir(&root_id.to_string())?;
-        let texture_path = base_dir.join(format!("{:?}.png", scene.shape.texture.texture_id));
-        texture.save(&texture_path).unwrap();
-
-        let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
-
-        let uvs: Vec<[f32; 2]> = mesh
-            .high_level_of_detail
-            .texture_coordinate
-            .iter()
-            .map(|tc| {
-                // Normalize U and V from 0..65535 to 0..1
-                let u_norm = tc.u as f32 / 65535.0;
-                let v_norm = tc.v as f32 / 65535.0;
-
-                // Flip V axis
-                let v_flipped = 1.0 - v_norm;
-
-                [
-                    domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
-                    domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
-                ]
-            })
-            .collect();
-
-        if let Some(skin) = &mesh.skin {
-            // Apply bind shape matrix
-            let vertices: Vec<Vec3> = mesh
-                .high_level_of_detail
-                .vertices
-                .iter()
-                .map(|v| {
-                    let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                    Vec3::new(v4.x, v4.y, v4.z)
-                })
-                .collect();
-
-            let skeleton = create_skeleton(scene.metadata.name.clone(), scene.sculpt.texture, skin)
-                .unwrap_or_else(|e| {
-                    println!("Failed to create skeleton: {:?}", e);
-                    Skeleton::default()
-                });
-
-            let skin_data = SkinData {
-                skeleton,
-                weights: mesh
-                    .high_level_of_detail
-                    .weights
-                    .clone()
-                    .unwrap_or_default(),
-                joint_names: skin.joint_names.clone(),
-                inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
-            };
-
-            meshes.push(RenderObject {
-                name: scene.metadata.name.clone(),
-                id: scene.sculpt.texture,
-                indices: mesh.high_level_of_detail.indices,
-                vertices,
-                skin: Some(skin_data),
-                texture: Some(texture_path),
-                uv: Some(uvs),
-            });
-        } else {
-            // No skin
-            meshes.push(RenderObject {
-                name: scene.metadata.name.clone(),
-                id: scene.sculpt.texture,
-                indices: mesh.high_level_of_detail.indices,
-                vertices: mesh.high_level_of_detail.vertices,
-                skin: None,
-                texture: Some(texture_path),
-                uv: Some(uvs),
-            });
-        }
-    }
-    // write the object to disk as json, to give to the code that will
-    // generate the 3d model.
-    let json_path = write_json(
-        &meshes,
-        root_id,
-        format!(
-            "{:?}_{}",
-            scene_group.parts[0].sculpt.texture, scene_group.parts[0].metadata.name
-        ),
-    )
-    .unwrap();
-
-    Ok(json_path)
 }
 
 /// When an object is retrieved in full, the data will be written in serializable json format, to

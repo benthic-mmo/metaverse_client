@@ -1,5 +1,5 @@
 use actix::Message;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Vec3, Vec4};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::ParseError,
+    http::scene::SculptType,
     packet::{
         header::{Header, PacketFrequency},
         packet::{Packet, PacketData},
@@ -90,7 +91,7 @@ pub struct ObjectUpdate {
     /// Attached particle system details
     pub particle_system_block: Vec<u8>,
     /// Data related to flexible primitives, sculpt data, or attached light data.
-    pub extra_params: Vec<u8>,
+    pub extra_params: Option<Vec<ExtraParams>>,
     /// Sound attached to the object
     pub sound: AttachedSound,
     /// Type of joint associated with the object. Should be unused
@@ -134,61 +135,80 @@ impl PacketData for ObjectUpdate {
             z: scale_z,
         };
 
+        // for Patch objects, this is always 60.
         let motion_data_length = cursor.read_u8()?;
         let mut motion_data = vec![0u8; motion_data_length as usize];
         cursor.read_exact(&mut motion_data)?;
         let motion_data = MotionData::from_bytes(&motion_data)?;
+
         let parent_id = cursor.read_u32::<LittleEndian>()?;
         let update_flags = cursor.read_u32::<LittleEndian>()?;
 
+        // this section is always 23 bytes
         let mut geometry_bytes = [0u8; 23];
         cursor.read_exact(&mut geometry_bytes)?;
         let primitive_geometry = Path::from_bytes(&geometry_bytes)?;
 
-        let texture_entry_length = cursor.read_u8()?;
+        let texture_entry_length = cursor.read_u16::<LittleEndian>()?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
         cursor.read_exact(&mut texture_entry_bytes)?;
         let texture_entry = texture_entry_bytes;
         //let texture_entry = Texture::from_bytes(&texture_entry_bytes)?;
 
         let texture_anim_length = cursor.read_u8()?;
-        let texture_anim = vec![0u8; texture_anim_length as usize];
+        let mut texture_anim = vec![0u8; texture_anim_length as usize];
+        cursor.read_exact(&mut texture_anim)?;
 
-        let name_value_length = cursor.read_u16::<BigEndian>()?;
+        let name_value_length = cursor.read_u16::<LittleEndian>()?;
         let mut name_value = vec![0u8; name_value_length as usize];
         cursor.read_exact(&mut name_value)?;
         let name_value = String::from_utf8_lossy(&name_value).to_string();
 
-        let data_length = cursor.read_u16::<BigEndian>()?;
+        let data_length = cursor.read_u16::<LittleEndian>()?;
         let mut data = vec![0u8; data_length as usize];
         cursor.read_exact(&mut data)?;
 
-        let text_length = cursor.read_u8()?;
-        let mut text = vec![0u8; text_length as usize];
-        cursor.read_exact(&mut text)?;
-        let text = String::from_utf8_lossy(&text).to_string();
-        let text_color_r = cursor.read_u8()?;
-        let text_color_g = cursor.read_u8()?;
-        let text_color_b = cursor.read_u8()?;
-        let text_color_a = cursor.read_u8()?;
-        let text_color = Rgba {
-            r: text_color_r,
-            g: text_color_g,
-            b: text_color_b,
-            a: text_color_a,
+        let text_length = cursor.read_u16::<LittleEndian>()?;
+        // only read the text color if there is text
+        let (text, text_color) = if text_length != 0 {
+            let mut text = vec![0u8; text_length as usize];
+            cursor.read_exact(&mut text)?;
+
+            let text = String::from_utf8_lossy(&text).to_string();
+            let text_color_r = cursor.read_u8()?;
+            let text_color_g = cursor.read_u8()?;
+            let text_color_b = cursor.read_u8()?;
+            let text_color_a = cursor.read_u8()?;
+            let text_color = Rgba {
+                r: text_color_r,
+                g: text_color_g,
+                b: text_color_b,
+                a: text_color_a,
+            };
+            (text, text_color)
+        } else {
+            // the protocol pads this to 5 bytes if there is no data
+            cursor.read_exact(&mut [0u8; 3])?;
+            ("".to_string(), Rgba::new(0, 0, 0, 0))
         };
+
         let media_url_length = cursor.read_u8()?;
         let mut media_url = vec![0u8; media_url_length as usize];
         cursor.read_exact(&mut media_url)?;
         let media_url = String::from_utf8_lossy(&media_url).to_string();
+
         let particle_system_block_length = cursor.read_u8()?;
         let mut particle_system_block = vec![0u8; particle_system_block_length as usize];
         cursor.read_exact(&mut particle_system_block)?;
 
         let extra_params_length = cursor.read_u8()?;
-        let mut extra_params = vec![0u8; extra_params_length as usize];
-        cursor.read_exact(&mut extra_params)?;
-
+        let extra_params = if extra_params_length > 0 {
+            let mut extra_params_bytes = vec![0u8; extra_params_length as usize];
+            cursor.read_exact(&mut extra_params_bytes)?;
+            Some(ExtraParams::from_bytes(&extra_params_bytes)?)
+        } else {
+            None
+        };
         let mut sound_bytes = [0u8; 41];
         cursor.read_exact(&mut sound_bytes)?;
         let sound = AttachedSound::from_bytes(&sound_bytes)?;
@@ -322,7 +342,8 @@ impl MotionData {
         let y = cursor.read_f32::<LittleEndian>()?;
         let z = cursor.read_f32::<LittleEndian>()?;
 
-        // Swap Y and Z for easy use with coordinate systems.
+        // this allows objects to render in the right place in other coordinate systems.
+        // I know this looks wrong, but it's right.
         let position = Vec3::new(x, z, y);
 
         let velocity = Vec3::new(
@@ -343,7 +364,12 @@ impl MotionData {
             cursor.read_f32::<LittleEndian>()?,
         );
 
-        let angular_velocity = Vec3::new(0.0, 0.0, 0.0);
+        let angular_velocity = Vec3::new(
+            cursor.read_f32::<LittleEndian>()?,
+            cursor.read_f32::<LittleEndian>()?,
+            cursor.read_f32::<LittleEndian>()?,
+        );
+
         Ok(Self {
             foot_collision_plane: None,
             position,
@@ -434,6 +460,215 @@ impl MotionData {
         })
     }
 }
+#[derive(Debug)]
+pub enum ParamTypeTag {
+    Flexi,
+    Light,
+    Sculpt,
+    Projection,
+    MeshFlags,
+    Materials,
+    ReflectionProbe,
+    Unknown,
+}
+
+impl ParamTypeTag {
+    fn from_bytes(byte: &u8) -> Self {
+        match byte {
+            16 => ParamTypeTag::Flexi,
+            32 => ParamTypeTag::Light,
+            48 => ParamTypeTag::Sculpt,
+            64 => ParamTypeTag::Projection,
+            112 => ParamTypeTag::MeshFlags,
+            128 => ParamTypeTag::Materials,
+            144 => ParamTypeTag::ReflectionProbe,
+            _ => ParamTypeTag::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ExtraParams {
+    Flexi(FlexiData),
+    Light(LightData),
+    Sculpt(SculptData),
+    Projection(ProjectionData),
+    MeshFlags(MeshFlagsData),
+    Materials(MaterialsData),
+    ReflectionProbe(ReflectionProbeData),
+    Unknown(UnknownData),
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SculptData {
+    pub texture_id: Uuid,
+    pub sculpt_type: SculptType,
+}
+impl SculptData {
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        let mut cursor = Cursor::new(bytes);
+        let mut texture_id_bytes = [0u8; 16];
+        cursor.read_exact(&mut texture_id_bytes)?;
+        let texture_id = Uuid::from_bytes(texture_id_bytes);
+
+        let sculpt_type = SculptType::from_bytes(&cursor.read_u8()?);
+        Ok(SculptData {
+            texture_id,
+            sculpt_type,
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+///TODO: UNIMPLEMENTED
+pub struct FlexiData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl FlexiData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(FlexiData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+
+///TODO: UNIMPLEMENTED
+pub struct LightData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl LightData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(LightData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+///TODO: UNIMPLEMENTED
+pub struct ProjectionData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl ProjectionData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(ProjectionData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+///TODO: UNIMPLEMENTED
+pub struct MeshFlagsData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl MeshFlagsData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(MeshFlagsData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+///TODO: UNIMPLEMENTED
+pub struct MaterialsData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl MaterialsData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(MaterialsData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+///TODO: UNIMPLEMENTED
+pub struct ReflectionProbeData {
+    ///TODO: UNIMPLEMENTED
+    pub bytes: Vec<u8>,
+}
+impl ReflectionProbeData {
+    ///TODO: UNIMPLEMENTED
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(ReflectionProbeData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UnknownData {
+    pub bytes: Vec<u8>,
+}
+impl UnknownData {
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+        Ok(UnknownData {
+            bytes: bytes.to_vec(),
+        })
+    }
+}
+impl Default for ExtraParams {
+    fn default() -> Self {
+        ExtraParams::Unknown(UnknownData { bytes: Vec::new() })
+    }
+}
+
+impl ExtraParams {
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<Vec<Self>> {
+        let mut cursor = Cursor::new(bytes);
+        let extra_params_count = match cursor.read_u8() {
+            Ok(v) => v,
+            Err(_) => return Ok(vec![ExtraParams::default()]),
+        };
+        let mut extra_params = Vec::new();
+        for _ in 0..extra_params_count {
+            let param_type_tag = ParamTypeTag::from_bytes(&cursor.read_u8()?);
+
+            // padding byte
+            cursor.read_u8()?;
+
+            let param_length = cursor.read_u8()?;
+
+            // three padding bytes
+            cursor.read_u8()?;
+            cursor.read_u8()?;
+            cursor.read_u8()?;
+            let mut param_data = vec![0u8; param_length as usize];
+            cursor.read_exact(&mut param_data)?;
+
+            let param = match param_type_tag {
+                ParamTypeTag::Flexi => ExtraParams::Flexi(FlexiData::from_bytes(&param_data)?),
+                ParamTypeTag::Light => ExtraParams::Light(LightData::from_bytes(&param_data)?),
+                ParamTypeTag::Sculpt => ExtraParams::Sculpt(SculptData::from_bytes(&param_data)?),
+                ParamTypeTag::Projection => {
+                    ExtraParams::Projection(ProjectionData::from_bytes(&param_data)?)
+                }
+                ParamTypeTag::MeshFlags => {
+                    ExtraParams::MeshFlags(MeshFlagsData::from_bytes(&param_data)?)
+                }
+                ParamTypeTag::Materials => {
+                    ExtraParams::Materials(MaterialsData::from_bytes(&param_data)?)
+                }
+                ParamTypeTag::ReflectionProbe => {
+                    ExtraParams::ReflectionProbe(ReflectionProbeData::from_bytes(&param_data)?)
+                }
+                ParamTypeTag::Unknown => {
+                    ExtraParams::Unknown(UnknownData::from_bytes(&param_data)?)
+                }
+            };
+            extra_params.push(param);
+        }
+        Ok(extra_params)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// the access levels found in AttachItem data
 pub enum Access {

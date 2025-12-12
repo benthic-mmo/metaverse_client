@@ -523,7 +523,7 @@ impl SceneObject {
                 ["LastAttachPoint"] => scene_object.shape.last_attach_point = val.parse::<i32>()?,
                 ["SculptTexture", "UUID"] => scene_object.sculpt.texture = Uuid::parse_str(&val)?,
                 ["SculptType"] => {
-                    scene_object.sculpt.sculpt_type = SculptType::from_bytes(val.parse::<i32>()?)
+                    scene_object.sculpt.sculpt_type = SculptType::from_i32(val.parse::<i32>()?)
                 }
                 ["SculptEntry"] => scene_object.sculpt.entry = val.parse::<bool>()?,
                 ["FlexiSoftness"] => scene_object.shape.flex.softness = val.parse::<i32>()?,
@@ -782,7 +782,17 @@ pub enum SculptType {
     Unknown,
 }
 impl SculptType {
-    fn from_bytes(bytes: i32) -> Self {
+    pub fn from_i32(bytes: i32) -> Self {
+        match bytes {
+            1 => Self::Sphere,
+            2 => Self::Torus,
+            3 => Self::Plane,
+            4 => Self::Cylinder,
+            5 => Self::Mesh,
+            _ => Self::Unknown,
+        }
+    }
+    pub fn from_bytes(bytes: &u8) -> Self {
         match bytes {
             1 => Self::Sphere,
             2 => Self::Torus,
