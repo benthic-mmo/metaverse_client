@@ -33,6 +33,7 @@ use std::net::UdpSocket as SyncUdpSocket;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread::sleep;
 use tokio::net::UdpSocket;
 use tokio::sync::Notify;
 use tokio::time::Duration;
@@ -316,7 +317,6 @@ impl Handler<Packet> for Mailbox {
             let addr = session.address.clone();
             msg.header.sequence_number = session.sequence_number as u32;
             session.sequence_number += 1;
-            println!("{:?}", msg.header.sequence_number);
             let data = msg.to_bytes().clone();
             let socket_clone = session.socket.as_ref().unwrap().clone();
             let fut = async move {
@@ -437,7 +437,6 @@ async fn handle_login(
             message: e.to_string(),
         })?;
     };
-
     if let Err(e) = mailbox_addr
         .send(Packet::new_complete_agent_movement(
             CompleteAgentMovementData {

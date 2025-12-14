@@ -704,7 +704,8 @@ impl AttachItem {
                 data,
             )));
         }
-        let id = Uuid::parse_str(parts[4])?;
+        let id_str = parts[4].trim_end_matches('\0');
+        let id = Uuid::parse_str(id_str)?;
         let access = match parts[2] {
             "RW" => Access::ReadWrite,
             "R" => Access::ReadOnly,
