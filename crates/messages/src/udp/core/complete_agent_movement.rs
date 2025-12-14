@@ -18,12 +18,8 @@ impl Packet {
                 id: 249,
                 frequency: PacketFrequency::Low,
                 reliable: false,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::CompleteAgentMovementData(Box::new(complete_agent_movement_data)),
         }

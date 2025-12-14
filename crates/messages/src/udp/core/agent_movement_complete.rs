@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 250,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Low,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::AgentMovementComplete(Box::new(agent_movement_complete)),
         }
@@ -36,7 +32,6 @@ impl PacketData for AgentMovementComplete {
         Ok(AgentMovementComplete {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

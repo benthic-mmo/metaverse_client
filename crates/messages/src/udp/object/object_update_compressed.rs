@@ -14,13 +14,9 @@ impl Packet {
             header: Header {
                 id: 13,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ObjectUpdateCompressed(Box::new(object_update_compressed)),
         }
@@ -37,7 +33,6 @@ impl PacketData for ObjectUpdateCompressed {
         Ok(ObjectUpdateCompressed {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         // push your data into the new vector
         Vec::new()
     }

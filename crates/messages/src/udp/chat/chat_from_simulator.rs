@@ -24,12 +24,8 @@ impl Packet {
                 id: 139,
                 frequency: PacketFrequency::Low,
                 reliable: true,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ChatFromSimulator(Box::new(chat_from_simulator)),
         }

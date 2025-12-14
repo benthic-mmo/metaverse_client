@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 17,
                 reliable: false,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Medium,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ViewerEffect(Box::new(viewer_effect)),
         }
@@ -36,7 +32,6 @@ impl PacketData for ViewerEffect {
         Ok(ViewerEffect {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

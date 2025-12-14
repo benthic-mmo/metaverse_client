@@ -16,13 +16,9 @@ impl Packet {
             header: Header {
                 id: 3,
                 reliable: true,
-                resent: false,
                 zerocoded: true,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Medium,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::RequestMultipleObjects(Box::new(request_multiple_objects)),
         }

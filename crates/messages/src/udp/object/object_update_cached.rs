@@ -13,13 +13,10 @@ impl Packet {
             header: Header {
                 id: 14,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+
+                ..Default::default()
             },
             body: PacketType::ObjectUpdateCached(Box::new(object_update_cached)),
         }
@@ -36,7 +33,6 @@ impl PacketData for ObjectUpdateCached {
         Ok(ObjectUpdateCached {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

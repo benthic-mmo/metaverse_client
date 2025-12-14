@@ -16,12 +16,8 @@ impl Packet {
                 id: 3,
                 frequency: PacketFrequency::Low,
                 reliable: false,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::CircuitCode(Box::new(circuit_code_block)),
         }

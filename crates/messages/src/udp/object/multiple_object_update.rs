@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 2,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Medium,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::MultipleObjectUpdate(Box::new(multiple_object_update)),
         }
@@ -36,7 +32,6 @@ impl PacketData for MultipleObjectUpdate {
         Ok(MultipleObjectUpdate {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

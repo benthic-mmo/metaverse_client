@@ -14,13 +14,9 @@ impl Packet {
             header: Header {
                 id: 1,
                 reliable: false,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::StartPingCheck(Box::new(start_ping_check)),
         }

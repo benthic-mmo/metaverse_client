@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 1,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Low,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::TestPacket(Box::new(test_packet)),
         }
@@ -36,7 +32,6 @@ impl PacketData for TestPacket {
         Ok(TestPacket {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

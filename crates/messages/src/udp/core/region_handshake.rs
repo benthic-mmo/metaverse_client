@@ -23,12 +23,8 @@ impl Packet {
                 id: 80,
                 frequency: PacketFrequency::Low,
                 reliable: true,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: true,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::RegionHandshake(Box::new(region_handshake)),
         }

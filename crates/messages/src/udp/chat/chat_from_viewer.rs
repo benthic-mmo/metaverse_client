@@ -22,12 +22,8 @@ impl Packet {
                 id: 80,
                 frequency: PacketFrequency::Low,
                 reliable: false,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ChatFromViewer(Box::new(chat_from_viewer)),
         }

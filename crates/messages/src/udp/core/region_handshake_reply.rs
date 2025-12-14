@@ -16,13 +16,9 @@ impl Packet {
             header: Header {
                 id: 149,
                 reliable: false,
-                resent: false,
                 zerocoded: true,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Low,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::RegionHandshakeReply(Box::new(region_handshake_reply)),
         }

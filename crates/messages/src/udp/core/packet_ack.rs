@@ -16,13 +16,9 @@ impl Packet {
             header: Header {
                 id: 251,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Fixed,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::PacketAck(Box::new(packet_ack)),
         }
