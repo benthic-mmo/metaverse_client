@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 20,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::AvatarAnimation(Box::new(avatar_animation)),
         }
@@ -36,7 +32,6 @@ impl PacketData for AvatarAnimation {
         Ok(AvatarAnimation {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

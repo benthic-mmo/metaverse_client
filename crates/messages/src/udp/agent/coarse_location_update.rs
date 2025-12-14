@@ -19,12 +19,8 @@ impl Packet {
                 id: 6,
                 frequency: PacketFrequency::Medium,
                 reliable: false,
-                sequence_number: 0,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::CoarseLocationUpdate(Box::new(coarse_location_update)),
         }

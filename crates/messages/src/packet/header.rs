@@ -11,7 +11,7 @@ pub const MSG_ZEROCODED: u8 = 0x80;
 /// flag if the packet has acks appended
 pub const MSG_APPENDED_ACKS: u8 = 0x10;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// The header for each packet coming from the server
 pub struct Header {
     /// if the packet requires an ack to be sent upon receiving
@@ -38,7 +38,6 @@ pub struct Header {
     pub size: Option<usize>,
 }
 impl Header {
-    pub fn new() {}
     /// parse the header from incoming packet bytes. Can fail and return an io error.
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Header, std::io::Error> {
         let mut pos = 0;
@@ -151,7 +150,7 @@ fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
     [(value >> 8) as u8, (value & 0xFF) as u8]
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 /// Frequency of how often the packet is sent
 pub enum PacketFrequency {
     /// Frequently sent packet
@@ -161,6 +160,7 @@ pub enum PacketFrequency {
     /// infrequently sent packet
     Low,
     /// packet sent at a fixed interval
+    #[default]
     Fixed,
 }
 impl fmt::Display for PacketFrequency {

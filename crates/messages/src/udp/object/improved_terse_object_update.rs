@@ -15,13 +15,9 @@ impl Packet {
             header: Header {
                 id: 15,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ImprovedTerseObjectUpdate(Box::new(improved_terse_object_update)),
         }
@@ -38,7 +34,6 @@ impl PacketData for ImprovedTerseObjectUpdate {
         Ok(ImprovedTerseObjectUpdate {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

@@ -13,13 +13,9 @@ impl Packet {
             header: Header {
                 id: 16,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::KillObject(Box::new(kill_object)),
         }
@@ -36,7 +32,6 @@ impl PacketData for KillObject {
         Ok(KillObject {})
     }
     fn to_bytes(&self) -> Vec<u8> {
-        
         Vec::new()
     }
 }

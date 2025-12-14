@@ -24,13 +24,9 @@ impl Packet {
             header: Header {
                 id: 12,
                 reliable: true,
-                resent: false,
                 zerocoded: true,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::High,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::ObjectUpdate(Box::new(object_update)),
         }

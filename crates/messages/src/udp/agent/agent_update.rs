@@ -91,12 +91,8 @@ impl Packet {
                 id: 4,
                 frequency: PacketFrequency::High,
                 reliable: false,
-                sequence_number: 1,
-                appended_acks: false,
                 zerocoded: false,
-                resent: false,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::AgentUpdate(Box::new(agent_update)),
         }

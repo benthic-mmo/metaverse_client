@@ -17,13 +17,9 @@ impl Packet {
             header: Header {
                 id: 152,
                 reliable: true,
-                resent: false,
                 zerocoded: false,
-                appended_acks: false,
-                sequence_number: 0,
                 frequency: PacketFrequency::Low,
-                ack_list: None,
-                size: None,
+                ..Default::default()
             },
             body: PacketType::DisableSimulator(Box::new(disable_simulator)),
         }
