@@ -43,6 +43,9 @@ impl Mailbox {
                     }
 
                     match &packet.body {
+                        PacketType::PacketAck(data) => {
+                            println!("{:?}", data);
+                        }
                         PacketType::StartPingCheck(data) => {
                             if let Err(e) = mailbox_address
                                 .send(Ping {

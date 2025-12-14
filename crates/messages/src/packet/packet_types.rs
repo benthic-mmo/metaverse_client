@@ -95,8 +95,8 @@ define_packets! {
     249 [Low] => CompleteAgentMovementData,
     250 [Low]=> AgentMovementComplete,
     252 [Low] => LogoutRequest,
-    251 [Low] => PacketAck,
 
+    251 [Fixed] => PacketAck,
     // Legacy packets
     382 [Low] => AgentWearablesUpdate,
     381 [Low] => AgentWearablesRequest

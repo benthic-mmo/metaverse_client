@@ -38,6 +38,7 @@ pub struct Header {
     pub size: Option<usize>,
 }
 impl Header {
+    pub fn new() {}
     /// parse the header from incoming packet bytes. Can fail and return an io error.
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Header, std::io::Error> {
         let mut pos = 0;
