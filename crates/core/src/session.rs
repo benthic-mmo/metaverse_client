@@ -26,6 +26,7 @@ use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
 use sqlx::Pool;
 use sqlx::Sqlite;
+use std::any::Any;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::net::UdpSocket as SyncUdpSocket;
@@ -85,6 +86,8 @@ pub struct Session {
     pub session_id: Uuid,
     /// the running UDP socket attached to the session  
     pub socket: Option<Arc<UdpSocket>>,
+
+    pub sequence_number: u16,
 
     pub local_ip: std::net::IpAddr,
     /// The URL endpoint to request more capabilities
@@ -305,13 +308,15 @@ impl Handler<UIResponse> for Mailbox {
         }
     }
 }
-
 /// Handles sending packets to the server
 impl Handler<Packet> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: Packet, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(ref session) = self.session {
+    fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
             let addr = session.address.clone();
+            msg.header.sequence_number = session.sequence_number as u32;
+            session.sequence_number += 1;
+            println!("{:?}", msg.header.sequence_number);
             let data = msg.to_bytes().clone();
             let socket_clone = session.socket.as_ref().unwrap().clone();
             let fut = async move {
@@ -384,6 +389,7 @@ async fn handle_login(
             session_id: login_response.session_id,
             address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
             seed_capability_url: login_response.seed_capability.unwrap(),
+            sequence_number: 0,
             local_ip,
             capability_urls: HashMap::new(),
 
