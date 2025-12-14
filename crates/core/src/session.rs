@@ -85,6 +85,8 @@ pub struct Session {
     pub session_id: Uuid,
     /// the running UDP socket attached to the session  
     pub socket: Option<Arc<UdpSocket>>,
+
+    pub local_ip: std::net::IpAddr,
     /// The URL endpoint to request more capabilities
     pub seed_capability_url: String,
     /// The HashMap for storing capability URLs
@@ -172,6 +174,7 @@ impl Actor for Mailbox {
 impl Handler<RegionHandshake> for Mailbox {
     type Result = ();
     fn handle(&mut self, _: RegionHandshake, ctx: &mut Self::Context) -> Self::Result {
+        println!("REGION HANDSHAKE RECEIVED AND REPLY SENT!!!!!!!!!!!!!!!!!!!!!!");
         ctx.address()
             .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
                 session_id: self.session.as_ref().unwrap().session_id,
@@ -214,7 +217,7 @@ impl Handler<Session> for Mailbox {
         if let Some(session) = self.session.as_ref()
             && session.socket.is_none()
         {
-            let addr = format!("0.0.0.0:{}", self.client_socket);
+            let addr = format!("{}:{}", session.local_ip, self.client_socket);
 
             let addr_clone = addr.clone();
             let mailbox_addr = ctx.address();
@@ -349,8 +352,8 @@ async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
 ) -> Result<(), SessionError> {
-    let login_response = match login_to_simulator(login_data).await {
-        Ok(login_response) => {
+    let (login_response, local_ip) = match login_to_simulator(login_data).await {
+        Ok((login_response, local_ip)) => {
             if let Err(e) = mailbox_addr
                 .send(UIMessage::new_login_response_event(
                     metaverse_messages::ui::login_response::LoginResponse {
@@ -362,7 +365,7 @@ async fn handle_login(
             {
                 error!("Failed to send login response to UI {:?}", e)
             };
-            login_response
+            (login_response, local_ip)
         }
         Err(e) => {
             if let Err(e) = mailbox_addr
@@ -381,6 +384,7 @@ async fn handle_login(
             session_id: login_response.session_id,
             address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
             seed_capability_url: login_response.seed_capability.unwrap(),
+            local_ip,
             capability_urls: HashMap::new(),
 
             #[cfg(feature = "environment")]

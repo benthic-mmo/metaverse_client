@@ -34,6 +34,7 @@ indexmap = "2.11.4"
 jpeg2k = "0.10.1"
 image = "0.25.8"
 sqlx = {version="0.8.6", features=["runtime-tokio"]}
+url = "2.5.7"
 [dependencies.uuid]
 version = "1.18.1"
 features = [
