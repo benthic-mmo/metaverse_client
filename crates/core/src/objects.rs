@@ -66,6 +66,7 @@ impl Handler<ObjectUpdate> for Mailbox {
         if self.session.is_none() {
             return Box::pin(async {});
         };
+
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
