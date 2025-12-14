@@ -84,12 +84,13 @@ impl Handler<ObjectUpdate> for Mailbox {
                     // attachment.
                     match AttachItem::parse_attach_item(msg.name_value.clone()) {
                         Ok(item) => {
+                            println!("attachment: {:?}", msg.name_value);
                             addr.do_send(HandleAttachment { object: msg, item });
                         }
                         // if not, ignore the error and handle it as a generic object.
                         Err(_) => {
+                            println!("generic object: {:?}", msg);
                             addr.do_send(HandleObject { object: msg });
-                            return;
                         }
                     };
                 }

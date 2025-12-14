@@ -9,6 +9,8 @@ use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::packet::message::UIResponse;
 use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::udp::chat::chat_from_viewer::ChatFromViewer;
+use metaverse_messages::udp::core::agent_throttle::AgentThrottle;
+use metaverse_messages::udp::core::agent_throttle::ThrottleData;
 use metaverse_messages::udp::core::circuit_code::CircuitCode;
 use metaverse_messages::udp::core::complete_agent_movement::CompleteAgentMovementData;
 use metaverse_messages::udp::core::complete_ping_check::CompletePingCheck;
@@ -178,7 +180,6 @@ impl Actor for Mailbox {
 impl Handler<RegionHandshake> for Mailbox {
     type Result = ();
     fn handle(&mut self, _: RegionHandshake, ctx: &mut Self::Context) -> Self::Result {
-        println!("REGION HANDSHAKE RECEIVED AND REPLY SENT!!!!!!!!!!!!!!!!!!!!!!");
         ctx.address()
             .do_send(Packet::new_region_handshake_reply(RegionHandshakeReply {
                 session_id: self.session.as_ref().unwrap().session_id,
@@ -451,6 +452,21 @@ async fn handle_login(
             message: e.to_string(),
         })?;
     };
+    let pack = Packet::new_agent_throttle(AgentThrottle {
+        agent_id: login_response.agent_id,
+        session_id: login_response.session_id,
+        circuit_code: login_response.circuit_code,
+        gen_counter: 0,
+        throttles: ThrottleData {
+            ..Default::default()
+        },
+    });
+    if let Err(e) = mailbox_addr.send(pack).await {
+        Err(CompleteAgentMovementError {
+            message: e.to_string(),
+        })?;
+    };
+
     match CapabilityRequest::new_capability_request(vec![
         #[cfg(any(feature = "agent", feature = "environment"))]
         Capability::ViewerAsset,
@@ -482,5 +498,6 @@ async fn handle_login(
             message: e.to_string(),
         })?
     }
+
     Ok(())
 }

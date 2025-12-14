@@ -51,11 +51,19 @@ impl Packet {
     }
 
     /// convert a packet to bytes for sending.
-    /// simply call the header and body's to_bytes() functions
+    /// simply call the header and body's to_bytes() functions. If it is zerocoded, don't zerocode
+    /// the first six bytes of the header. for whatever reason.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend(self.header.to_bytes());
         bytes.extend(self.body.to_bytes());
+        if self.header.zerocoded {
+            let mut zeroed = zero_encode(&bytes[6..]);
+            let mut final_bytes = Vec::with_capacity(6 + zeroed.len());
+            final_bytes.extend_from_slice(&bytes[0..6]);
+            final_bytes.append(&mut zeroed);
+            return final_bytes;
+        }
         bytes
     }
 }
@@ -83,27 +91,40 @@ fn zero_decode(bytes: &[u8]) -> Vec<u8> {
     dest
 }
 
-fn _zero_encode(src: &[u8]) -> Vec<u8> {
-    let mut dest = Vec::new();
+fn zero_encode(src: &[u8]) -> Vec<u8> {
+    let mut dest = Vec::with_capacity(src.len());
+    let mut zerocount: u8 = 0;
     let mut i = 0;
 
     while i < src.len() {
         if src[i] == 0x00 {
-            // Count consecutive zeros
-            let mut count = 1;
-            while i + count < src.len() && src[i + count] == 0x00 {
-                count += 1;
+            zerocount = zerocount.wrapping_add(1); // increment zero count with wraparound
+
+            // if overflow happens (count wraps to 0), write 0x00 0xff like OpenMetaverse
+            if zerocount == 0 {
+                dest.push(0x00);
+                dest.push(0xff);
+                zerocount = 1; // reset to 1 after writing overflow
+            }
+        } else {
+            // flush any accumulated zeros
+            if zerocount != 0 {
+                dest.push(0x00);
+                dest.push(zerocount);
+                zerocount = 0;
             }
 
-            // Add a zero byte and the repeat count to the destination
-            dest.push(0x00);
-            dest.push(count as u8);
-            i += count;
-        } else {
-            // Add non-zero byte to the destination
             dest.push(src[i]);
-            i += 1;
         }
+
+        i += 1;
     }
+
+    // flush remaining zeros at the end
+    if zerocount != 0 {
+        dest.push(0x00);
+        dest.push(zerocount);
+    }
+
     dest
 }
