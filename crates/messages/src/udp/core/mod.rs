@@ -181,6 +181,8 @@ pub mod circuit_code;
 /// | CircuitCode           | 4 bytes  | [u32]              | The CircuitCode (sent from server to client with login) |
 pub mod complete_agent_movement;
 
+pub mod agent_throttle;
+
 /// TODO: UNIMPLEMENTED
 pub mod agent_movement_complete;
 /// TODO: UNIMPLEMENTED

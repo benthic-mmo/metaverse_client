@@ -6,6 +6,7 @@ use crate::packet::packet::PacketData;
 use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;
+use crate::udp::core::agent_throttle::AgentThrottle;
 use crate::udp::core::logout_request::LogoutRequest;
 use crate::udp::core::sim_stats::SimStats;
 use crate::udp::core::test_packet::TestPacket;
@@ -86,6 +87,7 @@ define_packets! {
     1 [Low] => TestPacket,
     3 [Low] => CircuitCode,
     80 [Low] => ChatFromViewer,
+    81 [Low] => AgentThrottle,
     139 [Low] => ChatFromSimulator,
     140 [Low] => SimStats,
     148 [Low] => RegionHandshake,
@@ -95,7 +97,6 @@ define_packets! {
     249 [Low] => CompleteAgentMovementData,
     250 [Low]=> AgentMovementComplete,
     252 [Low] => LogoutRequest,
-
     251 [Fixed] => PacketAck,
     // Legacy packets
     382 [Low] => AgentWearablesUpdate,

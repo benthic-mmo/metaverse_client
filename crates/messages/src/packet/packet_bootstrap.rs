@@ -18,13 +18,9 @@ impl Packet{
             header: Header{
                 id: *id* ,
                 reliable: false, 
-                resent: false, 
                 zerocoded: false, 
-                appended_acks: false, 
-                sequence_number: 0, 
-                frequency: PacketFrequency::Low, 
-                ack_list: None, 
-                size: None
+                frequency: PacketFrequency::Low,
+                ..Default::default()
             },
             body: PacketType::*PacketName*(Box::new(*local_name*)),
         }

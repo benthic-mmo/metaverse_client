@@ -28,7 +28,6 @@ impl Mailbox {
                             continue;
                         }
                     };
-
                     // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
                     if packet.header.reliable {
                         {
@@ -44,7 +43,7 @@ impl Mailbox {
 
                     match &packet.body {
                         PacketType::PacketAck(data) => {
-                            println!("{:?}", data);
+                            //println!("{:?}", data);
                         }
                         PacketType::StartPingCheck(data) => {
                             if let Err(e) = mailbox_address
@@ -93,7 +92,7 @@ impl Mailbox {
                             }
                         }
                         other => {
-                            println!("{:?}", other);
+                            println!("unhandled packet: {:?}", other);
                         }
                     }
                 }
