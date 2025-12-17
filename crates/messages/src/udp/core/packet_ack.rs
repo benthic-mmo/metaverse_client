@@ -43,6 +43,9 @@ impl PacketData for PacketAck {
             let id = cursor.read_u32::<LittleEndian>()?;
             packet_ids.push(id);
         }
+
+        println!("PACKET ACK BYTES {:?}", bytes);
+
         Ok(PacketAck { packet_ids })
     }
 

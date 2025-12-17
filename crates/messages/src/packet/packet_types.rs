@@ -7,8 +7,11 @@ use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;
 use crate::udp::core::agent_throttle::AgentThrottle;
+use crate::udp::core::enable_simulator::EnableSimulator;
 use crate::udp::core::logout_request::LogoutRequest;
+use crate::udp::core::parcel_overlay::ParcelOverlay;
 use crate::udp::core::sim_stats::SimStats;
+use crate::udp::core::simulator_viewer_time_message::SimulatorViewerTimeMessage;
 use crate::udp::core::test_packet::TestPacket;
 use crate::udp::core::viewer_effect::ViewerEffect;
 use crate::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -18,6 +21,8 @@ use crate::udp::object::object_update::ObjectUpdate;
 use crate::udp::object::object_update_cached::ObjectUpdateCached;
 use crate::udp::object::object_update_compressed::ObjectUpdateCompressed;
 use crate::udp::object::request_multiple_objects::RequestMultipleObjects;
+use crate::udp::teleport::teleport_request::TeleportRequest;
+use crate::udp::teleport::teleport_start::TeleportStart;
 use crate::{
     udp::agent::{agent_update::AgentUpdate, coarse_location_update::CoarseLocationUpdate},
     udp::chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromViewer},
@@ -86,17 +91,23 @@ define_packets! {
 
     1 [Low] => TestPacket,
     3 [Low] => CircuitCode,
+    62 [Low] => TeleportRequest,
+    73 [Low] => TeleportStart,
     80 [Low] => ChatFromViewer,
     81 [Low] => AgentThrottle,
     139 [Low] => ChatFromSimulator,
     140 [Low] => SimStats,
     148 [Low] => RegionHandshake,
     149 [Low] => RegionHandshakeReply,
+    150 [Low] => SimulatorViewerTimeMessage,
     152 [Low] => DisableSimulator,
+    151 [Low] => EnableSimulator,
     158 [Low] => AvatarAppearance,
+    196 [Low] => ParcelOverlay,
     249 [Low] => CompleteAgentMovementData,
     250 [Low]=> AgentMovementComplete,
     252 [Low] => LogoutRequest,
+
     251 [Fixed] => PacketAck,
     // Legacy packets
     382 [Low] => AgentWearablesUpdate,

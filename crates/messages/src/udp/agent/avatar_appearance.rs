@@ -48,7 +48,6 @@ pub struct AvatarAppearance {
 
 impl PacketData for AvatarAppearance {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        println!("avatar appearance packet received : {:?}", bytes);
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];

@@ -8,6 +8,7 @@ use crate::{
     utils::agent_access::AgentAccess,
 };
 use actix::Message;
+use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Cursor, Read},
@@ -20,7 +21,7 @@ impl Packet {
     pub fn new_region_handshake(region_handshake: RegionHandshake) -> Self {
         Packet {
             header: Header {
-                id: 80,
+                id: 148,
                 frequency: PacketFrequency::Low,
                 reliable: true,
                 zerocoded: true,
@@ -87,9 +88,9 @@ pub struct RegionHandshake {
     pub terrain_height_range_3: f32,
 }
 
-impl RegionHandshake {
+impl PacketData for RegionHandshake {
     /// Convert the RegionHandshake object to bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         bytes.extend(&self.region_flags.to_le_bytes());
         bytes.push(self.sim_access.to_bytes());
@@ -120,98 +121,63 @@ impl RegionHandshake {
     }
 
     /// Convert bytes to a region handshake object
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+        let region_flags = cursor.read_u32::<LittleEndian>()?;
+        let sim_access_byte = cursor.read_u8()?;
+        let sim_access = AgentAccess::from_bytes(&sim_access_byte);
 
-        // these region flags are almost certainly super messed up
-        let mut region_flags = [0u8; 4];
-        cursor.read_exact(&mut region_flags)?;
-        let region_flags = u32::from_le_bytes(region_flags);
-
-        // I am not sure what this byte does but it ruins the whole thing if you leave it in :/
-        let current_position = cursor.position();
-        cursor.set_position(current_position + 1);
-
-        let mut sim_access = [0u8; 1];
-        cursor.read_exact(&mut sim_access)?;
-        let sim_access = AgentAccess::from_bytes(&sim_access[0]);
-
-        let mut name_len = [0u8; 1];
-        cursor.read_exact(&mut name_len)?;
-        let name_len = u8::from_le_bytes(name_len) as usize;
-        let mut name_bytes = vec![0u8; name_len];
-        cursor.read_exact(&mut name_bytes)?;
-        let sim_name = String::from_utf8(name_bytes).unwrap();
+        let sim_name_length = cursor.read_u8()?;
+        let mut sim_name_bytes = vec![0u8; sim_name_length as usize];
+        cursor.read_exact(&mut sim_name_bytes)?;
+        let sim_name = String::from_utf8(sim_name_bytes)?;
 
         let mut uuid_bytes = [0u8; 16];
         cursor.read_exact(&mut uuid_bytes)?;
-        let sim_owner = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let sim_owner = Uuid::from_slice(&uuid_bytes)?;
 
-        let mut is_estate_manager = [0u8; 1];
-        cursor.read_exact(&mut is_estate_manager)?;
+        let is_estate_manager = cursor.read_u8()?;
 
-        let mut float_buffer = [0u8; 4];
-        cursor.read_exact(&mut float_buffer)?;
-        let water_height = f32::from_le_bytes(float_buffer);
+        let water_height = cursor.read_f32::<LittleEndian>()?;
 
-        cursor.read_exact(&mut float_buffer)?;
-        let billable_factor = f32::from_le_bytes(float_buffer);
+        let billable_factor = cursor.read_f32::<LittleEndian>()?;
 
         cursor.read_exact(&mut uuid_bytes)?;
-        let cache_id = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let cache_id = Uuid::from_slice(&uuid_bytes)?;
+        cursor.read_exact(&mut uuid_bytes)?;
+        let terrain_base_0 = Uuid::from_slice(&uuid_bytes)?;
+        cursor.read_exact(&mut uuid_bytes)?;
+        let terrain_base_1 = Uuid::from_slice(&uuid_bytes)?;
+        cursor.read_exact(&mut uuid_bytes)?;
+        let terrain_base_2 = Uuid::from_slice(&uuid_bytes)?;
+        cursor.read_exact(&mut uuid_bytes)?;
+        let terrain_base_3 = Uuid::from_slice(&uuid_bytes)?;
 
         cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_0 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let terrain_detail_0 = Uuid::from_slice(&uuid_bytes)?;
         cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_1 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let terrain_detail_1 = Uuid::from_slice(&uuid_bytes)?;
         cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_2 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let terrain_detail_2 = Uuid::from_slice(&uuid_bytes)?;
         cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_3 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let terrain_detail_3 = Uuid::from_slice(&uuid_bytes)?;
 
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_0 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_1 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_2 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_3 = Uuid::from_slice(&uuid_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let terrain_start_height_0 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_start_height_1 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_start_height_2 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_start_height_3 = cursor.read_f32::<LittleEndian>()?;
 
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_start_height_0 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_start_height_1 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_start_height_2 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_start_height_3 = f32::from_le_bytes(float_buffer);
-
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_height_range_0 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_height_range_1 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_height_range_2 = f32::from_le_bytes(float_buffer);
-        cursor.read_exact(&mut float_buffer)?;
-        let terrain_height_range_3 = f32::from_le_bytes(float_buffer);
+        let terrain_height_range_0 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_height_range_1 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_height_range_2 = cursor.read_f32::<LittleEndian>()?;
+        let terrain_height_range_3 = cursor.read_f32::<LittleEndian>()?;
 
         Ok(Self {
             region_flags,
             sim_access,
             sim_name,
             sim_owner,
-            is_estate_manager: is_estate_manager[0] != 0,
+            is_estate_manager: is_estate_manager != 0,
             water_height,
             billable_factor,
             cache_id,
@@ -232,14 +198,5 @@ impl RegionHandshake {
             terrain_height_range_2,
             terrain_height_range_3,
         })
-    }
-}
-
-impl PacketData for RegionHandshake {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        Ok(serde_json::from_str::<RegionHandshake>(from_utf8(bytes)?)?)
-    }
-    fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_string(&self).unwrap().into_bytes()
     }
 }

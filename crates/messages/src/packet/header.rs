@@ -1,5 +1,8 @@
+use byteorder::BigEndian;
+use byteorder::LittleEndian;
+use byteorder::ReadBytesExt;
 use core::fmt;
-use std::io;
+use std::io::{self, Cursor, Read};
 
 // TODO: change the flags to bitflags
 /// flag for reliable message
@@ -40,53 +43,45 @@ pub struct Header {
 impl Header {
     /// parse the header from incoming packet bytes. Can fail and return an io error.
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Header, std::io::Error> {
-        let mut pos = 0;
+        let mut cursor = Cursor::new(bytes);
 
-        let flags = bytes[pos];
+        let flags = cursor.read_u8()?;
         let appended_acks = (flags & MSG_APPENDED_ACKS) != 0;
         let reliable = (flags & MSG_RELIABLE) != 0;
         let resent = (flags & MSG_RESENT) != 0;
         let zerocoded = (flags & MSG_ZEROCODED) != 0;
 
-        // the flags live in one byte
-        pos += 1;
-        let sequence_number =
-            u32::from_be_bytes([bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]]);
-        // the sequence number lives in 4 bytes
-        pos += 4;
+        let sequence_number = cursor.read_u32::<BigEndian>()?;
 
-        let available_bytes = bytes.len() - pos;
-        // take at least six bytes from the header
-        let slice_length = available_bytes.min(6);
+        // extra byte
+        let _extra_info = cursor.read_u8()?;
 
-        let (frequency, id, frequency_size) =
-            PacketFrequency::from_bytes(&bytes[pos..pos + slice_length], zerocoded)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        // this handles the variable lengths of the frequency and ID.
+        let (frequency, id) = match cursor.read_u8()? {
+            // if the first byte is 255, it could be fixed, low or medium.
+            255 => match cursor.read_u8()? {
+                255 => match cursor.read_u8()? {
+                    255 => {
+                        let fixed = cursor.read_u8()?;
+                        (PacketFrequency::Fixed, fixed as u16)
+                    }
+                    low => {
+                        let mut high = cursor.read_u8()?;
+                        // hardcoded fix for zerocoded headers
+                        if zerocoded && low == 0 && high == 1 {
+                            high = cursor.read_u8()?;
+                        }
 
-        pos += frequency_size;
-
-        let ack_list = if appended_acks {
-            let count = bytes[pos];
-            pos -= 1;
-
-            let mut acks = Vec::with_capacity(count as usize);
-
-            for _ in 0..count {
-                let offset = pos - 3;
-                let ack = u32::from_be_bytes([
-                    bytes[offset],
-                    bytes[offset + 1],
-                    bytes[offset + 2],
-                    bytes[offset + 3],
-                ]);
-
-                acks.push(ack);
-                pos -= 4;
-            }
-            Some(acks)
-        } else {
-            None
+                        let combined: u16 = u16::from_le_bytes([high, low]);
+                        (PacketFrequency::Low, combined)
+                    }
+                },
+                medium => (PacketFrequency::Medium, medium as u16),
+            },
+            // if not, it is a high frequency packet.
+            high => (PacketFrequency::High, high as u16),
         };
+
         //info!("HEADER: id:{:?}, frequency:{:?}", id, frequency);
         let header = Header {
             appended_acks,
@@ -96,8 +91,8 @@ impl Header {
             sequence_number,
             frequency,
             id,
-            ack_list,
-            size: Some(pos),
+            ack_list: None,
+            size: Some(cursor.position() as usize),
         };
         Ok(header)
     }
@@ -130,17 +125,6 @@ impl Header {
 
         // Add the ID and frequency
         bytes.extend_from_slice(&self.frequency.to_bytes(self));
-
-        // Append the ack list if appended_acks is true
-        if self.appended_acks
-            && let Some(ref ack_list) = self.ack_list
-        {
-            bytes.push(ack_list.len() as u8);
-            for ack in ack_list {
-                bytes.extend_from_slice(&ack.to_be_bytes());
-            }
-        }
-
         bytes
     }
 }
@@ -209,65 +193,20 @@ impl PacketFrequency {
         };
         bytes
     }
+}
 
-    /// convert bytes to a header struct
-    pub fn from_bytes(bytes: &[u8], zerocoded: bool) -> io::Result<(Self, u16, usize)> {
-        if bytes.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Empty PacketFrequency",
-            ));
+fn zero_decode(bytes: &[u8]) -> Vec<u8> {
+    let mut cursor = Cursor::new(bytes);
+    let mut dest = Vec::new();
+
+    while cursor.position() < bytes.len() as u64 {
+        let byte = cursor.read_u8().unwrap();
+        if byte == 0x00 {
+            let repeat_count = cursor.read_u8().unwrap() as usize;
+            dest.extend(vec![0x00; repeat_count]);
+        } else {
+            dest.push(byte);
         }
-
-        let id;
-        let frequency;
-        let size;
-
-        // this match against variable sizes is dangerous and doesn't really give that many
-        // benefits
-        // this should probably be rewritten so it accepts a fixed size to the end zeroed out, and
-        // then does operations on that.
-        match bytes.len() {
-            2 => {
-                frequency = PacketFrequency::High;
-                id = bytes[0] as u16;
-                size = 1;
-            }
-            3 => {
-                frequency = PacketFrequency::Medium;
-                id = bytes[2] as u16;
-                size = 3;
-            }
-            5 | 6 => {
-                if bytes[1] == 0xFF && bytes[2] == 0xFF && bytes[3] == 0xFF {
-                    frequency = PacketFrequency::Fixed;
-                    id = bytes[4] as u16;
-                    size = 5;
-                } else if bytes[1] == 0xFF && bytes[2] == 0xFF {
-                    frequency = PacketFrequency::Low;
-                    id = if zerocoded && bytes[3] == 0 {
-                        bytes[4] as u16
-                    } else {
-                        u16::from_be_bytes([bytes[3], bytes[4]])
-                    };
-                    size = 5;
-                } else if bytes[1] == 0xFF {
-                    frequency = PacketFrequency::Medium;
-                    id = bytes[2] as u16;
-                    size = 3; // First 2 bytes considered for Medium frequency
-                } else {
-                    frequency = PacketFrequency::High;
-                    id = bytes[1] as u16;
-                    size = 2; // First byte considered for High frequency
-                }
-            }
-            _ => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Unsupported packet length",
-                ));
-            }
-        }
-        Ok((frequency, id, size))
     }
+    dest
 }

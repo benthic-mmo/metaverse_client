@@ -21,7 +21,7 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(e) => {
-                            println!("{:?}", e);
+                            println!("failed to parse: {:?}", e);
                             //this currently has a lot of packets that don't parse. If this error
                             //were to be visible it would be a constant spam. Someday this will not
                             //be the case.
@@ -56,7 +56,6 @@ impl Mailbox {
                             };
                         }
                         PacketType::RegionHandshake(data) => {
-                            error!("{:?}", data);
                             if let Err(e) = mailbox_address.send(*data.clone()).await {
                                 error!("error: {:?}", e)
                             }
@@ -90,6 +89,9 @@ impl Mailbox {
                             {
                                 error!("Failed to handle chatfromsimulator{:?}", e)
                             }
+                        }
+                        PacketType::AvatarAppearance(data) => {
+                            println!("recieved avatar appearance packet")
                         }
                         other => {
                             println!("unhandled packet: {:?}", other);

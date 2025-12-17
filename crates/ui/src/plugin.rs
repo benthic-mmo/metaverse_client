@@ -3,6 +3,7 @@ use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
 use metaverse_messages::udp::agent::agent_update::AgentUpdate;
+use metaverse_messages::ui::camera_position::CameraPosition;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
@@ -52,6 +53,7 @@ struct EventChannel {
 #[derive(Resource)]
 pub struct SessionData {
     login_response: Option<LoginResponse>,
+    avatar_location: Vec3,
 }
 
 #[derive(Resource)]
@@ -73,6 +75,11 @@ pub struct ChatFromClientMessage {
 #[derive(Message)]
 pub struct LoginResponseEvent {
     pub value: Result<LoginResponse, LoginError>,
+}
+
+#[derive(Message)]
+pub struct CameraUpdateEvent {
+    pub value: CameraPosition
 }
 
 #[derive(Message)]
@@ -130,6 +137,7 @@ impl Plugin for MetaversePlugin {
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
             .insert_resource(SessionData {
                 login_response: None,
+                avatar_location: Vec3::ZERO,
             })
             .insert_resource(ChatMessages {
                 messages: Vec::new(),
@@ -150,6 +158,7 @@ impl Plugin for MetaversePlugin {
             })
             .insert_resource(MeshQueue { items: vec![] })
             .add_message::<LoginResponseEvent>()
+            .add_message::<CameraUpdateEvent>()
             .add_message::<CoarseLocationUpdateEvent>()
             .add_message::<MeshUpdateEvent>()
             .add_message::<LandUpdateEvent>()
@@ -178,6 +187,7 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_logout)
             .add_systems(Update, handle_queue)
             .add_systems(Update, handle_login_response)
+            .add_systems(Update, handle_camera_update)
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
@@ -202,6 +212,16 @@ pub fn handle_login_response(
             Err(_) => viewer_state.set(ViewerState::Login),
         }
     }
+}
+
+pub fn handle_camera_update(
+mut ev_loginresponse: MessageReader<CameraUpdateEvent>,
+mut session_data: ResMut<SessionData>,
+) {
+for response in ev_loginresponse.read() {
+        println!("{:?}", response.value.position);
+        session_data.avatar_location = response.value.position
+}
 }
 
 pub fn send_packet_to_core(packet: &[u8], sockets: &Res<Sockets>) -> Result<(), PacketSendError> {
@@ -250,6 +270,7 @@ fn handle_queue(
     mut ev_disable_simulator: MessageWriter<DisableSimulatorEvent>,
     mut ev_mesh_update: MessageWriter<MeshUpdateEvent>,
     mut ev_land_update: MessageWriter<LandUpdateEvent>,
+    mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
 ) {
     // Check for events in the channel
@@ -311,6 +332,10 @@ fn handle_queue(
             }
             UIMessage::DisableSimulator(_) => {
                 ev_disable_simulator.write(DisableSimulatorEvent {});
+            }
+            UIMessage::CameraPosition(data) => {
+                println!("{:?}", data);
+                ev_camera_update.write(CameraUpdateEvent { value: data });
             }
         };
     }
@@ -374,10 +399,11 @@ pub fn retrieve_login_response<'a>(
 }
 
 // Send an agent update every second
-fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, mut timer: ResMut<AgentUpdateTimer>) {
+fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, session: Res<SessionData>, mut timer: ResMut<AgentUpdateTimer>) {
     if !timer.0.tick(time.delta()).just_finished()
         && let Err(e) = send_packet_to_core(
             &UIResponse::new_agent_update(AgentUpdate {
+               camera_center: session.avatar_location, 
                 ..Default::default()
             })
             .to_bytes(),

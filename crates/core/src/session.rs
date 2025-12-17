@@ -28,7 +28,6 @@ use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_event::Login;
 use sqlx::Pool;
 use sqlx::Sqlite;
-use std::any::Any;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::net::UdpSocket as SyncUdpSocket;
@@ -310,6 +309,7 @@ impl Handler<UIResponse> for Mailbox {
         }
     }
 }
+
 /// Handles sending packets to the server
 impl Handler<Packet> for Mailbox {
     type Result = ();
@@ -426,6 +426,26 @@ async fn handle_login(
         })?;
     };
 
+    match CapabilityRequest::new_capability_request(vec![
+        #[cfg(any(feature = "agent", feature = "environment"))]
+        Capability::ViewerAsset,
+        #[cfg(feature = "inventory")]
+        Capability::FetchLibDescendents2,
+        #[cfg(feature = "inventory")]
+        Capability::FetchInventoryDescendents2,
+    ]) {
+        Ok(caps) => {
+            if let Err(e) = mailbox_addr.send(caps).await {
+                Err(CapabilityError {
+                    message: e.to_string(),
+                })?
+            }
+        }
+        Err(e) => {
+            error!("{:?}", e)
+        }
+    };
+
     if let Err(e) = mailbox_addr
         .send(Packet::new_circuit_code(CircuitCode {
             code: login_response.circuit_code,
@@ -438,6 +458,8 @@ async fn handle_login(
             message: e.to_string(),
         })?;
     };
+
+    sleep(Duration::from_secs(1));
     if let Err(e) = mailbox_addr
         .send(Packet::new_complete_agent_movement(
             CompleteAgentMovementData {
@@ -465,26 +487,6 @@ async fn handle_login(
         Err(CompleteAgentMovementError {
             message: e.to_string(),
         })?;
-    };
-
-    match CapabilityRequest::new_capability_request(vec![
-        #[cfg(any(feature = "agent", feature = "environment"))]
-        Capability::ViewerAsset,
-        #[cfg(feature = "inventory")]
-        Capability::FetchLibDescendents2,
-        #[cfg(feature = "inventory")]
-        Capability::FetchInventoryDescendents2,
-    ]) {
-        Ok(caps) => {
-            if let Err(e) = mailbox_addr.send(caps).await {
-                Err(CapabilityError {
-                    message: e.to_string(),
-                })?
-            }
-        }
-        Err(e) => {
-            error!("{:?}", e)
-        }
     };
 
     #[cfg(feature = "inventory")]

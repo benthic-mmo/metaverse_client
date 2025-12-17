@@ -2,6 +2,7 @@ use super::header::Header;
 use super::packet_types::PacketType;
 use crate::errors::ParseError;
 use actix::Message;
+use byteorder::ReadBytesExt;
 use std::any::Any;
 use std::io::{Cursor, Read};
 
@@ -47,6 +48,7 @@ impl Packet {
         };
 
         let body = PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?;
+
         Ok(Self { header, body })
     }
 
@@ -73,17 +75,13 @@ fn zero_decode(bytes: &[u8]) -> Vec<u8> {
     let mut cursor = Cursor::new(bytes);
     let mut dest = Vec::new();
 
-    while cursor.position() < bytes.len() as u64 {
-        let mut byte = [0u8; 1];
-        cursor.read_exact(&mut byte).unwrap();
-        let byte = byte[0];
-
+    while let Ok(byte) = cursor.read_u8() {
         if byte == 0x00 {
-            let mut repeat_count = [0u8; 1];
-            cursor.read_exact(&mut repeat_count).unwrap();
-            let repeat_count = repeat_count[0] as usize;
-
-            dest.extend(vec![0x00; repeat_count]);
+            if let Ok(count) = cursor.read_u8() {
+                dest.extend(std::iter::repeat(0x00).take(count as usize));
+            } else {
+                dest.push(0x00);
+            }
         } else {
             dest.push(byte);
         }
