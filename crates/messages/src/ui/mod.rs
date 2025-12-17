@@ -18,3 +18,5 @@ pub mod land_update;
 pub mod login_event;
 /// UI message for requesting a logout
 pub mod logout;
+
+pub mod camera_position;

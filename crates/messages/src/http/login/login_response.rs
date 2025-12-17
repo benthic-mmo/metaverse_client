@@ -1,6 +1,7 @@
 use crate::{
     errors::ParseError, http::login::login_error::LoginError, utils::agent_access::AgentAccess,
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use serde_llsd_benthic::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
 use serde_llsd_benthic::{auto_from_str, LLSDValue};
@@ -44,6 +45,7 @@ pub struct LoginResponse {
     /// The ID of the user that owns the library
     pub inventory_lib_owner: Option<Uuid>,
     /// home: the home location of the user
+    /// TODO: should not be optional
     pub home: Option<HomeValues>,
     /// look_at: the direction the avatar should be facing
     /// This is a unit vector so
@@ -547,49 +549,55 @@ impl FromLLSDValue for InventoryType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HomeValues {
     /// x, y grid coordinate of the home location
-    pub region_handle: (String, String),
+    pub region_handle: Vec2,
     /// x y z position of the user in the home location
-    pub position: (String, String, String),
+    pub position: Vec3,
     /// x y z location the user is looking
-    pub look_at: (String, String, String),
+    pub look_at: Vec3,
 }
 impl FromLLSDValue for HomeValues {
     fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Map(map) = value {
-            let region_handle = match map.get("region_handle") {
-                Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
-                    let a = arr[0].as_string()?.clone();
-                    let b = arr[1].as_string()?.clone();
-                    (a, b)
-                }
-                _ => return None,
-            };
+        if let LLSDValue::String(s) = value {
+            // Trim braces and whitespace
+            let s = s.trim_matches(|c| c == '{' || c == '}').trim();
 
-            let position = match map.get("position") {
-                Some(LLSDValue::Array(arr)) if arr.len() == 3 => {
-                    let a = arr[0].as_string()?.clone();
-                    let b = arr[1].as_string()?.clone();
-                    let c = arr[2].as_string()?.clone();
-                    (a, b, c)
-                }
-                _ => return None,
-            };
+            // Remove field names and brackets, keep only numbers with 'r' prefix
+            let s = s
+                .replace("region_handle", "")
+                .replace("position", "")
+                .replace("look_at", "")
+                .replace("[", "")
+                .replace("]", "")
+                .replace("'", "")
+                .replace(" ", "");
 
-            let look_at = match map.get("look_at") {
-                Some(LLSDValue::Array(arr)) if arr.len() == 3 => {
-                    let a = arr[0].as_string()?.clone();
-                    let b = arr[1].as_string()?.clone();
-                    let c = arr[2].as_string()?.clone();
-                    (a, b, c)
-                }
-                _ => return None,
-            };
+            // Split by commas
+            let parts: Vec<&str> = s.split(',').collect();
 
-            Some(HomeValues {
-                region_handle,
-                position,
-                look_at,
-            })
+            // Expect 2 + 3 + 3 numbers
+            if parts.len() != 8 {
+                eprintln!(
+                    "Unexpected home string format, got {} parts: {:?}",
+                    parts.len(),
+                    parts
+                );
+                return None;
+            }
+
+            // Parse numbers, stripping any leading 'r' or ':' characters
+            let nums: Vec<f32> = parts
+                .iter()
+                .map(|p| p.trim_start_matches(|c| c == 'r' || c == ':'))
+                .map(|p| p.parse::<f32>().ok())
+                .collect::<Option<Vec<f32>>>()?;
+
+            let home = HomeValues {
+                region_handle: Vec2::new(nums[0], nums[1]),
+                position: Vec3::new(nums[2], nums[3], nums[4]),
+                look_at: Vec3::new(nums[5], nums[6], nums[7]),
+            };
+            println!("{:?}", home);
+            Some(home)
         } else {
             None
         }

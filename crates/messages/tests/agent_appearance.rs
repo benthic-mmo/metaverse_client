@@ -1,5 +1,5 @@
 use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
-use uuid::{Uuid, uuid};
+use uuid::{uuid, Uuid};
 
 const DEFAULT_USER_APPEARANCE: [u8; 326] = [
     192, 0, 0, 0, 5, 0, 255, 255, 0, 158, 157, 193, 139, 177, 4, 79, 76, 104, 144, 107, 44, 182, 8,

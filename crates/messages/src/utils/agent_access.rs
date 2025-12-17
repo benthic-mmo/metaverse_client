@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_llsd_benthic::{converter::FromLLSDValue, LLSDValue};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 /// Handles the access level of the viewer.
 /// prevents people with lower access levels from joining regions they shouldn't.
 pub enum AgentAccess {
@@ -20,6 +20,7 @@ pub enum AgentAccess {
     /// Agent can view PG rated content
     PG,
     /// unknown
+    #[default]
     Unknown,
 }
 impl FromLLSDValue for AgentAccess {

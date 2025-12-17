@@ -6,8 +6,9 @@ use crate::{
         core::disable_simulator::DisableSimulator,
     },
     ui::{
-        chat_from_viewer::ChatFromUI, errors::SessionError, land_update::LandUpdate,
-        login_event::Login, login_response::LoginResponse, logout::Logout, mesh_update::MeshUpdate,
+        camera_position::CameraPosition, chat_from_viewer::ChatFromUI, errors::SessionError,
+        land_update::LandUpdate, login_event::Login, login_response::LoginResponse, logout::Logout,
+        mesh_update::MeshUpdate,
     },
 };
 use actix::Message;
@@ -63,6 +64,8 @@ pub enum UIMessage {
     DisableSimulator(DisableSimulator),
     /// Message for informing the UI of a land packet
     LandUpdate(LandUpdate),
+
+    CameraPosition(CameraPosition),
 }
 
 impl UIMessage {

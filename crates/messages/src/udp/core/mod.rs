@@ -183,6 +183,12 @@ pub mod complete_agent_movement;
 
 pub mod agent_throttle;
 
+pub mod enable_simulator;
+
+pub mod parcel_overlay;
+
+pub mod simulator_viewer_time_message;
+
 /// TODO: UNIMPLEMENTED
 pub mod agent_movement_complete;
 /// TODO: UNIMPLEMENTED

@@ -130,6 +130,7 @@ const TEST_FULL_ID: Uuid = uuid!("febd696e-83bc-466e-ab48-6384ea67becf");
 #[test]
 pub fn test_object_update() {
     let object_update = Packet::from_bytes(&PACKET).unwrap();
+
     match object_update.body {
         PacketType::ObjectUpdate(object) => {
             assert_eq!(object.full_id, DEFAULT_USER_ID)

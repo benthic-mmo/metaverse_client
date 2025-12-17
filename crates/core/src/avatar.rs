@@ -1,23 +1,19 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
-use crate::transport::http_handler::{
-    download_mesh, download_object, download_render_object, download_texture,
-};
+use crate::transport::http_handler::{download_object, download_render_object, download_texture};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
-use glam::{Vec3, Vec4};
 use log::{error, info, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
-use metaverse_agent::skeleton::{create_skeleton, update_global_avatar_skeleton};
+use metaverse_agent::skeleton::update_global_avatar_skeleton;
 use metaverse_inventory::agent::get_current_outfit;
 use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
-use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use metaverse_messages::utils::object_types::ObjectType;
-use metaverse_messages::utils::render_data::{AvatarObject, RenderObject, SkinData};
-use metaverse_messages::utils::skeleton::Skeleton;
+use metaverse_messages::utils::render_data::{AvatarObject, RenderObject};
 use serde::Serialize;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -263,6 +259,12 @@ impl Handler<Avatar> for Mailbox {
     fn handle(&mut self, msg: Avatar, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
             let addr = ctx.address();
+            if session.agent_id == msg.agent_id {
+                addr.do_send(UIMessage::new_camera_position(CameraPosition {
+                    position: msg.position,
+                }));
+            }
+
             if session.inventory_data.inventory_init {
                 session.avatars.insert(msg.agent_id, msg);
                 let agent_id = session.agent_id;
