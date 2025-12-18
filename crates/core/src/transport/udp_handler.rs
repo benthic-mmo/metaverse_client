@@ -1,4 +1,4 @@
-use crate::session::{Mailbox, Ping, SendAckList};
+use crate::session::{AddToAckList, Mailbox, Ping, SendAckList};
 use actix::Addr;
 use log::{error, warn};
 use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_types::PacketType};
@@ -8,11 +8,7 @@ use tokio::net::UdpSocket;
 
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
-    pub async fn start_udp_read(
-        ack_queue: Arc<Mutex<HashSet<u32>>>,
-        sock: Arc<UdpSocket>,
-        mailbox_address: Addr<Mailbox>,
-    ) {
+    pub async fn start_udp_read(sock: Arc<UdpSocket>, mailbox_address: Addr<Mailbox>) {
         let mut buf = [0; 1500];
 
         loop {
@@ -30,20 +26,21 @@ impl Mailbox {
                     };
                     // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
                     if packet.header.reliable {
+                        if let Err(e) = mailbox_address
+                            .send(AddToAckList {
+                                id: packet.header.sequence_number,
+                            })
+                            .await
                         {
-                            ack_queue
-                                .lock()
-                                .unwrap()
-                                .insert(packet.header.sequence_number);
-                        }
-                        if let Err(e) = mailbox_address.send(SendAckList {}).await {
-                            warn!("Failed to send ack list {:?}", e)
+                            warn!("Failed to send ping: {:?}", e)
                         }
                     }
 
                     match &packet.body {
                         PacketType::PacketAck(data) => {
-                            println!("{:?}", data);
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle PacketAck {:?}", e)
+                            }
                         }
                         PacketType::StartPingCheck(data) => {
                             if let Err(e) = mailbox_address
