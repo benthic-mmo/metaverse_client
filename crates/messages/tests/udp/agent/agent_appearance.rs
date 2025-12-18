@@ -1,10 +1,4 @@
-use metaverse_messages::{
-    agent::avatar_appearance::AvatarAppearance,
-    packet::{
-        packet::{Packet, PacketData},
-        packet_types::PacketType,
-    },
-};
+use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
 use uuid::{uuid, Uuid};
 
 const DEFAULT_USER_APPEARANCE: [u8; 326] = [
@@ -45,6 +39,8 @@ const TEST_USER_APPEARANCE: [u8; 361] = [
 const TEST_USER_ID: Uuid = uuid!("f96360e2883b4eadb86a41bcd3e21550");
 const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
 
+/// ensures the AvatarAppearance packet parses correctly. The AvatarAppearance packet is currently
+/// unused.
 #[test]
 pub fn test_parse_avatar_appearance() {
     let default_user = Packet::from_bytes(&DEFAULT_USER_APPEARANCE).unwrap();
@@ -62,5 +58,5 @@ pub fn test_parse_avatar_appearance() {
         }
         _ => assert!(false),
     }
-    println!("{:?}", test_user);
 }
+
