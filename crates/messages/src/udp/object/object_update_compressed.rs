@@ -30,6 +30,7 @@ pub struct ObjectUpdateCompressed {}
 impl PacketData for ObjectUpdateCompressed {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut _cursor = Cursor::new(bytes);
+        println!("{:?}", bytes);
         Ok(ObjectUpdateCompressed {})
     }
     fn to_bytes(&self) -> Vec<u8> {

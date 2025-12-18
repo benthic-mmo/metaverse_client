@@ -76,8 +76,11 @@ impl PacketData for RequestMultipleObjects {
         cursor.read_exact(&mut session_bytes)?;
         let session_id = Uuid::from_bytes(session_bytes);
 
+        let request_len = cursor.read_u8()?;
+
         let mut requests = Vec::new();
-        while let Ok(cache_miss_type_raw) = cursor.read_u8() {
+        for _ in 0..request_len {
+            let cache_miss_type_raw = cursor.read_u8()?;
             let cache_miss_type = CacheMissType::from(cache_miss_type_raw);
             let id = cursor.read_u32::<BigEndian>()?;
             requests.push((cache_miss_type, id));
@@ -91,10 +94,10 @@ impl PacketData for RequestMultipleObjects {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(32 + self.requests.len() * 5); // 32 bytes for UUIDs + 5 per request
+        let mut bytes = Vec::new();
         bytes.extend_from_slice(self.agent_id.as_bytes());
         bytes.extend_from_slice(self.session_id.as_bytes());
-
+        bytes.extend_from_slice(&[(self.requests.len() as u8)]);
         for (cache_miss_type, id) in &self.requests {
             bytes.push(u8::from(*cache_miss_type));
             bytes.write_u32::<BigEndian>(*id).unwrap();
