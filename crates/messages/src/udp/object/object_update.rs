@@ -13,6 +13,7 @@ use crate::{
         packet::{Packet, PacketData},
         packet_types::PacketType,
     },
+    udp::object::util::ObjectFlag,
     utils::{material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound},
 };
 use std::io::{self, Cursor, Read};
@@ -33,15 +34,13 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Message, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Message, Clone, Serialize, Deserialize)]
 #[rtype(result = "()")]
 /// The object update packet. Receives object information. Is the first packet received when
 /// spawning objects into the viewer.
 pub struct ObjectUpdate {
-    /// x Location of the object in the grid region
-    pub region_x: u32,
-    /// Y location of the object in the grid region
-    pub region_y: u32,
+    /// region handle
+    pub region_handle: u64,
     /// The current lag from the server. Used by physics simulations to keep up with real time.
     pub time_dilation: f32,
     /// The region local ID of the tasks. UsedSerializeSerialize for most operations in lieu of the task's full UUID
@@ -67,7 +66,7 @@ pub struct ObjectUpdate {
     pub parent_id: u32,
     /// various pieces of information about object. Stores things like empty inventory, scripted,
     /// etc
-    pub update_flags: u32,
+    pub update_flags: Vec<ObjectFlag>,
     /// Strores imformation about primitive geometry
     pub primitive_geometry: Path,
     /// Full property list for each object's face, including textures and colors.
@@ -103,8 +102,7 @@ impl PacketData for ObjectUpdate {
         let mut cursor = Cursor::new(bytes);
 
         // read the regionhandle as two u32s instead of one u64
-        let region_x = cursor.read_u32::<LittleEndian>()?;
-        let region_y = cursor.read_u32::<LittleEndian>()?;
+        let region_handle = cursor.read_u64::<LittleEndian>()?;
         let time_dilation = cursor.read_u16::<LittleEndian>()? as f32 / 65535.0;
 
         // unsure what this is, but this sets the correct packet alignment
@@ -138,7 +136,7 @@ impl PacketData for ObjectUpdate {
         let motion_data = MotionData::from_bytes(&motion_data)?;
 
         let parent_id = cursor.read_u32::<LittleEndian>()?;
-        let update_flags = cursor.read_u32::<LittleEndian>()?;
+        let update_flags = ObjectFlag::from_bytes(cursor.read_u32::<LittleEndian>()?);
 
         // this section is always 23 bytes
         let mut geometry_bytes = [0u8; 23];
@@ -229,8 +227,7 @@ impl PacketData for ObjectUpdate {
         };
 
         let update = ObjectUpdate {
-            region_x,
-            region_y,
+            region_handle,
             time_dilation,
 
             id,

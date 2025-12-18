@@ -1,3 +1,5 @@
+use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -7,7 +9,6 @@ use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_object_dir;
 use crate::transport::http_handler::create_object_render_object;
-use crate::transport::http_handler::download_mesh;
 use actix::AsyncContext;
 #[cfg(any(feature = "agent", feature = "environment"))]
 use actix::ResponseFuture;
@@ -19,9 +20,7 @@ use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_inventory::object_update::get_object_update;
 use metaverse_inventory::object_update::insert_object_update;
-use metaverse_mesh::generate::generate_mesh;
 use metaverse_mesh::generate::generate_object_mesh;
-use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -30,6 +29,7 @@ use metaverse_messages::udp::object::object_update::ExtraParams;
 #[cfg(any(feature = "agent", feature = "environment"))]
 use metaverse_messages::udp::object::object_update::ObjectUpdate;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
+use metaverse_messages::udp::object::request_multiple_objects::CacheMissType;
 use metaverse_messages::ui::mesh_update::MeshType;
 use metaverse_messages::ui::mesh_update::MeshUpdate;
 use metaverse_messages::utils::object_types::ObjectType;
@@ -60,14 +60,26 @@ pub struct DownloadObject {
 impl Handler<ImprovedTerseObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: ImprovedTerseObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        println!("{:?}", msg);
+        //println!("{:?}", msg);
     }
 }
 
 impl Handler<ObjectUpdateCached> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: ObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
-        println!("{:?}", msg);
+        if let Some(session) = &self.session {
+            let mut requests = Vec::new();
+            for object in &msg.objects {
+                requests.push((CacheMissType::Normal, object.id));
+            }
+            ctx.address().do_send(Packet::new_request_multiple_objects(
+                RequestMultipleObjects {
+                    session_id: session.session_id,
+                    agent_id: session.agent_id,
+                    requests,
+                },
+            ));
+        }
     }
 }
 
@@ -82,7 +94,6 @@ impl Handler<ObjectUpdate> for Mailbox {
         if self.session.is_none() {
             return Box::pin(async {});
         };
-
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
@@ -100,12 +111,12 @@ impl Handler<ObjectUpdate> for Mailbox {
                     // attachment.
                     match AttachItem::parse_attach_item(msg.name_value.clone()) {
                         Ok(item) => {
-                            println!("attachment: {:?}", msg.name_value);
+                            //println!("attachment: {:?}", msg.name_value);
                             addr.do_send(HandleAttachment { object: msg, item });
                         }
                         // if not, ignore the error and handle it as a generic object.
                         Err(_) => {
-                            println!("generic object: {:?}", msg);
+                            //println!("generic object: {:?}", msg);
                             addr.do_send(HandleObject { object: msg });
                         }
                     };
@@ -145,7 +156,6 @@ impl Handler<HandleObject> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleObject, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
-            // send a requestmultipleobject packet
             if let Some(extra_params) = msg.object.extra_params {
                 for param in extra_params {
                     match param {

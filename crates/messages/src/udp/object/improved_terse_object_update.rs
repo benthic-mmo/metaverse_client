@@ -34,9 +34,10 @@ impl Packet {
 pub struct ImprovedTerseObjectUpdate {
     pub region_handle: u64,
     pub time_dilation: u16,
+    pub objects: Vec<TerseObjectData>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TerseObjectData {
     pub local_id: u32,
     pub state: u8,
@@ -117,14 +118,15 @@ impl PacketData for ImprovedTerseObjectUpdate {
         let time_dilation = cursor.read_u16::<LittleEndian>()?;
 
         let object_count = cursor.read_u8()?;
-        //let mut objects = Vec::with_capacity(object_count as usize);
+        let mut objects = Vec::with_capacity(object_count as usize);
 
         for _ in 0..object_count {
             let data_len = cursor.read_u8()?;
             let mut data_buf = vec![0; data_len as usize];
             cursor.read_exact(&mut data_buf)?;
             let data = TerseObjectData::from_bytes(&data_buf);
-            println!("{:?}", data);
+            objects.push(data);
+
             let tex_len = cursor.read_u16::<LittleEndian>()?;
             let mut tex_buf = vec![0; tex_len as usize];
             cursor.read_exact(&mut tex_buf)?;
@@ -133,6 +135,7 @@ impl PacketData for ImprovedTerseObjectUpdate {
         Ok(ImprovedTerseObjectUpdate {
             region_handle,
             time_dilation,
+            objects,
         })
     }
     fn to_bytes(&self) -> Vec<u8> {

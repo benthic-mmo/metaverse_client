@@ -596,7 +596,6 @@ impl FromLLSDValue for HomeValues {
                 position: Vec3::new(nums[2], nums[3], nums[4]),
                 look_at: Vec3::new(nums[5], nums[6], nums[7]),
             };
-            println!("{:?}", home);
             Some(home)
         } else {
             None
