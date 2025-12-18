@@ -24,10 +24,12 @@ use metaverse_mesh::generate::generate_object_mesh;
 use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams;
 #[cfg(any(feature = "agent", feature = "environment"))]
 use metaverse_messages::udp::object::object_update::ObjectUpdate;
+use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::ui::mesh_update::MeshType;
 use metaverse_messages::ui::mesh_update::MeshUpdate;
 use metaverse_messages::utils::object_types::ObjectType;
@@ -53,6 +55,20 @@ pub struct DownloadObject {
     pub asset_id: Uuid,
     pub texture_id: Uuid,
     pub position: Vec3,
+}
+
+impl Handler<ImprovedTerseObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: ImprovedTerseObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        println!("{:?}", msg);
+    }
+}
+
+impl Handler<ObjectUpdateCached> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: ObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
+        println!("{:?}", msg);
+    }
 }
 
 #[cfg(any(feature = "agent", feature = "environment"))]

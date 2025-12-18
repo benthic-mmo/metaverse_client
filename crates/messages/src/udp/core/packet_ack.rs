@@ -44,8 +44,6 @@ impl PacketData for PacketAck {
             packet_ids.push(id);
         }
 
-        println!("PACKET ACK BYTES {:?}", bytes);
-
         Ok(PacketAck { packet_ids })
     }
 

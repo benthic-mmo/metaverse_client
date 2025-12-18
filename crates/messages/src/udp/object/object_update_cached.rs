@@ -1,3 +1,5 @@
+use actix::Message;
+
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
@@ -23,7 +25,8 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Message, Clone, Default)]
+#[rtype(result = "()")]
 /// TODO: UNIMPLEMENTED
 pub struct ObjectUpdateCached {}
 

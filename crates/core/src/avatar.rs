@@ -10,6 +10,7 @@ use metaverse_inventory::agent::get_current_outfit;
 use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use metaverse_messages::utils::object_types::ObjectType;
@@ -62,6 +63,15 @@ pub struct SetOutfitSize {
 pub struct FinalizeAvatar {
     /// the avatar object to generate
     pub avatar: Avatar,
+}
+
+impl Handler<AvatarAppearance> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AvatarAppearance, ctx: &mut Self::Context) -> Self::Result {
+        // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
+        // the appearance of the avatar.
+        //println!("{:?}", msg);
+    }
 }
 
 impl Handler<SetOutfitSize> for Mailbox {

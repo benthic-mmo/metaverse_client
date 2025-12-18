@@ -57,7 +57,7 @@ impl Mailbox {
                         }
                         PacketType::RegionHandshake(data) => {
                             if let Err(e) = mailbox_address.send(*data.clone()).await {
-                                error!("error: {:?}", e)
+                                error!("Failed to handle RegionHandshake {:?}", e)
                             }
                         }
                         PacketType::DisableSimulator(_) => {
@@ -73,6 +73,16 @@ impl Mailbox {
                         PacketType::ObjectUpdate(data) => {
                             if let Err(e) = mailbox_address.send(*data.clone()).await {
                                 error!("Failed to handle ObjectUpdate {:?}", e)
+                            };
+                        }
+                        PacketType::ObjectUpdateCached(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle ObjectUpdateCached {:?}", e)
+                            };
+                        }
+                        PacketType::ImprovedTerseObjectUpdate(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle TerseObjectUpdate {:?}", e)
                             };
                         }
                         #[cfg(feature = "environment")]
@@ -91,7 +101,9 @@ impl Mailbox {
                             }
                         }
                         PacketType::AvatarAppearance(data) => {
-                            println!("recieved avatar appearance packet")
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle AvatarAppearance {:?}", e)
+                            };
                         }
                         other => {
                             println!("unhandled packet: {:?}", other);
