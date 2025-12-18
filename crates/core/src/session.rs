@@ -60,7 +60,8 @@ pub struct Mailbox {
     pub inventory_db_location: PathBuf,
 
     /// queue of ack packets to handle
-    pub ack_queue: Arc<Mutex<HashSet<u32>>>,
+    pub server_acks: HashSet<u32>,
+    pub viewer_acks: HashSet<u32>,
 
     /// state of the mailbox. If it is running or not.
     pub state: Arc<Mutex<ServerState>>,
@@ -152,6 +153,18 @@ pub enum ServerState {
 #[rtype(result = "()")]
 pub struct SendAckList {}
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct AddToAckList {
+    pub id: u32,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct ResendPacket {
+    pub packet: Packet,
+}
+
 impl Mailbox {
     /// Set the state of the mailbox.
     /// Determines if it's running or started or stopped.
@@ -227,7 +240,6 @@ impl Handler<Session> for Mailbox {
             let mailbox_addr = ctx.address();
 
             info!("session established, starting UDP processing");
-            let ack_queue = self.ack_queue.clone();
 
             let fut = async move {
                 match UdpSocket::bind(&addr).await {
@@ -236,7 +248,6 @@ impl Handler<Session> for Mailbox {
                         let sock = Arc::new(sock);
                         // Spawn a new Tokio task for reading from the socket
                         tokio::spawn(Mailbox::start_udp_read(
-                            ack_queue,
                             sock.clone(),
                             mailbox_addr,
                         ));
@@ -316,8 +327,11 @@ impl Handler<Packet> for Mailbox {
     fn handle(&mut self, mut msg: Packet, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
             let addr = session.address.clone();
-            msg.header.sequence_number = session.sequence_number as u32;
-            session.sequence_number += 1;
+            if !msg.header.resent {
+                msg.header.sequence_number = session.sequence_number as u32;
+                session.sequence_number += 1;
+            }
+
             let data = msg.to_bytes().clone();
             let socket_clone = session.socket.as_ref().unwrap().clone();
             let fut = async move {
@@ -326,7 +340,48 @@ impl Handler<Packet> for Mailbox {
                 }
             };
             ctx.spawn(fut.into_actor(self));
+
+            // if the header is reliable, resend the packet until the viewer_acks contains the key
+            if msg.header.reliable {
+                self.viewer_acks.insert(msg.header.sequence_number);
+                // give one second for the ack to come in.
+                // the ResendPacket message check if viewer_acks still contains the sequence
+                // number. if it doesn't, that means it's been removed by an ack. If it does,
+                // that means it should be resent with the resent flag
+                ctx.notify_later(ResendPacket { packet: msg }, Duration::from_secs(1));
+            };
         }
+    }
+}
+
+impl Handler<ResendPacket> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: ResendPacket, ctx: &mut Self::Context) -> Self::Result {
+        if self
+            .viewer_acks
+            .contains(&msg.packet.header.sequence_number)
+        {
+            msg.packetheader.resent = true;
+            ctx.address().do_send(msg.packet);
+        }
+    }
+}
+
+impl Handler<PacketAck> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: PacketAck, _ctx: &mut Self::Context) -> Self::Result {
+        println!("received ids: {:?}", msg.packet_ids);
+        for id in msg.packet_ids {
+            self.viewer_acks.remove(&id);
+        }
+    }
+}
+
+impl Handler<AddToAckList> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AddToAckList, ctx: &mut Self::Context) -> Self::Result {
+        self.server_acks.insert(msg.id);
+        ctx.address().do_send(SendAckList {});
     }
 }
 
@@ -335,11 +390,10 @@ impl Handler<SendAckList> for Mailbox {
     fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
         if let Some(ref session) = self.session {
             // send ack directly to the server
-            let mut ack_queue = self.ack_queue.lock().unwrap();
-            if ack_queue.is_empty() {
+            if self.server_acks.is_empty() {
                 return;
             }
-            let packet_ids: Vec<u32> = ack_queue.drain().collect();
+            let packet_ids: Vec<u32> = self.server_acks.drain().collect();
 
             let addr = session.address.clone();
             let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();

@@ -7,6 +7,7 @@ use metaverse_inventory::initialize_sqlite::init_sqlite;
 use metaverse_messages::ui::errors::FeatureError;
 use metaverse_messages::ui::errors::MailboxSessionError;
 use metaverse_messages::ui::errors::SessionError;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
@@ -73,7 +74,9 @@ pub async fn initialize(
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
         inventory_db_connection: connection,
         inventory_db_location: db_path,
-        ack_queue: Arc::new(Mutex::new(HashSet::new())),
+
+        server_acks: HashSet::new(),
+        viewer_acks: HashSet::new(),
 
         state: state.clone(),
         notify: notify.clone(),
