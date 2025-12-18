@@ -361,7 +361,7 @@ impl Handler<ResendPacket> for Mailbox {
             .viewer_acks
             .contains(&msg.packet.header.sequence_number)
         {
-            msg.packetheader.resent = true;
+            msg.packet.header.resent = true;
             ctx.address().do_send(msg.packet);
         }
     }
