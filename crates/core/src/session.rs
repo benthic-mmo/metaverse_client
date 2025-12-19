@@ -370,7 +370,6 @@ impl Handler<ResendPacket> for Mailbox {
 impl Handler<PacketAck> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: PacketAck, _ctx: &mut Self::Context) -> Self::Result {
-        println!("received ids: {:?}", msg.packet_ids);
         for id in msg.packet_ids {
             self.viewer_acks.remove(&id);
         }

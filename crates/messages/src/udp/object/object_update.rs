@@ -199,7 +199,8 @@ impl PacketData for ObjectUpdate {
         let extra_params = if extra_params_length > 0 {
             let mut extra_params_bytes = vec![0u8; extra_params_length as usize];
             cursor.read_exact(&mut extra_params_bytes)?;
-            Some(ExtraParams::from_bytes(&extra_params_bytes)?)
+            let (extra_params, _read_count) = ExtraParams::from_bytes(&extra_params_bytes)?;
+            Some(extra_params)
         } else {
             None
         };
@@ -466,7 +467,7 @@ pub enum ParamTypeTag {
 }
 
 impl ParamTypeTag {
-    fn from_bytes(byte: &u8) -> Self {
+    pub fn from_bytes(byte: &u8) -> Self {
         match byte {
             16 => ParamTypeTag::Flexi,
             32 => ParamTypeTag::Light,
@@ -614,11 +615,14 @@ impl Default for ExtraParams {
 }
 
 impl ExtraParams {
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Vec<Self>> {
+    /// this has to return a usize, because of the weird way comprssed object update packets store
+    /// their extraparams field
+    pub fn from_bytes(bytes: &[u8]) -> io::Result<(Vec<Self>, u64)> {
         let mut cursor = Cursor::new(bytes);
+        let start = cursor.position();
         let extra_params_count = match cursor.read_u8() {
             Ok(v) => v,
-            Err(_) => return Ok(vec![ExtraParams::default()]),
+            Err(_) => return Ok((vec![ExtraParams::default()], 1)),
         };
         let mut extra_params = Vec::new();
         for _ in 0..extra_params_count {
@@ -658,7 +662,7 @@ impl ExtraParams {
             };
             extra_params.push(param);
         }
-        Ok(extra_params)
+        Ok((extra_params, (cursor.position() - start)))
     }
 }
 

@@ -219,7 +219,6 @@ mut ev_loginresponse: MessageReader<CameraUpdateEvent>,
 mut session_data: ResMut<SessionData>,
 ) {
 for response in ev_loginresponse.read() {
-        println!("{:?}", response.value.position);
         session_data.avatar_location = response.value.position
 }
 }
@@ -334,7 +333,6 @@ fn handle_queue(
                 ev_disable_simulator.write(DisableSimulatorEvent {});
             }
             UIMessage::CameraPosition(data) => {
-                println!("{:?}", data);
                 ev_camera_update.write(CameraUpdateEvent { value: data });
             }
         };
