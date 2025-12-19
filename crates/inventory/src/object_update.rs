@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use crate::errors::InventoryError;
-use metaverse_messages::udp::object::object_update::ObjectUpdate;
+use metaverse_messages::{
+    udp::object::object_update::ObjectUpdate, utils::object_types::ObjectType,
+};
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
@@ -29,6 +31,35 @@ pub async fn insert_object_update(
     .bind(json)
     .execute(pool)
     .await?;
+    Ok(())
+}
+
+pub async fn insert_object_update_minimal(
+    pool: &SqlitePool,
+    id: u32,
+    full_id: Uuid,
+    object_type: ObjectType,
+    parent_id: Option<u32>,
+) -> Result<(), InventoryError> {
+    let parent_id = parent_id.unwrap_or(0);
+
+    sqlx::query(
+        r#"
+        INSERT INTO object_updates (id, full_id, parent, pcode)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(full_id) DO UPDATE SET
+            id = excluded.id,
+            parent = excluded.parent,
+            pcode = excluded.pcode
+        "#,
+    )
+    .bind(id as i64)
+    .bind(full_id.to_string())
+    .bind(parent_id as i64)
+    .bind(object_type.to_string())
+    .execute(pool)
+    .await?;
+
     Ok(())
 }
 

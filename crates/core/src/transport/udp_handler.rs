@@ -82,6 +82,11 @@ impl Mailbox {
                                 error!("Failed to handle TerseObjectUpdate {:?}", e)
                             };
                         }
+                        PacketType::ObjectUpdateCompressed(data) => {
+                            if let Err(e) = mailbox_address.send(*data.clone()).await {
+                                error!("Failed to handle ObjectUpdateCompressed {:?}", e)
+                            };
+                        }
                         #[cfg(feature = "environment")]
                         PacketType::LayerData(data) => {
                             if let Err(e) = mailbox_address.send(*data.clone()).await {

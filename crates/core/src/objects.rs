@@ -1,5 +1,8 @@
 use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
+use metaverse_messages::ui::errors::SessionError;
+use sqlx::SqlitePool;
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -36,16 +39,19 @@ use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
 use uuid::Uuid;
 
+use metaverse_inventory::object_update::insert_object_update_minimal;
+
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct HandleObject {
-    pub object: ObjectUpdate,
+pub struct HandlePrim {
+    pub extra_params: Option<Vec<ExtraParams>>,
+    pub position: Vec3,
 }
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct HandleAttachment {
-    pub object: ObjectUpdate,
+    pub object: HandleObjectUpdate,
     pub item: AttachItem,
 }
 
@@ -54,6 +60,18 @@ pub struct HandleAttachment {
 pub struct DownloadObject {
     pub asset_id: Uuid,
     pub texture_id: Uuid,
+    pub position: Vec3,
+}
+
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
+pub struct HandleObjectUpdate {
+    pub object_type: ObjectType,
+    pub full_id: Uuid,
+    pub id: u32,
+    pub parent_id: Option<u32>,
+    pub name_value: Option<String>,
+    pub extra_params: Option<Vec<ExtraParams>>,
     pub position: Vec3,
 }
 
@@ -72,13 +90,11 @@ impl Handler<ObjectUpdateCached> for Mailbox {
             for object in &msg.objects {
                 requests.push((CacheMissType::Normal, object.id));
             }
-            println!("\n {:?} \n", requests);
             let request = RequestMultipleObjects {
                 session_id: session.session_id,
                 agent_id: session.agent_id,
                 requests,
             };
-            println!("{:?}", request);
 
             ctx.address()
                 .do_send(Packet::new_request_multiple_objects(request));
@@ -88,8 +104,41 @@ impl Handler<ObjectUpdateCached> for Mailbox {
 
 #[cfg(any(feature = "agent", feature = "environment"))]
 impl Handler<ObjectUpdate> for Mailbox {
-    type Result = ResponseFuture<()>;
+    type Result = ();
     fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        ctx.address().do_send(HandleObjectUpdate {
+            object_type: msg.pcode,
+            full_id: msg.full_id,
+            parent_id: Some(msg.parent_id),
+            id: msg.id,
+            name_value: Some(msg.name_value),
+            position: msg.motion_data.position,
+            extra_params: msg.extra_params,
+        });
+    }
+}
+
+impl Handler<ObjectUpdateCompressed> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: ObjectUpdateCompressed, ctx: &mut Self::Context) -> Self::Result {
+        for object in msg.object_data {
+            ctx.address().do_send(HandleObjectUpdate {
+                object_type: object.pcode,
+                full_id: object.full_id,
+                parent_id: object.parent_id,
+                id: object.local_id,
+                name_value: object.name_values,
+                position: object.position,
+                extra_params: object.extra_params,
+            });
+        }
+    }
+}
+
+#[cfg(any(feature = "agent", feature = "environment"))]
+impl Handler<HandleObjectUpdate> for Mailbox {
+    type Result = ResponseFuture<()>;
+    fn handle(&mut self, msg: HandleObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         let db_pool = self.inventory_db_connection.clone();
         let addr = ctx.address();
         let msg_cloned = msg.clone();
@@ -97,33 +146,50 @@ impl Handler<ObjectUpdate> for Mailbox {
         if self.session.is_none() {
             return Box::pin(async {});
         };
-        println!("object update received: {:?}", msg.pcode);
+        println!("object update received: {:?}", msg.object_type);
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
-            insert_object_update(&db_pool, &msg)
-                .await
-                .unwrap_or_else(|e| {
-                    error!("Object Update Error: {:?}, {:?}", e, msg.full_id);
-                    addr.do_send(msg.clone());
-                    return;
-                });
 
-            match msg.pcode {
+            insert_object_update_minimal(
+                &db_pool,
+                msg.id,
+                msg.full_id,
+                msg.object_type.clone(),
+                msg.parent_id,
+            )
+            .await
+            .unwrap_or_else(|e| {
+                error!("Object Update Error: {:?}, {:?}", e, msg.full_id);
+                //addr.do_send(msg.clone());
+                return;
+            });
+
+            match msg.object_type {
                 ObjectType::Prim => {
                     // if the msg.name_value can be parsed as an attachment, handle it as an
                     // attachment.
-                    match AttachItem::parse_attach_item(msg.name_value.clone()) {
-                        Ok(item) => {
-                            //println!("attachment: {:?}", msg.name_value);
-                            addr.do_send(HandleAttachment { object: msg, item });
+                    //
+                    if let Some(name_value) = msg.name_value.clone() {
+                        match AttachItem::parse_attach_item(name_value) {
+                            Ok(item) => {
+                                addr.do_send(HandleAttachment { object: msg, item });
+                            }
+                            Err(_) => {
+                                // parsing failed, treat as generic
+                                addr.do_send(HandlePrim {
+                                    extra_params: msg.extra_params,
+                                    position: msg.position,
+                                });
+                            }
                         }
-                        // if not, ignore the error and handle it as a generic object.
-                        Err(_) => {
-                            //println!("generic object: {:?}", msg);
-                            addr.do_send(HandleObject { object: msg });
-                        }
-                    };
+                    } else {
+                        // no name_value, treat as generic
+                        addr.do_send(HandlePrim {
+                            extra_params: msg.extra_params,
+                            position: msg.position,
+                        });
+                    }
                 }
 
                 ObjectType::Tree
@@ -143,10 +209,7 @@ impl Handler<ObjectUpdate> for Mailbox {
                         warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
                     }
                     // create a new avatar object in the session
-                    addr.do_send(Avatar::new(
-                        msg_cloned.full_id,
-                        msg_cloned.motion_data.position,
-                    ));
+                    addr.do_send(Avatar::new(msg_cloned.full_id, msg_cloned.position));
                 }
                 _ => {
                     println!("Unknown object type");
@@ -156,51 +219,57 @@ impl Handler<ObjectUpdate> for Mailbox {
     }
 }
 
-impl Handler<HandleObject> for Mailbox {
+impl Handler<HandlePrim> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: HandleObject, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if let Some(extra_params) = msg.object.extra_params {
-                for param in extra_params {
-                    match param {
-                        ExtraParams::Sculpt(sculpt) => {
-                            ctx.address().do_send(DownloadObject {
-                                asset_id: sculpt.texture_id,
-                                texture_id: Uuid::nil(),
-                                position: msg.object.motion_data.position,
-                            });
-                        }
-                        _ => {
-                            println!("Recieved a non sculpt objectupdate")
-                        }
+    fn handle(&mut self, msg: HandlePrim, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(extra_params) = msg.extra_params {
+            for param in extra_params {
+                match param {
+                    ExtraParams::Sculpt(sculpt) => {
+                        ctx.address().do_send(DownloadObject {
+                            asset_id: sculpt.texture_id,
+                            texture_id: Uuid::nil(),
+                            position: msg.position,
+                        });
+                    }
+                    _ => {
+                        println!("Recieved a non sculpt objectupdate")
                     }
                 }
-            };
-        }
+            }
+        };
     }
 }
 
 impl Handler<HandleAttachment> for Mailbox {
     type Result = ResponseFuture<()>;
+
     fn handle(&mut self, msg: HandleAttachment, _ctx: &mut Self::Context) -> Self::Result {
         let db_pool = self.inventory_db_connection.clone();
+
         Box::pin(async move {
-            let mut current_id = msg.object.parent_id;
+            let mut current_id = match msg.object.parent_id {
+                Some(id) => id,
+                None => return,
+            };
+
+            let mut visited = std::collections::HashSet::new();
+
             loop {
+                if !visited.insert(current_id) {
+                    break;
+                }
+
                 let obj = match get_object_update(&db_pool, current_id).await {
                     Ok(obj) => obj,
-                    Err(e) => {
-                        error!("Error fetching parent {:?}: {:?}", current_id, e);
-                        return;
-                    }
+                    Err(_) => return,
                 };
 
                 if obj.parent_id == 0 {
                     break;
-                    // root object found
-                } else {
-                    current_id = obj.parent_id;
                 }
+
+                current_id = obj.parent_id;
             }
         })
     }
