@@ -1,7 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Quat, Vec3};
-use rgb::{Rgb, Rgba};
+use glam::{Vec3};
+use rgb::{ Rgba};
 use uuid::Uuid;
+use actix::Message;
 
 use crate::errors::ParseError;
 use crate::packet::{
@@ -9,7 +10,7 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-use crate::udp::object::object_update::{ExtraParams, ParamTypeTag};
+use crate::udp::object::object_update::{ExtraParams};
 use crate::udp::object::util::ObjectFlag;
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
@@ -75,8 +76,8 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone)]
-/// TODO: UNIMPLEMENTED
+#[derive(Debug, Clone, Message)]
+#[rtype(result = "()")]
 pub struct ObjectUpdateCompressed {
     pub region_handle: u64,
     pub time_dilation: u16,
@@ -143,13 +144,14 @@ impl PacketData for ObjectUpdateCompressed {
                 y: scale_y,
                 z: scale_z,
             };
+            // flip the Z and Y positions for easier rendering in other coordinate spaces
             let position_x = cursor.read_f32::<LittleEndian>()?;
             let position_y = cursor.read_f32::<LittleEndian>()?;
             let position_z = cursor.read_f32::<LittleEndian>()?;
             let position = Vec3 {
                 x: position_x,
-                y: position_y,
-                z: position_z,
+                y: position_z,
+                z: position_y,
             };
             // TODO: this is a norm quat
             let rotation_x = cursor.read_f32::<LittleEndian>()?;
