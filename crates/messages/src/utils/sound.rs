@@ -10,7 +10,7 @@ pub struct AttachedSound {
     pub sound_id: Uuid,
     /// UUID of the owner of the object. Null if there is no looped sound or particle system
     /// attached to the object.
-    pub owner_id: Uuid,
+    pub owner_id: Option<Uuid>,
     /// Gain of the attached sound
     pub gain: f32,
     /// Stores flags related to attached sounds
@@ -30,7 +30,7 @@ impl AttachedSound {
 
         Ok(Self {
             sound_id: Uuid::from_bytes(sound_id_bytes),
-            owner_id: Uuid::from_bytes(owner_id_bytes),
+            owner_id: Some(Uuid::from_bytes(owner_id_bytes)),
             gain: cursor.read_f32::<LittleEndian>()?,
             flags: cursor.read_u8()?,
             radius: cursor.read_f32::<LittleEndian>()?,

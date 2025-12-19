@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read};
 use uuid::Uuid;
 
@@ -82,7 +82,7 @@ impl PacketData for RequestMultipleObjects {
         for _ in 0..request_len {
             let cache_miss_type_raw = cursor.read_u8()?;
             let cache_miss_type = CacheMissType::from(cache_miss_type_raw);
-            let id = cursor.read_u32::<BigEndian>()?;
+            let id = cursor.read_u32::<LittleEndian>()?;
             requests.push((cache_miss_type, id));
         }
 
@@ -94,13 +94,13 @@ impl PacketData for RequestMultipleObjects {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
+        let mut bytes = Vec::new(); // 32 bytes for UUIDs + 5 per request
         bytes.extend_from_slice(self.agent_id.as_bytes());
         bytes.extend_from_slice(self.session_id.as_bytes());
         bytes.extend_from_slice(&[(self.requests.len() as u8)]);
         for (cache_miss_type, id) in &self.requests {
             bytes.push(u8::from(*cache_miss_type));
-            bytes.write_u32::<BigEndian>(*id).unwrap();
+            bytes.write_u32::<LittleEndian>(*id).unwrap();
         }
 
         bytes

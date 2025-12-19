@@ -72,13 +72,16 @@ impl Handler<ObjectUpdateCached> for Mailbox {
             for object in &msg.objects {
                 requests.push((CacheMissType::Normal, object.id));
             }
-            ctx.address().do_send(Packet::new_request_multiple_objects(
-                RequestMultipleObjects {
-                    session_id: session.session_id,
-                    agent_id: session.agent_id,
-                    requests,
-                },
-            ));
+            println!("\n {:?} \n", requests);
+            let request = RequestMultipleObjects {
+                session_id: session.session_id,
+                agent_id: session.agent_id,
+                requests,
+            };
+            println!("{:?}", request);
+
+            ctx.address()
+                .do_send(Packet::new_request_multiple_objects(request));
         }
     }
 }
@@ -94,6 +97,7 @@ impl Handler<ObjectUpdate> for Mailbox {
         if self.session.is_none() {
             return Box::pin(async {});
         };
+        println!("object update received: {:?}", msg.pcode);
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
