@@ -1,6 +1,6 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
-use crate::transport::http_handler::{download_object, download_render_object, download_texture};
+use crate::transport::http_handler::{download_object, download_scene_group, download_texture};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::{error, info, warn};
 use metaverse_agent::avatar::Avatar;
@@ -218,7 +218,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             }
 
                             // Download the mesh itself
-                            let render_objects = match download_render_object(
+                            let render_objects = match download_scene_group(
                                 &scene_group,
                                 &server_endpoint,
                                 &texture_path,

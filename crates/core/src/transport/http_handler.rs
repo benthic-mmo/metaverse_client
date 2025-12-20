@@ -191,90 +191,27 @@ fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
     Error::other(format!("{}: {:?}", msg, err))
 }
 
-pub async fn download_render_object(
+pub async fn download_scene_group(
     scene_group: &SceneGroup,
     url: &str,
     texture_path: &PathBuf,
 ) -> Result<Vec<RenderObject>, std::io::Error> {
     let mut meshes = Vec::new();
     for scene in &scene_group.parts {
-        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
-        let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
-        let uvs: Vec<[f32; 2]> = mesh
-            .high_level_of_detail
-            .texture_coordinate
-            .iter()
-            .map(|tc| {
-                // Normalize U and V from 0..65535 to 0..1
-                let u_norm = tc.u as f32 / 65535.0;
-                let v_norm = tc.v as f32 / 65535.0;
-
-                // Flip V axis
-                let v_flipped = 1.0 - v_norm;
-
-                [
-                    domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
-                    domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
-                ]
-            })
-            .collect();
-
-        if let Some(skin) = &mesh.skin {
-            // Apply bind shape matrix
-            let vertices: Vec<Vec3> = mesh
-                .high_level_of_detail
-                .vertices
-                .iter()
-                .map(|v| {
-                    let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                    Vec3::new(v4.x, v4.y, v4.z)
-                })
-                .collect();
-
-            let skeleton = create_skeleton(scene.metadata.name.clone(), scene.sculpt.texture, skin)
-                .unwrap_or_else(|e| {
-                    println!("Failed to create skeleton: {:?}", e);
-                    Skeleton::default()
-                });
-
-            let skin_data = SkinData {
-                skeleton,
-                weights: mesh
-                    .high_level_of_detail
-                    .weights
-                    .clone()
-                    .unwrap_or_default(),
-                joint_names: skin.joint_names.clone(),
-                inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
-            };
-
-            meshes.push(RenderObject {
-                name: scene.metadata.name.clone(),
-                id: scene.sculpt.texture,
-                indices: mesh.high_level_of_detail.indices,
-                vertices,
-                skin: Some(skin_data),
-                texture: Some(texture_path.clone()),
-                uv: Some(uvs),
-            });
-        } else {
-            // No skin
-            meshes.push(RenderObject {
-                name: scene.metadata.name.clone(),
-                id: scene.sculpt.texture,
-                indices: mesh.high_level_of_detail.indices,
-                vertices: mesh.high_level_of_detail.vertices,
-                skin: None,
-                texture: Some(texture_path.clone()),
-                uv: Some(uvs),
-            });
-        }
+        meshes.push(
+            download_renderable_mesh(
+                scene.sculpt.texture,
+                scene.metadata.name.clone(),
+                url,
+                texture_path,
+            )
+            .await?,
+        );
     }
-
     Ok(meshes)
 }
 
-pub async fn create_object_render_object(
+pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,
     url: &str,
