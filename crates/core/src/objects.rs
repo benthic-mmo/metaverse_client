@@ -1,17 +1,7 @@
-use metaverse_messages::packet::packet::Packet;
-use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
-use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
-use metaverse_messages::ui::errors::SessionError;
-use sqlx::SqlitePool;
-use std::fs::File;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
-
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_object_dir;
-use crate::transport::http_handler::create_object_render_object;
+use crate::transport::http_handler::download_renderable_mesh;
 use actix::AsyncContext;
 #[cfg(any(feature = "agent", feature = "environment"))]
 use actix::ResponseFuture;
@@ -22,21 +12,27 @@ use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_inventory::object_update::get_object_update;
-use metaverse_inventory::object_update::insert_object_update;
 use metaverse_mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams;
 #[cfg(any(feature = "agent", feature = "environment"))]
 use metaverse_messages::udp::object::object_update::ObjectUpdate;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
+use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
 use metaverse_messages::udp::object::request_multiple_objects::CacheMissType;
+use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::ui::mesh_update::MeshType;
 use metaverse_messages::ui::mesh_update::MeshUpdate;
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::path::PathBuf;
 use uuid::Uuid;
 
 use metaverse_inventory::object_update::insert_object_update_minimal;
@@ -44,8 +40,7 @@ use metaverse_inventory::object_update::insert_object_update_minimal;
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct HandlePrim {
-    pub extra_params: Option<Vec<ExtraParams>>,
-    pub position: Vec3,
+    pub object: HandleObjectUpdate,
 }
 
 #[derive(Debug, Message)]
@@ -58,6 +53,7 @@ pub struct HandleAttachment {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct DownloadObject {
+    pub object: HandleObjectUpdate,
     pub asset_id: Uuid,
     pub texture_id: Uuid,
     pub position: Vec3,
@@ -177,18 +173,12 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                             }
                             Err(_) => {
                                 // parsing failed, treat as generic
-                                addr.do_send(HandlePrim {
-                                    extra_params: msg.extra_params,
-                                    position: msg.position,
-                                });
+                                addr.do_send(HandlePrim { object: msg });
                             }
                         }
                     } else {
                         // no name_value, treat as generic
-                        addr.do_send(HandlePrim {
-                            extra_params: msg.extra_params,
-                            position: msg.position,
-                        });
+                        addr.do_send(HandlePrim { object: msg });
                     }
                 }
 
@@ -222,14 +212,15 @@ impl Handler<HandleObjectUpdate> for Mailbox {
 impl Handler<HandlePrim> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandlePrim, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(extra_params) = msg.extra_params {
+        if let Some(extra_params) = &msg.object.extra_params {
             for param in extra_params {
                 match param {
                     ExtraParams::Sculpt(sculpt) => {
                         ctx.address().do_send(DownloadObject {
                             asset_id: sculpt.texture_id,
                             texture_id: Uuid::nil(),
-                            position: msg.position,
+                            object: msg.object.clone(),
+                            position: msg.object.position,
                         });
                     }
                     _ => {
@@ -243,7 +234,6 @@ impl Handler<HandlePrim> for Mailbox {
 
 impl Handler<HandleAttachment> for Mailbox {
     type Result = ResponseFuture<()>;
-
     fn handle(&mut self, msg: HandleAttachment, _ctx: &mut Self::Context) -> Self::Result {
         let db_pool = self.inventory_db_connection.clone();
 
@@ -313,7 +303,7 @@ impl Handler<DownloadObject> for Mailbox {
                     //     }
                     // }
                     //
-                    match create_object_render_object(
+                    match download_renderable_mesh(
                         msg.asset_id,
                         "name".to_string(),
                         &server_endpoint,
