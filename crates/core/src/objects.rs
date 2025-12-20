@@ -12,7 +12,9 @@ use glam::Vec3;
 use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
+use metaverse_inventory::object_update::get_object_scale_rotation_position;
 use metaverse_inventory::object_update::get_object_update;
+use metaverse_inventory::object_update::set_object_transform_by_id;
 use metaverse_mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
@@ -72,6 +74,7 @@ pub struct HandleObjectUpdate {
     pub position: Vec3,
     pub rotation: Quat,
     pub scale: Vec3,
+    pub parent: Option<u32>,
 }
 
 impl Handler<ImprovedTerseObjectUpdate> for Mailbox {
@@ -115,6 +118,7 @@ impl Handler<ObjectUpdate> for Mailbox {
             extra_params: msg.extra_params,
             rotation: msg.motion_data.rotation,
             scale: msg.scale,
+            parent: Some(msg.parent_id),
         });
     }
 }
@@ -133,6 +137,7 @@ impl Handler<ObjectUpdateCompressed> for Mailbox {
                 extra_params: object.extra_params,
                 rotation: object.rotation,
                 scale: object.scale,
+                parent: object.parent_id,
             });
         }
     }
@@ -160,6 +165,9 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                 msg.full_id,
                 msg.object_type.clone(),
                 msg.parent_id,
+                msg.position,
+                msg.rotation,
+                msg.scale,
             )
             .await
             .unwrap_or_else(|e| {
@@ -243,29 +251,23 @@ impl Handler<HandleAttachment> for Mailbox {
     type Result = ResponseFuture<()>;
     fn handle(&mut self, msg: HandleAttachment, _ctx: &mut Self::Context) -> Self::Result {
         let db_pool = self.inventory_db_connection.clone();
-
         Box::pin(async move {
             let mut current_id = match msg.object.parent_id {
                 Some(id) => id,
                 None => return,
             };
-
             let mut visited = std::collections::HashSet::new();
-
             loop {
                 if !visited.insert(current_id) {
                     break;
                 }
-
                 let obj = match get_object_update(&db_pool, current_id).await {
                     Ok(obj) => obj,
                     Err(_) => return,
                 };
-
                 if obj.parent_id == 0 {
                     break;
                 }
-
                 current_id = obj.parent_id;
             }
         })
@@ -274,7 +276,7 @@ impl Handler<HandleAttachment> for Mailbox {
 
 impl Handler<DownloadObject> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
             let server_endpoint = session
                 .capability_urls
@@ -282,6 +284,7 @@ impl Handler<DownloadObject> for Mailbox {
                 .unwrap()
                 .to_string();
             let addr = ctx.address();
+            let inventory_db = self.inventory_db_connection.clone();
             ctx.spawn(
                 async move {
                     let base_dir = match create_sub_object_dir(&msg.asset_id.to_string()) {
@@ -291,6 +294,35 @@ impl Handler<DownloadObject> for Mailbox {
                             return;
                         }
                     };
+
+                    if let Some(parent_id) = msg.object.parent_id {
+                        match get_object_scale_rotation_position(&inventory_db, parent_id).await {
+                            Ok((parent_scale, parent_rotation, parent_position)) => {
+                                let scale = msg.object.scale;
+                                let rotation = parent_rotation * msg.object.rotation;
+                                let position = parent_rotation * (msg.position * parent_scale)
+                                    + parent_position;
+                                println!(
+                                    "child: {:?}, {:?}, {:?}",
+                                    msg.object.scale, msg.object.rotation, msg.position
+                                );
+                                println!(
+                                    "parent: {:?}, {:?}, {:?}",
+                                    parent_scale, parent_rotation, parent_position
+                                );
+                                println!("combined: {:?}, {:?}, {:?}", scale, rotation, position);
+
+                                msg.position = position;
+                                msg.object.rotation = rotation;
+                                msg.object.scale = scale;
+                            }
+                            Err(e) => {
+                                println!("{:?}", e);
+                                return;
+                            }
+                        };
+                    };
+
                     // TODO: download the texture given in the packet. Needs to be added to
                     // the downloadobject
                     //
@@ -340,7 +372,6 @@ impl Handler<DownloadObject> for Mailbox {
                                 }
                                 Err(e) => warn!("{:?}", e),
                             };
-
                             addr.do_send(UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.position,
                                 path: glb_path,
