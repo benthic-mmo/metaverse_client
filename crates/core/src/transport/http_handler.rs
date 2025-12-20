@@ -213,12 +213,15 @@ pub async fn download_scene_group(
     Ok(meshes)
 }
 
+fn apply_scale_rotation(v: Vec3, scale: Vec3, rotation: Quat) -> Vec3 {
+    rotation * (v * scale)
+}
+
 pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,
     scale: Vec3,
     rotation: Quat,
-
     url: &str,
     texture_path: &PathBuf,
 ) -> Result<RenderObject, std::io::Error> {
@@ -281,12 +284,18 @@ pub async fn download_renderable_mesh(
             uv: Some(uvs),
         }
     } else {
-        // No skin
+        let vertices: Vec<Vec3> = mesh
+            .high_level_of_detail
+            .vertices
+            .iter()
+            .map(|v| apply_scale_rotation(*v, scale, rotation))
+            .collect();
+
         RenderObject {
             name: name,
             id: asset_id,
             indices: mesh.high_level_of_detail.indices,
-            vertices: mesh.high_level_of_detail.vertices,
+            vertices,
             skin: None,
             texture: Some(texture_path.clone()),
             uv: Some(uvs),
