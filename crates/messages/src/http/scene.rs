@@ -9,7 +9,7 @@ use crate::{
         texture::Texture,
     },
 };
-use glam::{bool, Vec3, Vec4};
+use glam::{bool, Quat, Vec3, Vec4};
 use quick_xml::{
     escape::unescape,
     events::{BytesText, Event},
@@ -250,7 +250,7 @@ pub struct SceneObject {
     /// is a child, it's the offset from the root.
     pub offset_position: Vec3,
     /// The rotation compared to the rotation of the root prim. This is in quaternion format where the components are <X>, <Y>, <Z> and <W>.
-    pub rotation_offset: Vec3,
+    pub rotation_offset: Quat,
     /// The color of the prim.
     /// This is expressed as a 0-255 value of red <R>, green <G>, blue <B> and alpha <A>, where alpha = 0 is fully transparent.
     pub color: Rgba<i32>,
@@ -432,9 +432,10 @@ impl SceneObject {
                 _ => {}
             },
             ["RotationOffset", rest @ ..] => match rest {
-                ["X"] => scene_object.rotation_offset[0] = val.parse()?,
-                ["Y"] => scene_object.rotation_offset[1] = val.parse()?,
-                ["Z"] => scene_object.rotation_offset[2] = val.parse()?,
+                ["X"] => scene_object.rotation_offset.x = val.parse()?,
+                ["Y"] => scene_object.rotation_offset.y = val.parse()?,
+                ["Z"] => scene_object.rotation_offset.z = val.parse()?,
+                ["W"] => scene_object.rotation_offset.w = val.parse()?,
                 _ => {}
             },
             ["Velocity", rest @ ..] => match rest {

@@ -1,4 +1,4 @@
-use glam::{Vec3, Vec4};
+use glam::{Quat, Vec3, Vec4};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
 use metaverse_agent::skeleton::create_skeleton;
@@ -202,6 +202,8 @@ pub async fn download_scene_group(
             download_renderable_mesh(
                 scene.sculpt.texture,
                 scene.metadata.name.clone(),
+                scene.scale,
+                scene.rotation_offset,
                 url,
                 texture_path,
             )
@@ -214,6 +216,9 @@ pub async fn download_scene_group(
 pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,
+    scale: Vec3,
+    rotation: Quat,
+
     url: &str,
     texture_path: &PathBuf,
 ) -> Result<RenderObject, std::io::Error> {

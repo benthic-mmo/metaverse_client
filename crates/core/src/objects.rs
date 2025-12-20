@@ -7,6 +7,7 @@ use actix::AsyncContext;
 use actix::ResponseFuture;
 use actix::WrapFuture;
 use actix::{Handler, Message};
+use glam::Quat;
 use glam::Vec3;
 use log::info;
 use log::{error, warn};
@@ -69,6 +70,8 @@ pub struct HandleObjectUpdate {
     pub name_value: Option<String>,
     pub extra_params: Option<Vec<ExtraParams>>,
     pub position: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
 }
 
 impl Handler<ImprovedTerseObjectUpdate> for Mailbox {
@@ -110,6 +113,8 @@ impl Handler<ObjectUpdate> for Mailbox {
             name_value: Some(msg.name_value),
             position: msg.motion_data.position,
             extra_params: msg.extra_params,
+            rotation: msg.motion_data.rotation,
+            scale: msg.scale,
         });
     }
 }
@@ -126,6 +131,8 @@ impl Handler<ObjectUpdateCompressed> for Mailbox {
                 name_value: object.name_values,
                 position: object.position,
                 extra_params: object.extra_params,
+                rotation: object.rotation,
+                scale: object.scale,
             });
         }
     }
@@ -306,6 +313,8 @@ impl Handler<DownloadObject> for Mailbox {
                     match download_renderable_mesh(
                         msg.asset_id,
                         "name".to_string(),
+                        msg.object.scale,
+                        msg.object.rotation,
                         &server_endpoint,
                         &texture_path,
                     )

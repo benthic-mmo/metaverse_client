@@ -1,8 +1,8 @@
-use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Vec3};
-use rgb::{ Rgba};
-use uuid::Uuid;
 use actix::Message;
+use byteorder::{LittleEndian, ReadBytesExt};
+use glam::{Quat, Vec3};
+use rgb::Rgba;
+use uuid::Uuid;
 
 use crate::errors::ParseError;
 use crate::packet::{
@@ -10,7 +10,7 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-use crate::udp::object::object_update::{ExtraParams};
+use crate::udp::object::object_update::ExtraParams;
 use crate::udp::object::util::ObjectFlag;
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
@@ -96,7 +96,7 @@ pub struct ObjectDataCompressed {
     pub click_action: u8,
     pub scale: Vec3,
     pub position: Vec3,
-    pub rotation: Vec3,
+    pub rotation: Quat,
     pub owner_id: Option<Uuid>,
     pub angular_velocity: Option<Vec3>,
     pub parent_id: Option<u32>,
@@ -153,15 +153,13 @@ impl PacketData for ObjectUpdateCompressed {
                 y: position_z,
                 z: position_y,
             };
-            // TODO: this is a norm quat
-            let rotation_x = cursor.read_f32::<LittleEndian>()?;
-            let rotation_y = cursor.read_f32::<LittleEndian>()?;
-            let rotation_z = cursor.read_f32::<LittleEndian>()?;
-            let rotation = Vec3 {
-                x: rotation_x,
-                y: rotation_y,
-                z: rotation_z,
-            };
+
+            let x = cursor.read_f32::<LittleEndian>()?;
+            let y = cursor.read_f32::<LittleEndian>()?;
+            let z = cursor.read_f32::<LittleEndian>()?;
+            let w_sq = 1.0 - x * x - y * y - z * z;
+            let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
+            let rotation = Quat::from_xyzw(x, y, z, w);
 
             let compressed_flags = CompressedFlag::from_bytes(cursor.read_u32::<LittleEndian>()?);
 

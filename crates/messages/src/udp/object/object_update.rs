@@ -1,6 +1,6 @@
 use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Vec3, Vec4};
+use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -279,7 +279,7 @@ pub struct MotionData {
     /// How fast the object is accelerating
     pub acceleration: Vec3,
     /// The roatation of the object
-    pub rotation: Vec3,
+    pub rotation: Quat,
     /// The angular velocity of the object
     pub angular_velocity: Vec3,
 }
@@ -352,11 +352,15 @@ impl MotionData {
             cursor.read_f32::<LittleEndian>()?,
         );
 
-        let rotation = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-        );
+        let x = cursor.read_f32::<LittleEndian>()?;
+        let y = cursor.read_f32::<LittleEndian>()?;
+        let z = cursor.read_f32::<LittleEndian>()?;
+
+        // Compute w assuming unit quaternion
+        let w_sq = 1.0 - x * x - y * y - z * z;
+        let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
+
+        let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
             cursor.read_f32::<LittleEndian>()?,
@@ -393,11 +397,12 @@ impl MotionData {
             cursor.read_u16::<LittleEndian>()? as f32,
         );
 
-        let rotation = Vec3::new(
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-        );
+        let x = cursor.read_u16::<LittleEndian>()? as f32;
+        let y = cursor.read_u16::<LittleEndian>()? as f32;
+        let z = cursor.read_u16::<LittleEndian>()? as f32;
+        let w_sq = 1.0 - x * x - y * y - z * z;
+        let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
+        let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
             cursor.read_u16::<LittleEndian>()? as f32,
@@ -433,11 +438,12 @@ impl MotionData {
             cursor.read_u8()? as f32,
         );
 
-        let rotation = Vec3::new(
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-        );
+        let x = cursor.read_u8()? as f32;
+        let y = cursor.read_u8()? as f32;
+        let z = cursor.read_u8()? as f32;
+        let w_sq = 1.0 - x * x - y * y - z * z;
+        let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
+        let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
             cursor.read_u8()? as f32,
