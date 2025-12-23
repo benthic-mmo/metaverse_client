@@ -1,4 +1,3 @@
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3};
 use rgb::Rgba;
@@ -19,23 +18,37 @@ use crate::utils::sound::AttachedSound;
 
 use std::io::{Cursor, Read};
 
+/// bitflags for compressed data flags. CompressedObjectUpdates are decoded conditionally, based on
+/// the flags defined here. If these are not present, portions are not decoded.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CompressedFlag {
+    /// Scratch pad data is included.
     ScratchPad = 0x0000_0001,
+    /// Tree structure data is included.
     Tree = 0x0000_0002,
+    /// Text data is present for the object.
     HasText = 0x0000_0004,
+    /// Legacy particle system data is included.
     HasParticlesLegacy = 0x0000_0008,
+    /// Sound data is present.
     HasSound = 0x0000_0010,
+    /// The object has a parent link.
     HasParent = 0x0000_0020,
+    /// Texture animation data is included.
     TextureAnimation = 0x0000_0040,
+    /// Angular velocity information is present.
     HasAngularVelocity = 0x0000_0080,
+    /// Name-value pairs (custom data) are included.
     HasNameValues = 0x0000_0100,
+    /// Media URL is present on the object.
     MediaURL = 0x0000_0200,
+    /// Particle system data is included (non-legacy format).
     HasParticles = 0x0000_0400,
 }
 
 impl CompressedFlag {
+    /// convert a flag to the compressed flag enum
     pub fn from_bytes(bits: u32) -> Vec<CompressedFlag> {
         let mut flags = Vec::new();
         for &flag in [
@@ -76,40 +89,73 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone, Message)]
-#[rtype(result = "()")]
+/// ObjectUpdateCompressed fields
+/// Each ObjectUpdatecompressed can contain several objects worth of data
+#[derive(Debug, Clone)]
 pub struct ObjectUpdateCompressed {
+    /// region ID of the objects
     pub region_handle: u64,
+    /// time dilation of the objects
     pub time_dilation: u16,
+    /// list of objects to update
     pub object_data: Vec<ObjectDataCompressed>,
 }
 
+/// ObjectUpdateCompressed data field
 #[derive(Debug, Clone)]
 pub struct ObjectDataCompressed {
+    /// The variable flags for decoding the packet. These flags determine which fields are present
+    /// and how many bytes will ultimately be read
     pub update_flags: Vec<ObjectFlag>,
+    /// full Id of the object
     pub full_id: Uuid,
+    /// local ID of the object within the scene
     pub local_id: u32,
+    /// type of the object
     pub pcode: ObjectType,
+    /// object state
     pub state: u8,
+    /// crc or pseudo crc
     pub crc: u32,
+    /// material the object is made of
     pub material: MaterialType,
+    /// action taken on click
     pub click_action: u8,
+    /// scale of the object. For objects with parents, this will be a relative scale. For objects
+    /// without parents this is a global scale.
     pub scale: Vec3,
+    /// position of the object. For objects with parents, this will be a relative position. For
+    /// objects without parents this is a global scale.
     pub position: Vec3,
+    /// rotation of the object
     pub rotation: Quat,
+    /// owner ID
     pub owner_id: Option<Uuid>,
+    /// angular velocity of the object
     pub angular_velocity: Option<Vec3>,
+    /// local ID of the parent within the scene
     pub parent_id: Option<u32>,
+    /// Hovering text above the object
     pub text: Option<String>,
+    /// text color above the object
     pub text_color: Option<Rgba<u8>>,
+    /// media URL linked to the object
     pub media_url: Option<String>,
+    /// legacy particle system
     pub particle_system_legacy: Option<Vec<u8>>,
+    /// extra params. Contains several types of optional data, including sculpts and mesh.
     pub extra_params: Option<Vec<ExtraParams>>,
+    /// sound the object emits
     pub sound: Option<AttachedSound>,
+    /// name value. Used for avatar names, and storing attachment information
     pub name_values: Option<String>,
+    /// path data for the object's sculpt
     pub sculpt_path: Path,
+    /// texture data for the object
     pub texture_entry: Vec<u8>,
+    /// texture animation data for the object
     pub texture_animation: Option<Vec<u8>>,
+    /// particle system information
     pub particle_system: Vec<u8>,
 }
 
@@ -242,8 +288,7 @@ impl PacketData for ObjectUpdateCompressed {
             let extra_params = if extra_params_count == 0 {
                 None
             } else {
-                let (extra_params, position) =
-                    ExtraParams::from_bytes(&cursor.get_ref()[pos..].to_vec())?;
+                let (extra_params, position) = ExtraParams::from_bytes(&cursor.get_ref()[pos..])?;
                 cursor.set_position(cursor.position() + position);
                 Some(extra_params)
             };

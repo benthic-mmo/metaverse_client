@@ -1,9 +1,11 @@
 use super::session::Mailbox;
+use crate::avatar::HandleNewAvatar;
 use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_object_dir;
+use crate::session::OutgoingPacket;
+use crate::session::SendUIMessage;
 use crate::transport::http_handler::download_renderable_mesh;
 use actix::AsyncContext;
-#[cfg(any(feature = "agent", feature = "environment"))]
 use actix::ResponseFuture;
 use actix::WrapFuture;
 use actix::{Handler, Message};
@@ -14,7 +16,6 @@ use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_inventory::object_update::get_object_scale_rotation_position;
 use metaverse_inventory::object_update::get_object_update;
-use metaverse_inventory::object_update::set_object_transform_by_id;
 use metaverse_mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
@@ -22,10 +23,7 @@ use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams;
-#[cfg(any(feature = "agent", feature = "environment"))]
-use metaverse_messages::udp::object::object_update::ObjectUpdate;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
-use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
 use metaverse_messages::udp::object::request_multiple_objects::CacheMissType;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::ui::mesh_update::MeshType;
@@ -40,56 +38,155 @@ use uuid::Uuid;
 
 use metaverse_inventory::object_update::insert_object_update_minimal;
 
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandlePrim {
-    pub object: HandleObjectUpdate,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleAttachment {
-    pub object: HandleObjectUpdate,
-    pub item: AttachItem,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct DownloadObject {
-    pub object: HandleObjectUpdate,
-    pub asset_id: Uuid,
-    pub texture_id: Uuid,
-    pub position: Vec3,
-}
-
+/// Handles received ObjectUpdate packets.
+///
+/// This message contains a minimal version of the ObjectUpdate packet, and combines the
+/// data for [`ObjectUpdate`] and [`ObjectUpdateCompressed`] packets into a single struct.
+///
+/// # Cause
+/// - ObjectUpdate packet received from UDP socket from server  
+///
+/// # Effects
+/// - Dispatches a [`Avatar`] message if the object is an avatar
+/// - Dispatches a [`HandleAttachment`] message if the object is an attachment object
+/// - Dispatches a [`HandlePrim`] message if the object is a prim
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct HandleObjectUpdate {
+    /// Type of the object. Required for retrieving full data from the capability endpoint
     pub object_type: ObjectType,
+    /// The full ID of the object
     pub full_id: Uuid,
-    pub id: u32,
-    pub parent_id: Option<u32>,
-    pub name_value: Option<String>,
-    pub extra_params: Option<Vec<ExtraParams>>,
+    /// The scene local ID of the object
+    pub local_id: u32,
+    /// The position of the object.
+    ///
+    /// If the object is a child object, this position is relative to its parent object.
     pub position: Vec3,
+    /// The rotation of the object.
+    ///
+    /// If the object is a child object, this is used to calculate the
+    /// position
     pub rotation: Quat,
+    /// The scale of the object.
     pub scale: Vec3,
+    /// The local ID of the obeject's parent.
     pub parent: Option<u32>,
+    /// The scene local ID of the object's parent.
+    ///
+    /// This is used to determine the scale position and rotation if the object is part of a construction
+    pub parent_id: Option<u32>,
+    /// The name value of the object.
+    ///
+    /// This can encode extra data like attachment objects, or the avatar's name
+    pub name_value: Option<String>,
+    /// Extra parameters.
+    ///
+    /// Can contain definitions for things like sculpts (which include meshes), flexi data, light, and more.
+    pub extra_params: Option<Vec<ExtraParams>>,
 }
 
-impl Handler<ImprovedTerseObjectUpdate> for Mailbox {
+/// Begins the pipeline for handling a prim object.
+///
+/// Prim objects can include both mesh objects, sculpt objects, and primitive geometry objects.
+/// # Cause
+/// - [`HandleObjectUpdate`]
+///
+/// # Effects
+/// - Dispatches a [`DownloadObject`] message to retrieve full object data from the server
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandlePrim {
+    /// The prim object to handle
+    pub object: HandleObjectUpdate,
+}
+
+/// Begins the pipeline for handling an attachment object
+///
+/// # Cause
+/// - [`HandleObjectUpdate`]
+///
+/// TODO: currently a stub with no effects
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleAttachment {
+    /// The attachment object to handle
+    pub object: HandleObjectUpdate,
+    /// The attach item data
+    pub item: AttachItem,
+}
+
+/// Message for downloading object update from its capability endpoint
+///
+/// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh
+/// library to generate its finalized file, and then triggers a MeshUpdate
+///  
+/// # Cause
+/// - [`HandlePrim`]
+///
+/// # Effects
+/// - Dispatches a [`MeshUpdate`] to inform the UI of a new object
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct DownloadObject {
+    /// the object data to download
+    pub object: HandleObjectUpdate,
+    /// The object's asset ID to retrieve from the ViewerAsset endpoint
+    pub asset_id: Uuid,
+    /// the object's texture ID to retrieve from the ViewerAsset endpoint  
+    pub texture_id: Uuid,
+    /// the object's location in space
+    pub position: Vec3,
+}
+
+/// Message for handing improved terse object update packets
+///
+/// TODO: currently unimplemented
+///
+/// # Cause
+/// - ImprovedTerseObjectUpdate packet received from UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleImprovedTerseObjectUpdate {
+    /// The improved terse object update packet to handle
+    pub improved_terse_object_update: ImprovedTerseObjectUpdate,
+}
+
+/// Message for handling ObjectUpdateCached packets
+///
+/// Retrieves the full object data by sending a RequestMultipleObjects packet. When the server
+/// receives this packet, it replies with the ObjectUpdateCompressed packets requested
+///
+/// # Cause
+/// - HandleObjectUpdateCached packet received from UDP socket
+///
+/// # Effect
+/// - [`RequestMultipleObjects`] sent to server
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleObjectUpdateCached {
+    /// the object update cached packet to handle
+    pub object_update_cached: ObjectUpdateCached,
+}
+
+impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: ImprovedTerseObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        //println!("{:?}", msg);
+    fn handle(
+        &mut self,
+        _msg: HandleImprovedTerseObjectUpdate,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        // TODO: unimplemented
+        warn!("ImprovedTerseObjectUpdate packet received. Currently unimplemented.")
     }
 }
 
-impl Handler<ObjectUpdateCached> for Mailbox {
+impl Handler<HandleObjectUpdateCached> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: ObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: HandleObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &self.session {
             let mut requests = Vec::new();
-            for object in &msg.objects {
+            for object in &msg.object_update_cached.objects {
                 requests.push((CacheMissType::Normal, object.id));
             }
             let request = RequestMultipleObjects {
@@ -98,52 +195,13 @@ impl Handler<ObjectUpdateCached> for Mailbox {
                 requests,
             };
 
-            ctx.address()
-                .do_send(Packet::new_request_multiple_objects(request));
-        }
-    }
-}
-
-#[cfg(any(feature = "agent", feature = "environment"))]
-impl Handler<ObjectUpdate> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: ObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        ctx.address().do_send(HandleObjectUpdate {
-            object_type: msg.pcode,
-            full_id: msg.full_id,
-            parent_id: Some(msg.parent_id),
-            id: msg.id,
-            name_value: Some(msg.name_value),
-            position: msg.motion_data.position,
-            extra_params: msg.extra_params,
-            rotation: msg.motion_data.rotation,
-            scale: msg.scale,
-            parent: Some(msg.parent_id),
-        });
-    }
-}
-
-impl Handler<ObjectUpdateCompressed> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: ObjectUpdateCompressed, ctx: &mut Self::Context) -> Self::Result {
-        for object in msg.object_data {
-            ctx.address().do_send(HandleObjectUpdate {
-                object_type: object.pcode,
-                full_id: object.full_id,
-                parent_id: object.parent_id,
-                id: object.local_id,
-                name_value: object.name_values,
-                position: object.position,
-                extra_params: object.extra_params,
-                rotation: object.rotation,
-                scale: object.scale,
-                parent: object.parent_id,
+            ctx.address().do_send(OutgoingPacket {
+                packet: Packet::new_request_multiple_objects(request),
             });
         }
     }
 }
 
-#[cfg(any(feature = "agent", feature = "environment"))]
 impl Handler<HandleObjectUpdate> for Mailbox {
     type Result = ResponseFuture<()>;
     fn handle(&mut self, msg: HandleObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
@@ -161,7 +219,7 @@ impl Handler<HandleObjectUpdate> for Mailbox {
 
             insert_object_update_minimal(
                 &db_pool,
-                msg.id,
+                msg.local_id,
                 msg.full_id,
                 msg.object_type.clone(),
                 msg.parent_id,
@@ -202,19 +260,17 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                 | ObjectType::Unknown
                 | ObjectType::ParticleSystem
                 | ObjectType::NewTree => {
-                    //#[cfg(feature = "environment")]
-                    //println!(
-                    //    "Received environment data of type: {:?}: {:?}",
-                    //    msg.pcode, msg
-                    //);
+                    // TODO: unimplemented
+                    warn!("Received unhandled ObjectUpdate type");
                 }
                 ObjectType::Avatar => {
-                    #[cfg(feature = "agent")]
                     if let Err(e) = create_sub_agent_dir(&msg.full_id.to_string()) {
                         warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
                     }
                     // create a new avatar object in the session
-                    addr.do_send(Avatar::new(msg_cloned.full_id, msg_cloned.position));
+                    addr.do_send(HandleNewAvatar {
+                        avatar: Avatar::new(msg_cloned.full_id, msg_cloned.position),
+                    });
                 }
                 _ => {
                     println!("Unknown object type");
@@ -302,15 +358,7 @@ impl Handler<DownloadObject> for Mailbox {
                                 let rotation = parent_rotation * msg.object.rotation;
                                 let position = parent_rotation * (msg.position * parent_scale)
                                     + parent_position;
-                                println!(
-                                    "child: {:?}, {:?}, {:?}",
-                                    msg.object.scale, msg.object.rotation, msg.position
-                                );
-                                println!(
-                                    "parent: {:?}, {:?}, {:?}",
-                                    parent_scale, parent_rotation, parent_position
-                                );
-                                println!("combined: {:?}, {:?}, {:?}", scale, rotation, position);
+                                // TODO: this is not fully implemented
 
                                 msg.position = position;
                                 msg.object.rotation = rotation;
@@ -372,12 +420,14 @@ impl Handler<DownloadObject> for Mailbox {
                                 }
                                 Err(e) => warn!("{:?}", e),
                             };
-                            addr.do_send(UIMessage::new_mesh_update(MeshUpdate {
-                                position: msg.position,
-                                path: glb_path,
-                                mesh_type: MeshType::Avatar,
-                                id: None,
-                            }));
+                            addr.do_send(SendUIMessage {
+                                ui_message: UIMessage::new_mesh_update(MeshUpdate {
+                                    position: msg.position,
+                                    path: glb_path,
+                                    mesh_type: MeshType::Avatar,
+                                    id: None,
+                                }),
+                            });
                         }
                         Err(e) => {
                             error!("{:?}, {:?}", e, msg);

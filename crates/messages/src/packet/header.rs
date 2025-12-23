@@ -1,8 +1,7 @@
 use byteorder::BigEndian;
-use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 use core::fmt;
-use std::io::{self, Cursor, Read};
+use std::io::Cursor;
 
 // TODO: change the flags to bitflags
 /// flag for reliable message
@@ -124,14 +123,9 @@ impl Header {
         bytes.push(0);
 
         // Add the ID and frequency
-        bytes.extend_from_slice(&self.frequency.to_bytes(self));
+        bytes.extend_from_slice(&self.frequency.to_bytes(self, self.zerocoded));
         bytes
     }
-}
-
-// Utility function to convert a u16 to a big-endian byte array
-fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
-    [(value >> 8) as u8, (value & 0xFF) as u8]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -165,48 +159,43 @@ impl PacketFrequency {
     /// Medium is a 2 byte ID
     /// Low is a 4 byte ID
     /// Fixed is a 6 byte ID.
-    pub fn to_bytes(&self, header: &Header) -> Vec<u8> {
+    pub fn to_bytes(&self, header: &Header, zerocoded: bool) -> Vec<u8> {
         let mut bytes = Vec::new();
+
         match self {
             PacketFrequency::High => {
-                // 1 byte ID
+                // High frequency: just the ID byte
                 bytes.push(header.id as u8);
             }
             PacketFrequency::Medium => {
-                // 2 byte ID
-                bytes.push(0xFF);
+                // Medium frequency: 255 + ID
+                bytes.push(255);
                 bytes.push(header.id as u8);
             }
             PacketFrequency::Low => {
-                // 4 byte ID
-                bytes.push(0xFF);
-                bytes.push(0xFF);
-                let id_bytes = uint16_to_bytes_big(header.id);
-                bytes.extend_from_slice(&id_bytes);
+                // Low frequency: 255, 255 + little-endian u16
+                let low = (header.id & 0xFF) as u8;
+                let mut high = ((header.id >> 8) & 0xFF) as u8;
+
+                // zerocoded special case: if ID would serialize as [0,1], skip to [1,?]
+                if zerocoded && low == 0 && high == 1 {
+                    high = 0; // match your parser increment behavior
+                }
+
+                bytes.push(255);
+                bytes.push(255);
+                bytes.push(low);
+                bytes.push(high);
             }
             PacketFrequency::Fixed => {
-                bytes.push(0xFF);
-                bytes.push(0xFF);
-                bytes.push(0xFF);
-                bytes.push(header.id as u8); // THIS IS PROBABLY INCORRECT
+                // Fixed frequency: 255, 255, 255 + ID
+                bytes.push(255);
+                bytes.push(255);
+                bytes.push(255);
+                bytes.push(header.id as u8);
             }
-        };
+        }
+
         bytes
     }
-}
-
-fn zero_decode(bytes: &[u8]) -> Vec<u8> {
-    let mut cursor = Cursor::new(bytes);
-    let mut dest = Vec::new();
-
-    while cursor.position() < bytes.len() as u64 {
-        let byte = cursor.read_u8().unwrap();
-        if byte == 0x00 {
-            let repeat_count = cursor.read_u8().unwrap() as usize;
-            dest.extend(vec![0x00; repeat_count]);
-        } else {
-            dest.push(byte);
-        }
-    }
-    dest
 }

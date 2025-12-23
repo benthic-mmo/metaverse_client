@@ -6,7 +6,6 @@ use crate::{
         packet_types::PacketType,
     },
 };
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
 
@@ -26,8 +25,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone, Message)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 /// struct for ack packet. Contains packet IDs
 pub struct PacketAck {
     /// list of IDs to ack

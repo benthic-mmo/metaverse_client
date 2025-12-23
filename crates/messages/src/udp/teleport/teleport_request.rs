@@ -1,22 +1,16 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use glam::Vec3;
-use uuid::Uuid;
-
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-/// this is a file for easily creating a new packet.
-/// Simply copy this and fill in the data to create a new packet
-/// *local_name*    is something like "region_handshake"
-/// *PacketName*    is the name of the packet like "RegionHandshake"
-/// *id*            is the ID of the packet
-///
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use glam::Vec3;
 use std::io::{Cursor, Read};
+use uuid::Uuid;
 
 impl Packet {
+    /// create a new teleport request packet
     pub fn new_teleport_request(teleport_request: TeleportRequest) -> Self {
         Packet {
             header: Header {
@@ -31,13 +25,18 @@ impl Packet {
     }
 }
 
-/// add your struct fields here
+/// Packet describing a new teleport request.
 #[derive(Debug, Clone)]
 pub struct TeleportRequest {
+    /// The agent ID sending the teleport request
     pub agent_id: Uuid,
+    /// the session ID sending the teleport request
     pub session_id: Uuid,
+    /// the ID of the destination region
     pub region_id: Uuid,
+    /// the position in the region where the teleport is going to
     pub position: Vec3,
+    /// the direction the player will face after teleport
     pub look_at: Vec3,
 }
 

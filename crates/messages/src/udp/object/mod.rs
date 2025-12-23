@@ -1,12 +1,157 @@
 /// TODO: UNIMPLEMENTED
-pub mod improved_terse_object_update;
-/// TODO: UNIMPLEMENTED
 pub mod kill_object;
 /// TODO: UNIMPLEMENTED
 pub mod multiple_object_update;
-/// TODO: UNIMPLEMENTED
+/// # Object Update Cached
+/// <https://wiki.secondlife.com/wiki/ObjectUpdateCached>
+///
+/// Send by the server to inform the viewer that it should begin rendering objects that may exist
+/// in its cache. This is a very small packet that contains very minimal information, allowing
+/// viewers to render objects quickly without there being a large amount of bandwidth overhead.
+/// If the viewer finds these packets are not in the cache, a [`RequestMultipleObjects`] packet is
+/// sent with the IDs missing in the cache, which will trigger the server to send object update
+/// compressed packets.
+///
+/// ## Header
+/// | ObjectUpdateCached        |             |                |                  |                 |
+/// |---------------------------|-------------|----------------|------------------|-----------------|
+/// | Packet Header             | id:14       | reliable: true | zerocoded: false |frequency: High  |
+///
+/// ## Packet Structure
+/// | ObjectUpdateCached |    |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// |region_handle  | 8 bytes | [u64] | The region ID of the objects |
+/// |time_dilation  | 2 bytes | [u16] | the time dilation in the region |
+/// |data_length    | 1 byte  | [u8]  | The count of objects in the packet |
+/// |[cached_object_data](#cached_object_data)| variable byes| | Cached object data |
+///
+/// ## Cached Object Data
+/// | Cached Object Data |    |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// |id             | 4 bytes | [u32] | the region-local ID of the object        |
+/// |crc            | 4 bytes | [u32] | the checksum generated to see if the object has changed |
+/// |flags          | 4 bytes | [u32] | The flags pertaining to the object cache|
 pub mod object_update_cached;
-/// TODO: UNIMPLEMENTED
+
+/// # Improved Terse Object Update
+/// <https://wiki.secondlife.com/wiki/ImprovedTerseObjectUpdate>
+///
+/// Sent by the server to inform the viewer of changes in object position, velocity, acceleration
+/// and other motion-related fields. Does not contain any information about how to render or create
+/// the object.
+///
+/// ## Header
+/// | ImprovedTerseObjectUpdate |             |                |                  |                 |
+/// |---------------------------|-------------|----------------|------------------|-----------------|
+/// | Packet Header             | id:15       | reliable: true | zerocoded: false |frequency: High  |
+///
+/// ## Packet Structure
+/// | ImprovedTerseObjectUpdate| |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// |region_handle  | 8 bytes | [u64] | The region ID of the objects |
+/// |time_dilation  | 2 bytes | [u16] | the time dilation in the region |
+/// |data_length    | 1 byte  | [u8]  | The count of objects in the packet |
+/// |[terse_object_data](#terse_object_data)| variable byes| | object motion data |
+///
+/// ## Terse Object Data
+/// | TerseObjectData| |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// | local_id      | 4 bytes | [u32] | region local ID. used for most operations in lieu of the object's full UUID. |
+/// | state         | 1 byte  | [u8]  | Unused except by grass to determine grass species |
+/// | avatar        | 1 byte  | [bool]| flags the object as an avatar and not just an object|
+/// | collision_plane_x| 4 or 0 bytes | [f32] | If the object is an avatar, read 4 bytes for the collision plane x. If not, read 0. |
+/// | collision_plane_y| 4 or 0 bytes | [f32] | If the object is an avatar, read 4 bytes for the collision plane y. If not, read 0. |
+/// | collision_plane_z| 4 or 0 bytes | [f32] | If the object is an avatar, read 4 bytes for the collision plane z. If not, read 0. |
+/// | collision_plane_w| 4 or 0 bytes | [f32] | If the object is an avatar, read 4 bytes for the collision plane w. If not, read 0. |
+/// | position_x    | 4 bytes | [f32] | x position of the object in the region |
+/// | position_y    | 4 bytes | [f32] | y position of the object in the region |
+/// | position_z    | 4 bytes | [f32] | z position of the object in the region |
+/// | velocity_x    | 2 bytes | [u16] | x velocity of the object |
+/// | velocity_y    | 2 bytes | [u16] | y velocity of the object |
+/// | velocity_z    | 2 bytes | [u16] | z velocity of the object |
+/// | acceleration_x| 2 bytes | [u16] | x acceleration of the object |
+/// | acceleration_y| 2 bytes | [u16] | y acceleration of the object |
+/// | acceleration_z| 2 bytes | [u16] | z acceleration of the object |
+/// | rotation_x    | 2 bytes | [u16] | x rotation of the object |
+/// | rotation_y    | 2 bytes | [u16] | y rotation of the object |
+/// | rotation_z    | 2 bytes | [u16] | z rotation of the object |
+/// | rotation_w    | 2 bytes | [u16] | w rotation of the object |
+/// | angular_velocity_x| 2 bytes | [u16] | x angular velocity of the object |
+/// | angular_velocity_y| 2 bytes | [u16] | y angular velocity of the object |
+/// | angular_velocity_z| 2 bytes | [u16] | z angular velocity of the object |
+///
+pub mod improved_terse_object_update;
+
+/// # Object Update Compressed
+/// <https://wiki.secondlife.com/wiki/ObjectUpdateCompressed>
+///
+/// sent by the server in response to a RequestMultipleObjects packet. Contains a much more
+/// conditional and abridged ObjectUpdate packet than the ObjectUpdate packet itself. though it may
+/// look similar to an ObjectUpdate packet, many of the fields are optional, or out of order.
+///
+/// ## Header
+/// | ObjectUpdateCompressed |             |                |                  |                 |
+/// |------------------------|-------------|----------------|------------------|-----------------|
+/// | Packet Header          | id:13       | reliable: true | zerocoded: false |frequency: High  |
+///
+/// ## Packet Structure
+/// | ObjectUpdateCompressed| |       |                                          |
+/// |---------------|---------|-------|------------------------------------------|
+/// |region_handle  | 8 bytes | [u64] | The region ID of the objects |
+/// |time_dilation  | 2 bytes | [u16] | the time dilation in the region |
+/// |data_length    | 1 byte  | [u8]  | the count of objects in the packet|
+/// |[compressed_object_data](#compressed_object-data)| variable byes| | Compressed object data |
+///
+/// ## Compressed Object Data
+/// | Compressed Object Data  ||||
+/// |---------------|---------|-------|--------------------------------------|
+/// | update_flags  | 4 bytes | [u32] | flags determining the optional contents of the packet|
+/// | data_size     | 2 bytes | [u16] | The number of bytes making up this object data block|
+/// | full_id       | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// | local_id      | 4 bytes | [u32] | region local ID. used for most operations in lieu of the object's full UUID. |
+/// | pcode         | 1 byte  | [u8]  | Type of object represented by the packet. Avatar, grass, tree, etc |
+/// | state         | 1 byte  | [u8]  | Unused except by grass to determine grass species |
+/// | crc           | 4 bytes | [u32] | CRC values. Not currently checked against anything. |
+/// | material      | 1 byte  | [u8]  | Type of material the object is made of. Wood, plastic, flesh, etc |
+/// | click_action  | 1 byte  | [u8]  | The default action taken when the object is clicked. Open, sit, etc |
+/// | scale_x       | 4 bytes | [f32] | The x value of the object's scale |
+/// | scale_y       | 4 bytes | [f32] | The y value of the object's scale |
+/// | scale_z       | 4 bytes | [f32] | the z value of the object's scale |
+/// | position_x    | 4 bytes | [f32] | the x value of the object's position |
+/// | position_y    | 4 bytes | [f32] | the y value of the object's position |
+/// | position_z    | 4 bytes | [f32] | the z value of the object's position |
+/// | rotation_z    | 4 bytes | [f32] | the z value of the object's rotation |
+/// | rotation_z    | 4 bytes | [f32] | the z value of the object's rotation |
+/// | rotation_z    | 4 bytes | [f32] | the z value of the object's rotation |
+/// | owner_id      | 16 bytes or 0 | [Uuid](uuid::Uuid) | If the HasParticles, HasParticlesLegacy, or HasSound flags are present, read 16 bytes for the owner. Otherwise read 0.|
+/// | angular_velocity_x| 4 bytes or 0| [f32] | If the HasAngularVelocity flag is present, read 4 bytes for the angular velocity x value. if not, read 0. |
+/// | angular_velocity_y| 4 bytes or 0| [f32] | If the HasAngularVelocity flag is present, read 4 bytes for the angular velocity y value. if not, read 0. |
+/// | angular_velocity_z| 4 bytes or 0| [f32] | If the HasAngularVelocity flag is present, read 4 bytes for the angular velocity z value. if not, read 0. |
+/// | parent        | 4 bytes or 0 |[f32]| If the HasParent flag is present, read 4 bytes for the parent's scene-local ID. If not, read 0.|
+/// | text_length   | 1 byte or 0 | [u8]  | If the HasText flag is present, read 1 byte for the text length. If not, read 0. |
+/// | text          | variable bytes || If the HasText flag is present, read text_length bytes, to use as the object's hover text.|
+/// | text_color_r  | 1 or 0 bytes| [u8]| If the HasText flag is present, read 1 byte for the text's red value. If not read 0.|
+/// | text_color_g  | 1 or 0 bytes| [u8]| If the HasText flag is present, read 1 byte for the text's green value. If not read 0.|
+/// | text_color_b  | 1 or 0 bytes| [u8]| If the HasText flag is present, read 1 byte for the text's blue value. If not read 0.|
+/// | text_color_a  | 1 or 0 bytes| [u8]| If the HasText flag is present, read 1 byte for the text's alpha value. If not read 0.|
+/// | media_length  | 1 byte or 0 bytes | [u8]  | If the MediaURL flag is present, read 1 byte for the media url length. If not, read 0.|
+/// | media_url     | variable bytes || If the MediaURL flag is present, read media_length bytes, to use as the URL for any media attached to the object. Will always be a webpage. |
+/// | particle_system_legacy_len| 1 byte or 0 bytes| [u8]| If the HasParticlesLegacy or HasParticles flags are set, read 1 byte for the particle system's length. If not, read 0. |
+/// | particle_sytem_legacy| variable bytes || If the HasParticlesLegacy or HasParticles flags are set, read particle_system_len bytes for the particle system. If not, read 0. |
+/// | [extra_params](#extra-params)| variable bytes || The first byte in the extra_params field is the number of extra params present in the object. If it is zero, read nothing. If it is not zero, see [extra_params](#extra-params)|
+/// | sound_id      | 16 or 0 bytes| [Uuid](uuid::Uuid) | If the HasSound flag is present, read 16 bytes for the sound's UUID. If not, read 0. |
+/// | gain          | 4 or 0 bytes | [f32] | If the HasSound flag is present, read 4 bytes for the gain. If not, read 0. |
+/// | flags         | 1 or 0 byte  | [u8]  | If the HasSound flag is present, read 1 byte for the flags. If not, read 0.
+/// | radius        | 4 or 0 bytes | [f32] | If the HasSound flag is present, read 4 bytes for the audible radius. If not, read 0. |
+/// | name_value_length| 2 or 0 bytes| [u16] | if the HasNameValues flag is present, read 2 bytes for the name values length. If not, read 0. |
+/// | name_value    | variable bytes || If the HasNameValues flag is present, read name_value_length bytes a the name_value. If not, read 0. |
+/// | [primitive_geometry](#primitive-geometry) | 23 bytes | | Data for the viewer to draw primitive objects. Not optional, for some reason.|
+/// | texture_entry_length| 16 bytes| [Uuid](uuid::Uuid) | The length of the texture entry data |
+/// | texture_entry | variable bytes || Texture data for the object |
+/// | texture_animation_length| 1 or 0 bytes |[u8]| If the TextureAnimation flag is present, read 1 byte for the texture animation length. If not, read 0. |
+/// | texture_aimation | variable bytes || If the TextureAnimation flag is present, read texture_animation_length bytes for the texture_animation data. If not, read 0. |
+/// | particle_system_length| 1 byte | [u8] | The length of the particle system data block |
+/// | particle_sytem | variable bytes || The particle system information |
 pub mod object_update_compressed;
 
 /// # Request Multiple Objects
@@ -23,15 +168,16 @@ pub mod object_update_compressed;
 /// ## Packet Structure
 /// | RequestMultipleObjects| |       |                                          |
 /// |---------------|---------|-------|------------------------------------------|
-/// |AgentID        | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
-/// |SessionID      | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// |agent_id        | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// |session_id      | 16 bytes| [Uuid](uuid::Uuid) | The full UUID of the object |
+/// |request_len     | 1 byte  | [u8] | The number of 5-byte requests in the packet|
 /// |[object_data](#object-data)| variable byes|   | List of data to request     |
 ///
 /// ## Object Data
 /// | Object Data ||||
 /// |---------------|---------|------|------------------|
-/// |Cache Miss Type| 1 byte  | [u8] | Type of data to request from the cache |
-/// |ID             | 4 bytes | [u32]| Local ID of the data to request |
+/// |cache_miss_type| 1 byte  | [u8] | Type of data to request from the cache |
+/// |id             | 4 bytes | [u32]| Local ID of the data to request |
 pub mod request_multiple_objects;
 
 /// # Object Update
@@ -49,8 +195,7 @@ pub mod request_multiple_objects;
 /// ## Packet Structure
 /// | ObjectUpdate  ||||
 /// |---------------|---------|-------|--------------------------------------|
-/// | region_x      | 4 bytes | [u32] | Global x coordinate of the simulator |
-/// | region_y      | 4 bytes | [u32] | Global y coordinate of the simulator |
+/// | region_handle | 8 bytes | [u64] | region handle ID of the simulator |
 /// | time_dilation | 2 bytes | [u16] | The current lag from the server. Used by physics simulations to keep up with real time. |
 /// | offset        | 1 byte  |       | Unused byte                          |
 /// | id            | 4 bytes | [u32] | region local ID. used for most operations in lieu of the object's full UUID. |

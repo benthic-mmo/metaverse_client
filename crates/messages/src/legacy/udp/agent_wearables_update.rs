@@ -1,4 +1,3 @@
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 use uuid::Uuid;
@@ -29,8 +28,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Message, Clone)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 /// This is legacy code. Was used to send the wearables from the server to the client, but now it
 /// just sends dummy data. The current flow is to use the FetchInventoryDescendents2 capability
 /// endpoint.

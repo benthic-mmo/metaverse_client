@@ -763,9 +763,9 @@ impl PhysicsShapeType {
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 /// Used for legacy compatability with SculptTextures.
 /// describes the different basic shapes the sculpttexture can deform.
+#[derive(Debug, Copy, Default, Clone, Serialize, Deserialize)]
 pub enum SculptType {
     /// The sculpt texture deforms a sphere
     Sphere,
@@ -782,7 +782,9 @@ pub enum SculptType {
     /// Unknown
     Unknown,
 }
+
 impl SculptType {
+    /// Convert a sculpt type from an i32 to a SculptType enum
     pub fn from_i32(bytes: i32) -> Self {
         match bytes {
             1 => Self::Sphere,
@@ -793,6 +795,7 @@ impl SculptType {
             _ => Self::Unknown,
         }
     }
+    /// Convert a sculpt type from a u8 byte to a SculptType enum
     pub fn from_bytes(bytes: &u8) -> Self {
         match bytes {
             1 => Self::Sphere,

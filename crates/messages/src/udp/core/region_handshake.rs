@@ -7,13 +7,9 @@ use crate::{
     },
     utils::agent_access::AgentAccess,
 };
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
-use std::{
-    io::{self, Cursor, Read},
-    str::from_utf8,
-};
+use std::io::{Cursor, Read};
 use uuid::Uuid;
 
 impl Packet {
@@ -32,8 +28,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The simulator sends this in response to CompleteAgentMovement from the viewer.
 /// The viewer responds with RegionHandshakereply, which starts object updates via
 /// CoarseLocationUpdate

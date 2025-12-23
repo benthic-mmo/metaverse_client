@@ -4,12 +4,9 @@ use crate::packet::{
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-use crate::udp::object::object_update::MotionData;
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use std::io::{Cursor, Read};
-use uuid::Uuid;
 
 impl Packet {
     /// create a new improved terse object update packet
@@ -29,28 +26,43 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Message, Clone, Default)]
-#[rtype(result = "()")]
+/// ImprovedTerseObjectUpdate packets are sent when objects are moved around the scen. They only
+/// contain the object ID and movement data.
+#[derive(Debug, Clone, Default)]
 pub struct ImprovedTerseObjectUpdate {
+    /// region handle for which region the object is in
     pub region_handle: u64,
+    /// time dilation for the region
     pub time_dilation: u16,
+    /// list of objects to update locations of
     pub objects: Vec<TerseObjectData>,
 }
 
+/// Data for object movement
 #[derive(Debug, Clone)]
 pub struct TerseObjectData {
+    /// object's scene-local ID
     pub local_id: u32,
+    /// object's current state
     pub state: u8,
+    /// is the object an avatar?
     pub avatar: bool,
+    /// collision plane information
     pub collision_plane: Option<Vec4>,
+    /// position information
     pub position: Vec3,
+    /// velocity information
     pub velocity: Vec3,
+    /// acceleration information
     pub acceleration: Vec3,
+    /// rotation information
     pub rotation: Quat,
+    /// angular velocity information
     pub angular_velocity: Vec3,
 }
 
 impl TerseObjectData {
+    /// convert ImprovedTerseObjectData from bytes to a struct
     pub fn from_bytes(data: &[u8]) -> Self {
         let mut cursor = Cursor::new(data);
         let local_id = cursor.read_u32::<LittleEndian>().unwrap();

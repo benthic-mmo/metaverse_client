@@ -3,7 +3,7 @@
 ///
 /// This packet is used to request the wearables of a user.
 /// THIS IS A LEGACY PACKET!!! The correct way to handle wearables requests is done using the
-/// FetchInventoryDescendents2 and FetchLibDescendents2 capability endpoints.
+/// FetchInventoryDescendents2 capability endpoint.
 ///
 /// ## Header
 /// | Agent Wearables Request|   |                |                   |                     |
@@ -23,7 +23,7 @@ pub mod agent_wearables_request;
 /// This packet is the response to the agent wearables request packet. This used to contain the
 /// wearables of the requested user.
 /// THIS IS A LEGACY PACKET!!! The correct way to handle wearables requests is done using the
-/// FetchInventoryDescendents2 and FetchLibDescendents2 capability endpoints.
+/// FetchInventoryDescendents2 capability endpoint.
 ///
 /// ## Header
 /// | Agent Wearables Update|    |                |                   |                     |

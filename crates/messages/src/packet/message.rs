@@ -11,12 +11,10 @@ use crate::{
         mesh_update::MeshUpdate,
     },
 };
-use actix::Message;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Message, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "data")] // for json simplicity
-#[rtype(result = "()")]
 /// The type of the message used to notify the UI .
 /// Some of these also implement PacketType, as they are part of the spec, but not all of them are.
 pub enum UIResponse {
@@ -44,9 +42,8 @@ impl UIResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Message, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "data")] // for json simplicity
-#[rtype(result = "()")]
 /// Message types for sending between the core and the UI. These are truncated types that do not
 /// contain all of the values that their packet types contain.
 pub enum UIMessage {
@@ -64,7 +61,7 @@ pub enum UIMessage {
     DisableSimulator(DisableSimulator),
     /// Message for informing the UI of a land packet
     LandUpdate(LandUpdate),
-
+    /// Message for setting the position of the avatar's camera
     CameraPosition(CameraPosition),
 }
 

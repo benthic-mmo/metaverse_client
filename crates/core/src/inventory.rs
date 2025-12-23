@@ -11,10 +11,8 @@ use metaverse_inventory::inventory_root::refresh_inventory;
 
 use super::session::Mailbox;
 
-#[cfg(feature = "inventory")]
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
 /// Contains information about the Inventory
+#[derive(Debug)]
 pub struct InventoryData {
     /// The root of the inventory, received from the LoginResponse. This is a vector of the base
     /// UUIDs that will be used to create the root of the inventory tree using a
@@ -26,19 +24,28 @@ pub struct InventoryData {
     pub inventory_init: bool,
 }
 
-/// an empty struct to notify the mailbox the inventory has been initialized
+/// Message to inform the session that the inventory has been fully initialized.
+///
+/// # Cause
+/// - [`RefreshInventoryEvent`] successfully initialized inventory  
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct InventoryInit;
 
+/// Performs a full refresh on the user's inventory
+///
+/// Fetches the inventory from the root received from the login response packet, and stores the
+/// folder data in the on-disk db.
+///
+/// # Cause
+/// - handle_login function in session.rs after the UIResponse Login has been received.
+///
+/// # Effects
+/// - Dispatches a [`InventoryInit`] message after initialization
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Called when the inventory needs to be refreshed. Does a full fetch of the inventory from the
-/// root and rebuilds the inventory folders on the disk.
 pub struct RefreshInventoryEvent {
-    /// The agent ID for the inventory refresh. Determines which endpoint to use. If it's the
-    /// current user, fetch the FetchInventoryDescendents2. If it isn't, fetch from the
-    /// FetchLibDescendents2 endpoint.
+    /// The agent ID for the inventory refresh. Determines which endpoint to use.
     pub agent_id: Uuid,
 }
 
@@ -51,26 +58,13 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                 warn!("Capabilities not ready yet. Queueing inventory refresh...");
                 ctx.notify_later(msg, Duration::from_secs(1));
             } else {
-                // if the message's agent id is the session ID, use the FetchInventoryDescendents2
-                // endpoint.
-                let (capability_url, folder_id, owner_id) = if msg.agent_id == session.agent_id {
-                    (
-                        session
-                            .capability_urls
-                            .get(&Capability::FetchInventoryDescendents2),
-                        session.inventory_data.inventory_root,
-                        session.agent_id,
-                    )
-                } else {
-                    (
-                        session
-                            .capability_urls
-                            .get(&Capability::FetchLibDescendents2),
-                        Uuid::nil(),
-                        session.inventory_data.inventory_lib_owner,
-                    )
-                };
+                let capability_url = session
+                    .capability_urls
+                    .get(&Capability::FetchInventoryDescendents2);
+
                 if let Some(url) = capability_url {
+                    let owner_id = session.agent_id;
+                    let folder_id = session.inventory_data.inventory_root;
                     let url = url.clone();
                     let addr = ctx.address();
                     let conn = self.inventory_db_connection.clone();
@@ -105,7 +99,6 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
     }
 }
 
-#[cfg(feature = "inventory")]
 impl Handler<InventoryInit> for Mailbox {
     type Result = ();
     fn handle(&mut self, _: InventoryInit, _: &mut Self::Context) -> Self::Result {

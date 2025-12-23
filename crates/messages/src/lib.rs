@@ -1,15 +1,22 @@
 //! # Metaverse Messages
 //!
+//! This crate contains packet definitions for packets sent to and from open metaverse servers. The
+//! messages crate's scope is to handle all parsing functionality for both incoming and outgoing
+//! packets on a metaverse server, allowing the same crate to be used for viewer and server
+//! applications.
 //!
-//! A straightforward library for server to client and client to server IO for the open metaverse.
+//! ## Goals
+//! - Reflect as closely as possible the naming conventions and struct layout of existing open
+//! metaverse packets
+//! - Efficiently decode into rust structs using sparing external types  
+//! - Maintain clear and complete documentation for all packets and fields
+//! - Implement both encoding and decoding, allowing the crate to be used both in server and viewer
+//! applications
 //!
-//! Desgined to be modular enough that the same library can be used to write client applications
-//! and server applications, allowing spec changes to be immediately reflected in viewers.
-//!
-//! <div class="warning"> This crate is in development! </div>
-//! Currently does not have all of the packet types, and does not fully implement all server side
-//! packet to_bytes functions. Contributions welcome!
-
+//! ## Current Status
+//! <div class="warning">Work In Progress</div>
+//! This crate is under active development, and is not suitable for production use. APIs may change
+//! frequently, and many protocol features are currently unimplemented.
 #![warn(missing_docs)]
 /// Definitions for errors that can arise when handling packets
 pub mod errors;

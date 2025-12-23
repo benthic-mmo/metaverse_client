@@ -1,4 +1,4 @@
-use crate::session::Mailbox;
+use crate::session::{HandleUIResponse, Mailbox};
 use log::warn;
 use metaverse_messages::packet::message::UIResponse;
 use tokio::net::UdpSocket;
@@ -20,7 +20,7 @@ pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: act
                         continue;
                     }
                 };
-                mailbox_addr.do_send(event);
+                mailbox_addr.do_send(HandleUIResponse { ui_response: event });
             }
             Err(e) => {
                 warn!("Core failed to read buffer sent from UI {}", e)

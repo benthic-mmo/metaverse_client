@@ -1,4 +1,3 @@
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
@@ -34,8 +33,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Message, Clone, Serialize, Deserialize)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The object update packet. Receives object information. Is the first packet received when
 /// spawning objects into the viewer.
 pub struct ObjectUpdate {
@@ -460,19 +458,31 @@ impl MotionData {
         })
     }
 }
+
+/// Type enum for extra parmeters included in object updates, used for decoding from a byte to a
+/// usable enum
 #[derive(Debug)]
 pub enum ParamTypeTag {
+    /// data for flexible params
     Flexi,
+    /// data for light params
     Light,
+    /// data for sculpt params, includes mesh data
     Sculpt,
+    /// data for projection params
     Projection,
+    /// data for mesh flag params
     MeshFlags,
+    /// data for materials
     Materials,
+    /// data for reflection probes
     ReflectionProbe,
+    /// unknown data
     Unknown,
 }
 
 impl ParamTypeTag {
+    /// convert from u8 byte to a parameter enum
     pub fn from_bytes(byte: &u8) -> Self {
         match byte {
             16 => ParamTypeTag::Flexi,
@@ -487,24 +497,38 @@ impl ParamTypeTag {
     }
 }
 
+/// Extra parameter enum to allow the object update to contain multiple params
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExtraParams {
+    /// flexi data
     Flexi(FlexiData),
+    /// light data
     Light(LightData),
+    /// sculpt data, includes mesh data
     Sculpt(SculptData),
+    /// projection data
     Projection(ProjectionData),
+    /// mesh flags
     MeshFlags(MeshFlagsData),
+    /// material data
     Materials(MaterialsData),
+    /// reflection probe data
     ReflectionProbe(ReflectionProbeData),
+    /// unknown
     Unknown(UnknownData),
 }
 
+/// Sculpt data. Includes the mesh data
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SculptData {
+    /// the ID of the sculpt texture. This is used as the asset ID for retrieving full mesh data
+    /// from the ViewerAsset capability endpoint
     pub texture_id: Uuid,
+    /// the type of the sculpt. If the sculpt type is 5, the packet contains a mesh.
     pub sculpt_type: SculptType,
 }
 impl SculptData {
+    /// converts bytes to a SculptData object
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
         let mut texture_id_bytes = [0u8; 16];
@@ -603,11 +627,15 @@ impl ReflectionProbeData {
         })
     }
 }
+
+/// If the type is unknown, store the extra params directly as bytes
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UnknownData {
+    /// the unknown bytes
     pub bytes: Vec<u8>,
 }
 impl UnknownData {
+    /// directly store the bytes
     pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
         Ok(UnknownData {
             bytes: bytes.to_vec(),
