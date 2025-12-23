@@ -191,6 +191,9 @@ fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
     Error::other(format!("{}: {:?}", msg, err))
 }
 
+/// Download a scenegroup object. This is done by retrieving all of th meshes in the scenegroup and
+/// calling download_renderable_mesh on them one by one, and then building a vector of created
+/// meshes.
 pub async fn download_scene_group(
     scene_group: &SceneGroup,
     url: &str,
@@ -217,6 +220,8 @@ fn apply_scale_rotation(v: Vec3, scale: Vec3, rotation: Quat) -> Vec3 {
     rotation * (v * scale)
 }
 
+/// retrieves mesh data and does operations on the received data to ready it for the metaverse_mesh
+/// crate.
 pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,

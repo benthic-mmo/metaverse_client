@@ -5,10 +5,28 @@ use metaverse_messages::http::capabilities::{Capability, CapabilityRequest};
 use std::collections::HashMap;
 
 /// Message to update the capability urls
+///
+/// # Cause
+/// [`SendCapabilityRequest`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct SetCapabilityUrls {
     capability_urls: HashMap<Capability, String>,
+}
+
+/// Message to request full capability urls from the esrver
+///
+/// # Cause
+/// - Successful login, from the handle_login function in session.rs
+///
+/// # Effect
+/// - Seed capability URL HTTP post
+/// - [`SetCapabilityUrls`] if the post was successful
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SendCapabilityRequest {
+    /// The capabilities requested
+    pub capability_request: CapabilityRequest,
 }
 
 impl Handler<SetCapabilityUrls> for Mailbox {
@@ -20,9 +38,9 @@ impl Handler<SetCapabilityUrls> for Mailbox {
     }
 }
 
-impl Handler<CapabilityRequest> for Mailbox {
+impl Handler<SendCapabilityRequest> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: CapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: SendCapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = &self.session {
             let seed_capability_url = session.seed_capability_url.clone();
             let address = ctx.address().clone();
@@ -32,7 +50,7 @@ impl Handler<CapabilityRequest> for Mailbox {
                     match client
                         .post(seed_capability_url)
                         .insert_header(("Content-Type", "application/llsd+xml"))
-                        .send_body(msg.capabilities)
+                        .send_body(msg.capability_request.capabilities)
                         .await
                     {
                         Ok(mut get) => match get.body().await {

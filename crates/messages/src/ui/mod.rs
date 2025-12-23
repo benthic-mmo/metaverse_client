@@ -10,6 +10,8 @@ pub mod errors;
 /// UI message for sending the UI relevant login response data
 pub mod login_response;
 
+/// UI message for changing the position of the player's camera;
+pub mod camera_position;
 /// UI message for sending a chat from the viewer to the client
 pub mod chat_from_viewer;
 /// UI message for rendering land
@@ -18,5 +20,3 @@ pub mod land_update;
 pub mod login_event;
 /// UI message for requesting a logout
 pub mod logout;
-
-pub mod camera_position;

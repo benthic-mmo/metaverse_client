@@ -1,21 +1,14 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-/// this is a file for easily creating a new packet.
-/// Simply copy this and fill in the data to create a new packet
-/// *local_name*    is something like "region_handshake"
-/// *PacketName*    is the name of the packet like "RegionHandshake"
-/// *id*            is the ID of the packet
-///
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read};
-use std::net::Ipv4Addr;
 
 impl Packet {
+    /// create a new enable simulator packet
     pub fn new_enable_simulator(enable_simulator: EnableSimulator) -> Self {
         Packet {
             header: Header {
@@ -30,11 +23,15 @@ impl Packet {
     }
 }
 
-/// add your struct fields here
+/// EnableSimulator tells the server that the viewer is ready, and to process and display the
+/// region.
 #[derive(Debug, Clone)]
 pub struct EnableSimulator {
+    /// the region handle of the region
     pub handle: u64,
+    /// the IP of the ready viewer
     pub ip: String,
+    /// the port the viewer is connected to
     pub port: u16,
 }
 
@@ -54,7 +51,7 @@ impl PacketData for EnableSimulator {
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(14);
         bytes.write_u64::<LittleEndian>(self.handle).unwrap();
-        bytes.extend_from_slice(&self.ip.as_bytes());
+        bytes.extend_from_slice(self.ip.as_bytes());
         bytes.write_u16::<LittleEndian>(self.port).unwrap();
 
         bytes

@@ -587,7 +587,7 @@ impl FromLLSDValue for HomeValues {
             // Parse numbers, stripping any leading 'r' or ':' characters
             let nums: Vec<f32> = parts
                 .iter()
-                .map(|p| p.trim_start_matches(|c| c == 'r' || c == ':'))
+                .map(|p| p.trim_start_matches(['r', ':']))
                 .map(|p| p.parse::<f32>().ok())
                 .collect::<Option<Vec<f32>>>()?;
 

@@ -1,13 +1,11 @@
 use super::header::Header;
 use super::packet_types::PacketType;
 use crate::errors::ParseError;
-use actix::Message;
 use byteorder::ReadBytesExt;
 use std::any::Any;
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 
-#[derive(Debug, Message, Clone)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 /// The base type for all packets in the spec.
 /// contains a header and a body.
 pub struct Packet {
@@ -78,7 +76,7 @@ fn zero_decode(bytes: &[u8]) -> Vec<u8> {
     while let Ok(byte) = cursor.read_u8() {
         if byte == 0x00 {
             if let Ok(count) = cursor.read_u8() {
-                dest.extend(std::iter::repeat(0x00).take(count as usize));
+                dest.extend(std::iter::repeat_n(0x00, count as usize));
             } else {
                 dest.push(0x00);
             }

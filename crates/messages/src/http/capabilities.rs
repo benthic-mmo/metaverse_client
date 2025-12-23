@@ -1,10 +1,7 @@
-use core::fmt;
-use std::{collections::HashMap, fmt::Display};
-
-use actix::Message;
-use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
-
 use crate::errors::ParseError;
+use core::fmt;
+use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
+use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 /// Describes the capabilities the client can have.
@@ -19,10 +16,6 @@ pub enum Capability {
     /// Enable the viewer to retrieve the inventory of the current user. Required for determining
     /// the user's appearance and managing inventory.
     FetchInventoryDescendents2,
-    /// Enable the viewer to retrieve the library inventory. This is the public library which
-    /// contains data about other people's objects. Required for determining other user's
-    /// appearances.
-    FetchLibDescendents2,
     /// Unknown
     Unknown,
 }
@@ -30,7 +23,6 @@ impl Capability {
     fn from_string(string: &str) -> Self {
         match string {
             "ViewerAsset" => Self::ViewerAsset,
-            "FetchLibDescendents2" => Self::FetchLibDescendents2,
             "FetchInventoryDescendents2" => Self::FetchInventoryDescendents2,
             _ => Self::Unknown,
         }
@@ -41,14 +33,12 @@ impl Display for Capability {
         match self {
             Self::ViewerAsset => write!(f, "ViewerAsset"),
             Self::FetchInventoryDescendents2 => write!(f, "FetchInventoryDescendents2"),
-            Self::FetchLibDescendents2 => write!(f, "FetchLibDescendents2"),
             Self::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
-#[derive(Debug, Message, Clone)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone)]
 /// This is the type that is sent to the actix session to handle sending capability requests.
 pub struct CapabilityRequest {
     /// This is an xml string of the capabilities the client wants.

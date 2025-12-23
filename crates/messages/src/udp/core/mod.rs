@@ -176,23 +176,76 @@ pub mod circuit_code;
 /// ## Packet Structure
 /// | CompleteAgentMovement |          |                    |                                 |
 /// |-----------------------|----------|--------------------|---------------------------------|
-/// | AgentID               | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user agent (sent from server to viwer with login)|
-/// | SessionID             | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user session (sent from server to client with login)|
-/// | CircuitCode           | 4 bytes  | [u32]              | The CircuitCode (sent from server to client with login) |
+/// | agent_id               | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user agent (sent from server to viwer with login)|
+/// | session_id             | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user session (sent from server to client with login)|
+/// | circuit_code           | 4 bytes  | [u32]              | The CircuitCode (sent from server to client with login) |
 pub mod complete_agent_movement;
 
+/// # Agent Throttle
+/// <https://wiki.secondlife.com/wiki/AgentThrottle>
+///
+/// This packet is sent to inform the server of the viewer's maximum bandwidth. If this packet is
+/// never sent, the server may be slow to respond, and throttle the amount of data it sends to the
+/// viewer, leading to long loading times.
+///
+/// The maximum and minimum values are:
+/// Resend  - Max: 150,000
+/// Land    - Max: 170,000
+/// Wind    - Max: 34,000
+/// Cloud   - Max: 34,000
+/// Task    - Max: 446,000
+/// Texture - Max: 446,000
+/// Asset   - Max: 220,000
+///
+/// ## Header
+/// |AgentThrottle |||||
+/// |----------------------|---------|-----------------|------------------|-----------------|
+/// | Packet Header        | id: 81 | reliable: false | zerocoded: false | frequency: Low   |
+///
+///
+/// ## Packet Structure
+/// | AgentThrottle |          |                    |                                 |
+/// |-----------------------|----------|--------------------|---------------------------------|
+/// | agent_id     | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user agent        |
+/// | session_id   | 16 bytes | [Uuid](uuid::Uuid) | The ID of the user session      |
+/// | circuit_code | 4 bytes  | [u32]| The CircuitCode                 |
+/// | gen_id       | 4 bytes  | [u32]| label to inform the viewer that one packet is more recent than the other. Can be set to 0. |
+/// | resend       | 4 bytes  | [f32]| maximum bytes per second for resent packets |
+/// | land         | 4 bytes  | [f32]| maximum bytes per second for land packets |   
+/// | wind         | 4 bytes  | [f32]| maximum bytes per second for wind packets |   
+/// | cloud        | 4 bytes  | [f32]| maximum bytes per second for cloud packets |   
+/// | task         | 4 bytes  | [f32]| maximum bytes per second for task packets |   
+/// | texture      | 4 bytes  | [f32]| maximum bytes per second for texture packets |   
+/// | asset        | 4 bytes  | [f32]| maximum bytes per second for asset packets |   
 pub mod agent_throttle;
 
+/// # Enable Simulator
+/// <https://wiki.secondlife.com/wiki/EnableSimulator>
+///
+/// This packet is sent to tell the server the viewer is ready to retrieve region data.
+///
+/// ## Header
+/// |EnableSimulator |||||
+/// |----------------------|---------|-----------------|------------------|-----------------|
+/// | Packet Header        | id: 151 | reliable: false | zerocoded: false | frequency: Low   |
+///
+///
+/// ## Packet Structure
+/// | AgentThrottle |          |                    |                                 |
+/// |-----------------------|----------|--------------------|---------------------------------|
+/// | handle       | 8 bytes  | [u64]| ID of the region |
+/// | ip           | 4 bytes  | [String] | IP address of the ready viewer |
+/// | port        | 2 bytes  | [u16]| port the ready viewer is connected to |   
 pub mod enable_simulator;
-
-pub mod parcel_overlay;
-
-pub mod simulator_viewer_time_message;
 
 /// TODO: UNIMPLEMENTED
 pub mod agent_movement_complete;
 /// TODO: UNIMPLEMENTED
+pub mod parcel_overlay;
+/// TODO: UNIMPLEMENTED
 pub mod sim_stats;
+/// TODO: UNIMPLEMENTED
+pub mod simulator_viewer_time_message;
 /// TODO: UNIMPLEMENTED
 pub mod test_packet;
 /// TODO: UNIMPLEMENTED

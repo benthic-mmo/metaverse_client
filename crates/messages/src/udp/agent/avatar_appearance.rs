@@ -1,4 +1,3 @@
-use actix::Message;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 use uuid::Uuid;
@@ -32,8 +31,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug, Message, Clone, Default)]
-#[rtype(result = "()")]
+#[derive(Debug, Clone, Default)]
 /// Avatar Appearance struct
 pub struct AvatarAppearance {
     /// the ID of the user

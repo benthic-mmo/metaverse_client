@@ -1,15 +1,18 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_share_dir;
+use crate::session::SendUIMessage;
 use actix::{AsyncContext, Handler, Message};
 use glam::U16Vec2;
 use glam::Vec3;
+use log::error;
+use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{PatchLayer, parse_layer_data},
+    layer_handler::{parse_layer_data, PatchLayer},
 };
 use metaverse_messages::packet::message::UIMessage;
-#[cfg(feature = "environment")]
 use metaverse_messages::udp::environment::layer_data::LayerData;
+use metaverse_messages::ui::land_update::{LandData, LandUpdate};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -17,12 +20,8 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
-use log::error;
-
-#[cfg(feature = "environment")]
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
 /// Contains the patch queue and patch cache.
+#[derive(Debug)]
 pub struct EnvironmentCache {
     /// contains unprocessed patches that are yet to have their dependencies met.
     /// The dependencies are the required patches that live on their three corners.
@@ -33,12 +32,30 @@ pub struct EnvironmentCache {
     pub patch_cache: HashMap<U16Vec2, Land>,
 }
 
+/// Message to handle new layer data coming in from the server
+///
+/// Handles land, water, cloud and wind patches. This decoding and handling is done in the
+/// metaverse-environment crate. This is mainly used for maintaining the session's knowledge of land
+/// tiles.  
+///
+/// # Cause
+/// - LayerData packet received from UDP socket
+///
+/// # Effect
+/// - Dispatches a [`LandUpdate`] packet to the UI
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct HandleLayerData {
+    /// The layer data packet to process
+    pub layer_data: LayerData,
+}
+
 #[cfg(feature = "environment")]
-impl Handler<LayerData> for Mailbox {
+impl Handler<HandleLayerData> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: LayerData, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: HandleLayerData, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
-            && let Ok(patch_data) = parse_layer_data(&msg)
+            && let Ok(patch_data) = parse_layer_data(&msg.layer_data)
         {
             match patch_data {
                 PatchLayer::Land(patches) => {
@@ -65,7 +82,6 @@ impl Handler<LayerData> for Mailbox {
                             }
                         }
                         for (mesh, coordinate) in layer_meshes {
-                            use metaverse_messages::ui::land_update::{LandData, LandUpdate};
                             let scale = land.terrain_header.patch_size as f32;
                             let json_path = write_json(
                                 &LandData {
@@ -81,35 +97,24 @@ impl Handler<LayerData> for Mailbox {
                             )
                             .unwrap();
                             ctx.address()
-                                .do_send(UIMessage::new_land_update(LandUpdate {
+                                .do_send(SendUIMessage{ui_message: UIMessage::new_land_update(LandUpdate {
                                     path: json_path,
-                                }));
-
-                            //let path =
-                            //    dir.join(format!("{}_high.glb", land.terrain_header.filename));
-
-                            //if let Ok(_) = build_mesh_gltf(mesh, path.clone()) {
-                            //    ctx.address()
-                            //        .do_send(UIMessage::new_mesh_update(MeshUpdate {
-                            //            // TODO: This is hardcoded to 16 because the patch
-                            //            // sizes are all hardcoded to 16 right now. This should
-                            //            // be fixed when that bug is resolved.
-                            //            position: Vec3 {
-                            //                x: (coordinate.x as f32) * 16.0,
-                            //                y: (coordinate.y as f32) * 16.0,
-                            //                z: 0.0,
-                            //            },
-                            //            path,
-                            //            mesh_type: MeshType::Land,
-                            //            id: None,
-                            //        }));
-                            //}
+                                })});
                         }
                     }
                 }
-                PatchLayer::Wind(_patches) => {}
-                PatchLayer::Water(_patches) => {}
-                PatchLayer::Cloud(_patches) => {}
+                PatchLayer::Wind(_patches) => {
+                    // TODO: implement wind patch 
+                    warn!("Wind patch received. Currently unimplemented.");
+                }
+                PatchLayer::Water(_patches) => {
+                    // TODO: implement water patch 
+                    warn!("Water patch received. Currently unimplemented.");
+                }
+                PatchLayer::Cloud(_patches) => {
+                    // TODO: implement cloud patch
+                    warn!("Cloud patch received. Currently unimplemented.");
+                }
             }
         }
     }

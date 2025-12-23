@@ -1,5 +1,6 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
+use crate::session::SendUIMessage;
 use crate::transport::http_handler::{download_object, download_scene_group, download_texture};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::{error, info, warn};
@@ -22,9 +23,17 @@ use std::path::PathBuf;
 use std::time::Duration;
 use uuid::Uuid;
 
+/// Requests Agent data from the ViewerAsset capability endpoint
+///
+/// These are requested from inventory objects, and not ObjectUpdate packets.
+///
+/// # Cause
+/// - [`HandleNewAvatar`]
+///
+/// # Effects
+///  - Dispatches an [`AddObjectToAvatar`] message on successful download
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Requests data from the ViewerAsset capability endpoint
 pub struct DownloadAgentAsset {
     /// the asset of the object to request
     pub asset_id: Uuid,
@@ -34,9 +43,19 @@ pub struct DownloadAgentAsset {
     pub item_type: ObjectType,
 }
 
+/// Adds an object to the avatar's outfit list
+///
+/// This updates the in-memory struct containing each player's avatar data, and updates
+/// the global avatar skeleton if the outfit contains skeleton data, and triggers a render
+/// if the avatar's outfit is finished loading in.
+///
+/// # Cause
+/// - [`AddObjectToAvatar`]
+///
+/// # Effects
+/// - Dispatches a [`FinalizeAvatar`] message if the avatar's outfit has all items
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// add an object to the avatar's object list
 pub struct AddObjectToAvatar {
     /// ID of the agent to add the object to
     pub agent_id: Uuid,
@@ -44,12 +63,15 @@ pub struct AddObjectToAvatar {
     pub object: OutfitObject,
 }
 
+/// Message to set the outfit size of the avatar
+///
+/// This must be set in order to trigger a render. Without this, the avatar doesn't know when the
+/// outfit is finished loading in.
+///
+/// # Cause
+/// - [`HandleNewAvatar`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// set the outfit size of the avatar.
-/// retrieved from the current outfit folder.
-/// this must be set in order to trigger a render. the avatar must know it has loaded all of its
-/// clothes.
 pub struct SetOutfitSize {
     /// agent ID to set the outfit size of
     pub agent_id: Uuid,
@@ -57,20 +79,68 @@ pub struct SetOutfitSize {
     pub outfit_size: usize,
 }
 
+/// Message to finalize the avatar
+///
+/// This is triggered when all of the avatar's objects have loaded in. This finalizes the global
+/// skeleton, writes the JSON for the full baked avatar, generates the mesh from metaverse-mesh,
+/// and triggers a UI update.
+///
+/// # Cause
+/// - [`AddObjectToAvatar`]
+///
+/// # Effects
+/// - Dispatches a [`MeshUpdate`] message to render the finalized avatar
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-/// Finalize the avatar and generate the finished, rigged model.
 pub struct FinalizeAvatar {
     /// the avatar object to generate
     pub avatar: Avatar,
 }
 
-impl Handler<AvatarAppearance> for Mailbox {
+/// Message to spawn a new avatar
+///
+/// Avatars are added to the scene via ObjectUpdate packet with minimal information aside from the
+/// ID. This adds those IDs to the session and begins downloading their appearances.
+///
+/// # Cause
+/// - [`HandleObjectUpdate`]
+///
+/// # Effect
+/// - Resends a [`HandleNewAvatar`] message if the inventory is not yet loaded
+/// - If the avatar is the current player's avatar
+///    - Dispatches a [`CameraPosition`] message
+///    - Dispatches a [`DownloadAgentAsset`] message for each object in the outfit
+///    - Dispatches a [`AddObjectToAvatar`] message for each bodypart in the outfit
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleNewAvatar {
+    /// the avatar object to generate
+    pub avatar: Avatar,
+}
+
+/// Message to handle an updated avatar appearance
+///
+/// TODO: currently a stub
+///
+/// # Cause
+/// - Avatar Appearance packet received from UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleNewAvatarAppearance {
+    /// the avatar appearance data to handle
+    pub avatar_appearance: AvatarAppearance,
+}
+
+impl Handler<HandleNewAvatarAppearance> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: AvatarAppearance, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        _msg: HandleNewAvatarAppearance,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
         // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
         // the appearance of the avatar.
-        //println!("{:?}", msg);
+        warn!("AvatarAppearance packet received. Currently unimplemented");
     }
 }
 
@@ -165,13 +235,14 @@ impl Handler<FinalizeAvatar> for Mailbox {
         };
 
         // Update avatar state and notify UI
-        ctx.address()
-            .do_send(UIMessage::new_mesh_update(MeshUpdate {
+        ctx.address().do_send(SendUIMessage {
+            ui_message: UIMessage::new_mesh_update(MeshUpdate {
                 position: msg.avatar.position,
                 path: glb_path,
                 mesh_type: MeshType::Avatar,
                 id: Some(msg.avatar.agent_id),
-            }));
+            }),
+        });
     }
 }
 
@@ -264,78 +335,83 @@ impl Handler<DownloadAgentAsset> for Mailbox {
     }
 }
 
-impl Handler<Avatar> for Mailbox {
+impl Handler<HandleNewAvatar> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: Avatar, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: HandleNewAvatar, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
             let addr = ctx.address();
-            if session.agent_id == msg.agent_id {
-                addr.do_send(UIMessage::new_camera_position(CameraPosition {
-                    position: msg.position,
-                }));
-            }
+            if session.agent_id == msg.avatar.agent_id {
+                addr.do_send(SendUIMessage {
+                    ui_message: UIMessage::new_camera_position(CameraPosition {
+                        position: msg.avatar.position,
+                    }),
+                });
 
-            if session.inventory_data.inventory_init {
-                session.avatars.insert(msg.agent_id, msg);
-                let agent_id = session.agent_id;
-                let db_conn = self.inventory_db_connection.clone();
-                ctx.spawn(
-                    async move {
-                        match get_current_outfit(&db_conn).await {
-                            Ok(outfit) => {
-                                if let Err(err) = addr
-                                    .send(SetOutfitSize {
-                                        agent_id,
-                                        outfit_size: outfit.len(),
-                                    })
-                                    .await
-                                {
-                                    error!(
-                                        "Failed to set outfit size for {:?}: {:?}",
-                                        agent_id, err
-                                    );
-                                    return;
-                                };
-                                for item in outfit {
-                                    match item.2 {
-                                        ObjectType::Object => {
-                                            addr.do_send(DownloadAgentAsset {
-                                                asset_id: item.1,
-                                                item_type: item.2,
-                                                agent_id,
-                                            });
-                                        }
-                                        ObjectType::Bodypart => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Bodypart,
-                                                agent_id,
-                                            });
-                                        }
-                                        ObjectType::Clothing => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Clothing,
-                                                agent_id,
-                                            });
-                                        }
-                                        _ => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Other,
-                                                agent_id,
-                                            });
+                if session.inventory_data.inventory_init {
+                    session.avatars.insert(msg.avatar.agent_id, msg.avatar);
+                    let agent_id = session.agent_id;
+                    let db_conn = self.inventory_db_connection.clone();
+                    ctx.spawn(
+                        async move {
+                            match get_current_outfit(&db_conn).await {
+                                Ok(outfit) => {
+                                    if let Err(err) = addr
+                                        .send(SetOutfitSize {
+                                            agent_id,
+                                            outfit_size: outfit.len(),
+                                        })
+                                        .await
+                                    {
+                                        error!(
+                                            "Failed to set outfit size for {:?}: {:?}",
+                                            agent_id, err
+                                        );
+                                        return;
+                                    };
+                                    for item in outfit {
+                                        match item.2 {
+                                            ObjectType::Object => {
+                                                addr.do_send(DownloadAgentAsset {
+                                                    asset_id: item.1,
+                                                    item_type: item.2,
+                                                    agent_id,
+                                                });
+                                            }
+                                            ObjectType::Bodypart => {
+                                                addr.do_send(AddObjectToAvatar {
+                                                    object: OutfitObject::Bodypart,
+                                                    agent_id,
+                                                });
+                                            }
+                                            ObjectType::Clothing => {
+                                                addr.do_send(AddObjectToAvatar {
+                                                    object: OutfitObject::Clothing,
+                                                    agent_id,
+                                                });
+                                            }
+                                            _ => {
+                                                addr.do_send(AddObjectToAvatar {
+                                                    object: OutfitObject::Other,
+                                                    agent_id,
+                                                });
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            Err(e) => {
-                                error!("Failed to retrieve inventory {:?}", e);
-                            }
-                        };
-                    }
-                    .into_actor(self),
-                );
+                                Err(e) => {
+                                    error!("Failed to retrieve inventory {:?}", e);
+                                }
+                            };
+                        }
+                        .into_actor(self),
+                    );
+                } else {
+                    warn!("Inventory not yet ready. Requeueing avatar download...");
+                    ctx.notify_later(msg, Duration::from_secs(1));
+                }
             } else {
-                warn!("Inventory not yet ready. Requeueing avatar download...");
-                ctx.notify_later(msg, Duration::from_secs(1));
+                // TODO: handle non-user avatar updates
+                warn!("Non-user avatar updates not yet supported...");
             }
         }
     }

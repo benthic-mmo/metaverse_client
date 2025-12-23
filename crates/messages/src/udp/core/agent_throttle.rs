@@ -1,24 +1,18 @@
-use byteorder::LittleEndian;
-use byteorder::ReadBytesExt;
-use byteorder::WriteBytesExt;
-use uuid::Uuid;
-
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
     packet::{Packet, PacketData},
     packet_types::PacketType,
 };
-/// this is a file for easily creating a new packet.
-/// Simply copy this and fill in the data to create a new packet
-/// *local_name*    is something like "region_handshake"
-/// *PacketName*    is the name of the packet like "RegionHandshake"
-/// *id*            is the ID of the packet
-///
+use byteorder::LittleEndian;
+use byteorder::ReadBytesExt;
+use byteorder::WriteBytesExt;
 use std::io::Cursor;
 use std::io::Read;
+use uuid::Uuid;
 
 impl Packet {
+    /// create a new agent throttle packet
     pub fn new_agent_throttle(agent_throttle: AgentThrottle) -> Self {
         Packet {
             header: Header {
@@ -33,24 +27,40 @@ impl Packet {
     }
 }
 
-/// add your struct fields here
+/// This packet is sent to inform the server of the maximum bandwidth the viewer can handle. If
+/// this is not sent, the server will throttle to extremely low values, and performance may be
+/// impacted.
 #[derive(Debug, Clone)]
 pub struct AgentThrottle {
+    /// the ID of the agent sending the throttle
     pub agent_id: Uuid,
+    /// the ID of the session sending the throttle
     pub session_id: Uuid,
+    /// the circuit code of the session sending the throttle
     pub circuit_code: u32,
+    /// value that tells the server if this throttle is newer than the last one it received.
+    /// This is often unused and set to 0.
     pub gen_counter: u32,
+    /// throttle values
     pub throttles: ThrottleData,
 }
 
+/// Bandwidth limits for individual data categories
 #[derive(Debug, Clone)]
 pub struct ThrottleData {
+    /// maximum bytes per second for resending unacknowledged packets
     pub resend: f32,
+    /// maximum bytes per second for sending land patches
     pub land: f32,
+    /// maximum bytes per second for sending wind
     pub wind: f32,
+    /// maximum bytes per second for sending cloud data
     pub cloud: f32,
+    /// maximum bytes per second for object and task data
     pub task: f32,
+    /// maximum bytes per second for sending texture data
     pub texture: f32,
+    /// maximum bytes per second for sending asset data
     pub asset: f32,
 }
 
@@ -77,20 +87,7 @@ impl ThrottleData {
     const MIN_ASSET: f32 = 10_000.0;
     const MAX_ASSET: f32 = 220_000.0;
 
-    pub fn new_total(total: f32) -> Self {
-        let mut t = Self {
-            resend: total * 0.1,
-            land: total * 0.52 / 3.0,
-            wind: total * 0.05,
-            cloud: total * 0.05,
-            task: total * 0.704 / 3.0,
-            texture: total * 0.704 / 3.0,
-            asset: total * 0.484 / 3.0,
-        };
-        t.clamp();
-        t
-    }
-
+    /// prevent the values from going over or under the maximum and minimum values
     pub fn clamp(&mut self) {
         self.resend = self.resend.clamp(Self::MIN_RESEND, Self::MAX_RESEND);
         self.land = self.land.clamp(Self::MIN_LAND, Self::MAX_LAND);
@@ -101,6 +98,7 @@ impl ThrottleData {
         self.asset = self.asset.clamp(Self::MIN_ASSET, Self::MAX_ASSET);
     }
 
+    /// convert throttle data to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(7 * 4);
         buf.write_f32::<LittleEndian>(self.resend).unwrap();
@@ -112,8 +110,8 @@ impl ThrottleData {
         buf.write_f32::<LittleEndian>(self.asset).unwrap();
         buf
     }
-
-    pub fn from_bytes(cursor: &mut Cursor<&[u8]>) -> std::io::Result<Self> {
+    /// Decodes `ThrottleData` from a byte stream.
+    pub fn from_bytes(cursor: &mut Cursor<&[u8]>) -> Result<ThrottleData, std::io::Error> {
         let resend = cursor.read_f32::<LittleEndian>()?;
         let land = cursor.read_f32::<LittleEndian>()?;
         let wind = cursor.read_f32::<LittleEndian>()?;

@@ -8,6 +8,7 @@ use crate::packet::message::UIMessage;
 /// world.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CameraPosition {
+    /// the position of the camera in the region
     pub position: Vec3,
 }
 
