@@ -123,9 +123,15 @@ impl Header {
         bytes.push(0);
 
         // Add the ID and frequency
-        bytes.extend_from_slice(&self.frequency.to_bytes(self, self.zerocoded));
+        bytes.extend_from_slice(&self.frequency.to_bytes(self));
+
         bytes
     }
+}
+
+// Utility function to convert a u16 to a big-endian byte array
+fn uint16_to_bytes_big(value: u16) -> [u8; 2] {
+    [(value >> 8) as u8, (value & 0xFF) as u8]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -159,43 +165,32 @@ impl PacketFrequency {
     /// Medium is a 2 byte ID
     /// Low is a 4 byte ID
     /// Fixed is a 6 byte ID.
-    pub fn to_bytes(&self, header: &Header, zerocoded: bool) -> Vec<u8> {
+    pub fn to_bytes(&self, header: &Header) -> Vec<u8> {
         let mut bytes = Vec::new();
-
         match self {
             PacketFrequency::High => {
-                // High frequency: just the ID byte
+                // 1 byte ID
                 bytes.push(header.id as u8);
             }
             PacketFrequency::Medium => {
-                // Medium frequency: 255 + ID
-                bytes.push(255);
+                // 2 byte ID
+                bytes.push(0xFF);
                 bytes.push(header.id as u8);
             }
             PacketFrequency::Low => {
-                // Low frequency: 255, 255 + little-endian u16
-                let low = (header.id & 0xFF) as u8;
-                let mut high = ((header.id >> 8) & 0xFF) as u8;
-
-                // zerocoded special case: if ID would serialize as [0,1], skip to [1,?]
-                if zerocoded && low == 0 && high == 1 {
-                    high = 0; // match your parser increment behavior
-                }
-
-                bytes.push(255);
-                bytes.push(255);
-                bytes.push(low);
-                bytes.push(high);
+                // 4 byte ID
+                bytes.push(0xFF);
+                bytes.push(0xFF);
+                let id_bytes = uint16_to_bytes_big(header.id);
+                bytes.extend_from_slice(&id_bytes);
             }
             PacketFrequency::Fixed => {
-                // Fixed frequency: 255, 255, 255 + ID
-                bytes.push(255);
-                bytes.push(255);
-                bytes.push(255);
-                bytes.push(header.id as u8);
+                bytes.push(0xFF);
+                bytes.push(0xFF);
+                bytes.push(0xFF);
+                bytes.push(header.id as u8); // THIS IS PROBABLY INCORRECT
             }
-        }
-
+        };
         bytes
     }
 }
