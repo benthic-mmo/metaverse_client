@@ -127,12 +127,17 @@ impl PacketData for ChatFromSimulator {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
-        // FromName
-        // skip one byte of prefix, for some reason
-        let mut from_name_bytes = Vec::new();
-        cursor.read_until(0, &mut from_name_bytes)?; // Read until null terminator
-        let from_name =
-            String::from_utf8(from_name_bytes.into_iter().filter(|&b| b != 0).collect())
+        // FromName: Variable 1 (u8 length prefix)
+        let name_len = cursor.read_u8()?;
+        let mut from_name_bytes = vec![0u8; name_len as usize];
+        cursor.read_exact(&mut from_name_bytes)?;
+
+        // Trim null terminator if present
+        if let Some(&0) = from_name_bytes.last() {
+            from_name_bytes.pop();
+        }
+
+        let from_name = String::from_utf8(from_name_bytes)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         // SourceID
@@ -168,12 +173,13 @@ impl PacketData for ChatFromSimulator {
             z: cursor.read_f32::<byteorder::LittleEndian>()?,
         };
 
-        // skip two bytes of size prefix
-        cursor.set_position(cursor.position() + 1);
-        // Message
-        let mut message_bytes = Vec::new();
-        cursor.read_to_end(&mut message_bytes)?;
-        if !message_bytes.is_empty() {
+        // Message: Variable 2 (u16 length prefix)
+        let message_len = cursor.read_u16::<byteorder::LittleEndian>()?;
+        let mut message_bytes = vec![0u8; message_len as usize];
+        cursor.read_exact(&mut message_bytes)?;
+
+        // Trim null terminator if present
+        if let Some(&0) = message_bytes.last() {
             message_bytes.pop();
         }
         let message = String::from_utf8(message_bytes)
@@ -194,10 +200,11 @@ impl PacketData for ChatFromSimulator {
     fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        // Convert `from_name` to bytes (null-terminated)
-        let name_bytes = self.from_name.as_bytes();
-        bytes.extend_from_slice(name_bytes);
-        bytes.push(0);
+        // Convert `from_name` to bytes
+        let mut name_bytes = self.from_name.as_bytes().to_vec();
+        name_bytes.push(0); // Null terminate
+        bytes.push(name_bytes.len() as u8);
+        bytes.extend_from_slice(&name_bytes);
 
         // Convert `source_id` and `owner_id` to bytes
         bytes.extend_from_slice(self.source_id.as_bytes());
@@ -213,10 +220,11 @@ impl PacketData for ChatFromSimulator {
         bytes.extend_from_slice(&self.position.y.to_le_bytes());
         bytes.extend_from_slice(&self.position.z.to_le_bytes());
 
-        // Convert `message` to bytes (null-terminated)
-        let message_bytes = self.message.as_bytes();
-        bytes.extend_from_slice(message_bytes);
-        bytes.push(0);
+        // Convert `message` to bytes
+        let mut message_bytes = self.message.as_bytes().to_vec();
+        message_bytes.push(0); // Null terminate
+        bytes.extend_from_slice(&(message_bytes.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(&message_bytes);
 
         bytes
     }

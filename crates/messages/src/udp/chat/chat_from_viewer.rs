@@ -6,7 +6,7 @@ use crate::{
         packet_types::PacketType,
     },
 };
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::io::Read;
@@ -21,7 +21,7 @@ impl Packet {
             header: Header {
                 id: 80,
                 frequency: PacketFrequency::Low,
-                reliable: false,
+                reliable: true,
                 zerocoded: false,
                 ..Default::default()
             },
@@ -64,12 +64,17 @@ impl PacketData for ChatFromViewer {
         let mut message_bytes = vec![0u8; message_length];
         cursor.read_exact(&mut message_bytes)?;
 
+        // Trim null terminator if present
+        if let Some(&0) = message_bytes.last() {
+            message_bytes.pop();
+        }
+
         let message = String::from_utf8(message_bytes)?;
 
         let message_type_byte = cursor.read_u8()?;
         let message_type = ChatType::from_bytes(message_type_byte);
 
-        let channel = cursor.read_i32::<BigEndian>()?;
+        let channel = cursor.read_i32::<LittleEndian>()?;
 
         Ok(ChatFromViewer {
             agent_id,
@@ -86,15 +91,13 @@ impl PacketData for ChatFromViewer {
         bytes.extend_from_slice(self.agent_id.as_bytes());
         bytes.extend_from_slice(self.session_id.as_bytes());
 
-        let message_bytes = self.message.as_bytes();
-
+        let mut message_bytes = self.message.as_bytes().to_vec();
+        message_bytes.push(0); // courtesy Null terminate
         bytes.extend_from_slice(&(message_bytes.len() as u16).to_le_bytes());
-        bytes.extend_from_slice(message_bytes);
+        bytes.extend_from_slice(&message_bytes);
 
         bytes.push(self.message_type.to_bytes());
         bytes.extend_from_slice(&self.channel.to_le_bytes());
-
-        bytes.push(0);
 
         bytes
     }
