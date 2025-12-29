@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_agent"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "Agent handling for the open metaverse"
 license = "AGPL-3.0-or-later"
@@ -14,7 +14,7 @@ include = [
     "src/benthic_default_model/skeleton.glb",
 ]
 [dependencies]
-metaverse_messages = {path="../messages/"}
+metaverse_messages = "0.3.0"
 byteorder = "1.5.0"
 rgb = "0.8.52"
 uuid = "1.18.1"
@@ -25,7 +25,7 @@ serde_json = "1.0.145"
 actix = "0.13.5" 
 
 [build-dependencies]
-metaverse_messages = {path="../messages/"}
+metaverse_messages = "0.3.0"
 gltf = "1.4.1"
 bytemuck = "1.24.0"
 glam = "0.30.8"
