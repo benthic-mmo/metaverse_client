@@ -95,6 +95,7 @@ impl Mailbox {
                                     rotation: data.motion_data.rotation,
                                     scale: data.scale,
                                     parent: Some(data.parent_id),
+                                    texture: data.texture_entry.clone(),
                                 })
                                 .await
                             {
@@ -135,6 +136,7 @@ impl Mailbox {
                                         rotation: object.rotation,
                                         scale: object.scale,
                                         parent: object.parent_id,
+                                        texture: object.texture_entry,
                                     })
                                     .await
                                 {

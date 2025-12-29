@@ -1,6 +1,7 @@
 use glam::{Quat, Vec3, Vec4};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
+use log::warn;
 use metaverse_agent::skeleton::create_skeleton;
 use metaverse_messages::http::login::login_error::{LoginError, Reason};
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
@@ -159,8 +160,8 @@ pub async fn download_texture(
     let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
     let img = Image::from_bytes(tex).unwrap();
     let pixels = img.get_pixels(None).unwrap();
-    // Determine output format
 
+    // Determine output format
     let output = match pixels.data {
         ImagePixelData::L8(data) => {
             ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
@@ -205,8 +206,6 @@ pub async fn download_scene_group(
             download_renderable_mesh(
                 scene.sculpt.texture,
                 scene.metadata.name.clone(),
-                scene.scale,
-                scene.rotation_offset,
                 url,
                 texture_path,
             )
@@ -216,17 +215,11 @@ pub async fn download_scene_group(
     Ok(meshes)
 }
 
-fn apply_scale_rotation(v: Vec3, scale: Vec3, rotation: Quat) -> Vec3 {
-    rotation * (v * scale)
-}
-
 /// retrieves mesh data and does operations on the received data to ready it for the metaverse_mesh
 /// crate.
 pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,
-    scale: Vec3,
-    rotation: Quat,
     url: &str,
     texture_path: &PathBuf,
 ) -> Result<RenderObject, std::io::Error> {
@@ -264,7 +257,7 @@ pub async fn download_renderable_mesh(
             .collect();
 
         let skeleton = create_skeleton(name.clone(), asset_id, skin).unwrap_or_else(|e| {
-            println!("Failed to create skeleton: {:?}", e);
+            warn!("Failed to create skeleton: {:?}", e);
             Skeleton::default()
         });
 

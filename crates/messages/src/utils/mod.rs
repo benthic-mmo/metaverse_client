@@ -20,4 +20,4 @@ pub mod skeleton;
 /// Sound data for playing sounds in-world
 pub mod sound;
 /// texture information for objects
-pub mod texture;
+pub mod texture_entry;
