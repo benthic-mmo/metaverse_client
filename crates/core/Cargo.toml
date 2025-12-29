@@ -6,6 +6,13 @@ description = "core program for server and client IO"
 license = "AGPL-3.0-or-later"
 edition = "2024"
 
+# Include the assets dir, which contains default assets and textures.
+include = [
+    "src/**",
+    "Cargo.toml",
+    "assets/**",
+]
+
 [dependencies]
 metaverse_messages = {path="../messages"}
 metaverse_environment = {path="../environment", optional = true}
@@ -53,3 +60,5 @@ environment = ["dep:metaverse_environment"]
 agent = ["dep:metaverse_agent"]
 
 inventory = ["dep:metaverse_inventory"]
+
+

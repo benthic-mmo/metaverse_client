@@ -282,7 +282,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             // for the rest of the object
                             let texture_id = scene_group.parts[0].shape.texture.texture_id;
                             let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-                            match download_texture(
+                            let texture_path = match download_texture(
                                 ObjectType::Texture.to_string(),
                                 texture_id,
                                 &server_endpoint,
@@ -290,11 +290,14 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             )
                             .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => texture_path,
                                 Err(e) => {
-                                    error!("Failed to download texture: {:?}", e)
+                                    error!("Failed to download texture: {:?}", e);
+                                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                                        .join("assets")
+                                        .join("benthic_default_texture.png")
                                 }
-                            }
+                            };
 
                             // Download the mesh itself
                             let render_objects = match download_scene_group(
