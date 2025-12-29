@@ -216,7 +216,6 @@ impl Handler<HandleObjectUpdate> for Mailbox {
         if self.session.is_none() {
             return Box::pin(async {});
         };
-        println!("object update received: {:?}", msg.object_type);
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
@@ -277,7 +276,7 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                     });
                 }
                 _ => {
-                    println!("Unknown object type");
+                    warn!("Unknown object type");
                 }
             }
         })
@@ -299,7 +298,7 @@ impl Handler<HandlePrim> for Mailbox {
                         });
                     }
                     _ => {
-                        println!("Recieved a non sculpt objectupdate")
+                        warn!("Recieved a non sculpt objectupdate. Currently unimplemented")
                     }
                 }
             }
@@ -368,7 +367,9 @@ impl Handler<DownloadObject> for Mailbox {
                         Ok(_) => texture_path,
                         Err(e) => {
                             error!("Failed to download prim texture: {:?} {:?}", e, texture_id);
-                            PathBuf::from("/home/skclark/Downloads/T_thinkpad_a.png")
+                            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                                .join("assets")
+                                .join("benthic_default_texture.png")
                         }
                     };
 
@@ -401,6 +402,8 @@ impl Handler<DownloadObject> for Mailbox {
                                 Err(e) => warn!("{:?}", e),
                             };
 
+                            // retrieve the parent's trnasforms from the db to determine the
+                            // global position of a child object
                             if let Some(parent_id) = msg.object.parent_id {
                                 match get_object_scale_rotation_position(&inventory_db, parent_id)
                                     .await
