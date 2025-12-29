@@ -1,4 +1,4 @@
-use glam::{Quat, Vec3, Vec4};
+use glam::{Vec3, Vec4};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
 use log::warn;

@@ -87,6 +87,7 @@ pub struct HandleObjectUpdate {
     /// Can contain definitions for things like sculpts (which include meshes), flexi data, light, and more.
     pub extra_params: Option<Vec<ExtraParams>>,
 
+    /// Object's texture data
     pub texture: TextureEntry,
 }
 

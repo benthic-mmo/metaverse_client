@@ -16,10 +16,10 @@ pub struct MeshUpdate {
     pub scale: Vec3,
     /// rotation of the mesh
     pub rotation: Quat,
-
+    /// Local ID of the mesh's parent
     pub parent: Option<u32>,
+    /// scene-local ID of the object
     pub scene_id: Option<u32>,
-
     /// Where to render the mesh
     pub position: Vec3,
     /// The type of mesh getting rendered. Land, Object, Avatar, etc.

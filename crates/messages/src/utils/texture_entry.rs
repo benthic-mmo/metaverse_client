@@ -56,6 +56,8 @@ impl Default for TextureEntry {
 }
 
 impl TextureEntry {
+    /// Convert from a b64 byte array to a TextureEntry object.
+    /// Used by SceneObjects
     pub fn from_b64(b64: &[u8]) -> std::io::Result<Self> {
         let mut faces: HashMap<u32, TextureEntry> = HashMap::new();
         let mut texture = TextureEntry::default();
@@ -265,7 +267,8 @@ impl TextureEntry {
         Ok(texture)
     }
 
-    /// convert from bytes to a texture
+    /// Convert from bytes to a TextureEntry
+    /// used by ObjectUpdate and ObjectUpdateCompressed packets
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
         let mut texture = TextureEntry::default();
         let mut faces: HashMap<u32, TextureEntry> = HashMap::new();
@@ -616,4 +619,3 @@ fn read_b64_face_bitfield(cursor: &mut Cursor<&[u8]>) -> std::io::Result<(u32, u
     }
     Ok((face_bits, bitfield_size))
 }
-
