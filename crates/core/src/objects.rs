@@ -5,6 +5,7 @@ use crate::initialize::create_sub_object_dir;
 use crate::session::OutgoingPacket;
 use crate::session::SendUIMessage;
 use crate::transport::http_handler::download_renderable_mesh;
+use crate::transport::http_handler::download_texture;
 use actix::AsyncContext;
 use actix::ResponseFuture;
 use actix::WrapFuture;
@@ -29,6 +30,7 @@ use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleOb
 use metaverse_messages::ui::mesh_update::MeshType;
 use metaverse_messages::ui::mesh_update::MeshUpdate;
 use metaverse_messages::utils::object_types::ObjectType;
+use metaverse_messages::utils::texture_entry::TextureEntry;
 use serde::Serialize;
 use std::fs::File;
 use std::io;
@@ -84,6 +86,8 @@ pub struct HandleObjectUpdate {
     ///
     /// Can contain definitions for things like sculpts (which include meshes), flexi data, light, and more.
     pub extra_params: Option<Vec<ExtraParams>>,
+
+    pub texture: TextureEntry,
 }
 
 /// Begins the pipeline for handling a prim object.
@@ -351,30 +355,26 @@ impl Handler<DownloadObject> for Mailbox {
                         }
                     };
 
-                    // TODO: download the texture given in the packet. Needs to be added to
-                    // the downloadobject
-                    //
-                    // let texture_id = scene_group.parts[0].shape.texture.texture_id;
-                    let texture_path = PathBuf::from("/home/skclark/Downloads/T_thinkpad_a.png");
-                    // match download_texture(
-                    //     ObjectType::Texture.to_string(),
-                    //     texture_id,
-                    //     &server_endpoint,
-                    //     &texture_path,
-                    // )
-                    // .await
-                    // {
-                    //     Ok(_) => {}
-                    //     Err(e) => {
-                    //         error!("Failed to download texture: {:?}", e)
-                    //     }
-                    // }
-                    //
+                    let texture_id = msg.object.texture.texture_id;
+                    let texture_path = base_dir.join(format!("{:?}.png", texture_id));
+                    let texture_path = match download_texture(
+                        ObjectType::Texture.to_string(),
+                        texture_id,
+                        &server_endpoint,
+                        &texture_path,
+                    )
+                    .await
+                    {
+                        Ok(_) => texture_path,
+                        Err(e) => {
+                            error!("Failed to download prim texture: {:?} {:?}", e, texture_id);
+                            PathBuf::from("/home/skclark/Downloads/T_thinkpad_a.png")
+                        }
+                    };
+
                     match download_renderable_mesh(
                         msg.asset_id,
                         "name".to_string(),
-                        msg.object.scale,
-                        msg.object.rotation,
                         &server_endpoint,
                         &texture_path,
                     )
@@ -413,7 +413,7 @@ impl Handler<DownloadObject> for Mailbox {
                                         msg.object.rotation = parent_rotation * msg.object.rotation;
                                     }
                                     Err(e) => {
-                                        println!("{:?}", e);
+                                        error!("{:?}", e);
                                         return;
                                     }
                                 };

@@ -11,7 +11,7 @@ fn test_agent_throttle() {
         session_id: Uuid::nil(),
         circuit_code: 1234,
         gen_counter: 0,
-        throttles: ThrottleData::new_total(1_536_000.0),
+        throttles: ThrottleData::default(),
     });
 
     let packet_bytes = packet.to_bytes();

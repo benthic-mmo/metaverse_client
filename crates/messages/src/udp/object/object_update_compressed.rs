@@ -15,6 +15,7 @@ use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
 use crate::utils::path::Path;
 use crate::utils::sound::AttachedSound;
+use crate::utils::texture_entry::TextureEntry;
 
 use std::io::{Cursor, Read};
 
@@ -152,7 +153,7 @@ pub struct ObjectDataCompressed {
     /// path data for the object's sculpt
     pub sculpt_path: Path,
     /// texture data for the object
-    pub texture_entry: Vec<u8>,
+    pub texture_entry: TextureEntry,
     /// texture animation data for the object
     pub texture_animation: Option<Vec<u8>>,
     /// particle system information
@@ -328,9 +329,7 @@ impl PacketData for ObjectUpdateCompressed {
             let texture_entry_length = cursor.read_u16::<LittleEndian>()?;
             let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
             cursor.read_exact(&mut texture_entry_bytes)?;
-            let texture_entry = texture_entry_bytes;
-            //let texture_entry = Texture::from_bytes(&texture_entry_bytes)?;
-
+            let texture_entry = TextureEntry::from_bytes(&texture_entry_bytes)?;
             let texture_animation = if compressed_flags.contains(&CompressedFlag::TextureAnimation)
             {
                 let texture_anim_length = cursor.read_u8()?;

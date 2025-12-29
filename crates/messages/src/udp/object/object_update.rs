@@ -13,7 +13,10 @@ use crate::{
         packet_types::PacketType,
     },
     udp::object::util::ObjectFlag,
-    utils::{material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound},
+    utils::{
+        material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound,
+        texture_entry::TextureEntry,
+    },
 };
 use std::io::{self, Cursor, Read};
 
@@ -68,7 +71,7 @@ pub struct ObjectUpdate {
     /// Strores imformation about primitive geometry
     pub primitive_geometry: Path,
     /// Full property list for each object's face, including textures and colors.
-    pub texture_entry: Vec<u8>,
+    pub texture_entry: TextureEntry,
     /// Properties to set up texture animations for each face
     pub texture_anim: Vec<u8>,
     /// Any name values specific to the object. Mostly used for avatar names.
@@ -144,8 +147,7 @@ impl PacketData for ObjectUpdate {
         let texture_entry_length = cursor.read_u16::<LittleEndian>()?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
         cursor.read_exact(&mut texture_entry_bytes)?;
-        let texture_entry = texture_entry_bytes;
-        //let texture_entry = Texture::from_bytes(&texture_entry_bytes)?;
+        let texture_entry = TextureEntry::from_bytes(&texture_entry_bytes)?;
 
         let texture_anim_length = cursor.read_u8()?;
         let mut texture_anim = vec![0u8; texture_anim_length as usize];

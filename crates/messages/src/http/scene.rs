@@ -6,7 +6,7 @@ use crate::{
         object_types::ObjectType,
         path::Path,
         sound::AttachedSound,
-        texture::Texture,
+        texture_entry::TextureEntry,
     },
 };
 use glam::{bool, Quat, Vec3, Vec4};
@@ -152,7 +152,7 @@ pub struct Shape {
     /// Contains information about how the object emits lights.
     pub light: Light,
     /// Informaiton about the shape's texture
-    pub texture: Texture,
+    pub texture: TextureEntry,
     /// TODO: Not handled yet
     pub texture_animation: Vec<u8>,
     /// TODO: not handled yet
@@ -492,7 +492,7 @@ impl SceneObject {
             ["Shape", rest @ ..] => match rest {
                 ["ProfileCurve"] => scene_object.shape.path.profile_curve = val.parse::<u8>()?,
                 ["TextureEntry"] => {
-                    scene_object.shape.texture = Texture::from_bytes(val.as_bytes())?
+                    scene_object.shape.texture = TextureEntry::from_b64(val.as_bytes())?
                 }
                 ["ExtraParams"] => scene_object.shape.extra_params = val.as_bytes().to_vec(),
                 ["PathBegin"] => scene_object.shape.path.begin = val.parse::<u16>()?,
