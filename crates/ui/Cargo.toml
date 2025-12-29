@@ -1,6 +1,6 @@
 [package]
 name = "benthic_ui"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "Bevy UI plugin for open metaverse clients"
 license = "AGPL-3.0-or-later"
@@ -8,8 +8,8 @@ edition = "2024"
 resolver = "2"
 
 [dependencies]
-metaverse_core = {path="../core"}
-metaverse_messages = {path="../messages"}
+metaverse_core = "0.3.0"
+metaverse_messages = "0.3.0"
 
 #disable sound for bevy
 bevy = { version = "0.17", default-features = false, features = [
