@@ -3,6 +3,7 @@ use crate::initialize::create_sub_agent_dir;
 use crate::session::SendUIMessage;
 use crate::transport::http_handler::{download_object, download_scene_group, download_texture};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
@@ -229,7 +230,10 @@ impl Handler<FinalizeAvatar> for Mailbox {
         // the json scene data retrieved from the avatar.
         match generate_skinned_mesh(json_path, glb_path.clone()) {
             Ok(_) => {
-                info!("Rendering avatar at: {:?}", msg.avatar.agent_id)
+                info!(
+                    "Rendering avatar {:?} at {:?}",
+                    msg.avatar.agent_id, msg.avatar.position
+                )
             }
             Err(e) => warn!("{:?}", e),
         };
@@ -238,6 +242,10 @@ impl Handler<FinalizeAvatar> for Mailbox {
         ctx.address().do_send(SendUIMessage {
             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                 position: msg.avatar.position,
+                scale: Vec3::ONE,
+                rotation: Quat::IDENTITY,
+                parent: None,
+                scene_id: None,
                 path: glb_path,
                 mesh_type: MeshType::Avatar,
                 id: Some(msg.avatar.agent_id),

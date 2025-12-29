@@ -1,4 +1,5 @@
 use bevy::gltf::{GltfMaterialName, GltfMeshName};
+use bevy::platform::collections::HashMap;
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
@@ -7,11 +8,10 @@ use metaverse_messages::ui::camera_position::CameraPosition;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
-
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
     check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, LandUpdateEvent,
-    MeshQueue, MeshUpdateEvent,
+    MeshQueue, MeshUpdateEvent, SceneIDMap,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -155,6 +155,9 @@ impl Plugin for MetaversePlugin {
             .insert_resource(ShareDir {
                 _path: local_share_dir,
                 login_cred_path,
+            })
+            .insert_resource(SceneIDMap{
+                entities: HashMap::new(),
             })
             .insert_resource(MeshQueue { items: vec![] })
             .add_message::<LoginResponseEvent>()

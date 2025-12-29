@@ -1,4 +1,5 @@
 use bevy::asset::RenderAssetUsages;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_panorbit_camera::PanOrbitCamera;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
@@ -6,6 +7,11 @@ use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use std::fs;
 
 use crate::textures::environment::HeightMaterial;
+
+#[derive(Resource)]
+pub struct SceneIDMap {
+    pub entities: HashMap<u32, Entity>,
+}
 
 #[derive(Message)]
 pub struct MeshUpdateEvent {
@@ -26,6 +32,10 @@ pub enum RenderableHandle {
 pub struct Renderable {
     pub handle: RenderableHandle,
     pub position: Vec3,
+    pub scale: Vec3,
+    pub rotation: Quat,
+    pub parent: Option<u32>,
+    pub scene_id: Option<u32>,
     pub mesh_type: MeshType,
 }
 
@@ -73,6 +83,10 @@ pub fn handle_land_update(
                     let mesh_handle = meshes.add(mesh);
                     mesh_queue.items.push(Renderable {
                         handle: RenderableHandle::Mesh(mesh_handle),
+                        scale: Vec3::ONE,
+                        rotation: Quat::IDENTITY,
+                        scene_id: None,
+                        parent: None,
                         position: land_data.position,
                         mesh_type: MeshType::Land,
                     })
@@ -93,7 +107,11 @@ pub fn handle_mesh_update(
         let handle: Handle<Gltf> = asset_server.load(renderable.value.path.clone());
         mesh_queue.items.push(Renderable {
             handle: RenderableHandle::Gltf(handle),
+            scale: renderable.value.scale,
+            rotation: renderable.value.rotation,
             position: renderable.value.position,
+            scene_id: renderable.value.scene_id,
+            parent: renderable.value.parent,
             mesh_type: renderable.value.mesh_type.clone(),
         });
     }
@@ -102,6 +120,7 @@ pub fn handle_mesh_update(
 pub fn check_model_loaded(
     mut commands: Commands,
     mut mesh_queue: ResMut<MeshQueue>,
+    mut id_map: ResMut<SceneIDMap>,
     gltf_assets: Res<Assets<Gltf>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut height_materials: ResMut<Assets<HeightMaterial>>,
@@ -112,18 +131,21 @@ pub fn check_model_loaded(
         match &layer.handle {
             RenderableHandle::Gltf(gltf_handle) => {
                 if let Some(gltf) = gltf_assets.get(gltf_handle) {
-                    let scale = match layer.mesh_type {
-                        MeshType::Avatar => Vec3::splat(20.0), // Make avatars huge for debugging
-                        MeshType::Land => Vec3::ONE,
-                    };
-                    commands.spawn((
-                        SceneRoot(gltf.scenes[0].clone()),
-                        Transform {
-                            translation: layer.position,
-                            scale,
-                            ..Default::default()
-                        },
-                    ));
+                    let entity = commands
+                        .spawn((
+                            SceneRoot(gltf.scenes[0].clone()),
+                            Transform {
+                                translation: layer.position,
+                                scale: layer.scale,
+                                rotation: layer.rotation,
+                                ..Default::default()
+                            },
+                        ))
+                        .id();
+
+                    if let Some(scene_id) = layer.scene_id {
+                        id_map.entities.insert(scene_id, entity);
+                    }
                     ready.push(i)
                 }
             }

@@ -289,12 +289,10 @@ pub async fn download_renderable_mesh(
             uv: Some(uvs),
         }
     } else {
-        let vertices: Vec<Vec3> = mesh
-            .high_level_of_detail
-            .vertices
-            .iter()
-            .map(|v| apply_scale_rotation(*v, scale, rotation))
-            .collect();
+        let vertices: Vec<Vec3> = mesh.high_level_of_detail.vertices;
+        //.iter()
+        //.map(|v| apply_scale_rotation(*v, scale, rotation))
+        //.collect();
 
         RenderObject {
             name: name,
