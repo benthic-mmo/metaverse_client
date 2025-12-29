@@ -196,8 +196,8 @@ impl PacketData for ObjectUpdateCompressed {
             let position_z = cursor.read_f32::<LittleEndian>()?;
             let position = Vec3 {
                 x: position_x,
-                y: position_z,
-                z: position_y,
+                y: position_y,
+                z: position_z,
             };
 
             let x = cursor.read_f32::<LittleEndian>()?;

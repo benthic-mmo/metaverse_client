@@ -330,13 +330,11 @@ impl MotionData {
 
     fn from_bytes_high(bytes: &[u8]) -> io::Result<Self> {
         let mut cursor = Cursor::new(bytes);
-        let x = cursor.read_f32::<LittleEndian>()?;
-        let y = cursor.read_f32::<LittleEndian>()?;
-        let z = cursor.read_f32::<LittleEndian>()?;
-
-        // this allows objects to render in the right place in other coordinate systems.
-        // I know this looks wrong, but it's right.
-        let position = Vec3::new(x, z, y);
+        let position = Vec3::new(
+            cursor.read_f32::<LittleEndian>()?,
+            cursor.read_f32::<LittleEndian>()?,
+            cursor.read_f32::<LittleEndian>()?,
+        );
 
         let velocity = Vec3::new(
             cursor.read_f32::<LittleEndian>()?,

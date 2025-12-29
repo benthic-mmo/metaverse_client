@@ -11,7 +11,7 @@ use byteorder::ReadBytesExt;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
-use std::io::{self, BufRead, Cursor};
+use std::io::{self, Cursor};
 use uuid::Uuid;
 
 use super::ChatType;

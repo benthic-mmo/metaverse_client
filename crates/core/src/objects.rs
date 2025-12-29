@@ -351,26 +351,6 @@ impl Handler<DownloadObject> for Mailbox {
                         }
                     };
 
-                    if let Some(parent_id) = msg.object.parent_id {
-                        match get_object_scale_rotation_position(&inventory_db, parent_id).await {
-                            Ok((parent_scale, parent_rotation, parent_position)) => {
-                                let scale = msg.object.scale;
-                                let rotation = parent_rotation * msg.object.rotation;
-                                let position = parent_rotation * (msg.position * parent_scale)
-                                    + parent_position;
-                                // TODO: this is not fully implemented
-
-                                msg.position = position;
-                                msg.object.rotation = rotation;
-                                msg.object.scale = scale;
-                            }
-                            Err(e) => {
-                                println!("{:?}", e);
-                                return;
-                            }
-                        };
-                    };
-
                     // TODO: download the texture given in the packet. Needs to be added to
                     // the downloadobject
                     //
@@ -420,9 +400,32 @@ impl Handler<DownloadObject> for Mailbox {
                                 }
                                 Err(e) => warn!("{:?}", e),
                             };
+
+                            if let Some(parent_id) = msg.object.parent_id {
+                                match get_object_scale_rotation_position(&inventory_db, parent_id)
+                                    .await
+                                {
+                                    Ok((_parent_scale, parent_rotation, parent_position)) => {
+                                        let rotated_offset =
+                                            parent_rotation.mul_vec3(msg.object.position);
+
+                                        msg.object.position = parent_position + rotated_offset;
+                                        msg.object.rotation = parent_rotation * msg.object.rotation;
+                                    }
+                                    Err(e) => {
+                                        println!("{:?}", e);
+                                        return;
+                                    }
+                                };
+                            }
+
                             addr.do_send(SendUIMessage {
                                 ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                                    position: msg.position,
+                                    position: msg.object.position,
+                                    scale: msg.object.scale,
+                                    rotation: msg.object.rotation,
+                                    parent: msg.object.parent,
+                                    scene_id: Some(msg.object.local_id),
                                     path: glb_path,
                                     mesh_type: MeshType::Avatar,
                                     id: None,
