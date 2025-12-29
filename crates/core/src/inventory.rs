@@ -87,7 +87,7 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
                                     addr.do_send(InventoryInit);
                                 }
                                 Err(e) => {
-                                    error!("REFRESH INVENTORY EVENT FAILED {:?}", e)
+                                    error!("Refresh inventory event failed {:?}", e)
                                 }
                             }
                         }

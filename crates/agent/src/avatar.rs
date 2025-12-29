@@ -34,6 +34,7 @@ pub struct Avatar {
 
     pub last_update: SystemTime,
 }
+
 impl Avatar {
     pub fn new(agent_id: Uuid, position: Vec3) -> Self {
         Avatar {
