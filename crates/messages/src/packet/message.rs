@@ -8,7 +8,7 @@ use crate::{
     ui::{
         camera_position::CameraPosition, chat_from_viewer::ChatFromUI, errors::SessionError,
         land_update::LandUpdate, login_event::Login, login_response::LoginResponse, logout::Logout,
-        mesh_update::MeshUpdate,
+        mesh_update::MeshUpdate, play_animation::PlayAnimation,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,8 @@ pub enum UIMessage {
     LandUpdate(LandUpdate),
     /// Message for setting the position of the avatar's camera
     CameraPosition(CameraPosition),
+
+    PlayAnimation(PlayAnimation),
 }
 
 impl UIMessage {

@@ -12,8 +12,8 @@ use uuid::Uuid;
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let base_skeleton_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("benthic_default_model")
+        .join("assets")
+        .join("skeleton")
         .join("skeleton.gltf");
 
     let skeleton = skeleton_from_gltf(base_skeleton_path);

@@ -100,7 +100,10 @@ pub async fn download_asset(
     server_endpoint: &str,
 ) -> std::io::Result<bytes::Bytes> {
     let client = awc::Client::default();
-    let url = format!("{}?{}_id={}", server_endpoint, item_type, asset_id);
+    let url = format!("{}/?{}_id={}", server_endpoint, item_type, asset_id);
+    if item_type == "animation" {
+        println!("{:?}", url);
+    }
     let mut response = client
         .get(&url)
         .send()

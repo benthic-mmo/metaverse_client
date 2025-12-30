@@ -1,4 +1,4 @@
-use crate::avatar::HandleNewAvatarAppearance;
+use crate::avatar::{HandleNewAvatarAnimation, HandleNewAvatarAppearance};
 use crate::environment::HandleLayerData;
 use crate::objects::{
     HandleImprovedTerseObjectUpdate, HandleObjectUpdate, HandleObjectUpdateCached,
@@ -176,6 +176,17 @@ impl Mailbox {
                                 error!("Failed to handle AvatarAppearance {:?}", e)
                             };
                         }
+                        PacketType::AvatarAnimation(data) => {
+                            if let Err(e) = mailbox_address
+                                .send(HandleNewAvatarAnimation {
+                                    avatar_animation: *data.clone(),
+                                })
+                                .await
+                            {
+                                error!("Failed to handle AvatarAppearance {:?}", e)
+                            };
+                        }
+
                         other => {
                             println!("unhandled packet: {:?}", other);
                         }

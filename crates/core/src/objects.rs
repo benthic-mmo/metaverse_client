@@ -370,6 +370,7 @@ impl Handler<DownloadObject> for Mailbox {
                             error!("Failed to download prim texture: {:?} {:?}", e, texture_id);
                             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                                 .join("assets")
+                                .join("textures")
                                 .join("benthic_default_texture.png")
                         }
                     };
@@ -431,7 +432,7 @@ impl Handler<DownloadObject> for Mailbox {
                                     parent: msg.object.parent,
                                     scene_id: Some(msg.object.local_id),
                                     path: glb_path,
-                                    mesh_type: MeshType::Avatar,
+                                    mesh_type: MeshType::Object,
                                     id: None,
                                 }),
                             });
