@@ -164,6 +164,7 @@ pub fn check_model_loaded(
                         id_map.entities.insert(scene_id, entity);
                     }
                     if layer.mesh_type == MeshType::Avatar {
+                        commands.entity(entity).insert(AnimationPlayer::default());
                         agent_id_map.entities.insert(
                             layer.id.unwrap(),
                             AgentEntity {

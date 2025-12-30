@@ -1,7 +1,7 @@
 use bevy::scene::ScenePlugin;
-use bevy_gltf::{GltfMaterialName, GltfMeshName, GltfPlugin};
+use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin};
 use bevy::platform::collections::HashMap;
-use crate::animation::{update_animations, AnimationQueue};
+use crate::animation::{update_animations, AnimationPath, AnimationQueue};
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
@@ -290,6 +290,8 @@ fn handle_queue(
     mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
     mut animation_queue: ResMut<AnimationQueue>,
+
+    asset_server: Res<AssetServer>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
@@ -308,9 +310,11 @@ fn handle_queue(
                 ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
             }
             UIMessage::PlayAnimation(play_animation) => {
+
+                let gltf_handle: Handle<Gltf> = asset_server.load(play_animation.animation_path.clone());
                 animation_queue
                 .pending
-                .insert(play_animation.player_id, play_animation.animation_path.clone());
+                .insert(play_animation.player_id, AnimationPath{ path_on_disk: play_animation.animation_path.clone(), gltf_handle});
      
             }
             UIMessage::CoarseLocationUpdate(coarse_location_update) => {
