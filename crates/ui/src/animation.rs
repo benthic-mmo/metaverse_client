@@ -1,7 +1,7 @@
 use crate::render::AgentIDMap;
 use bevy::{
     animation::{graph::AnimationGraph, AnimationPlayer},
-    asset::{AssetServer, Assets, Handle},
+    asset::{AssetServer, Assets, Handle, LoadState},
     ecs::{
         resource::Resource,
         system::{Query, ResMut},
@@ -14,7 +14,12 @@ use uuid::Uuid;
 
 #[derive(Resource)]
 pub struct AnimationQueue {
-    pub pending: HashMap<Uuid, PathBuf>,
+    pub pending: HashMap<Uuid, AnimationPath>,
+}
+
+pub struct AnimationPath {
+    pub path_on_disk: PathBuf,
+    pub gltf_handle: Handle<Gltf>,
 }
 
 pub fn update_animations(
@@ -27,24 +32,21 @@ pub fn update_animations(
 ) {
     let mut done = vec![];
 
-    for (agent_id, queued) in animation_queue.pending.iter() {
+    for (agent_id, paths) in animation_queue.pending.iter() {
         if let Some(agent) = agent_id_map.entities.get(agent_id) {
-            let path_str = queued.to_string_lossy().to_string();
-
-            // Load as Gltf asset, not AnimationClip
-            let gltf_handle: Handle<Gltf> = asset_server.load(path_str);
-
-            // Check if the Gltf asset is loaded and has animations
-            if let Some(gltf) = gltf_assets.get(&gltf_handle) {
-                // Get the first animation (or use your preferred selection logic)
-                if let Some(anim_handle) = gltf.animations.first() {
-                    if let Ok(mut player) = players.get_mut(agent.entity) {
-                        let (graph, node_index) = AnimationGraph::from_clip(anim_handle.clone());
-                        let graph_handle = graphs.add(graph);
-                        player.start(node_index);
+            if asset_server.load_state(&paths.gltf_handle).is_loaded() {
+                println!("gltf handle {:?}", gltf_assets.get(&paths.gltf_handle));
+                if let Some(gltf) = gltf_assets.get(&paths.gltf_handle) {
+                    if let Some(anim_handle) = gltf.animations.first() {
+                        if let Ok(mut player) = players.get_mut(agent.entity) {
+                            let (graph, node_index) =
+                                AnimationGraph::from_clip(anim_handle.clone());
+                            graphs.add(graph);
+                            player.start(node_index);
+                        }
                     }
+                    done.push(*agent_id);
                 }
-                done.push(*agent_id);
             }
         }
     }
