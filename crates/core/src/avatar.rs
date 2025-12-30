@@ -1,20 +1,25 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_agent_dir;
 use crate::session::SendUIMessage;
-use crate::transport::http_handler::{download_object, download_scene_group, download_texture};
+use crate::transport::http_handler::{
+    download_asset, download_object, download_scene_group, download_texture,
+};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
+use metaverse_agent::default_animations::DefaultAnimation;
 use metaverse_agent::skeleton::update_global_avatar_skeleton;
 use metaverse_inventory::agent::get_current_outfit;
 use metaverse_mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
+use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
+use metaverse_messages::ui::play_animation::PlayAnimation;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::render_data::{AvatarObject, RenderObject};
 use serde::Serialize;
@@ -132,6 +137,19 @@ pub struct HandleNewAvatarAppearance {
     pub avatar_appearance: AvatarAppearance,
 }
 
+/// Message to handle an updatedanimation
+///
+/// TODO: currently a stub
+///
+/// # Cause
+/// - Avatar Appearance packet received from UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleNewAvatarAnimation {
+    /// the avatar appearance data to handle
+    pub avatar_animation: AvatarAnimation,
+}
+
 impl Handler<HandleNewAvatarAppearance> for Mailbox {
     type Result = ();
     fn handle(
@@ -142,6 +160,54 @@ impl Handler<HandleNewAvatarAppearance> for Mailbox {
         // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
         // the appearance of the avatar.
         warn!("AvatarAppearance packet received. Currently unimplemented");
+    }
+}
+
+impl Handler<HandleNewAvatarAnimation> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
+        warn!("AvatarAnimation packet received. Currently unimplemented");
+        if let Some(session) = self.session.as_mut() {
+            let server_endpoint = session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .unwrap()
+                .to_string();
+            let addr = ctx.address().clone();
+            ctx.spawn(
+                async move {
+                    for animation in msg.avatar_animation.animations {
+                        if let Some(path) = DefaultAnimation::path_for_uuid(&animation.anim_id) {
+                            addr.do_send(SendUIMessage {
+                                ui_message: UIMessage::new_play_animation(PlayAnimation {
+                                    player_id: msg.avatar_animation.sender_id,
+                                    animation_path: path,
+                                }),
+                            });
+                            return;
+                        }
+                        match download_asset(
+                            ObjectType::Animation.to_string(),
+                            animation.anim_id,
+                            &server_endpoint,
+                        )
+                        .await
+                        {
+                            Ok(asset) => {
+                                println!("{:?}", asset)
+                            }
+                            Err(e) => {
+                                error!(
+                                    "failed to retrieve avatar animation {:?}, {:?}",
+                                    e, animation.anim_id
+                                )
+                            }
+                        };
+                    }
+                }
+                .into_actor(self),
+            );
+        }
     }
 }
 
@@ -295,6 +361,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                     error!("Failed to download texture: {:?}", e);
                                     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                                         .join("assets")
+                                        .join("textures")
                                         .join("benthic_default_texture.png")
                                 }
                             };

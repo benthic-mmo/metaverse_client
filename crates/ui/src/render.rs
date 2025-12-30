@@ -1,16 +1,29 @@
+use crate::textures::environment::HeightMaterial;
 use bevy::asset::RenderAssetUsages;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use bevy_gltf::Gltf;
 use bevy_panorbit_camera::PanOrbitCamera;
+use metaverse_agent::default_animations::DefaultAnimation;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use std::fs;
-
-use crate::textures::environment::HeightMaterial;
+use std::path::PathBuf;
+use uuid::Uuid;
 
 #[derive(Resource)]
 pub struct SceneIDMap {
     pub entities: HashMap<u32, Entity>,
+}
+
+#[derive(Resource)]
+pub struct AgentIDMap {
+    pub entities: HashMap<Uuid, AgentEntity>,
+}
+
+pub struct AgentEntity {
+    pub entity: Entity,
+    pub animation: PathBuf,
 }
 
 #[derive(Message)]
@@ -37,6 +50,7 @@ pub struct Renderable {
     pub parent: Option<u32>,
     pub scene_id: Option<u32>,
     pub mesh_type: MeshType,
+    pub id: Option<Uuid>,
 }
 
 #[derive(Resource)]
@@ -89,6 +103,7 @@ pub fn handle_land_update(
                         parent: None,
                         position: land_data.position,
                         mesh_type: MeshType::Land,
+                        id: None,
                     })
                 }
                 Err(err) => error!("Failed to deserialize JSON: {}", err),
@@ -113,6 +128,7 @@ pub fn handle_mesh_update(
             scene_id: renderable.value.scene_id,
             parent: renderable.value.parent,
             mesh_type: renderable.value.mesh_type.clone(),
+            id: renderable.value.id,
         });
     }
 }
@@ -121,6 +137,7 @@ pub fn check_model_loaded(
     mut commands: Commands,
     mut mesh_queue: ResMut<MeshQueue>,
     mut id_map: ResMut<SceneIDMap>,
+    mut agent_id_map: ResMut<AgentIDMap>,
     gltf_assets: Res<Assets<Gltf>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut height_materials: ResMut<Assets<HeightMaterial>>,
@@ -146,6 +163,15 @@ pub fn check_model_loaded(
                     if let Some(scene_id) = layer.scene_id {
                         id_map.entities.insert(scene_id, entity);
                     }
+                    if layer.mesh_type == MeshType::Avatar {
+                        agent_id_map.entities.insert(
+                            layer.id.unwrap(),
+                            AgentEntity {
+                                entity,
+                                animation: DefaultAnimation::Stand.data().path,
+                            },
+                        );
+                    };
                     ready.push(i)
                 }
             }

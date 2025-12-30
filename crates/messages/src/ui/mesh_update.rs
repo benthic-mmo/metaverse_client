@@ -36,6 +36,8 @@ pub enum MeshType {
     /// Avatar type
     #[default]
     Avatar,
+    /// Object type
+    Object,
 }
 
 impl UIMessage {

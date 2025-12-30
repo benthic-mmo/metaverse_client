@@ -1,3 +1,4 @@
+pub mod animation;
 pub mod chat;
 pub mod errors;
 pub mod loading;

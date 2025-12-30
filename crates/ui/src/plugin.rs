@@ -1,17 +1,19 @@
-use bevy::gltf::{GltfMaterialName, GltfMeshName};
+use bevy::scene::ScenePlugin;
+use bevy_gltf::{GltfMaterialName, GltfMeshName, GltfPlugin};
 use bevy::platform::collections::HashMap;
+use crate::animation::{update_animations, AnimationQueue};
 use bevy::mesh::skinning::SkinnedMesh;
 use metaverse_core::initialize::initialize;
 use metaverse_messages::packet::message::{UIMessage, UIResponse};
 use metaverse_messages::udp::agent::agent_update::AgentUpdate;
 use metaverse_messages::ui::camera_position::CameraPosition;
+use metaverse_messages::ui::play_animation::PlayAnimation;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, LandUpdateEvent,
-    MeshQueue, MeshUpdateEvent, SceneIDMap,
+    check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, AgentIDMap, LandUpdateEvent, MeshQueue, MeshUpdateEvent, SceneIDMap
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -82,6 +84,11 @@ pub struct CameraUpdateEvent {
     pub value: CameraPosition
 }
 
+#[derive(Message, Clone)]
+pub struct PlayAnimationEvent {
+    pub value: PlayAnimation
+}
+
 #[derive(Message)]
 pub struct CoarseLocationUpdateEvent {
     pub _value: CoarseLocationUpdate,
@@ -135,6 +142,7 @@ impl Plugin for MetaversePlugin {
 
         app.init_state::<ViewerState>()
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
+            .add_plugins(GltfPlugin::default())
             .insert_resource(SessionData {
                 login_response: None,
                 avatar_location: Vec3::ZERO,
@@ -156,8 +164,14 @@ impl Plugin for MetaversePlugin {
                 _path: local_share_dir,
                 login_cred_path,
             })
+            .insert_resource(AgentIDMap{
+                entities: HashMap::new(),
+            })
             .insert_resource(SceneIDMap{
                 entities: HashMap::new(),
+            })
+            .insert_resource(AnimationQueue{
+                pending: HashMap::new(),
             })
             .insert_resource(MeshQueue { items: vec![] })
             .add_message::<LoginResponseEvent>()
@@ -194,6 +208,7 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
+            .add_systems(Update, update_animations)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
@@ -274,6 +289,7 @@ fn handle_queue(
     mut ev_land_update: MessageWriter<LandUpdateEvent>,
     mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
+    mut animation_queue: ResMut<AnimationQueue>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
@@ -290,6 +306,12 @@ fn handle_queue(
             }
             UIMessage::MeshUpdate(mesh_update) => {
                 ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
+            }
+            UIMessage::PlayAnimation(play_animation) => {
+                animation_queue
+                .pending
+                .insert(play_animation.player_id, play_animation.animation_path.clone());
+     
             }
             UIMessage::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.write(CoarseLocationUpdateEvent {

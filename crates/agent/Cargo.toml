@@ -12,6 +12,7 @@ include = [
     "build.rs",
     "src/benthic_default_model/skeleton.gltf",
     "src/benthic_default_model/skeleton.glb",
+    "assets/**"
 ]
 [dependencies]
 metaverse_messages = {path="../messages/"}
@@ -22,7 +23,12 @@ glam = "0.30.8"
 log = "0.4.28"
 indexmap = "2.11.4"
 serde_json = "1.0.145"
-actix = "0.13.5" 
+actix = "0.13.5"
+
+strum = "0.27"
+strum_macros = "0.27"
+
+
 
 [build-dependencies]
 metaverse_messages = {path="../messages/"}

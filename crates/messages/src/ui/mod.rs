@@ -20,3 +20,5 @@ pub mod land_update;
 pub mod login_event;
 /// UI message for requesting a logout
 pub mod logout;
+/// UI message for informing the UI of an animation
+pub mod play_animation;
