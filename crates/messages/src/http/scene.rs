@@ -9,16 +9,16 @@ use crate::{
         texture_entry::TextureEntry,
     },
 };
-use glam::{bool, Quat, Vec3, Vec4};
+use glam::{Quat, Vec3, Vec4, bool};
 use quick_xml::{
+    Reader,
     escape::unescape,
     events::{BytesText, Event},
-    Reader,
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use std::{
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
     time::SystemTime,
 };
 use uuid::Uuid;

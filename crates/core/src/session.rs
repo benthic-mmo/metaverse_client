@@ -311,10 +311,7 @@ impl Handler<Session> for Mailbox {
                         info!("Successfully bound to {}", &addr);
                         let sock = Arc::new(sock);
                         // Spawn a new Tokio task for reading from the socket
-                        tokio::spawn(Mailbox::start_udp_read(
-                            sock.clone(),
-                            mailbox_addr,
-                        ));
+                        tokio::spawn(Mailbox::start_udp_read(sock.clone(), mailbox_addr));
                         Ok(sock) // Return the socket wrapped in Arc
                     }
                     Err(e) => {

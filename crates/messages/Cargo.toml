@@ -12,26 +12,26 @@ log = "0.4"
 byteorder = "1.5.0"
 mac_address = "1.1.8"
 sys-info = "0.9.1"
-bitflags = "2.9.4"
+bitflags = "2.10.0"
 md-5 = "0.10.6"
-glam = {version="0.30.8", features=["serde"]}
+glam = {version="0.30.9", features=["serde"]}
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4.3"
-serde_json = "1.0.145"
+serde_json = "1.0.148"
 bincode = {version="2.0.1", features=["serde"]}
 thiserror = "2.0.17"
 rgb = {version="0.8.52", features=["serde"]}
-quick-xml = "0.38.3"
-flate2 = "1.1.4"
+quick-xml = "0.38.4"
+flate2 = "1.1.5"
 bytemuck = "1.24.0"
 strum = "0.27.2"
 strum_macros = "0.27.2"
-indexmap = {version="2.11.4", features = ["serde"]}
+indexmap = {version="2.12.1", features = ["serde"]}
 chrono = "0.4.42"
 anyhow = "1.0.100"
 base64 = "0.22.1"
 [dependencies.uuid]
-version = "1.18.1"
+version = "1.19.0"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG

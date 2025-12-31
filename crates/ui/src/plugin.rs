@@ -1,34 +1,36 @@
-use bevy::scene::ScenePlugin;
-use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin};
-use bevy::platform::collections::HashMap;
 use crate::animation::{update_animations, AnimationPath, AnimationQueue};
-use bevy::mesh::skinning::SkinnedMesh;
-use metaverse_core::initialize::initialize;
-use metaverse_messages::packet::message::{UIMessage, UIResponse};
-use metaverse_messages::udp::agent::agent_update::AgentUpdate;
-use metaverse_messages::ui::camera_position::CameraPosition;
-use metaverse_messages::ui::play_animation::PlayAnimation;
-use std::fs::create_dir_all;
-use std::net::UdpSocket;
-use std::path::PathBuf;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, AgentIDMap, LandUpdateEvent, MeshQueue, MeshUpdateEvent, SceneIDMap
+    check_model_loaded, handle_land_update, handle_mesh_update, setup_environment, AgentIDMap,
+    LandUpdateEvent, MeshQueue, MeshUpdateEvent, SceneIDMap,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
 use crate::{chat, login};
 use actix_rt::System;
+use bevy::animation::AnimationTarget;
 use bevy::app::App;
+use bevy::mesh::skinning::SkinnedMesh;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use bevy::scene::ScenePlugin;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
+use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin};
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use metaverse_core::initialize::initialize;
 use metaverse_messages::http::login::login_error::LoginError;
+use metaverse_messages::packet::message::{UIMessage, UIResponse};
+use metaverse_messages::udp::agent::agent_update::AgentUpdate;
 use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
+use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_response::LoginResponse;
+use metaverse_messages::ui::play_animation::PlayAnimation;
 use portpicker::pick_unused_port;
+use std::fs::create_dir_all;
+use std::net::UdpSocket;
+use std::path::PathBuf;
 
 pub const VIEWER_NAME: &str = "benthic";
 
@@ -81,12 +83,12 @@ pub struct LoginResponseEvent {
 
 #[derive(Message)]
 pub struct CameraUpdateEvent {
-    pub value: CameraPosition
+    pub value: CameraPosition,
 }
 
 #[derive(Message, Clone)]
 pub struct PlayAnimationEvent {
-    pub value: PlayAnimation
+    pub value: PlayAnimation,
 }
 
 #[derive(Message)]
@@ -164,13 +166,13 @@ impl Plugin for MetaversePlugin {
                 _path: local_share_dir,
                 login_cred_path,
             })
-            .insert_resource(AgentIDMap{
+            .insert_resource(AgentIDMap {
                 entities: HashMap::new(),
             })
-            .insert_resource(SceneIDMap{
+            .insert_resource(SceneIDMap {
                 entities: HashMap::new(),
             })
-            .insert_resource(AnimationQueue{
+            .insert_resource(AnimationQueue {
                 pending: HashMap::new(),
             })
             .insert_resource(MeshQueue { items: vec![] })
@@ -189,6 +191,8 @@ impl Plugin for MetaversePlugin {
             .register_type::<ChildOf>()
             .register_type::<InheritedVisibility>()
             .register_type::<ViewVisibility>()
+            .register_type::<AnimationTarget>()
+            .register_type::<AnimationPlayer>()
             .register_type::<Name>()
             .register_type::<Mesh3d>()
             .register_type::<bevy::camera::primitives::Aabb>()
@@ -233,12 +237,12 @@ pub fn handle_login_response(
 }
 
 pub fn handle_camera_update(
-mut ev_loginresponse: MessageReader<CameraUpdateEvent>,
-mut session_data: ResMut<SessionData>,
+    mut ev_loginresponse: MessageReader<CameraUpdateEvent>,
+    mut session_data: ResMut<SessionData>,
 ) {
-for response in ev_loginresponse.read() {
+    for response in ev_loginresponse.read() {
         session_data.avatar_location = response.value.position
-}
+    }
 }
 
 pub fn send_packet_to_core(packet: &[u8], sockets: &Res<Sockets>) -> Result<(), PacketSendError> {
@@ -310,12 +314,15 @@ fn handle_queue(
                 ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
             }
             UIMessage::PlayAnimation(play_animation) => {
-
-                let gltf_handle: Handle<Gltf> = asset_server.load(play_animation.animation_path.clone());
-                animation_queue
-                .pending
-                .insert(play_animation.player_id, AnimationPath{ path_on_disk: play_animation.animation_path.clone(), gltf_handle});
-     
+                let gltf_handle: Handle<Gltf> =
+                    asset_server.load(play_animation.animation_path.clone());
+                animation_queue.pending.insert(
+                    play_animation.player_id,
+                    AnimationPath {
+                        path_on_disk: play_animation.animation_path.clone(),
+                        gltf_handle,
+                    },
+                );
             }
             UIMessage::CoarseLocationUpdate(coarse_location_update) => {
                 ev_coarselocationupdate.write(CoarseLocationUpdateEvent {
@@ -426,16 +433,22 @@ pub fn retrieve_login_response<'a>(
 }
 
 // Send an agent update every second
-fn send_agent_update(sockets: Res<Sockets>, time: Res<Time>, session: Res<SessionData>, mut timer: ResMut<AgentUpdateTimer>) {
+fn send_agent_update(
+    sockets: Res<Sockets>,
+    time: Res<Time>,
+    session: Res<SessionData>,
+    mut timer: ResMut<AgentUpdateTimer>,
+) {
     if !timer.0.tick(time.delta()).just_finished()
         && let Err(e) = send_packet_to_core(
             &UIResponse::new_agent_update(AgentUpdate {
-               camera_center: session.avatar_location, 
+                camera_center: session.avatar_location,
                 ..Default::default()
             })
             .to_bytes(),
             &sockets,
-        ) {
-            error!("{:?}", e)
-        };
+        )
+    {
+        error!("{:?}", e)
+    };
 }

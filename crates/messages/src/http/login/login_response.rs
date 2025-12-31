@@ -3,8 +3,8 @@ use crate::{
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
-use serde_llsd_benthic::{auto_from_str, LLSDValue};
+use serde_llsd_benthic::converter::{FromLLSDValue, get, get_nested_vec, get_opt, get_vec};
+use serde_llsd_benthic::{LLSDValue, auto_from_str};
 use std::collections::HashMap;
 use uuid::Uuid;
 

@@ -749,7 +749,7 @@ impl AttachItem {
                 return Err(ParseError::Message(format!(
                     "AttachItem has incorrect access value: {:?}, {:?}",
                     parts[3], data
-                )))
+                )));
             }
         };
 
@@ -759,7 +759,7 @@ impl AttachItem {
                 return Err(ParseError::Message(format!(
                     "AttachItem has incorrect scope value: {:?}, {:?}",
                     parts[2], data
-                )))
+                )));
             }
         };
         Ok(AttachItem { id, scope, access })

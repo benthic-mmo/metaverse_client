@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::errors::ParseError;
-use serde_llsd_benthic::{ser::xml, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, ser::xml};
 use uuid::Uuid;
 
 #[derive(Debug)]

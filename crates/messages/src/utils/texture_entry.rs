@@ -4,7 +4,7 @@ use std::{
     io::{Cursor, Read},
 };
 
-use base64::{engine::general_purpose, Engine};
+use base64::{Engine, engine::general_purpose};
 use byteorder::{LittleEndian, ReadBytesExt};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};

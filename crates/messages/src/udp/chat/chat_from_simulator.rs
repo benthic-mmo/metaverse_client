@@ -138,7 +138,7 @@ impl PacketData for ChatFromSimulator {
         }
 
         let from_name = String::from_utf8(from_name_bytes)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         // SourceID
         let source_id = Uuid::from_slice(

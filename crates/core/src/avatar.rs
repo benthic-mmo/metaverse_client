@@ -215,9 +215,10 @@ impl Handler<SetOutfitSize> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: SetOutfitSize, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
-            && let Some(agent) = session.avatars.get_mut(&msg.agent_id) {
-                agent.outfit_size = msg.outfit_size;
-            }
+            && let Some(agent) = session.avatars.get_mut(&msg.agent_id)
+        {
+            agent.outfit_size = msg.outfit_size;
+        }
     }
 }
 
