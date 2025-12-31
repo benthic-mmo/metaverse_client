@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{converter::FromLLSDValue, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, converter::FromLLSDValue};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 /// Handles the access level of the viewer.

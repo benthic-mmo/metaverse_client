@@ -2,7 +2,7 @@ use crate::{errors::ParseError, utils::skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{de::binary, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, de::binary};
 use std::{collections::HashMap, io::Read, str::FromStr};
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data

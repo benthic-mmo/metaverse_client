@@ -47,5 +47,5 @@ macro_rules! define_animations {
 }
 
 define_animations! {
-    Stand => ("2408fe9e-df1d-1d7d-f4ff-1384fa7b350f", "stand.glb"),
+    Stand => ("2408fe9e-df1d-1d7d-f4ff-1384fa7b350f", "kitty_walk_test.glb"),
 }

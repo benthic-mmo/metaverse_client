@@ -11,15 +11,15 @@ metaverse_messages = {path="../messages/"}
 anyhow = "1.0.100"
 awc = "3.8.1"
 dirs = "6.0.0"
-log = "0.4.28"
+log = "0.4.29"
 serde-llsd-benthic = {path="../../../benthic-serde-llsd/"}
-quick-xml = "0.38.3"
+quick-xml = "0.38.4"
 serde = "1.0.228"
 thiserror = "2.0.17"
-uuid = "1.18.1"
+uuid = "1.19.0"
 
 include_dir = "0.7.4"
-serde_json = "1.0.145"
+serde_json = "1.0.148"
 glam = "0.30.9"
 rgb = "0.8.52"
 sqlx = {version="0.8.6", features=["sqlite", "runtime-tokio"]}
@@ -27,4 +27,4 @@ sqlx = {version="0.8.6", features=["sqlite", "runtime-tokio"]}
 [dev-dependencies]
 tokio = {version = "1.48.0", features=["test-util"]}
 httpmock = "0.8.2"
-tempfile = "3.23.0"
+tempfile = "3.24.0"

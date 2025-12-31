@@ -1,6 +1,6 @@
 use crate::errors::InventoryError;
 use sqlx::migrate::Migrator;
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use std::{fs, io::ErrorKind, path::PathBuf};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");

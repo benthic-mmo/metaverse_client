@@ -8,7 +8,7 @@ use log::error;
 use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{parse_layer_data, PatchLayer},
+    layer_handler::{PatchLayer, parse_layer_data},
 };
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::environment::layer_data::LayerData;
@@ -96,19 +96,20 @@ impl Handler<HandleLayerData> for Mailbox {
                                 land.terrain_header.filename.clone(),
                             )
                             .unwrap();
-                            ctx.address()
-                                .do_send(SendUIMessage{ui_message: UIMessage::new_land_update(LandUpdate {
+                            ctx.address().do_send(SendUIMessage {
+                                ui_message: UIMessage::new_land_update(LandUpdate {
                                     path: json_path,
-                                })});
+                                }),
+                            });
                         }
                     }
                 }
                 PatchLayer::Wind(_patches) => {
-                    // TODO: implement wind patch 
+                    // TODO: implement wind patch
                     warn!("Wind patch received. Currently unimplemented.");
                 }
                 PatchLayer::Water(_patches) => {
-                    // TODO: implement water patch 
+                    // TODO: implement water patch
                     warn!("Water patch received. Currently unimplemented.");
                 }
                 PatchLayer::Cloud(_patches) => {

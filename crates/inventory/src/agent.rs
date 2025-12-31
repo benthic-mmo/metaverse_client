@@ -1,7 +1,7 @@
 use crate::errors::InventoryError;
-use std::collections::HashSet;
 use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::SqlitePool;
+use std::collections::HashSet;
 use uuid::Uuid;
 
 use sqlx::Row; // needed for .get()
@@ -100,17 +100,17 @@ pub async fn get_current_outfit(
             .bind(asset_id_str.as_deref())
             .fetch_one(pool)
             .await
-            {
-                _name = linked_row.get("name");
-                item_id_str = linked_row.get("item_id");
-                asset_id_str = linked_row.get("asset_id");
-                item_type_str = linked_row.get("item_type");
-                item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
-            }
+        {
+            _name = linked_row.get("name");
+            item_id_str = linked_row.get("item_id");
+            asset_id_str = linked_row.get("asset_id");
+            item_type_str = linked_row.get("item_type");
+            item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
+        }
 
         let item_id = Uuid::parse_str(item_id_str.as_deref().unwrap_or_default())?;
         let asset_id = Uuid::parse_str(asset_id_str.as_deref().unwrap_or_default())?;
-result.insert((item_id, asset_id, item_type));
+        result.insert((item_id, asset_id, item_type));
     }
 
     Ok(result)

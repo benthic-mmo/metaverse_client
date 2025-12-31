@@ -3,7 +3,7 @@ use crate::{errors::ParseError, utils::item_metadata::ItemMetadata};
 use serde_llsd_benthic::{auto_from_str, converter::get};
 use std::{
     collections::HashMap,
-    str::{from_utf8, FromStr},
+    str::{FromStr, from_utf8},
 };
 use uuid::Uuid;
 

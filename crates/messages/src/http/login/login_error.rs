@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::converter::get;
 use serde_llsd_benthic::LLSDValue;
+use serde_llsd_benthic::converter::get;
 use thiserror::Error;
 
 use crate::errors::ParseError;
