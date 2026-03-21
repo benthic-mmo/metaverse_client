@@ -6,16 +6,16 @@ description = "Bevy UI plugin for open metaverse clients"
 license = "AGPL-3.0-or-later"
 edition = "2024"
 resolver = "2"
+build = "build.rs"
 
-
+[build-dependencies]
+benthic_default_assets = {path="../../../benthic_default_assets/"}
 
 [dependencies]
 metaverse_core = {path="../core"}
+benthic_default_assets = {path="../../../benthic_default_assets/"}
 metaverse_messages = {path="../messages"}
 metaverse_agent = {path="../agent"}
-benthic_default_assets = {path="../../../benthic_default_assets/"}
-
-
 
 #disable sound for bevy
 bevy = { version = "0.18", default-features = false, features = [
