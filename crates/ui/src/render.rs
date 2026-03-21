@@ -1,10 +1,11 @@
 use crate::textures::environment::HeightMaterial;
+use benthic_default_assets::default_animations::DefaultAnimation;
 use bevy::asset::RenderAssetUsages;
+use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy_gltf::Gltf;
+use bevy_gltf::{Gltf, GltfLoaderSettings};
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_agent::default_animations::DefaultAnimation;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use std::fs;
@@ -24,7 +25,7 @@ pub struct AgentIDMap {
 pub struct AgentEntity {
     pub entity: Entity,
     pub animation: PathBuf,
-    pub skeleton_root: Option<Entity>,
+    pub skeleton: Entity,
 }
 
 #[derive(Message)]
@@ -45,18 +46,15 @@ pub enum RenderableHandle {
 #[derive(Resource)]
 pub struct Renderable {
     pub handle: RenderableHandle,
-    pub position: Vec3,
-    pub scale: Vec3,
-    pub rotation: Quat,
+    pub transform: Transform,
     pub parent: Option<u32>,
-    pub scene_id: Option<u32>,
     pub mesh_type: MeshType,
     pub id: Option<Uuid>,
 }
 
 #[derive(Resource)]
 pub struct MeshQueue {
-    pub items: Vec<Renderable>,
+    pub pending: Vec<Renderable>,
 }
 
 pub fn setup_environment(mut commands: Commands) {
@@ -96,13 +94,13 @@ pub fn handle_land_update(
                     mesh.insert_indices(bevy::mesh::Indices::U16(land_data.indices));
                     mesh.compute_smooth_normals();
                     let mesh_handle = meshes.add(mesh);
-                    mesh_queue.items.push(Renderable {
+                    mesh_queue.pending.push(Renderable {
                         handle: RenderableHandle::Mesh(mesh_handle),
-                        scale: Vec3::ONE,
-                        rotation: Quat::IDENTITY,
-                        scene_id: None,
+                        transform: Transform {
+                            translation: land_data.position,
+                            ..Default::default()
+                        },
                         parent: None,
-                        position: land_data.position,
                         mesh_type: MeshType::Land,
                         id: None,
                     })
@@ -118,15 +116,42 @@ pub fn handle_mesh_update(
     mut ev_mesh_update: MessageReader<MeshUpdateEvent>,
     mut mesh_queue: ResMut<MeshQueue>,
     asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    mut agent_id_map: ResMut<AgentIDMap>,
 ) {
     for renderable in ev_mesh_update.read() {
-        let handle: Handle<Gltf> = asset_server.load(renderable.value.path.clone());
-        mesh_queue.items.push(Renderable {
-            handle: RenderableHandle::Gltf(handle),
-            scale: renderable.value.scale,
+        let handle: Handle<Gltf> = asset_server.load_with_settings(
+            renderable.value.path.clone(),
+            |settings: &mut GltfLoaderSettings| {
+                settings.load_animations = true;
+            },
+        );
+        let transform = Transform {
+            translation: renderable.value.position,
             rotation: renderable.value.rotation,
-            position: renderable.value.position,
-            scene_id: renderable.value.scene_id,
+            scale: renderable.value.scale,
+        };
+        if renderable.value.mesh_type == MeshType::Avatar {
+            let agent_root = commands.spawn((Name::new("AgentRoot"), transform)).id();
+
+            let skeleton = commands
+                .spawn((Name::new("SkeletonRoot"), AnimationPlayer::default()))
+                .id();
+
+            commands.entity(agent_root).add_child(skeleton);
+
+            agent_id_map.entities.insert(
+                renderable.value.id.unwrap(),
+                AgentEntity {
+                    entity: agent_root,
+                    skeleton,
+                    animation: DefaultAnimation::Stand.data().path,
+                },
+            );
+        };
+        mesh_queue.pending.push(Renderable {
+            handle: RenderableHandle::Gltf(handle),
+            transform,
             parent: renderable.value.parent,
             mesh_type: renderable.value.mesh_type.clone(),
             id: renderable.value.id,
@@ -134,89 +159,93 @@ pub fn handle_mesh_update(
     }
 }
 
-pub fn check_model_loaded(
+pub fn extract_gltf_meshes(
     mut commands: Commands,
-    mut mesh_queue: ResMut<MeshQueue>,
-    mut id_map: ResMut<SceneIDMap>,
-    mut agent_id_map: ResMut<AgentIDMap>,
-    gltf_assets: Res<Assets<Gltf>>,
+    mut queue: ResMut<MeshQueue>,
+    gltfs: Res<Assets<Gltf>>,
+    mut scene_spawner: ResMut<SceneSpawner>,
+    agents: Res<AgentIDMap>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut height_materials: ResMut<Assets<HeightMaterial>>,
+    skinned_meshes: Query<(), With<SkinnedMesh>>,
     asset_server: Res<AssetServer>,
 ) {
     let mut ready = vec![];
-    for (i, layer) in mesh_queue.items.iter().enumerate() {
-        match &layer.handle {
-            RenderableHandle::Gltf(gltf_handle) => {
-                if let Some(gltf) = gltf_assets.get(gltf_handle) {
-                    let entity = commands
-                        .spawn((
-                            SceneRoot(gltf.scenes[0].clone()),
-                            Transform {
-                                translation: layer.position,
-                                scale: layer.scale,
-                                rotation: layer.rotation,
-                                ..Default::default()
-                            },
-                        ))
-                        .id();
 
-                    if let Some(scene_id) = layer.scene_id {
-                        id_map.entities.insert(scene_id, entity);
-                    }
-                    if layer.mesh_type == MeshType::Avatar {
-                        agent_id_map.entities.insert(
-                            layer.id.unwrap(),
-                            AgentEntity {
-                                entity,
-                                animation: DefaultAnimation::Stand.data().path,
-                                skeleton_root: None,
-                            },
-                        );
-                    };
-                    ready.push(i)
+    for (i, item) in queue.pending.iter().enumerate() {
+        match &item.handle {
+            RenderableHandle::Gltf(gltf_handle) => {
+                let Some(gltf) = gltfs.get(gltf_handle) else { continue };
+
+                // Spawn the SceneRoot with the correct transform immediately
+                let scene_root = commands
+                    .spawn((item.transform, Name::new("SceneRoot")))
+                    .id();
+                let instance = scene_spawner.spawn_as_child(gltf.scenes[0].clone(), scene_root);
+
+                if !scene_spawner.instance_is_ready(instance) {
+                    continue;
                 }
+
+                // Reparent each entity in the instance
+                for entity in scene_spawner.iter_instance_entities(instance) {
+                    if skinned_meshes.get(entity).is_ok() {
+                        if let Some(agent) = agents.entities.get(&item.id.unwrap()) {
+                            commands.entity(agent.skeleton).add_child(entity);
+                        }
+                    } else {
+                        commands.entity(entity).add_child(scene_root);
+                    }
+
+                    // Apply original transform
+                    commands.entity(entity).insert(item.transform);
+                }
+
+                // Despawn temporary root (children survive)
+                scene_spawner.despawn_instance(instance);
+
+                ready.push(i);
             }
+
             RenderableHandle::Mesh(mesh_handle) => {
-                match layer.mesh_type {
+                match item.mesh_type {
                     MeshType::Land => {
                         let height_mat = HeightMaterial {
                             color: LinearRgba::WHITE,
                             color_texture: Some(asset_server.load("textures/grass.png")),
                             alpha_mode: AlphaMode::Opaque,
                         };
+                        let mat_handle = height_materials.add(height_mat);
 
-                        let material_handle = height_materials.add(height_mat);
                         commands.spawn((
-                            Mesh3d(mesh_handle.clone()), // mesh handle component
-                            Transform {
-                                translation: layer.position,
-                                ..Default::default()
-                            },
-                            MeshMaterial3d(material_handle),
+                            Mesh3d(mesh_handle.clone()),
+                            item.transform,
+                            MeshMaterial3d(mat_handle),
                         ));
                     }
+
                     _ => {
-                        let material_handle = standard_materials.add(StandardMaterial {
+                        let standard_mat = StandardMaterial {
                             base_color: Color::WHITE,
                             ..Default::default()
-                        });
+                        };
+                        let mat_handle = standard_materials.add(standard_mat);
+
                         commands.spawn((
-                            Mesh3d(mesh_handle.clone()), // mesh handle component
-                            Transform {
-                                translation: layer.position,
-                                ..Default::default()
-                            },
-                            MeshMaterial3d::from(material_handle),
+                            Mesh3d(mesh_handle.clone()),
+                            item.transform,
+                            MeshMaterial3d::from(mat_handle),
                         ));
                     }
-                };
+                }
 
-                ready.push(i)
+                ready.push(i);
             }
         }
     }
-    for i in ready.iter().rev() {
-        mesh_queue.items.remove(*i);
+
+    // Remove processed items
+    for i in ready.into_iter().rev() {
+        queue.pending.remove(i);
     }
 }

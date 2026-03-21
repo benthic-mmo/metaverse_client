@@ -1,6 +1,6 @@
 use crate::land::Land;
+use benthic_default_assets::render_data::RenderObject;
 use glam::Vec3;
-use metaverse_messages::utils::render_data::RenderObject;
 use std::collections::HashMap;
 use uuid::Uuid;
 

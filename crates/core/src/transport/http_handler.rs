@@ -1,3 +1,5 @@
+use benthic_default_assets::render_data::{RenderObject, SkinData};
+use benthic_default_assets::skeleton::Skeleton;
 use glam::{Vec3, Vec4};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
@@ -10,8 +12,6 @@ use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::ui::login_event::Login;
 use metaverse_messages::utils::object_types::ObjectType;
-use metaverse_messages::utils::render_data::{RenderObject, SkinData};
-use metaverse_messages::utils::skeleton::Skeleton;
 use std::io::Error;
 use std::path::PathBuf;
 use uuid::Uuid;

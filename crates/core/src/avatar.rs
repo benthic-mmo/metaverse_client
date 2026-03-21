@@ -5,11 +5,12 @@ use crate::transport::http_handler::{
     download_asset, download_object, download_scene_group, download_texture,
 };
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use benthic_default_assets::default_animations::DefaultAnimation;
+use benthic_default_assets::render_data::{AvatarObject, RenderObject};
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
-use metaverse_agent::default_animations::DefaultAnimation;
 use metaverse_agent::skeleton::update_global_avatar_skeleton;
 use metaverse_inventory::agent::get_current_outfit;
 use metaverse_mesh::generate::generate_skinned_mesh;
@@ -21,7 +22,6 @@ use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 use metaverse_messages::ui::play_animation::PlayAnimation;
 use metaverse_messages::utils::object_types::ObjectType;
-use metaverse_messages::utils::render_data::{AvatarObject, RenderObject};
 use serde::Serialize;
 use std::fs::{self, File};
 use std::io::{self, Write};

@@ -1,8 +1,9 @@
-use crate::{errors::ParseError, utils::skeleton::JointName};
+use crate::errors::ParseError;
+use benthic_default_assets::{render_data::JointWeight, skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{LLSDValue, de::binary};
+use serde_llsd_benthic::{de::binary, LLSDValue};
 use std::{collections::HashMap, io::Read, str::FromStr};
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data
@@ -421,18 +422,6 @@ pub struct PositionDomain {
     pub min: Vec3,
     /// Maximum corner of the 3d bounding box
     pub max: Vec3,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-/// Information about the weights of each joint.
-/// This corresponds to each vertex in the mesh
-pub struct JointWeight {
-    /// The index of the joint the vertex corresponds to
-    pub indices: [u8; 4],
-    /// How strongly the joint influences the vertex
-    pub weights: [f32; 4],
-    /// The name of the joint that the weight corresponds to.
-    pub joint_name: [JointName; 4],
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
