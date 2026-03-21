@@ -1,12 +1,11 @@
 use std::io::Error;
 
 use crate::avatar::Avatar;
+use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
+use benthic_default_assets::skeleton::{Joint, JointName, Skeleton, Transform};
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
-use metaverse_messages::{
-    http::mesh::Skin,
-    utils::skeleton::{Joint, JointName, Skeleton, Transform},
-};
+use metaverse_messages::http::mesh::Skin;
 use uuid::Uuid;
 
 /// This function takes an object's skeleton, and applies it to the agent's combined skeleton. The
@@ -31,7 +30,7 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
     // fetch the default skeleton which is generated at compile time
     // this will be used for calculating transforms, and getting joint local transforms for the
     // root object.
-    let default_skeleton = include!(concat!(env!("OUT_DIR"), "/default_skeleton.rs"));
+    let default_skeleton = DEFAULT_SKELETON.clone();
 
     let mut joints = IndexMap::new();
     // for every joint in the skin

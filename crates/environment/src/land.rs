@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
+use benthic_default_assets::render_data::RenderObject;
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use glam::U16Vec2;
 use log::warn;
 use metaverse_messages::udp::environment::layer_data::LayerData;
-use metaverse_messages::utils::render_data::RenderObject;
 use twox_hash::XxHash32;
 
 use crate::{
     error::PatchError,
     generate_triangles::generate_mesh_with_indices,
     layer_handler::{
-        END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
+        bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
     },
 };
 

@@ -1,14 +1,10 @@
 use actix::Message;
+use benthic_default_assets::skeleton::Skeleton;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use glam::Mat4;
-use metaverse_messages::utils::skeleton::Joint;
-use metaverse_messages::utils::skeleton::JointName;
-use metaverse_messages::utils::skeleton::Transform;
-
+use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
 use glam::Vec3;
-use metaverse_messages::utils::skeleton::Skeleton;
 use uuid::Uuid;
 
 // Definitions for an avatar object
@@ -45,7 +41,7 @@ impl Avatar {
             // skeleton file in the benthic_default_model dir. It is a Skeleton object, with the
             // default transforms and parent-child relationships hardcoded in. This is used to
             // calculate rotations for the transforms that are given from the server
-            skeleton: include!(concat!(env!("OUT_DIR"), "/default_skeleton.rs")),
+            skeleton: DEFAULT_SKELETON.clone(),
             path: None,
             last_update: SystemTime::now(),
             outfit_size: 0,
