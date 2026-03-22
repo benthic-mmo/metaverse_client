@@ -177,11 +177,13 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
             ctx.spawn(
                 async move {
                     for animation in msg.avatar_animation.animations {
-                        if let Some(path) = DefaultAnimation::path_for_uuid(&animation.anim_id) {
+                        if let Some(default_animation) =
+                            DefaultAnimation::from_uuid(&animation.anim_id)
+                        {
                             addr.do_send(SendUIMessage {
                                 ui_message: UIMessage::new_play_animation(PlayAnimation {
                                     player_id: msg.avatar_animation.sender_id,
-                                    animation_path: path,
+                                    animation_path: default_animation.path(),
                                 }),
                             });
                             return;
