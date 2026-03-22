@@ -142,7 +142,6 @@ impl Plugin for MetaversePlugin {
 
         app.init_state::<ViewerState>()
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
-            .add_plugins(GltfPlugin::default())
             .insert_resource(SessionData {
                 login_response: None,
                 avatar_location: Vec3::ZERO,

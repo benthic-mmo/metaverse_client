@@ -145,7 +145,7 @@ pub fn handle_mesh_update(
                 AgentEntity {
                     entity: agent_root,
                     skeleton,
-                    animation: DefaultAnimation::Stand.data().path,
+                    animation: DefaultAnimation::Stand.path(),
                 },
             );
         };
