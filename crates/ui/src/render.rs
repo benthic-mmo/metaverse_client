@@ -1,7 +1,6 @@
 use crate::textures::environment::HeightMaterial;
 use benthic_default_assets::default_animations::DefaultAnimation;
 use bevy::asset::RenderAssetUsages;
-use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_gltf::{Gltf, GltfLoaderSettings};
@@ -55,6 +54,11 @@ pub struct Renderable {
 #[derive(Resource)]
 pub struct MeshQueue {
     pub pending: Vec<Renderable>,
+}
+
+#[derive(Component, Debug)]
+pub struct AgentID {
+    pub id: Uuid,
 }
 
 pub fn setup_environment(mut commands: Commands) {
@@ -126,29 +130,26 @@ pub fn handle_mesh_update(
                 settings.load_animations = true;
             },
         );
+
         let transform = Transform {
             translation: renderable.value.position,
             rotation: renderable.value.rotation,
             scale: renderable.value.scale,
         };
+
         if renderable.value.mesh_type == MeshType::Avatar {
             let agent_root = commands.spawn((Name::new("AgentRoot"), transform)).id();
-
-            let skeleton = commands
-                .spawn((Name::new("SkeletonRoot"), AnimationPlayer::default()))
-                .id();
-
-            commands.entity(agent_root).add_child(skeleton);
 
             agent_id_map.entities.insert(
                 renderable.value.id.unwrap(),
                 AgentEntity {
                     entity: agent_root,
-                    skeleton,
+                    skeleton: agent_root,
                     animation: DefaultAnimation::Stand.path(),
                 },
             );
-        };
+        }
+
         mesh_queue.pending.push(Renderable {
             handle: RenderableHandle::Gltf(handle),
             transform,
@@ -164,10 +165,8 @@ pub fn extract_gltf_meshes(
     mut queue: ResMut<MeshQueue>,
     gltfs: Res<Assets<Gltf>>,
     mut scene_spawner: ResMut<SceneSpawner>,
-    agents: Res<AgentIDMap>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut height_materials: ResMut<Assets<HeightMaterial>>,
-    skinned_meshes: Query<(), With<SkinnedMesh>>,
     asset_server: Res<AssetServer>,
 ) {
     let mut ready = vec![];
@@ -176,33 +175,25 @@ pub fn extract_gltf_meshes(
         match &item.handle {
             RenderableHandle::Gltf(gltf_handle) => {
                 let Some(gltf) = gltfs.get(gltf_handle) else { continue };
-
-                // Spawn the SceneRoot with the correct transform immediately
-                let scene_root = commands
-                    .spawn((item.transform, Name::new("SceneRoot")))
-                    .id();
+                println!("spawning {:?}", item.id);
+                let scene_root = if let Some(agent_id) = item.id {
+                    commands
+                        .spawn((
+                            item.transform,
+                            Name::new("SceneRoot"),
+                            AgentID { id: agent_id },
+                        ))
+                        .id()
+                } else {
+                    commands
+                        .spawn((item.transform, Name::new("SceneRoot")))
+                        .id()
+                };
                 let instance = scene_spawner.spawn_as_child(gltf.scenes[0].clone(), scene_root);
 
-                if !scene_spawner.instance_is_ready(instance) {
-                    continue;
-                }
-
-                // Reparent each entity in the instance
                 for entity in scene_spawner.iter_instance_entities(instance) {
-                    if skinned_meshes.get(entity).is_ok() {
-                        if let Some(agent) = agents.entities.get(&item.id.unwrap()) {
-                            commands.entity(agent.skeleton).add_child(entity);
-                        }
-                    } else {
-                        commands.entity(entity).add_child(scene_root);
-                    }
-
-                    // Apply original transform
                     commands.entity(entity).insert(item.transform);
                 }
-
-                // Despawn temporary root (children survive)
-                scene_spawner.despawn_instance(instance);
 
                 ready.push(i);
             }
@@ -244,7 +235,6 @@ pub fn extract_gltf_meshes(
         }
     }
 
-    // Remove processed items
     for i in ready.into_iter().rev() {
         queue.pending.remove(i);
     }
