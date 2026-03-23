@@ -10,6 +10,7 @@ fn main() {
     let target_assets = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("assets");
     let target_textures = target_assets.join("textures");
     let target_shaders = target_assets.join("shaders");
+
     copy_dir(&source_shaders, &target_shaders);
     copy_dir(&source_textures, &target_textures);
 }

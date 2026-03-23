@@ -1,4 +1,4 @@
-use crate::animation::{apply_animation_graphs, update_animations, AnimationPath, AnimationQueue};
+use crate::animation::{scene_instance_ready, update_animations, AnimationPath, AnimationQueue};
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
     extract_gltf_meshes, handle_land_update, handle_mesh_update, setup_environment, AgentIDMap,
@@ -8,13 +8,13 @@ use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
 use crate::{chat, login};
 use actix_rt::System;
-use bevy::app::{AnimationSystems, App};
+use bevy::app::App;
 use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin};
+use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_core::initialize::initialize;
 use metaverse_messages::http::login::login_error::LoginError;
@@ -208,18 +208,12 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
-            .add_systems(
-                PostUpdate,
-                (
-                    update_animations.before(apply_animation_graphs),
-                    apply_animation_graphs,
-                )
-                    .in_set(AnimationSystems),
-            )
+            .add_systems(Update, update_animations)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
-            );
+            )
+            .add_observer(scene_instance_ready);
     }
 }
 
