@@ -519,6 +519,7 @@ async fn handle_login(
                         metaverse_messages::ui::login_response::LoginResponse {
                             firstname: login_response.first_name.clone(),
                             lastname: login_response.last_name.clone(),
+                            agent_id: login_response.agent_id.clone(),
                         },
                     ),
                 })

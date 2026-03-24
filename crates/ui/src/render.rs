@@ -175,7 +175,6 @@ pub fn extract_gltf_meshes(
         match &item.handle {
             RenderableHandle::Gltf(gltf_handle) => {
                 let Some(gltf) = gltfs.get(gltf_handle) else { continue };
-                println!("spawning {:?}", item.id);
                 let scene_root = if let Some(agent_id) = item.id {
                     commands
                         .spawn((
