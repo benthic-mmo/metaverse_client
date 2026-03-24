@@ -1,5 +1,6 @@
 use crate::packet::message::UIMessage;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// The struct required for constructing a login
@@ -8,6 +9,8 @@ pub struct LoginResponse {
     pub firstname: String,
     /// last name of the logged in user
     pub lastname: String,
+    /// agent ID of the logged in user
+    pub agent_id: Uuid,
 }
 
 impl UIMessage {
