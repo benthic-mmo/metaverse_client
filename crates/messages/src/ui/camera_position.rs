@@ -3,9 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::packet::message::UIMessage;
 
-/// this is the struct for sending mesh updates from the core to the UI.
-/// the path is the path to the generated gltf file, and the position is where to place it in the
-/// world.
+/// this is the struct for sending camera position updates from the core to the UI. These are sent
+/// when the server wants to change the position of the camera manually
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CameraPosition {
     /// the position of the camera in the region
@@ -13,7 +12,7 @@ pub struct CameraPosition {
 }
 
 impl UIMessage {
-    /// creates a new MeshUpdate message
+    /// creates a new CameraPosition message
     pub fn new_camera_position(data: CameraPosition) -> Self {
         UIMessage::CameraPosition(data)
     }

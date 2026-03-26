@@ -1,4 +1,6 @@
 use super::{environment::EnvironmentCache, inventory::InventoryData};
+#[cfg(feature = "environment")]
+use crate::environment::FetchEnvironmentEvent;
 use crate::{
     capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
     transport::http_handler::login_to_simulator,
@@ -587,6 +589,7 @@ async fn handle_login(
     match CapabilityRequest::new_capability_request(vec![
         Capability::ViewerAsset,
         Capability::FetchInventoryDescendents2,
+        Capability::ExtEnvironment,
     ]) {
         Ok(caps) => {
             if let Err(e) = mailbox_addr
@@ -661,6 +664,13 @@ async fn handle_login(
         })
         .await
     {
+        Err(CapabilityError {
+            message: e.to_string(),
+        })?
+    }
+
+    #[cfg(feature = "environment")]
+    if let Err(e) = mailbox_addr.send(FetchEnvironmentEvent {}).await {
         Err(CapabilityError {
             message: e.to_string(),
         })?

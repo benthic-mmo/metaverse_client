@@ -63,7 +63,7 @@ pub enum UIMessage {
     LandUpdate(LandUpdate),
     /// Message for setting the position of the avatar's camera
     CameraPosition(CameraPosition),
-
+    /// message for informing the UI of an animation that is currently playing
     PlayAnimation(PlayAnimation),
 }
 
