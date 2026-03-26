@@ -1,6 +1,6 @@
 use crate::errors::ParseError;
 use core::fmt;
-use serde_llsd_benthic::{LLSDValue, from_str, ser::xml};
+use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
 use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -16,6 +16,8 @@ pub enum Capability {
     /// Enable the viewer to retrieve the inventory of the current user. Required for determining
     /// the user's appearance and managing inventory.
     FetchInventoryDescendents2,
+    /// Enable the viewer to retrieve extended environment data
+    ExtEnvironment,
     /// Unknown
     Unknown,
 }
@@ -24,6 +26,7 @@ impl Capability {
         match string {
             "ViewerAsset" => Self::ViewerAsset,
             "FetchInventoryDescendents2" => Self::FetchInventoryDescendents2,
+            "ExtEnvironment" => Self::ExtEnvironment,
             _ => Self::Unknown,
         }
     }
@@ -33,6 +36,7 @@ impl Display for Capability {
         match self {
             Self::ViewerAsset => write!(f, "ViewerAsset"),
             Self::FetchInventoryDescendents2 => write!(f, "FetchInventoryDescendents2"),
+            Self::ExtEnvironment => write!(f, "ExtEnvironment"),
             Self::Unknown => write!(f, "Unknown"),
         }
     }

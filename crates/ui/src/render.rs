@@ -1,3 +1,4 @@
+use crate::plugin::{CameraUpdateEvent, SessionData};
 use crate::textures::environment::HeightMaterial;
 use benthic_default_assets::default_animations::DefaultAnimation;
 use bevy::asset::RenderAssetUsages;
@@ -61,6 +62,38 @@ pub struct AgentID {
     pub id: Uuid,
 }
 
+#[derive(Component)]
+pub struct MainCamera;
+
+pub fn handle_camera_update(
+    mut ev_camera_update: MessageReader<CameraUpdateEvent>,
+    mut query: Query<&mut PanOrbitCamera, With<MainCamera>>,
+) {
+    for ev in ev_camera_update.read() {
+        info!("moving the camera to {:?}", ev.value.position);
+        for mut camera in &mut query {
+            camera.target_focus = ev.value.position;
+        }
+    }
+}
+
+pub fn follow_gltf_with_offset(
+    gltf_models: Query<(&Transform, &AgentID), Without<PanOrbitCamera>>,
+    session_data: ResMut<SessionData>,
+    mut cameras: Query<&mut PanOrbitCamera, With<MainCamera>>,
+) {
+    if let Some(login_response) = &session_data.login_response {
+        if let Ok(mut camera) = cameras.single_mut() {
+            for (model_transform, agent_id) in gltf_models.iter() {
+                if agent_id.id == login_response.agent_id {
+                    camera.target_focus = model_transform.translation;
+                    break;
+                }
+            }
+        }
+    }
+}
+
 pub fn setup_environment(mut commands: Commands) {
     commands.spawn((
         PointLight {
@@ -72,11 +105,11 @@ pub fn setup_environment(mut commands: Commands) {
         Transform::from_xyz(200.0, 100.0, 100.0),
     ));
     commands.spawn((
-        Transform {
-            translation: Vec3::new(678.0, 471.0, 962.0),
-            ..default()
+        PanOrbitCamera {
+            radius: Some(2.0),
+            ..Default::default()
         },
-        PanOrbitCamera::default(),
+        MainCamera,
     ));
 }
 
@@ -86,8 +119,8 @@ pub fn handle_land_update(
     mut mesh_queue: ResMut<MeshQueue>,
 ) {
     for patch in ev_land_update.read() {
-        let path = &patch.value; // path to JSON file
-        match fs::read_to_string(&path.path) {
+        let land = &patch.value;
+        match fs::read_to_string(&land.path) {
             Ok(json_str) => match serde_json::from_str::<LandData>(&json_str) {
                 Ok(land_data) => {
                     let mut mesh = Mesh::new(

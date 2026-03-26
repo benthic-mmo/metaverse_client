@@ -422,10 +422,14 @@ impl Handler<HandleNewAvatar> for Mailbox {
         if let Some(session) = self.session.as_mut() {
             let addr = ctx.address();
             if session.agent_id == msg.avatar.agent_id {
+                let pos = msg.avatar.position;
+                let position = Vec3 {
+                    x: pos.x,
+                    y: pos.z,
+                    z: pos.y,
+                };
                 addr.do_send(SendUIMessage {
-                    ui_message: UIMessage::new_camera_position(CameraPosition {
-                        position: msg.avatar.position,
-                    }),
+                    ui_message: UIMessage::new_camera_position(CameraPosition { position }),
                 });
 
                 if session.inventory_data.inventory_init {

@@ -8,8 +8,11 @@ use log::error;
 use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{PatchLayer, parse_layer_data},
+    layer_handler::{parse_layer_data, PatchLayer},
 };
+
+use actix::WrapFuture;
+use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::environment::layer_data::LayerData;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
@@ -19,6 +22,7 @@ use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// Contains the patch queue and patch cache.
 #[derive(Debug)]
@@ -30,6 +34,39 @@ pub struct EnvironmentCache {
     pub patch_queue: HashMap<U16Vec2, Land>,
     /// All of the patches that been received this session.
     pub patch_cache: HashMap<U16Vec2, Land>,
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct FetchEnvironmentEvent {}
+
+#[cfg(feature = "environment")]
+impl Handler<FetchEnvironmentEvent> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: FetchEnvironmentEvent, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &self.session {
+            if session.capability_urls.is_empty() {
+                warn!("Capabilities not ready yet. Queueing Environment fetch...");
+                ctx.notify_later(msg, Duration::from_secs(1));
+            } else {
+                let capability_url = session.capability_urls.get(&Capability::ExtEnvironment);
+                if let Some(url) = capability_url {
+                    let url = url.clone();
+                    ctx.spawn(
+                        async move {
+                            use awc::Client;
+
+                            let client = Client::default();
+
+                            let mut response = client.get(url.to_string()).send().await.unwrap();
+                            let data = response.body().await.unwrap();
+                        }
+                        .into_actor(self),
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// Message to handle new layer data coming in from the server

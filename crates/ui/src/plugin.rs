@@ -1,8 +1,9 @@
 use crate::animation::{scene_instance_ready, update_animations, AnimationPath, AnimationQueue};
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    extract_gltf_meshes, handle_land_update, handle_mesh_update, setup_environment, AgentIDMap,
-    LandUpdateEvent, MeshQueue, MeshUpdateEvent, SceneIDMap,
+    extract_gltf_meshes, follow_gltf_with_offset, handle_camera_update, handle_land_update,
+    handle_mesh_update, setup_environment, AgentIDMap, LandUpdateEvent, MeshQueue, MeshUpdateEvent,
+    SceneIDMap,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -32,6 +33,12 @@ use std::path::PathBuf;
 
 pub const VIEWER_NAME: &str = "benthic";
 
+#[derive(Resource)]
+pub struct SessionData {
+    pub login_response: Option<LoginResponse>,
+    pub avatar_location: Vec3,
+}
+
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum ViewerState {
     #[default]
@@ -50,12 +57,6 @@ pub struct Sockets {
 struct EventChannel {
     pub sender: Sender<UIMessage>,
     pub receiver: Receiver<UIMessage>,
-}
-
-#[derive(Resource)]
-pub struct SessionData {
-    login_response: Option<LoginResponse>,
-    avatar_location: Vec3,
 }
 
 #[derive(Resource)]
@@ -204,11 +205,12 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_logout)
             .add_systems(Update, handle_queue)
             .add_systems(Update, handle_login_response)
-            .add_systems(Update, handle_camera_update)
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
             .add_systems(Update, update_animations)
+            .add_systems(Update, handle_camera_update)
+            .add_systems(Update, follow_gltf_with_offset)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
@@ -230,15 +232,6 @@ pub fn handle_login_response(
             }
             Err(_) => viewer_state.set(ViewerState::Login),
         }
-    }
-}
-
-pub fn handle_camera_update(
-    mut ev_loginresponse: MessageReader<CameraUpdateEvent>,
-    mut session_data: ResMut<SessionData>,
-) {
-    for response in ev_loginresponse.read() {
-        session_data.avatar_location = response.value.position
     }
 }
 
