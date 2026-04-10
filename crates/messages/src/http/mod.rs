@@ -29,3 +29,6 @@ pub mod login;
 
 /// requests a folder from the capability endpoint
 pub mod folder_request;
+
+/// Contains Environmental Enhancement Project structs and parsing
+pub mod environment_data;

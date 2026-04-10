@@ -43,6 +43,7 @@ jpeg2k = "0.10.1"
 image = "0.25.10"
 sqlx = {version="0.8.6", features=["runtime-tokio"]}
 url = "2.5.8"
+rgb = "0.8.53"
 [dependencies.uuid]
 version = "1.22.0"
 features = [
