@@ -2,8 +2,8 @@ use crate::animation::{scene_instance_ready, update_animations, AnimationPath, A
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
     extract_gltf_meshes, follow_gltf_with_offset, handle_camera_update, handle_land_update,
-    handle_mesh_update, setup_environment, AgentIDMap, LandUpdateEvent, MeshQueue, MeshUpdateEvent,
-    SceneIDMap,
+    handle_mesh_update, handle_water_update, setup_environment, AgentIDMap, LandUpdateEvent,
+    MeshQueue, MeshUpdateEvent, SceneIDMap, WaterPlane,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -26,6 +26,7 @@ use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_response::LoginResponse;
 use metaverse_messages::ui::play_animation::PlayAnimation;
+use metaverse_messages::ui::water_update::WaterUpdate;
 use portpicker::pick_unused_port;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
@@ -83,6 +84,11 @@ pub struct LoginResponseEvent {
 #[derive(Message)]
 pub struct CameraUpdateEvent {
     pub value: CameraPosition,
+}
+
+#[derive(Message)]
+pub struct WaterUpdateEvent {
+    pub value: WaterUpdate,
 }
 
 #[derive(Message, Clone)]
@@ -179,6 +185,7 @@ impl Plugin for MetaversePlugin {
             .add_message::<CoarseLocationUpdateEvent>()
             .add_message::<MeshUpdateEvent>()
             .add_message::<LandUpdateEvent>()
+            .add_message::<WaterUpdateEvent>()
             .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
             .register_type::<Transform>()
@@ -208,6 +215,7 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
+            .add_systems(Update, handle_water_update)
             .add_systems(Update, update_animations)
             .add_systems(Update, handle_camera_update)
             .add_systems(Update, follow_gltf_with_offset)
@@ -282,6 +290,7 @@ fn handle_queue(
     mut ev_mesh_update: MessageWriter<MeshUpdateEvent>,
     mut ev_land_update: MessageWriter<LandUpdateEvent>,
     mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
+    mut ev_water_update: MessageWriter<WaterUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
     mut animation_queue: ResMut<AnimationQueue>,
 
@@ -320,6 +329,22 @@ fn handle_queue(
                 });
                 info!("got CoarseLocationUpdate")
             }
+            UIMessage::ChatFromSimulator(chat_from_simulator) => {
+                chat_messages.messages.push(ChatFromClientMessage {
+                    user: chat_from_simulator.from_name,
+                    message: chat_from_simulator.message,
+                });
+            }
+            UIMessage::DisableSimulator(_) => {
+                ev_disable_simulator.write(DisableSimulatorEvent {});
+            }
+            UIMessage::CameraPosition(data) => {
+                ev_camera_update.write(CameraUpdateEvent { value: data });
+            }
+            UIMessage::WaterUpdate(data) => {
+                println!("got a water update {:?}", data);
+                ev_water_update.write(WaterUpdateEvent { value: data });
+            }
             UIMessage::Error(error) => match error {
                 SessionError::Login(e) => {
                     ev_loginresponse.write(LoginResponseEvent {
@@ -349,18 +374,6 @@ fn handle_queue(
                     info!("FeatureError {:?}", e)
                 }
             },
-            UIMessage::ChatFromSimulator(chat_from_simulator) => {
-                chat_messages.messages.push(ChatFromClientMessage {
-                    user: chat_from_simulator.from_name,
-                    message: chat_from_simulator.message,
-                });
-            }
-            UIMessage::DisableSimulator(_) => {
-                ev_disable_simulator.write(DisableSimulatorEvent {});
-            }
-            UIMessage::CameraPosition(data) => {
-                ev_camera_update.write(CameraUpdateEvent { value: data });
-            }
         };
     }
 }

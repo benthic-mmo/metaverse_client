@@ -26,15 +26,23 @@ impl Packet {
 }
 
 #[derive(Debug, Clone)]
+/// Avatar Animation struct
 pub struct AvatarAnimation {
+    /// The ID of the sender
     pub sender_id: Uuid,
+    /// A list of animations to play, in order of when they should be played
     pub animations: Vec<AnimationEntry>,
+    /// A list of objects or avatars that triggered the animation
     pub sources: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone)]
+/// Struct containing the animation data
 pub struct AnimationEntry {
+    /// The ID of the animation to play
     pub anim_id: Uuid,
+    /// lets the viewer know if this animation is newer than a previous animation.
+    /// allows for skipping old animations that failed to play before a new one was triggered.
     pub sequence_id: i32,
 }
 

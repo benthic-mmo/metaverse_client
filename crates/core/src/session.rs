@@ -34,8 +34,10 @@ use metaverse_messages::{
             MailboxSessionError, SessionError,
         },
         login_event::Login,
+        water_update::WaterUpdate,
     },
 };
+use rgb::{Rgb, Rgba};
 use sqlx::{Pool, Sqlite};
 use std::{
     collections::{HashMap, HashSet},
@@ -123,6 +125,14 @@ pub struct Session {
     pub environment_cache: EnvironmentCache,
     /// The agent list. Contains information about the appearances of all loaded agents
     pub avatars: HashMap<Uuid, Avatar>,
+    /// data about the region the user is currently in
+    pub region_data: RegionData,
+}
+
+#[derive(Debug, Message, Default)]
+#[rtype(result = "()")]
+pub struct RegionData {
+    water_height: f32,
 }
 
 /// Handles incoming pings from the server
@@ -444,16 +454,28 @@ impl Handler<ResendPacket> for Mailbox {
         }
     }
 }
+
 impl Handler<HandleRegionHandshake> for Mailbox {
     type Result = ();
-    fn handle(&mut self, _: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
-        ctx.address().do_send(OutgoingPacket {
-            packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
-                session_id: self.session.as_ref().unwrap().session_id,
-                agent_id: self.session.as_ref().unwrap().agent_id,
-                flags: 0,
-            }),
-        });
+    fn handle(&mut self, msg: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &mut self.session {
+            // set some region info
+            session.region_data.water_height = msg.region_handshake.water_height;
+            ctx.address().do_send(SendUIMessage {
+                ui_message: UIMessage::new_water_update(WaterUpdate {
+                    height: msg.region_handshake.water_height,
+                    color: Rgba::from((0.0, 94.0, 184.0, 0.5)),
+                }),
+            });
+
+            ctx.address().do_send(OutgoingPacket {
+                packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
+                    session_id: session.session_id,
+                    agent_id: session.agent_id,
+                    flags: 0,
+                }),
+            });
+        }
     }
 }
 
@@ -553,6 +575,9 @@ async fn handle_login(
             sequence_number: 0,
             local_ip,
             capability_urls: HashMap::new(),
+            region_data: RegionData {
+                ..Default::default()
+            },
 
             #[cfg(feature = "environment")]
             environment_cache: EnvironmentCache {

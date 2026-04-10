@@ -1,21 +1,24 @@
 use super::session::Mailbox;
 use crate::initialize::create_sub_share_dir;
 use crate::session::SendUIMessage;
+use actix::WrapFuture;
 use actix::{AsyncContext, Handler, Message};
+use awc::Client;
 use glam::U16Vec2;
 use glam::Vec3;
+use image::Rgb;
 use log::error;
 use log::warn;
 use metaverse_environment::{
     land::Land,
     layer_handler::{parse_layer_data, PatchLayer},
 };
-
-use actix::WrapFuture;
 use metaverse_messages::http::capabilities::Capability;
+use metaverse_messages::http::environment_data::DayCycle;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::environment::layer_data::LayerData;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
+use metaverse_messages::ui::water_update::WaterUpdate;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -38,6 +41,7 @@ pub struct EnvironmentCache {
 
 #[derive(Message)]
 #[rtype(result = "()")]
+/// An event to trigger the fetching of the day cycle data from the endpoint
 pub struct FetchEnvironmentEvent {}
 
 #[cfg(feature = "environment")]
@@ -54,12 +58,11 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
                     let url = url.clone();
                     ctx.spawn(
                         async move {
-                            use awc::Client;
-
                             let client = Client::default();
 
                             let mut response = client.get(url.to_string()).send().await.unwrap();
                             let data = response.body().await.unwrap();
+                            let day_cycle = DayCycle::from_bytes(&data);
                         }
                         .into_actor(self),
                     );
@@ -159,8 +162,7 @@ impl Handler<HandleLayerData> for Mailbox {
 }
 
 /// When an object is retrieved in full, the data will be written in serializable json format, to
-/// create a cache. The JSON will then be sent to another crate to convert it into a 3d model that
-/// can be rendered.
+/// create a cache.This is used by game engines as a matrix of vertices
 fn write_json<T: Serialize>(data: &T, filename: String) -> io::Result<PathBuf> {
     match create_sub_share_dir("land") {
         Ok(mut agent_dir) => match serde_json::to_string(&data) {
