@@ -6,8 +6,9 @@ use actix::{AsyncContext, Handler, Message};
 use awc::Client;
 use glam::U16Vec2;
 use glam::Vec3;
-use image::Rgb;
+
 use log::error;
+use log::info;
 use log::warn;
 use metaverse_environment::{
     land::Land,
@@ -18,7 +19,6 @@ use metaverse_messages::http::environment_data::DayCycle;
 use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::environment::layer_data::LayerData;
 use metaverse_messages::ui::land_update::{LandData, LandUpdate};
-use metaverse_messages::ui::water_update::WaterUpdate;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -62,12 +62,51 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
 
                             let mut response = client.get(url.to_string()).send().await.unwrap();
                             let data = response.body().await.unwrap();
-                            let day_cycle = DayCycle::from_bytes(&data);
+                            let day_cycle = DayCycle::from_bytes(&data).unwrap();
                         }
                         .into_actor(self),
                     );
                 }
             }
+        }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct HandleSimulatorViewerTimeMessage {
+    pub seconds_since_start: u64,
+    pub sun_phase: f32,
+    pub seconds_per_day: u32,
+    pub seconds_per_year: u32,
+}
+
+#[cfg(feature = "environment")]
+impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
+    type Result = ();
+
+    fn handle(
+        &mut self,
+        msg: HandleSimulatorViewerTimeMessage,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        use metaverse_messages::ui::skybox_update::SkyboxUpdate;
+
+        if let Some(session) = &mut self.session {
+            let region = &mut session.region_data;
+
+            if msg.seconds_since_start <= region.last_time_update {
+                info!("Received out of order SimulatorViewerTimeMessage");
+                return;
+            }
+
+            //TODO: set the color of the sky based on the sky frames
+            ctx.address().do_send(SendUIMessage {
+                ui_message: UIMessage::new_skybox_update(SkyboxUpdate {
+                    sun_phase: msg.sun_phase,
+                    ..Default::default()
+                }),
+            });
         }
     }
 }

@@ -22,6 +22,7 @@ pub mod login_event;
 pub mod logout;
 /// UI message for informing the UI of an animation
 pub mod play_animation;
+/// UI message for updating the skybox
+pub mod skybox_update;
 /// UI message for rendering water
 pub mod water_update;
-

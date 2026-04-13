@@ -1,9 +1,12 @@
 use crate::animation::{scene_instance_ready, update_animations, AnimationPath, AnimationQueue};
+use crate::environment::{
+    handle_land_update, handle_skybox_update, handle_water_update, setup_environment, update_sun,
+    LandUpdateEvent, SkyboxUpdateEvent, SunState, WaterUpdateEvent,
+};
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    extract_gltf_meshes, follow_gltf_with_offset, handle_camera_update, handle_land_update,
-    handle_mesh_update, handle_water_update, setup_environment, AgentIDMap, LandUpdateEvent,
-    MeshQueue, MeshUpdateEvent, SceneIDMap, WaterPlane,
+    extract_gltf_meshes, follow_gltf_with_offset, handle_camera_update, handle_mesh_update,
+    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -26,7 +29,6 @@ use metaverse_messages::ui::camera_position::CameraPosition;
 use metaverse_messages::ui::errors::SessionError;
 use metaverse_messages::ui::login_response::LoginResponse;
 use metaverse_messages::ui::play_animation::PlayAnimation;
-use metaverse_messages::ui::water_update::WaterUpdate;
 use portpicker::pick_unused_port;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
@@ -84,11 +86,6 @@ pub struct LoginResponseEvent {
 #[derive(Message)]
 pub struct CameraUpdateEvent {
     pub value: CameraPosition,
-}
-
-#[derive(Message)]
-pub struct WaterUpdateEvent {
-    pub value: WaterUpdate,
 }
 
 #[derive(Message, Clone)]
@@ -179,6 +176,10 @@ impl Plugin for MetaversePlugin {
             .insert_resource(AnimationQueue {
                 pending: HashMap::new(),
             })
+            .insert_resource(SunState {
+                current_phase: 0.0,
+                target_phase: 0.0,
+            })
             .insert_resource(MeshQueue { pending: vec![] })
             .add_message::<LoginResponseEvent>()
             .add_message::<CameraUpdateEvent>()
@@ -186,6 +187,7 @@ impl Plugin for MetaversePlugin {
             .add_message::<MeshUpdateEvent>()
             .add_message::<LandUpdateEvent>()
             .add_message::<WaterUpdateEvent>()
+            .add_message::<SkyboxUpdateEvent>()
             .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
             .register_type::<Transform>()
@@ -216,9 +218,11 @@ impl Plugin for MetaversePlugin {
             .add_systems(Update, handle_mesh_update)
             .add_systems(Update, handle_land_update)
             .add_systems(Update, handle_water_update)
+            .add_systems(Update, handle_skybox_update)
             .add_systems(Update, update_animations)
             .add_systems(Update, handle_camera_update)
             .add_systems(Update, follow_gltf_with_offset)
+            .add_systems(Update, update_sun)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
@@ -291,6 +295,7 @@ fn handle_queue(
     mut ev_land_update: MessageWriter<LandUpdateEvent>,
     mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
     mut ev_water_update: MessageWriter<WaterUpdateEvent>,
+    mut ev_skybox_update: MessageWriter<SkyboxUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
     mut animation_queue: ResMut<AnimationQueue>,
 
@@ -342,8 +347,10 @@ fn handle_queue(
                 ev_camera_update.write(CameraUpdateEvent { value: data });
             }
             UIMessage::WaterUpdate(data) => {
-                println!("got a water update {:?}", data);
                 ev_water_update.write(WaterUpdateEvent { value: data });
+            }
+            UIMessage::SkyboxUpdate(data) => {
+                ev_skybox_update.write(SkyboxUpdateEvent { value: data });
             }
             UIMessage::Error(error) => match error {
                 SessionError::Login(e) => {

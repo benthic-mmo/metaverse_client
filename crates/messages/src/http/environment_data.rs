@@ -126,7 +126,9 @@ macro_rules! llsd_quat {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DayCycle {
     /// keyframes the sky passes through as the day progresses
-    pub frames: HashMap<String, Frame>,
+    pub sky_frames: HashMap<String, SkyFrame>,
+    /// Keyframes the water passes through as the day progresses
+    pub water_frames: HashMap<String, WaterFrame>,
     /// the length of one full cycle
     pub day_length: i32,
     /// the offset of the cycle
@@ -141,15 +143,6 @@ pub struct DayCycle {
     pub parcel_id: i32,
     /// the ID of the region this DayCycle belongs to
     pub region_id: Uuid,
-}
-
-/// Which values this frame update
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Frame {
-    /// A frame of water information
-    Water(WaterFrame),
-    /// A frame of sky information
-    Sky(SkyFrame),
 }
 
 /// types for parsing frame types from the xml
@@ -534,7 +527,8 @@ impl DayCycle {
         // handle day cycle map
         let day_cycle = llsd_get!(environment, "day_cycle", as_map)?;
         let frames_map = llsd_get!(day_cycle, "frames", as_map)?;
-        let mut frames = HashMap::new();
+        let mut sky_frames = HashMap::new();
+        let mut water_frames = HashMap::new();
         for (frame_id, frame_value) in frames_map.into_iter() {
             let frame_map = frame_value.as_map().ok_or_else(|| {
                 ParseError::InvalidField(format!(
@@ -543,14 +537,19 @@ impl DayCycle {
                 ))
             })?;
             let frame_type = FrameType::from_str(llsd_get!(frame_map, "type", as_string)?)?;
-            let frame = match frame_type {
-                FrameType::Water => Frame::Water(WaterFrame::from_llsd(frame_map)?),
-                FrameType::Sky => Frame::Sky(SkyFrame::from_llsd(frame_map)?),
+            match frame_type {
+                FrameType::Water => {
+                    water_frames.insert(frame_id.clone(), WaterFrame::from_llsd(frame_map)?);
+                }
+                FrameType::Sky => {
+                    sky_frames.insert(frame_id.clone(), SkyFrame::from_llsd(frame_map)?);
+                }
             };
-            frames.insert(frame_id.clone(), frame);
         }
 
         Ok(DayCycle {
+            sky_frames,
+            water_frames,
             day_length: *llsd_get!(environment, "day_length", as_integer)?,
             day_offset: *llsd_get!(environment, "day_offset", as_integer)?,
             flags: *llsd_get!(environment, "flags", as_integer)?,
@@ -558,7 +557,6 @@ impl DayCycle {
             track_altitudes: llsd_vec3!(environment, "track_altitudes"),
             parcel_id: *llsd_get!(environment, "parcel_id", as_integer)?,
             region_id: *llsd_get!(environment, "region_id", as_uuid)?,
-            frames,
         })
     }
 }

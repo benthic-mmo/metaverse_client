@@ -8,7 +8,8 @@ use crate::{
     ui::{
         camera_position::CameraPosition, chat_from_viewer::ChatFromUI, errors::SessionError,
         land_update::LandUpdate, login_event::Login, login_response::LoginResponse, logout::Logout,
-        mesh_update::MeshUpdate, play_animation::PlayAnimation, water_update::WaterUpdate,
+        mesh_update::MeshUpdate, play_animation::PlayAnimation, skybox_update::SkyboxUpdate,
+        water_update::WaterUpdate,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -61,8 +62,10 @@ pub enum UIMessage {
     DisableSimulator(DisableSimulator),
     /// Message for informing the UI of a land packet
     LandUpdate(LandUpdate),
-    /// Messag efor informing the UI of updated water information
+    /// Message for informing the UI of updated water information
     WaterUpdate(WaterUpdate),
+    /// Message for informing the UI of an update to the skybox
+    SkyboxUpdate(SkyboxUpdate),
     /// Message for setting the position of the avatar's camera
     CameraPosition(CameraPosition),
     /// message for informing the UI of an animation that is currently playing

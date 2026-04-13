@@ -1,5 +1,6 @@
 pub mod animation;
 pub mod chat;
+pub mod environment;
 pub mod errors;
 pub mod loading;
 pub mod login;

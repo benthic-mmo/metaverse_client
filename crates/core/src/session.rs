@@ -132,7 +132,8 @@ pub struct Session {
 #[derive(Debug, Message, Default)]
 #[rtype(result = "()")]
 pub struct RegionData {
-    water_height: f32,
+    pub water_height: f32,
+    pub last_time_update: u64,
 }
 
 /// Handles incoming pings from the server
