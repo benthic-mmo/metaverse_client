@@ -1,5 +1,5 @@
 use crate::avatar::{HandleNewAvatarAnimation, HandleNewAvatarAppearance};
-use crate::environment::HandleLayerData;
+use crate::environment::{HandleLayerData, HandleSimulatorViewerTimeMessage};
 use crate::objects::{
     HandleImprovedTerseObjectUpdate, HandleObjectUpdate, HandleObjectUpdateCached,
 };
@@ -184,6 +184,20 @@ impl Mailbox {
                                 .await
                             {
                                 error!("Failed to handle AvatarAppearance {:?}", e)
+                            };
+                        }
+                        PacketType::SimulatorViewerTimeMessage(data) => {
+                            println!("{:?}", data);
+                            if let Err(e) = mailbox_address
+                                .send(HandleSimulatorViewerTimeMessage {
+                                    seconds_since_start: data.seconds_since_start,
+                                    sun_phase: data.sun_phase,
+                                    seconds_per_day: data.seconds_per_day,
+                                    seconds_per_year: data.seconds_per_year,
+                                })
+                                .await
+                            {
+                                error!("Failed to handle SimulatorViewerTimeMessage {:?}", e)
                             };
                         }
 
