@@ -14,10 +14,10 @@ benthic_asset_pipeline = {path = "../../../benthic_asset_pipeline/"}
 benthic_default_assets = {path = "../../../benthic_default_assets/"}
 byteorder = "1.5.0"
 rgb = "0.8.53"
-uuid = "1.22.0"
+uuid = "1.23.1"
 glam = "0.30.10"
 log = "0.4.29"
-indexmap = "2.13.0"
+indexmap = "2.14.0"
 serde_json = "1.0.149"
 actix = "0.13.5"
 

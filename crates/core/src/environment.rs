@@ -100,7 +100,6 @@ impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
                 return;
             }
 
-            //TODO: set the color of the sky based on the sky frames
             ctx.address().do_send(SendUIMessage {
                 ui_message: UIMessage::new_skybox_update(SkyboxUpdate {
                     sun_phase: msg.sun_phase,

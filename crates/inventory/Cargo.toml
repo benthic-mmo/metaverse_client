@@ -16,7 +16,7 @@ serde-llsd-benthic = {path="../../../benthic-serde-llsd/"}
 quick-xml = "0.39.2"
 serde = "1.0.228"
 thiserror = "2.0.18"
-uuid = "1.22.0"
+uuid = "1.23.1"
 
 include_dir = "0.7.4"
 serde_json = "1.0.149"
@@ -25,6 +25,6 @@ rgb = "0.8.53"
 sqlx = {version="0.8.6", features=["sqlite", "runtime-tokio"]}
 
 [dev-dependencies]
-tokio = {version = "1.50.0", features=["test-util"]}
+tokio = {version = "1.52.1", features=["test-util"]}
 httpmock = "0.8.3"
 tempfile = "3.27.0"

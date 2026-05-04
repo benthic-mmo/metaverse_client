@@ -1,6 +1,4 @@
 use crate::packet::message::UIMessage;
-use glam::Vec3;
-use rgb::{Rgba, Zeroable};
 use serde::{Deserialize, Serialize};
 
 /// Struct for sending water updates from the core to the UI.
