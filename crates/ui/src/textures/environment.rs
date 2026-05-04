@@ -26,6 +26,10 @@ impl Material for HeightMaterial {
         SHADER_ASSET_PATH.into()
     }
 
+    fn enable_shadows() -> bool {
+        true
+    }
+
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode
     }

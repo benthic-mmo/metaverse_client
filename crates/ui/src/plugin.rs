@@ -1,7 +1,7 @@
 use crate::animation::{scene_instance_ready, update_animations, AnimationPath, AnimationQueue};
 use crate::environment::{
     handle_land_update, handle_skybox_update, handle_water_update, setup_environment, update_sun,
-    LandUpdateEvent, SkyboxUpdateEvent, SunState, WaterUpdateEvent,
+    LandUpdateEvent, SkyboxUpdateEvent, SunState, Water, WaterUpdateEvent,
 };
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
@@ -14,6 +14,8 @@ use crate::{chat, login};
 use actix_rt::System;
 use bevy::app::App;
 use bevy::mesh::skinning::SkinnedMesh;
+use bevy::pbr::deferred::DeferredPbrLightingPlugin;
+use bevy::pbr::{DefaultOpaqueRendererMethod, ExtendedMaterial};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
@@ -146,6 +148,8 @@ impl Plugin for MetaversePlugin {
 
         app.init_state::<ViewerState>()
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
+            .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default()) // Add this
+            .insert_resource(DefaultOpaqueRendererMethod::deferred())
             .insert_resource(SessionData {
                 login_response: None,
                 avatar_location: Vec3::ZERO,
@@ -180,6 +184,7 @@ impl Plugin for MetaversePlugin {
                 current_phase: 0.0,
                 target_phase: 0.0,
             })
+            .insert_resource(Assets::<ExtendedMaterial<StandardMaterial, Water>>::default())
             .insert_resource(MeshQueue { pending: vec![] })
             .add_message::<LoginResponseEvent>()
             .add_message::<CameraUpdateEvent>()
