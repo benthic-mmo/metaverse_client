@@ -28,7 +28,7 @@ impl Packet {
 #[derive(Debug, Clone)]
 /// Avatar Animation struct
 pub struct AvatarAnimation {
-    /// The ID of the sender
+    /// ID of the agent that the animations should target.
     pub sender_id: Uuid,
     /// A list of animations to play, in order of when they should be played
     pub animations: Vec<AnimationEntry>,

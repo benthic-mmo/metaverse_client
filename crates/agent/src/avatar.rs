@@ -1,5 +1,6 @@
 use actix::Message;
-use benthic_default_assets::skeleton::Skeleton;
+use benthic_protocol::skeleton::{JointName, Skeleton};
+use std::collections::{BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -25,6 +26,10 @@ pub struct Avatar {
     pub skeleton: Skeleton,
     /// the location on disk of the avatar model for rendering
     pub path: Option<PathBuf>,
+    /// The total list of joints used by each clothing object in the avatar. Used for
+    pub used_joints: BTreeSet<JointName>,
+    /// If the avatar is considered fully downloaded.
+    pub fully_loaded: bool,
 
     pub outfit_size: usize,
 
@@ -45,6 +50,8 @@ impl Avatar {
             path: None,
             last_update: SystemTime::now(),
             outfit_size: 0,
+            fully_loaded: false,
+            used_joints: BTreeSet::new(),
         }
     }
 }

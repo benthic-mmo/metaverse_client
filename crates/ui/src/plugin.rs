@@ -12,25 +12,25 @@ use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
 use crate::{chat, login};
 use actix_rt::System;
+use benthic_protocol::messages::ui::agent_update::AgentUpdate;
+use benthic_protocol::messages::ui::camera_position::CameraPosition;
+use benthic_protocol::messages::ui::coarse_location_update::CoarseLocationUpdate;
+use benthic_protocol::messages::ui::errors::SessionError;
+use benthic_protocol::messages::ui::login_error::LoginError;
+use benthic_protocol::messages::ui::login_response::LoginResponse;
+use benthic_protocol::messages::ui::play_animation::PlayAnimation;
+use benthic_protocol::messages::ui::ui_messages::{UIMessage, UIResponse};
 use bevy::app::App;
 use bevy::mesh::skinning::SkinnedMesh;
-use bevy::pbr::deferred::DeferredPbrLightingPlugin;
 use bevy::pbr::{DefaultOpaqueRendererMethod, ExtendedMaterial};
 use bevy::platform::collections::HashMap;
+use bevy::post_process::auto_exposure::AutoExposurePlugin;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
 use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use metaverse_core::initialize::initialize;
-use metaverse_messages::http::login::login_error::LoginError;
-use metaverse_messages::packet::message::{UIMessage, UIResponse};
-use metaverse_messages::udp::agent::agent_update::AgentUpdate;
-use metaverse_messages::udp::agent::coarse_location_update::CoarseLocationUpdate;
-use metaverse_messages::ui::camera_position::CameraPosition;
-use metaverse_messages::ui::errors::SessionError;
-use metaverse_messages::ui::login_response::LoginResponse;
-use metaverse_messages::ui::play_animation::PlayAnimation;
 use portpicker::pick_unused_port;
 use std::fs::create_dir_all;
 use std::net::UdpSocket;
@@ -148,7 +148,10 @@ impl Plugin for MetaversePlugin {
 
         app.init_state::<ViewerState>()
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
-            .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default()) // Add this
+            .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
+            .add_plugins(AutoExposurePlugin)
+            .insert_resource(ClearColor(Color::BLACK))
+            .insert_resource(GlobalAmbientLight::NONE)
             .insert_resource(DefaultOpaqueRendererMethod::deferred())
             .insert_resource(SessionData {
                 login_response: None,
@@ -317,7 +320,6 @@ fn handle_queue(
                 ev_loginresponse.write(LoginResponseEvent {
                     value: Ok(login_response),
                 });
-                info!("got LoginResponse")
             }
             UIMessage::MeshUpdate(mesh_update) => {
                 ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
@@ -337,7 +339,6 @@ fn handle_queue(
                 ev_coarselocationupdate.write(CoarseLocationUpdateEvent {
                     _value: coarse_location_update,
                 });
-                info!("got CoarseLocationUpdate")
             }
             UIMessage::ChatFromSimulator(chat_from_simulator) => {
                 chat_messages.messages.push(ChatFromClientMessage {

@@ -4,7 +4,6 @@ use crate::{
     errors::ParseError,
     packet::{
         header::{Header, PacketFrequency},
-        message::UIMessage,
         packet::{Packet, PacketData},
         packet_types::PacketType,
     },
@@ -23,13 +22,6 @@ impl Packet {
             },
             body: PacketType::DisableSimulator(Box::new(disable_simulator)),
         }
-    }
-}
-
-impl UIMessage {
-    /// create a new UI message to allow the client to inform the server of disconnects
-    pub fn new_disable_simulator() -> Self {
-        UIMessage::DisableSimulator(DisableSimulator {})
     }
 }
 

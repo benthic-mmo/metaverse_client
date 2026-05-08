@@ -11,7 +11,7 @@ edition = "2024"
 [dependencies]
 metaverse_messages = {path="../messages/"}
 benthic_asset_pipeline = {path = "../../../benthic_asset_pipeline/"}
-benthic_default_assets = {path = "../../../benthic_default_assets/"}
+benthic_protocol = {path = "../../../benthic_protocol/"}
 byteorder = "1.5.0"
 rgb = "0.8.53"
 uuid = "1.23.1"

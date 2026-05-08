@@ -7,8 +7,10 @@ use crate::session::{
     AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
 };
 use actix::Addr;
+use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
+use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use log::{error, warn};
-use metaverse_messages::packet::{message::UIMessage, packet::Packet, packet_types::PacketType};
+use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
@@ -159,7 +161,18 @@ impl Mailbox {
                         PacketType::ChatFromSimulator(data) => {
                             if let Err(e) = mailbox_address
                                 .send(SendUIMessage {
-                                    ui_message: UIMessage::new_chat_from_simulator(*data.clone()),
+                                    ui_message: UIMessage::new_chat_from_simulator(
+                                        ChatFromSimulator {
+                                            from_name: data.from_name.clone(),
+                                            audible: data.audible.clone(),
+                                            chat_type: data.chat_type.clone(),
+                                            source_id: data.source_id.clone(),
+                                            owner_id: data.owner_id.clone(),
+                                            position: data.position.clone(),
+                                            source_type: data.source_type.clone(),
+                                            message: data.message.clone(),
+                                        },
+                                    ),
                                 })
                                 .await
                             {

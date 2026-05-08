@@ -15,7 +15,7 @@ gltf = "1.4.1"
 gltf-json = "1.4.1"
 log = "0.4.29"
 metaverse_messages = {path= "../messages/"}
-benthic_default_assets = {path="../../../benthic_default_assets/"}
+benthic_protocol = {path="../../../benthic_protocol/"}
 once_cell = "1.21.4"
 twox-hash = "2.1.2"
 metaverse_mesh = {path="../../../metaverse_mesh/"}

@@ -2,19 +2,17 @@ use crate::{
     errors::ParseError,
     packet::{
         header::{Header, PacketFrequency},
-        message::UIMessage,
         packet::{Packet, PacketData},
         packet_types::PacketType,
     },
 };
+use benthic_protocol::messages::utils::chat_types::{Audible, ChatType, SourceType};
 use byteorder::ReadBytesExt;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::io::{self, Cursor};
 use uuid::Uuid;
-
-use super::ChatType;
 
 impl Packet {
     /// Create a new chat from simulator packet
@@ -29,14 +27,6 @@ impl Packet {
             },
             body: PacketType::ChatFromSimulator(Box::new(chat_from_simulator)),
         }
-    }
-}
-
-/// Implement UIEvent for ChatFromSimulator. Can be sent between the core and UI
-impl UIMessage {
-    /// create a new chat from simulator UiEvent
-    pub fn new_chat_from_simulator(data: ChatFromSimulator) -> Self {
-        UIMessage::ChatFromSimulator(data)
     }
 }
 
@@ -59,68 +49,6 @@ pub struct ChatFromSimulator {
     pub position: Vec3,
     /// The contents of the message
     pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// Enum for the types of agents that can emit chat messages
-pub enum SourceType {
-    /// chat coming from the system
-    System,
-    /// chat coming from another user
-    Agent,
-    /// chat coming from an object
-    Object,
-    /// chat coming from an unknown source
-    Unknown,
-}
-impl SourceType {
-    fn from_bytes(bytes: u8) -> Self {
-        match bytes {
-            0 => SourceType::System,
-            1 => SourceType::Agent,
-            2 => SourceType::Object,
-            _ => SourceType::Unknown,
-        }
-    }
-    fn to_bytes(&self) -> u8 {
-        match self {
-            SourceType::System => 0,
-            SourceType::Agent => 1,
-            SourceType::Object => 2,
-            SourceType::Unknown => 3,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// Determines if the chat is audible to the user.
-pub enum Audible {
-    /// Not audible. Don't display the chat.
-    Not,
-    /// The chat is faint
-    Barely,
-    /// The chat is fully audible
-    Fully,
-    /// Unknown
-    Unknown,
-}
-impl Audible {
-    fn from_bytes(bytes: u8) -> Self {
-        match bytes {
-            255 => Audible::Not,
-            0 => Audible::Barely,
-            1 => Audible::Fully,
-            _ => Audible::Unknown,
-        }
-    }
-    fn to_bytes(&self) -> u8 {
-        match self {
-            Audible::Not => 255,
-            Audible::Barely => 0,
-            Audible::Fully => 1,
-            Audible::Unknown => 2,
-        }
-    }
 }
 
 impl PacketData for ChatFromSimulator {

@@ -1,8 +1,5 @@
 //! # Rust implementation of OpenSimulator's [login protocol](http://opensimulator.org/wiki/SimulatorLoginProtocol)
 
-/// Error that can be thrown upon login as the alternative to receiving a valid login response
-pub mod login_error;
-
 /// handles parsing the login response xml that is sent back from the server.
 pub mod login_response;
 

@@ -6,13 +6,12 @@ use crate::{
         packet_types::PacketType,
     },
 };
+use benthic_protocol::messages::utils::chat_types::ChatType;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::io::Read;
 use uuid::Uuid;
-
-use super::ChatType;
 
 impl Packet {
     /// Create a new chat from viewer packet

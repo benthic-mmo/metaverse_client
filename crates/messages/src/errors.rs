@@ -1,4 +1,5 @@
 use crate::packet::header::PacketFrequency;
+use benthic_protocol::messages::errors::ParseError as ProtocolParseError;
 use serde_llsd_benthic::LLSDValue;
 use std::{array::TryFromSliceError, str::Utf8Error, string::FromUtf8Error};
 use thiserror::Error;
@@ -18,6 +19,10 @@ pub enum ParseError {
     #[error("Parse Error: {0}")]
     /// An error with a generic message
     Message(String),
+
+    #[error("Parse Error")]
+    /// A parse error coming from the protocol crate
+    ProtocolParseError(),
 
     #[error("Missing field: {0}")]
     /// An error for when fields are not present in the parsed data
@@ -87,5 +92,10 @@ pub enum ParseError {
 impl From<LLSDValue> for ParseError {
     fn from(_: LLSDValue) -> Self {
         ParseError::LLSDError()
+    }
+}
+impl From<ProtocolParseError> for ParseError {
+    fn from(_: ProtocolParseError) -> Self {
+        ParseError::ProtocolParseError()
     }
 }

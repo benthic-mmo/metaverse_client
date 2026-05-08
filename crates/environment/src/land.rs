@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use benthic_default_assets::render_data::RenderObject;
+use benthic_protocol::render_data::RenderObject;
 use bitreader::{BitReader, BitReaderError};
 use bytemuck::cast_slice;
 use glam::U16Vec2;

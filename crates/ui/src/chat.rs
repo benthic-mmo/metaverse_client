@@ -1,13 +1,13 @@
 use crate::errors::ChatError;
-use crate::plugin::{ChatMessages, Sockets, send_packet_to_core};
+use crate::plugin::{send_packet_to_core, ChatMessages, Sockets};
+use benthic_protocol::messages::ui::chat_from_viewer::ChatFromUI;
+use benthic_protocol::messages::ui::ui_messages::UIResponse;
+use benthic_protocol::messages::utils::chat_types::ChatType;
 use bevy::ecs::error::Result;
 use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
 use bevy::prelude::Resource;
-use bevy_egui::{EguiContexts, egui};
-use metaverse_messages::packet::message::UIResponse;
-use metaverse_messages::udp::chat::ChatType;
-use metaverse_messages::ui::chat_from_viewer::ChatFromUI;
+use bevy_egui::{egui, EguiContexts};
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
