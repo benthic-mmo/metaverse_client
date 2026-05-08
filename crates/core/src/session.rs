@@ -7,15 +7,23 @@ use crate::{
 };
 use actix::prelude::*;
 use actix_rt::time;
+use benthic_protocol::messages::ui::{
+    errors::{
+        CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
+        MailboxSessionError, SessionError,
+    },
+    login_event::Login,
+    login_response::LoginResponse,
+    ui_messages::{UIMessage, UIResponse},
+    water_update::WaterUpdate,
+};
 use log::{error, info};
 use metaverse_agent::avatar::Avatar;
 use metaverse_messages::{
     http::capabilities::{Capability, CapabilityRequest},
-    packet::{
-        message::{UIMessage, UIResponse},
-        packet::Packet,
-    },
+    packet::packet::Packet,
     udp::{
+        agent::agent_update::AgentUpdate,
         chat::chat_from_viewer::ChatFromViewer,
         core::{
             agent_throttle::{AgentThrottle, ThrottleData},
@@ -27,14 +35,6 @@ use metaverse_messages::{
             region_handshake::RegionHandshake,
             region_handshake_reply::RegionHandshakeReply,
         },
-    },
-    ui::{
-        errors::{
-            CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
-            MailboxSessionError, SessionError,
-        },
-        login_event::Login,
-        water_update::WaterUpdate,
     },
 };
 use rgb::{Rgb, Rgba};
@@ -131,8 +131,12 @@ pub struct Session {
 
 #[derive(Debug, Message, Default)]
 #[rtype(result = "()")]
+/// Information about the current region the user is in
 pub struct RegionData {
+    /// The region global height of the water. This is used to render a flat plane of water over
+    /// the entire region.
     pub water_height: f32,
+    /// The time elapsed since there was an update for the region's time
     pub last_time_update: u64,
 }
 
@@ -399,7 +403,20 @@ impl Handler<HandleUIResponse> for Mailbox {
                     data.agent_id = session.agent_id;
                     data.session_id = session.session_id;
                     ctx.address().do_send(OutgoingPacket {
-                        packet: Packet::new_agent_update(data),
+                        packet: Packet::new_agent_update(AgentUpdate {
+                            session_id: data.session_id,
+                            agent_id: data.session_id,
+                            body_rotation: data.body_rotation,
+                            head_rotation: data.head_rotation,
+                            state: data.state,
+                            camera_center: data.camera_center,
+                            camera_at_axis: data.camera_at_axis,
+                            camera_left_axis: data.camera_left_axis,
+                            camera_up_axis: data.camera_up_axis,
+                            far: data.far,
+                            control_flags: data.control_flags,
+                            flags: data.flags,
+                        }),
                     });
                 }
                 data => {
@@ -540,13 +557,11 @@ async fn handle_login(
         Ok((login_response, local_ip)) => {
             if let Err(e) = mailbox_addr
                 .send(SendUIMessage {
-                    ui_message: UIMessage::new_login_response_event(
-                        metaverse_messages::ui::login_response::LoginResponse {
-                            firstname: login_response.first_name.clone(),
-                            lastname: login_response.last_name.clone(),
-                            agent_id: login_response.agent_id.clone(),
-                        },
-                    ),
+                    ui_message: UIMessage::new_login_response_event(LoginResponse {
+                        firstname: login_response.first_name.clone(),
+                        lastname: login_response.last_name.clone(),
+                        agent_id: login_response.agent_id.clone(),
+                    }),
                 })
                 .await
             {

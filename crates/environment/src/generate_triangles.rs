@@ -1,5 +1,5 @@
 use crate::land::Land;
-use benthic_default_assets::render_data::RenderObject;
+use benthic_protocol::render_data::RenderObject;
 use glam::Vec3;
 use std::collections::HashMap;
 use uuid::Uuid;

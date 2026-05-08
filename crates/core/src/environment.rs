@@ -4,9 +4,10 @@ use crate::session::SendUIMessage;
 use actix::WrapFuture;
 use actix::{AsyncContext, Handler, Message};
 use awc::Client;
+use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
+use benthic_protocol::messages::ui::{skybox_update::SkyboxUpdate, ui_messages::UIMessage};
 use glam::U16Vec2;
 use glam::Vec3;
-
 use log::error;
 use log::info;
 use log::warn;
@@ -16,9 +17,7 @@ use metaverse_environment::{
 };
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::environment_data::DayCycle;
-use metaverse_messages::packet::message::UIMessage;
 use metaverse_messages::udp::environment::layer_data::LayerData;
-use metaverse_messages::ui::land_update::{LandData, LandUpdate};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -90,8 +89,6 @@ impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
         msg: HandleSimulatorViewerTimeMessage,
         ctx: &mut Self::Context,
     ) -> Self::Result {
-        use metaverse_messages::ui::skybox_update::SkyboxUpdate;
-
         if let Some(session) = &mut self.session {
             let region = &mut session.region_data;
 
@@ -160,6 +157,7 @@ impl Handler<HandleLayerData> for Mailbox {
                             }
                         }
                         for (mesh, coordinate) in layer_meshes {
+
                             let scale = land.terrain_header.patch_size as f32;
                             let json_path = write_json(
                                 &LandData {

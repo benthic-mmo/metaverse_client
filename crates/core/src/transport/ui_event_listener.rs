@@ -1,6 +1,6 @@
 use crate::session::{HandleUIResponse, Mailbox};
+use benthic_protocol::messages::ui::ui_messages::UIResponse;
 use log::warn;
-use metaverse_messages::packet::message::UIResponse;
 use tokio::net::UdpSocket;
 
 /// This is used to enable the core to listen to messages coming in from the UI.

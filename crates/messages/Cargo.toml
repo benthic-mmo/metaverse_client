@@ -9,6 +9,7 @@ edition = "2024"
 [dependencies]
 serde-llsd-benthic = {path = "../../../benthic-serde-llsd/"}
 benthic_default_assets = {path = "../../../benthic_default_assets/"}
+benthic_protocol = {path = "../../../benthic_protocol/"}
 log = "0.4"
 byteorder = "1.5.0"
 mac_address = "1.1.8"

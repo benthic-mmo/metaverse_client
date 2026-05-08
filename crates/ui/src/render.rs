@@ -1,12 +1,12 @@
 use crate::plugin::{CameraUpdateEvent, SessionData};
 use crate::textures::environment::HeightMaterial;
-use benthic_default_assets::default_animations::DefaultAnimation;
+use benthic_protocol::default_animations::DefaultAnimation;
+use benthic_protocol::messages::ui::land_update::LandUpdate;
+use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_gltf::{Gltf, GltfLoaderSettings};
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_messages::ui::land_update::LandUpdate;
-use metaverse_messages::ui::mesh_update::{MeshType, MeshUpdate};
 
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -180,12 +180,21 @@ pub fn extract_gltf_meshes(
             RenderableHandle::Mesh(mesh_handle) => {
                 match item.mesh_type {
                     MeshType::Land => {
-                        let height_mat = HeightMaterial {
-                            color: LinearRgba::WHITE,
-                            color_texture: Some(asset_server.load("textures/grass.png")),
-                            alpha_mode: AlphaMode::Opaque,
+                        //TODO: this height material is unfinished. the shader attached to this
+                        //does not have any ability to shade.
+                        //
+                        //let height_mat = HeightMaterial {
+                        //    color: LinearRgba::WHITE,
+                        //    color_texture: Some(asset_server.load("textures/grass.png")),
+                        //    alpha_mode: AlphaMode::Opaque,
+                        //};
+                        //let mat_handle = height_materials.add(height_mat);
+
+                        let standard_mat = StandardMaterial {
+                            base_color: Color::WHITE,
+                            ..Default::default()
                         };
-                        let mat_handle = height_materials.add(height_mat);
+                        let mat_handle = standard_materials.add(standard_mat);
 
                         commands.spawn((
                             Mesh3d(mesh_handle.clone()),

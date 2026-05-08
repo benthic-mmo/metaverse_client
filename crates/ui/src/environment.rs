@@ -1,9 +1,13 @@
+use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
+use benthic_protocol::messages::ui::mesh_update::MeshType;
+use benthic_protocol::messages::ui::skybox_update::SkyboxUpdate;
+use benthic_protocol::messages::ui::water_update::WaterUpdate;
 use bevy::anti_alias::fxaa::Fxaa;
 use bevy::asset::RenderAssetUsages;
-use bevy::camera::Exposure;
 use bevy::color::palettes::css::BLACK;
 use bevy::core_pipeline::prepass::DeferredPrepass;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::core_pipeline::Skybox;
 use bevy::image::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
 };
@@ -11,19 +15,17 @@ use bevy::light::light_consts::lux;
 use bevy::light::{
     AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume, SunDisk, VolumetricFog,
 };
+use bevy::math::cubic_splines::LinearSpline;
 use bevy::pbr::{
     Atmosphere, AtmosphereSettings, ExtendedMaterial, MaterialExtension, ScatteringMedium,
     ScreenSpaceReflections,
 };
+use bevy::post_process::auto_exposure::{AutoExposure, AutoExposureCompensationCurve};
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 use bevy_panorbit_camera::PanOrbitCamera;
-use metaverse_messages::ui::land_update::{LandData, LandUpdate};
-use metaverse_messages::ui::mesh_update::MeshType;
-use metaverse_messages::ui::skybox_update::SkyboxUpdate;
-use metaverse_messages::ui::water_update::WaterUpdate;
 use std::f32::consts::PI;
 use std::fs;
 
@@ -67,8 +69,20 @@ pub fn setup_environment(
     mut meshes: ResMut<Assets<Mesh>>,
     mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     mut scattering_mediums: ResMut<Assets<ScatteringMedium>>,
+    mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
     asset_server: Res<AssetServer>,
 ) {
+    let under_expose_curve = compensation_curves.add(
+        AutoExposureCompensationCurve::from_curve(LinearSpline::new([
+            vec2(-4.0, 1.8 * 1.67),
+            vec2(-2.0, 0.0 * 1.33),
+            vec2(0.0, -2.0),
+            vec2(2.0, -2.0 * 0.67),
+            vec2(4.0, -2.0 * 0.33),
+        ]))
+        .expect("Failed to create compensation curve"),
+    );
+
     let medium = scattering_mediums.add(ScatteringMedium::default());
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
@@ -91,7 +105,7 @@ pub fn setup_environment(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            illuminance: lux::FULL_MOON_NIGHT,
+            illuminance: 0.065,
             color: Color::srgb(0.65, 0.7, 1.0),
             ..default()
         },
@@ -109,18 +123,28 @@ pub fn setup_environment(
         affects_lightmapped_meshes: true,
     });
 
+    let skybox_handle = asset_server.load("cubemaps/earth_starmap.ktx2");
     commands.spawn((
         PanOrbitCamera {
             radius: Some(3.0),
+            ..Default::default()
+        },
+        AutoExposure {
+            compensation_curve: under_expose_curve,
+            speed_darken: 8.0,
             ..Default::default()
         },
         MainCamera,
         DeferredPrepass,
         Atmosphere::earthlike(medium.clone()),
         AtmosphereSettings::default(),
+        Skybox {
+            image: skybox_handle.clone(),
+            brightness: 0.3,
+            ..default()
+        },
         AtmosphereEnvironmentMapLight::default(),
-        Exposure { ev100: 13.0 },
-        Tonemapping::AcesFitted,
+        Tonemapping::AgX,
         Bloom::NATURAL,
         VolumetricFog {
             ambient_intensity: 0.0,
@@ -204,7 +228,7 @@ fn spawn_water(
     let mut plane_mesh = Plane3d::new(Vec3::Y, Vec2::new(2000.0, 2000.0))
         .mesh()
         .build();
-    plane_mesh.generate_tangents().unwrap(); // Add this line
+    plane_mesh.generate_tangents().unwrap();
     let mesh_handle = meshes.add(plane_mesh);
     commands.spawn((
         Mesh3d(mesh_handle),
@@ -273,8 +297,6 @@ pub fn update_sun(
     mut sun: ResMut<SunState>,
     mut sun_query: Query<&mut Transform, With<SunLight>>,
     mut moon_query: Query<&mut Transform, (With<MoonLight>, Without<SunLight>)>,
-    mut moon_light: Query<&mut DirectionalLight, With<MoonLight>>,
-    mut exposure_query: Query<&mut Exposure>,
 ) {
     let dt = time.delta_secs();
     let speed = 1.0;
@@ -305,35 +327,8 @@ pub fn update_sun(
     }
 
     let moon_dir = -dir;
-    let horizon_threshold = 0.05;
 
-    let sun_height = dir.z;
-    let is_night = sun_height < -horizon_threshold;
-    let moon_intensity = if is_night { 15.0 } else { 0.0 };
-
-    let exposure_max = 18.0;
-    let exposure_min = 5.0;
-
-    for mut light in &mut moon_light {
-        light.illuminance = moon_intensity;
-    }
     for mut t in &mut moon_query {
         t.rotation = Quat::from_rotation_arc(Vec3::NEG_Y, moon_dir);
-    }
-    let transition_speed = 5.0;
-
-    let target_exposure = if sun_height > horizon_threshold {
-        exposure_max
-    } else if sun_height < -horizon_threshold {
-        exposure_min
-    } else {
-        let t = (sun_height + horizon_threshold) / (2.0 * horizon_threshold);
-        exposure_min + t * (exposure_max - exposure_min)
-    };
-
-    for mut exposure in &mut exposure_query {
-        let current = exposure.ev100;
-        exposure.ev100 =
-            current + (target_exposure - current) * (1.0 - (-transition_speed * dt).exp());
     }
 }

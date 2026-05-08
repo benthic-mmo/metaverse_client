@@ -1,10 +1,10 @@
-use crate::{
-    errors::ParseError, http::login::login_error::LoginError, utils::agent_access::AgentAccess,
-};
+use crate::utils::agent_access::AgentAccess;
+use benthic_protocol::messages::errors::ParseError;
+use benthic_protocol::messages::ui::login_error::LoginError;
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::converter::{FromLLSDValue, get, get_nested_vec, get_opt, get_vec};
-use serde_llsd_benthic::{LLSDValue, auto_from_str};
+use serde_llsd_benthic::converter::{get, get_nested_vec, get_opt, get_vec, FromLLSDValue};
+use serde_llsd_benthic::{auto_from_str, LLSDValue};
 use std::collections::HashMap;
 use uuid::Uuid;
 

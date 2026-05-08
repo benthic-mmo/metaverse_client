@@ -22,10 +22,6 @@
 pub mod errors;
 /// Definitions for things related to the packet, such as the packet itself and headers.
 pub mod packet;
-/// Packets related to UI
-/// Many of these are not packets in the open metaverse spec, and only exist for sending messages
-/// from the core to the UI.
-pub mod ui;
 /// Utilities. Mostly constants used throughout the crate.
 pub mod utils;
 // HTTP packet definitions

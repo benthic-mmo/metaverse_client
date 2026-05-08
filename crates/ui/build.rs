@@ -6,13 +6,16 @@ use std::{
 fn main() {
     let source_textures = benthic_default_assets::textures();
     let source_shaders = benthic_default_assets::shaders();
+    let source_cubemaps = benthic_default_assets::cubemaps();
 
     let target_assets = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("assets");
     let target_textures = target_assets.join("textures");
     let target_shaders = target_assets.join("shaders");
+    let target_cubemaps = target_assets.join("cubemaps");
 
     copy_dir(&source_shaders, &target_shaders);
     copy_dir(&source_textures, &target_textures);
+    copy_dir(&source_cubemaps, &target_cubemaps);
 }
 
 fn copy_dir(src: &Path, dst: &Path) {

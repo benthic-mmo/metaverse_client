@@ -2,7 +2,7 @@ use std::io::Error;
 
 use crate::avatar::Avatar;
 use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
-use benthic_default_assets::skeleton::{Joint, JointName, Skeleton, Transform};
+use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
 use metaverse_messages::http::mesh::Skin;
@@ -14,6 +14,8 @@ use uuid::Uuid;
 /// Highest ranking joint values will always be last.
 pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
     for joint in skeleton.joints.values() {
+        // add the mentioned joints to the used joints set.
+        avatar.used_joints.insert(joint.name);
         if let Some(global_joint) = avatar.skeleton.joints.get_mut(&joint.name) {
             for transform in &joint.transforms {
                 set_rank(global_joint, transform, |j| &mut j.transforms);

@@ -1,13 +1,13 @@
 use crate::{
     errors::{CredentialDeleteError, CredentialLoadError, CredentialStoreError, PacketSendError},
     login,
-    plugin::{ShareDir, Sockets, VIEWER_NAME, ViewerState, send_packet_to_core},
+    plugin::{send_packet_to_core, ShareDir, Sockets, ViewerState, VIEWER_NAME},
 };
+use benthic_protocol::messages::ui::{login_event::Login, ui_messages::UIResponse};
 use bevy::log::error;
 use bevy::prelude::*;
-use bevy_egui::{EguiContexts, egui};
+use bevy_egui::{egui, EguiContexts};
 use keyring::Entry;
-use metaverse_messages::{packet::message::UIResponse, ui::login_event::Login};
 use std::{fs, path::PathBuf};
 
 #[derive(Default, Resource, Clone)]

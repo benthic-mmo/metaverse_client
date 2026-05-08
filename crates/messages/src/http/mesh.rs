@@ -1,5 +1,5 @@
 use crate::errors::ParseError;
-use benthic_default_assets::{render_data::JointWeight, skeleton::JointName};
+use benthic_protocol::{render_data::JointWeight, skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};

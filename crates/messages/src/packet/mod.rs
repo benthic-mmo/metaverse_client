@@ -23,6 +23,3 @@ pub mod packet;
 /// Contains structs and enums used for determining types of packets based on header values and
 /// assigning those valeus to rust data types.
 pub mod packet_types;
-
-/// messages for UI and Core communication
-pub mod message;

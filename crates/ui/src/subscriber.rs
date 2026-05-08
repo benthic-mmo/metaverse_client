@@ -1,5 +1,5 @@
+use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use crossbeam_channel::Sender;
-use metaverse_messages::packet::message::UIMessage;
 use std::net::UdpSocket;
 
 use log::{info, warn};

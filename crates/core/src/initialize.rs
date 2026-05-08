@@ -1,11 +1,15 @@
 use crate::session::Mailbox;
+use crate::session::PingInfo;
+use crate::session::ServerState;
+use crate::transport::ui_event_listener::listen_for_ui_messages;
 use actix::Actor;
 use actix_rt::time;
+use benthic_protocol::messages::ui::errors::FeatureError;
+use benthic_protocol::messages::ui::errors::MailboxSessionError;
+use benthic_protocol::messages::ui::errors::SessionError;
 use log::error;
 use metaverse_inventory::initialize_sqlite::init_sqlite;
-use metaverse_messages::ui::errors::FeatureError;
-use metaverse_messages::ui::errors::MailboxSessionError;
-use metaverse_messages::ui::errors::SessionError;
+use portpicker::pick_unused_port;
 use std::collections::HashSet;
 use std::fs::create_dir_all;
 use std::io;
@@ -16,12 +20,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
-
-use portpicker::pick_unused_port;
-
-use crate::session::PingInfo;
-use crate::session::ServerState;
-use crate::transport::ui_event_listener::listen_for_ui_messages;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
