@@ -1,10 +1,11 @@
 use super::session::Mailbox;
-use crate::initialize::create_sub_agent_dir;
+use crate::initialize::{create_agent_animation_dir, create_sub_agent_dir};
 use crate::session::SendUIMessage;
 use crate::transport::http_handler::{
     download_asset, download_object, download_scene_group, download_texture,
 };
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use benthic_asset_pipeline::generated_asset_path;
 use benthic_protocol::default_animations::DefaultAnimation;
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
@@ -17,14 +18,15 @@ use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
 use metaverse_agent::skeleton::update_global_avatar_skeleton;
 use metaverse_inventory::agent::get_current_outfit;
-use metaverse_mesh::generate::generate_skinned_mesh;
+use metaverse_mesh::animation::generate::generate_gltf_animation;
+use metaverse_mesh::mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
-
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
 use std::fs::{self, File};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -198,40 +200,76 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
             .get(&Capability::ViewerAsset)
             .unwrap()
             .to_string();
-        let addr = ctx.address().clone();
+        let addr = ctx.address();
+        let agent_id = avatar.agent_id.to_string();
+        let sender_id = msg.avatar_animation.sender_id;
+        let used_joints = avatar.used_joints.clone();
+        let mut hasher = DefaultHasher::new();
+        used_joints.hash(&mut hasher);
+        let joint_hash = format!("{:016x}", hasher.finish());
+
+        let animations = msg.avatar_animation.animations;
+
         ctx.spawn(
             async move {
-                for animation in msg.avatar_animation.animations {
-                    let avatar_id = msg.avatar_animation.sender_id;
-
-                    if let Some(default_animation) = DefaultAnimation::from_uuid(&animation.anim_id)
+                for animation in animations {
+                    let animation_json_path = if let Some(default_animation) =
+                        DefaultAnimation::from_uuid(&animation.anim_id)
                     {
-                        addr.do_send(SendUIMessage {
-                            ui_message: UIMessage::new_play_animation(PlayAnimation {
-                                player_id: avatar_id,
-                                animation_path: default_animation.path(),
-                            }),
-                        });
+                        PathBuf::from(generated_asset_path())
+                            .join("Animations")
+                            .join(format!("{}.json", default_animation.to_string()))
+                    } else {
+                        match download_asset(
+                            ObjectType::Animation.to_string(),
+                            animation.anim_id,
+                            &viewer_asset_endpoint,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                //TODO: Implement this
+                                warn!("Retrieved animation, but non-default animations are unimplemented");
+                                return;
+                            }
+                            Err(e) => {
+                                error!(
+                                    "failed to retrieve animation {:?}: {:?}",
+                                    animation.anim_id, e
+                                );
+                                return;
+                            }
+                        }
+                    };
+
+                    let animation_dir = match create_agent_animation_dir(&agent_id) {
+                        Ok(dir) => dir,
+                        Err(e) => {
+                            warn!("Failed to create animation dir: {:?}", e);
+                            return;
+                        }
+                    };
+
+                    let file_name = format!("{}_{}.glb", joint_hash, animation.anim_id);
+                    let animation_out_path = animation_dir.join(file_name);
+                    if let Err(e) = generate_gltf_animation(
+                        animation_json_path.clone(),
+                        animation_out_path.clone(),
+                        used_joints.clone(),
+                    ) {
+                        error!(
+                            "Failed to generate animation {:?}: {:?}",
+                            animation.anim_id, e
+                        );
                         return;
                     }
 
-                    match download_asset(
-                        ObjectType::Animation.to_string(),
-                        animation.anim_id,
-                        &viewer_asset_endpoint,
-                    )
-                    .await
-                    {
-                        Ok(asset) => {
-                            println!("{:?}", asset)
-                        }
-                        Err(e) => {
-                            error!(
-                                "failed to retrieve avatar animation {:?}, {:?}",
-                                e, animation.anim_id
-                            )
-                        }
-                    };
+                    addr.do_send(SendUIMessage {
+                        ui_message: UIMessage::new_play_animation(PlayAnimation {
+                            player_id: sender_id,
+                            animation_path: animation_out_path,
+                        }),
+                    });
                 }
             }
             .into_actor(self),

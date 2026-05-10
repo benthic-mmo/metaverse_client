@@ -20,7 +20,7 @@ use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_inventory::object_update::get_object_scale_rotation_position;
 use metaverse_inventory::object_update::get_object_update;
-use metaverse_mesh::generate::generate_object_mesh;
+use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;

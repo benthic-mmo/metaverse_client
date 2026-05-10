@@ -15,7 +15,6 @@ benthic_default_assets = {path="../../../benthic_default_assets/"}
 metaverse_core = {path="../core"}
 benthic_default_assets = {path="../../../benthic_default_assets/"}
 benthic_protocol = {path="../../../benthic_protocol/"}
-metaverse_messages = {path="../messages"}
 metaverse_agent = {path="../agent"}
 
 #disable sound for bevy

@@ -1,6 +1,5 @@
 use crate::plugin::{CameraUpdateEvent, SessionData};
 use crate::textures::environment::HeightMaterial;
-use benthic_protocol::default_animations::DefaultAnimation;
 use benthic_protocol::messages::ui::land_update::LandUpdate;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use bevy::platform::collections::HashMap;
@@ -26,7 +25,7 @@ pub struct AgentIDMap {
 
 pub struct AgentEntity {
     pub entity: Entity,
-    pub animation: PathBuf,
+    pub animation: Option<PathBuf>,
     pub skeleton: Entity,
 }
 
@@ -125,7 +124,7 @@ pub fn handle_mesh_update(
                 AgentEntity {
                     entity: agent_root,
                     skeleton: agent_root,
-                    animation: DefaultAnimation::Stand.path(),
+                    animation: None,
                 },
             );
         }
