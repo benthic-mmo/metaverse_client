@@ -113,3 +113,9 @@ pub fn create_sub_object_dir(name: &str) -> io::Result<PathBuf> {
     let object_dir = create_sub_share_dir("object")?;
     create_sub_dir(&object_dir, name)
 }
+
+/// Create a subdirectory inside an agent directory for animations
+pub fn create_agent_animation_dir(agent_name: &str) -> io::Result<PathBuf> {
+    let agent_dir = create_sub_agent_dir(agent_name)?;
+    create_sub_dir(&agent_dir, "animations")
+}
