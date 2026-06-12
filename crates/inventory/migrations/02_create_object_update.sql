@@ -1,7 +1,9 @@
 CREATE TABLE object_updates (
     id          INTEGER NOT NULL,
     full_id     TEXT PRIMARY KEY NOT NULL,
-    parent      TEXT,
+    crc         INTEGER NOT NULL,
+    region_id   TEXT NOT NULL,
+    parent      INTEGER,
     pcode       TEXT,
 
     pos_x       REAL NOT NULL,
@@ -16,6 +18,8 @@ CREATE TABLE object_updates (
     scale_x     REAL NOT NULL,
     scale_y     REAL NOT NULL,
     scale_z     REAL NOT NULL,
-
-    json        TEXT
+    
+    asset_id    TEXT,
+    json        TEXT,
+    glb         TEXT
 );

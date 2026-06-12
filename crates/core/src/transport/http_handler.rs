@@ -195,7 +195,7 @@ fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
     Error::other(format!("{}: {:?}", msg, err))
 }
 
-/// Download a scenegroup object. This is done by retrieving all of th meshes in the scenegroup and
+/// Download a scenegroup object. This is done by retrieving all of the meshes in the scenegroup and
 /// calling download_renderable_mesh on them one by one, and then building a vector of created
 /// meshes.
 pub async fn download_scene_group(

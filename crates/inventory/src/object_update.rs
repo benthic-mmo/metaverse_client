@@ -1,80 +1,154 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::PathBuf};
 
 use crate::errors::InventoryError;
 use glam::{Quat, Vec3};
-use metaverse_messages::{
-    udp::object::object_update::ObjectUpdate, utils::object_types::ObjectType,
-};
+use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
-/// Store object update in DB
-pub async fn insert_object_update(
+#[derive(Debug)]
+pub struct GeneratorObject {
+    pub full_id: Uuid,
+    pub local_id: u32,
+    pub parent_id: Option<u32>,
+    pub position: Vec3,
+    pub scale: Vec3,
+    pub rotation: Quat,
+}
+
+fn vec3_from_row(
+    row: &sqlx::sqlite::SqliteRow,
+    x: &str,
+    y: &str,
+    z: &str,
+) -> Result<Vec3, sqlx::Error> {
+    Ok(Vec3::new(
+        row.try_get::<f32, &str>(x)?,
+        row.try_get::<f32, &str>(y)?,
+        row.try_get::<f32, &str>(z)?,
+    ))
+}
+
+fn quat_from_row(
+    row: &sqlx::sqlite::SqliteRow,
+    x: &str,
+    y: &str,
+    z: &str,
+    w: &str,
+) -> Result<Quat, sqlx::Error> {
+    Ok(Quat::from_xyzw(
+        row.try_get::<f32, &str>(x)?,
+        row.try_get::<f32, &str>(y)?,
+        row.try_get::<f32, &str>(z)?,
+        row.try_get::<f32, &str>(w)?,
+    ))
+}
+
+pub async fn sqlite_check_cache(
     pool: &SqlitePool,
-    update: &ObjectUpdate,
-) -> Result<(), InventoryError> {
-    let json = serde_json::to_string(update)?;
-
-    let pos = update.motion_data.position;
-    let rot = update.motion_data.rotation.normalize();
-    let scale = update.scale;
-
-    sqlx::query(
+    id: u32,
+    crc: u32,
+    region_id: String,
+) -> Result<(Uuid, PathBuf, Option<PathBuf>, GeneratorObject), InventoryError> {
+    let row = sqlx::query(
         r#"
-        INSERT INTO object_updates (
-            id, full_id, parent, pcode,
-            pos_x, pos_y, pos_z,
-            rot_x, rot_y, rot_z, rot_w,
+        SELECT
+            asset_id,
+            glb,
+            full_id,
+            id,
+            parent,
             scale_x, scale_y, scale_z,
-            json
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(full_id) DO UPDATE SET
-            id      = excluded.id,
-            parent  = excluded.parent,
-            pcode   = excluded.pcode,
-
-            pos_x   = excluded.pos_x,
-            pos_y   = excluded.pos_y,
-            pos_z   = excluded.pos_z,
-
-            rot_x   = excluded.rot_x,
-            rot_y   = excluded.rot_y,
-            rot_z   = excluded.rot_z,
-            rot_w   = excluded.rot_w,
-
-            scale_x = excluded.scale_x,
-            scale_y = excluded.scale_y,
-            scale_z = excluded.scale_z,
-
-            json    = excluded.json
+            rot_x, rot_y, rot_z, rot_w,
+            pos_x, pos_y, pos_z
+        FROM object_updates
+        WHERE id = ?
+          AND crc = ?
+          AND region_id = ?
         "#,
     )
-    .bind(update.id as i64)
-    .bind(update.full_id.to_string())
-    .bind(update.parent_id as i64)
-    .bind(update.pcode.to_string())
-    .bind(pos.x)
-    .bind(pos.y)
-    .bind(pos.z)
-    .bind(rot.x)
-    .bind(rot.y)
-    .bind(rot.z)
-    .bind(rot.w)
-    .bind(scale.x)
-    .bind(scale.y)
-    .bind(scale.z)
-    .bind(json)
+    .bind(id)
+    .bind(crc)
+    .bind(region_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+
+    let asset_id: String = row.try_get("asset_id")?;
+    let asset_id = Uuid::parse_str(&asset_id)?;
+
+    let glb: Option<String> = row.try_get("glb")?;
+    let glb_path = glb.as_ref().map(PathBuf::from);
+
+    let generator = GeneratorObject {
+        full_id: {
+            let id_str: String = row.try_get("full_id")?;
+            Uuid::parse_str(&id_str)?
+        },
+        local_id: row.try_get("id")?,
+        parent_id: row.try_get("parent")?,
+        position: vec3_from_row(&row, "pos_x", "pos_y", "pos_z")?,
+        scale: vec3_from_row(&row, "scale_x", "scale_y", "scale_z")?,
+        rotation: quat_from_row(&row, "rot_x", "rot_y", "rot_z", "rot_w")?,
+    };
+
+    Ok((
+        asset_id,
+        glb_path.clone().unwrap_or_default(),
+        glb_path,
+        generator,
+    ))
+}
+
+pub async fn sqlite_update_object_json_path(
+    pool: &SqlitePool,
+    full_id: Uuid,
+    asset_id: Uuid,
+    json_path: &str,
+) -> Result<(), InventoryError> {
+    sqlx::query(
+        r#"
+        UPDATE object_updates
+        SET asset_id = ?,
+            json = ?
+        WHERE full_id = ?
+        "#,
+    )
+    .bind(asset_id.to_string())
+    .bind(json_path)
+    .bind(full_id.to_string())
     .execute(pool)
     .await?;
 
     Ok(())
 }
 
-pub async fn insert_object_update_minimal(
+pub async fn sqlite_update_object_glb_path(
+    pool: &SqlitePool,
+    full_id: Uuid,
+    glb_path: &str,
+) -> Result<(), InventoryError> {
+    sqlx::query(
+        r#"
+        UPDATE object_updates
+        SET glb = ?
+        WHERE full_id = ?
+        "#,
+    )
+    .bind(glb_path)
+    .bind(full_id.to_string())
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn sqlite_insert_object_update(
     pool: &SqlitePool,
     id: u32,
     full_id: Uuid,
+    crc: u32,
+    region_id: String,
     object_type: ObjectType,
     parent_id: Option<u32>,
     position: Vec3,
@@ -87,15 +161,17 @@ pub async fn insert_object_update_minimal(
     sqlx::query(
         r#"
         INSERT INTO object_updates (
-            id, full_id, parent, pcode,
+            id, full_id, crc, region_id, parent, pcode,
             pos_x, pos_y, pos_z,
             rot_x, rot_y, rot_z, rot_w,
             scale_x, scale_y, scale_z
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(full_id) DO UPDATE SET
             id      = excluded.id,
             parent  = excluded.parent,
+            crc     = excluded.crc,
+            region_id = excluded.region_id,
             pcode   = excluded.pcode,
 
             pos_x   = excluded.pos_x,
@@ -114,6 +190,8 @@ pub async fn insert_object_update_minimal(
     )
     .bind(id as i64)
     .bind(full_id.to_string())
+    .bind(crc)
+    .bind(region_id)
     .bind(parent_id as i64)
     .bind(object_type.to_string())
     .bind(position.x)
@@ -133,22 +211,19 @@ pub async fn insert_object_update_minimal(
 }
 
 /// Get object update by id
-pub async fn get_object_update(
+pub async fn sqlite_get_parent(
     pool: &SqlitePool,
     object_id: u32,
-) -> Result<ObjectUpdate, InventoryError> {
-    let row = sqlx::query("SELECT json FROM object_updates WHERE id = ?")
+) -> Result<Option<u32>, InventoryError> {
+    let row = sqlx::query("SELECT parent FROM object_updates WHERE id = ?")
         .bind(object_id as i64)
         .fetch_one(pool)
         .await?;
 
-    let json_str: String = row.try_get("json")?;
-    let obj: ObjectUpdate = serde_json::from_str(&json_str)?;
-
-    Ok(obj)
+    Ok(row.try_get("parent")?)
 }
 
-pub async fn get_object_scale_rotation_position(
+pub async fn sqlite_get_object_scale_rotation_position(
     pool: &SqlitePool,
     object_id: u32,
 ) -> Result<(Vec3, Quat, Vec3), InventoryError> {
@@ -165,27 +240,9 @@ pub async fn get_object_scale_rotation_position(
     .bind(object_id as i64)
     .fetch_one(pool)
     .await?;
-
-    let position = Vec3::new(
-        row.try_get("pos_x")?,
-        row.try_get("pos_y")?,
-        row.try_get("pos_z")?,
-    );
-
-    let rotation = Quat::from_xyzw(
-        row.try_get("rot_x")?,
-        row.try_get("rot_y")?,
-        row.try_get("rot_z")?,
-        row.try_get("rot_w")?,
-    )
-    .normalize();
-
-    let scale = Vec3::new(
-        row.try_get("scale_x")?,
-        row.try_get("scale_y")?,
-        row.try_get("scale_z")?,
-    );
-
+    let position = vec3_from_row(&row, "pos_x", "pos_y", "pos_z")?;
+    let scale = vec3_from_row(&row, "scale_x", "scale_y", "scale_z")?;
+    let rotation = quat_from_row(&row, "rot_x", "rot_y", "rot_z", "rot_w")?;
     Ok((scale, rotation, position))
 }
 

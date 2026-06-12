@@ -18,8 +18,14 @@ use glam::Vec3;
 use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
-use metaverse_inventory::object_update::get_object_scale_rotation_position;
-use metaverse_inventory::object_update::get_object_update;
+use metaverse_inventory::errors::InventoryError;
+use metaverse_inventory::object_update::sqlite_check_cache;
+use metaverse_inventory::object_update::sqlite_get_object_scale_rotation_position;
+use metaverse_inventory::object_update::sqlite_get_parent;
+use metaverse_inventory::object_update::sqlite_insert_object_update;
+use metaverse_inventory::object_update::sqlite_update_object_glb_path;
+use metaverse_inventory::object_update::sqlite_update_object_json_path;
+use metaverse_inventory::object_update::GeneratorObject;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet::Packet;
@@ -37,8 +43,6 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use uuid::Uuid;
-
-use metaverse_inventory::object_update::insert_object_update_minimal;
 
 /// Handles received ObjectUpdate packets.
 ///
@@ -89,6 +93,8 @@ pub struct HandleObjectUpdate {
 
     /// Object's texture data
     pub texture: TextureEntry,
+
+    pub crc: u32,
 }
 
 /// Begins the pipeline for handling a prim object.
@@ -174,6 +180,32 @@ pub struct HandleObjectUpdateCached {
     pub object_update_cached: ObjectUpdateCached,
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct GenerateMeshFromJson {
+    pub json_path: PathBuf,
+    pub base_dir: PathBuf,
+    pub asset_id: Uuid,
+    pub object: GeneratorObject,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct RenderObjectFromFile {
+    pub mesh_path: PathBuf,
+    pub asset_id: Uuid,
+    pub base_dir: PathBuf,
+    pub object: GeneratorObject,
+    pub retry_count: u32,
+}
+
+fn backoff_ms(retry: u32) -> u64 {
+    let base = 50;
+    let cap = 2000;
+
+    (base * 2u64.pow(retry.min(6))).min(cap)
+}
+
 impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(
@@ -187,23 +219,77 @@ impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
 }
 
 impl Handler<HandleObjectUpdateCached> for Mailbox {
-    type Result = ();
+    type Result = ResponseFuture<()>;
     fn handle(&mut self, msg: HandleObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
+        let session = match self.session.as_ref() {
+            Some(session) => session,
+            None => return Box::pin(async {}),
+        };
+
+        let db_pool = self.inventory_db_connection.clone();
+        let addr = ctx.address();
+        let region_id = session.region_data.region_id.clone();
+        let session_id = session.session_id.clone();
+        let agent_id = session.agent_id.clone();
+
+        Box::pin(async move {
             let mut requests = Vec::new();
             for object in &msg.object_update_cached.objects {
-                requests.push((CacheMissType::Normal, object.id));
-            }
-            let request = RequestMultipleObjects {
-                session_id: session.session_id,
-                agent_id: session.agent_id,
-                requests,
-            };
+                match sqlite_check_cache(&db_pool, object.id, object.crc.clone(), region_id.clone())
+                    .await
+                {
+                    Ok((asset_id, json_path, glb, generator_object)) => {
+                        let base_dir = match create_sub_object_dir(&asset_id.to_string()) {
+                            Ok(base_dir) => base_dir,
+                            Err(e) => {
+                                error!("failed to create base dir: {:?}", e);
+                                return;
+                            }
+                        };
 
-            ctx.address().do_send(OutgoingPacket {
-                packet: Packet::new_request_multiple_objects(request),
-            });
-        }
+                        if let Some(mesh_path) = glb {
+                            addr.do_send(RenderObjectFromFile {
+                                mesh_path,
+                                base_dir,
+                                asset_id,
+                                object: generator_object,
+                                retry_count: 0,
+                            })
+                        } else {
+                            warn!(
+                                "Generated mesh file {:?} not found. Generating now.",
+                                asset_id
+                            );
+                            addr.do_send(GenerateMeshFromJson {
+                                json_path,
+                                base_dir,
+                                asset_id,
+                                object: generator_object,
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        info!(
+                            "Cache did not contain {}, {} from {}, {:?}",
+                            object.id, object.crc, region_id, e
+                        );
+                        requests.push((CacheMissType::Normal, object.id));
+                    }
+                }
+            }
+
+            if !requests.is_empty() {
+                let request = RequestMultipleObjects {
+                    session_id,
+                    agent_id,
+                    requests,
+                };
+
+                addr.do_send(OutgoingPacket {
+                    packet: Packet::new_request_multiple_objects(request),
+                });
+            }
+        })
     }
 }
 
@@ -214,17 +300,20 @@ impl Handler<HandleObjectUpdate> for Mailbox {
         let addr = ctx.address();
         let msg_cloned = msg.clone();
 
-        if self.session.is_none() {
-            return Box::pin(async {});
+        let session = match self.session.as_ref() {
+            Some(session) => session,
+            None => return Box::pin(async {}),
         };
+        let region_id = session.region_data.region_id.clone();
         Box::pin(async move {
             // all object updates first should be added to the db.
             // if they cannot be added, the object should be retried.
-
-            insert_object_update_minimal(
+            sqlite_insert_object_update(
                 &db_pool,
                 msg.local_id,
                 msg.full_id,
+                msg.crc,
+                region_id,
                 msg.object_type.clone(),
                 msg.parent_id,
                 msg.position,
@@ -242,7 +331,6 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                 ObjectType::Prim => {
                     // if the msg.name_value can be parsed as an attachment, handle it as an
                     // attachment.
-                    //
                     if let Some(name_value) = msg.name_value.clone() {
                         match AttachItem::parse_attach_item(name_value) {
                             Ok(item) => {
@@ -316,19 +404,25 @@ impl Handler<HandleAttachment> for Mailbox {
                 Some(id) => id,
                 None => return,
             };
+
             let mut visited = std::collections::HashSet::new();
+
             loop {
                 if !visited.insert(current_id) {
                     break;
                 }
-                let obj = match get_object_update(&db_pool, current_id).await {
-                    Ok(obj) => obj,
+
+                let parent = match sqlite_get_parent(&db_pool, current_id).await {
+                    Ok(p) => p,
                     Err(_) => return,
                 };
-                if obj.parent_id == 0 {
-                    break;
+
+                match parent {
+                    Some(p) => {
+                        current_id = p;
+                    }
+                    None => break,
                 }
-                current_id = obj.parent_id;
             }
         })
     }
@@ -336,7 +430,7 @@ impl Handler<HandleAttachment> for Mailbox {
 
 impl Handler<DownloadObject> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut() {
             let server_endpoint = session
                 .capability_urls
@@ -396,45 +490,30 @@ impl Handler<DownloadObject> for Mailbox {
                                     return;
                                 }
                             };
-                            let glb_path = base_dir.join(format!("{:?}_high.glb", msg.asset_id));
-                            match generate_object_mesh(json_path, glb_path.clone()) {
-                                Ok(_) => {
-                                    info!("Rendering object at: {:?}", msg.asset_id)
-                                }
-                                Err(e) => warn!("{:?}", e),
-                            };
 
-                            // retrieve the parent's trnasforms from the db to determine the
-                            // global position of a child object
-                            if let Some(parent_id) = msg.object.parent_id {
-                                match get_object_scale_rotation_position(&inventory_db, parent_id)
-                                    .await
-                                {
-                                    Ok((_parent_scale, parent_rotation, parent_position)) => {
-                                        let rotated_offset =
-                                            parent_rotation.mul_vec3(msg.object.position);
-
-                                        msg.object.position = parent_position + rotated_offset;
-                                        msg.object.rotation = parent_rotation * msg.object.rotation;
-                                    }
-                                    Err(e) => {
-                                        error!("{:?}", e);
-                                        return;
-                                    }
-                                };
-                            }
-
-                            addr.do_send(SendUIMessage {
-                                ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                                    position: msg.object.position,
-                                    scale: msg.object.scale,
+                            sqlite_update_object_json_path(
+                                &inventory_db,
+                                msg.object.full_id,
+                                msg.asset_id,
+                                json_path.to_str().unwrap(),
+                            )
+                            .await
+                            .unwrap_or_else(|e| {
+                                error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
+                                return;
+                            });
+                            addr.do_send(GenerateMeshFromJson {
+                                object: GeneratorObject {
+                                    full_id: msg.object.full_id,
+                                    local_id: msg.object.local_id,
+                                    parent_id: msg.object.parent_id,
                                     rotation: msg.object.rotation,
-                                    parent: msg.object.parent,
-                                    scene_id: Some(msg.object.local_id),
-                                    path: glb_path,
-                                    mesh_type: MeshType::Object,
-                                    id: None,
-                                }),
+                                    scale: msg.object.scale,
+                                    position: msg.object.position,
+                                },
+                                asset_id: msg.asset_id,
+                                base_dir,
+                                json_path,
                             });
                         }
                         Err(e) => {
@@ -446,6 +525,139 @@ impl Handler<DownloadObject> for Mailbox {
             );
         }
     }
+}
+
+impl Handler<GenerateMeshFromJson> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: GenerateMeshFromJson, ctx: &mut Self::Context) -> Self::Result {
+        let inventory_db = self.inventory_db_connection.clone();
+        let addr = ctx.address();
+        ctx.spawn(
+            async move {
+                let glb_path = msg.base_dir.join(format!("{:?}_high.glb", msg.asset_id));
+                match generate_object_mesh(msg.json_path, glb_path.clone()) {
+                    Ok(_) => {
+                        info!("Rendering object at: {:?}", msg.asset_id);
+                        sqlite_update_object_glb_path(
+                            &inventory_db,
+                            msg.object.full_id,
+                            glb_path.to_str().unwrap(),
+                        )
+                        .await
+                        .unwrap_or_else(|e| {
+                            error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
+                            return;
+                        });
+                    }
+                    Err(e) => warn!("{:?}", e),
+                };
+                addr.do_send(RenderObjectFromFile {
+                    mesh_path: glb_path,
+                    base_dir: msg.base_dir,
+                    asset_id: msg.asset_id,
+                    object: msg.object,
+                    retry_count: 0,
+                })
+            }
+            .into_actor(self),
+        );
+    }
+}
+
+impl Handler<RenderObjectFromFile> for Mailbox {
+    type Result = ();
+
+    fn handle(&mut self, mut msg: RenderObjectFromFile, ctx: &mut Self::Context) -> Self::Result {
+        let inventory_db = self.inventory_db_connection.clone();
+        let addr = ctx.address();
+
+        ctx.spawn(
+            async move {
+                let parent_id = match msg.object.parent_id {
+                    Some(0) | None => {
+                        // no parent, render directly
+                        addr.do_send(SendUIMessage {
+                            ui_message: UIMessage::new_mesh_update(MeshUpdate {
+                                position: msg.object.position,
+                                scale: msg.object.scale,
+                                rotation: msg.object.rotation,
+                                parent: msg.object.parent_id,
+                                scene_id: Some(msg.object.local_id),
+                                path: msg.mesh_path,
+                                mesh_type: MeshType::Object,
+                                id: None,
+                            }),
+                        });
+                        return;
+                    }
+                    Some(id) => id,
+                };
+
+                match sqlite_get_object_scale_rotation_position(&inventory_db, parent_id).await {
+                    Ok((_parent_scale, parent_rotation, parent_position)) => {
+                        let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
+
+                        msg.object.position = parent_position + rotated_offset;
+                        msg.object.rotation = parent_rotation * msg.object.rotation;
+
+                        addr.do_send(SendUIMessage {
+                            ui_message: UIMessage::new_mesh_update(MeshUpdate {
+                                position: msg.object.position,
+                                scale: msg.object.scale,
+                                rotation: msg.object.rotation,
+                                parent: msg.object.parent_id,
+                                scene_id: Some(msg.object.local_id),
+                                path: msg.mesh_path,
+                                mesh_type: MeshType::Object,
+                                id: None,
+                            }),
+                        });
+                    }
+
+                    Err(inventory_error) => {
+                        warn!(
+                            "Parent {} not ready, requeuing object {}: {}",
+                            parent_id, msg.object.full_id, inventory_error
+                        );
+
+                        schedule_retry(&addr, msg, parent_id, &inventory_error.to_string());
+                    }
+                }
+            }
+            .into_actor(self),
+        );
+    }
+}
+
+fn schedule_retry(
+    addr: &actix::Addr<Mailbox>,
+    mut msg: RenderObjectFromFile,
+    parent_id: u32,
+    reason: &str,
+) {
+    if msg.retry_count >= 6 {
+        error!(
+            "Dropping object {} after max retries (parent {}): {}",
+            msg.object.full_id, parent_id, reason
+        );
+        return;
+    }
+
+    let delay = backoff_ms(msg.retry_count);
+
+    warn!(
+        "Parent {} not ready for {}, retry {} in {}ms",
+        parent_id, msg.object.full_id, msg.retry_count, delay
+    );
+
+    msg.retry_count += 1;
+
+    let addr = addr.clone();
+
+    actix::spawn(async move {
+        actix::clock::sleep(std::time::Duration::from_millis(delay)).await;
+        addr.do_send(msg);
+    });
 }
 
 /// When an object is retrieved in full, the data will be written in serializable json format, to
