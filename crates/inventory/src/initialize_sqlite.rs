@@ -1,26 +1,29 @@
 use crate::errors::InventoryError;
 use sqlx::migrate::Migrator;
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
-use std::{fs, io::ErrorKind, path::PathBuf};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    SqlitePool,
+};
+use std::{path::PathBuf, str::FromStr};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 pub async fn init_sqlite(path: PathBuf) -> Result<SqlitePool, InventoryError> {
-    // Remove existing DB if it exists
-    match fs::remove_file(&path) {
-        Ok(_) => (),
-        Err(ref e) if e.kind() == ErrorKind::NotFound => (),
-        Err(e) => return Err(e.into()),
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
     }
-    fs::File::create(&path)?;
+
     let database_url = format!("sqlite:{}", path.display());
 
-    let pool = SqlitePoolOptions::new()
+    let options = SqliteConnectOptions::from_str(&database_url)?.create_if_missing(true);
+
+    let pool: SqlitePool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&database_url)
+        .connect_with(options)
         .await?;
 
     MIGRATOR.run(&pool).await?;
 
     Ok(pool)
 }
+

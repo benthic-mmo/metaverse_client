@@ -25,7 +25,7 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(e) => {
-                            println!("failed to parse: {:?}", e);
+                            warn!("failed to parse: {:?}", e);
                             continue;
                         }
                     };
@@ -98,6 +98,7 @@ impl Mailbox {
                                     scale: data.scale,
                                     parent: Some(data.parent_id),
                                     texture: data.texture_entry.clone(),
+                                    crc: data.crc.clone(),
                                 })
                                 .await
                             {
@@ -139,6 +140,7 @@ impl Mailbox {
                                         scale: object.scale,
                                         parent: object.parent_id,
                                         texture: object.texture_entry,
+                                        crc: object.crc.clone(),
                                     })
                                     .await
                                 {
@@ -200,7 +202,6 @@ impl Mailbox {
                             };
                         }
                         PacketType::SimulatorViewerTimeMessage(data) => {
-                            println!("{:?}", data);
                             if let Err(e) = mailbox_address
                                 .send(HandleSimulatorViewerTimeMessage {
                                     seconds_since_start: data.seconds_since_start,
@@ -215,7 +216,7 @@ impl Mailbox {
                         }
 
                         other => {
-                            println!("unhandled packet: {:?}", other);
+                            warn!("unhandled packet: {:?}", other);
                         }
                     }
                 }

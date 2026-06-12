@@ -25,7 +25,7 @@ use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
-use std::fs::{self, File};
+use std::fs::{self, exists, File};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -229,7 +229,7 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                         {
                             Ok(_) => {
                                 //TODO: Implement this
-                                warn!("Retrieved animation, but non-default animations are unimplemented");
+                                warn!("Retrieved animation, but non-default animations are currently unimplemented");
                                 return;
                             }
                             Err(e) => {
@@ -306,6 +306,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
                     }
                     _ => {
                         //TODO: unimplemented!
+                        warn!("Avatars wearing non-mesh objects are currently not supported.")
                     }
                 }
 
@@ -417,21 +418,26 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             // for the rest of the object
                             let texture_id = scene_group.parts[0].shape.texture.texture_id;
                             let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-                            let texture_path = match download_texture(
-                                ObjectType::Texture.to_string(),
-                                texture_id,
-                                &server_endpoint,
-                                &texture_path,
-                            )
-                            .await
-                            {
-                                Ok(_) => texture_path,
-                                Err(e) => {
-                                    error!("Failed to download texture: {:?}", e);
-                                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                                        .join("assets")
-                                        .join("textures")
-                                        .join("benthic_default_texture.png")
+                            let texture_path = if texture_path.exists() {
+                                texture_path
+                            } else {
+                                match download_texture(
+                                    ObjectType::Texture.to_string(),
+                                    texture_id,
+                                    &server_endpoint,
+                                    &texture_path,
+                                )
+                                .await
+                                {
+                                    Ok(_) => texture_path,
+                                    Err(e) => {
+                                        error!("Failed to download texture: {:?}", e);
+
+                                        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                                            .join("assets")
+                                            .join("textures")
+                                            .join("benthic_default_texture.png")
+                                    }
                                 }
                             };
 

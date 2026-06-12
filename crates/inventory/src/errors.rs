@@ -48,4 +48,7 @@ pub enum InventoryError {
 
     #[error("System time error {0}")]
     SystemTimeError(#[from] SystemTimeError),
+
+    #[error("Cache Miss Error: {0}")]
+    CacheMiss(String),
 }

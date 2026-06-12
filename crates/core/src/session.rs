@@ -17,6 +17,7 @@ use benthic_protocol::messages::ui::{
     ui_messages::{UIMessage, UIResponse},
     water_update::WaterUpdate,
 };
+use glam::Vec2;
 use log::{error, info};
 use metaverse_agent::avatar::Avatar;
 use metaverse_messages::{
@@ -37,7 +38,7 @@ use metaverse_messages::{
         },
     },
 };
-use rgb::{Rgb, Rgba};
+use rgb::Rgba;
 use sqlx::{Pool, Sqlite};
 use std::{
     collections::{HashMap, HashSet},
@@ -138,6 +139,9 @@ pub struct RegionData {
     pub water_height: f32,
     /// The time elapsed since there was an update for the region's time
     pub last_time_update: u64,
+
+    pub region_coordinates: Vec2,
+    pub region_id: String,
 }
 
 /// Handles incoming pings from the server
@@ -592,6 +596,11 @@ async fn handle_login(
             local_ip,
             capability_urls: HashMap::new(),
             region_data: RegionData {
+                region_coordinates: Vec2 {
+                    x: (login_response.region_x.unwrap() as f32),
+                    y: (login_response.region_y.unwrap() as f32),
+                },
+                region_id: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
                 ..Default::default()
             },
 
