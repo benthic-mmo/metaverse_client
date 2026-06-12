@@ -12,12 +12,19 @@ use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::render_data::{AvatarObject, RenderObject};
+use benthic_protocol::skeleton::JointName;
 use glam::{Quat, Vec3};
-use log::{error, info, warn};
+use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
 use metaverse_agent::skeleton::update_global_avatar_skeleton;
-use metaverse_inventory::agent::get_current_outfit;
+use metaverse_inventory::agent::{sqlite_update_avatar_skeleton, sqlite_update_outfit_item_json_path};
+use metaverse_inventory::agent::{sqlite_get_current_avatar_version, sqlite_get_json_and_mesh};
+use metaverse_inventory::agent::{
+    sqlite_get_current_outfit, sqlite_update_final_avatar_json_path,
+    sqlite_update_final_avatar_mesh_path,
+};
+use metaverse_inventory::agent::{sqlite_get_current_outfit_version, sqlite_insert_avatar};
 use metaverse_mesh::animation::generate::generate_gltf_animation;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
@@ -25,7 +32,8 @@ use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
-use std::fs::{self, exists, File};
+use std::collections::BTreeSet;
+use std::fs::{self, File};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -306,7 +314,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
                     }
                     _ => {
                         //TODO: unimplemented!
-                        warn!("Avatars wearing non-mesh objects are currently not supported.")
+                        //warn!("Avatars wearing non-mesh objects are currently not supported.")
                     }
                 }
 
@@ -327,66 +335,139 @@ impl Handler<AddObjectToAvatar> for Mailbox {
 impl Handler<FinalizeAvatar> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: FinalizeAvatar, ctx: &mut Self::Context) -> Self::Result {
+
+        let db_conn = self.inventory_db_connection.clone();
         if let Some(session) = self.session.as_mut() {
             if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
-                let agent_dir = match create_sub_agent_dir(&avatar.agent_id.to_string()) {
-                    Ok(dir) => dir,
+                let addr = ctx.address();
+
+                let agent_id = avatar.agent_id;
+                let position = avatar.position;
+                let skeleton = avatar.skeleton.clone();
+                let used_joints = avatar.used_joints.clone();
+                let items = avatar.items.clone();
+
+                avatar.fully_loaded = true;
+                ctx.spawn(
+                    async move {
+                        let json_paths: Vec<PathBuf> = items
+                            .into_iter()
+                            .filter_map(|item| {
+                                if let OutfitObject::MeshObject(path) = item {
+                                    Some(path)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        let avatar_object = AvatarObject {
+                            objects: json_paths,
+                            global_skeleton: skeleton,
+                            used_joints: used_joints.clone(),
+                        };
+
+                        let json_path_str = agent_id.to_string();
+                        let json_path = PathBuf::from(&json_path_str);
+
+                        let json_path = if json_path.exists() {
+                            json_path.clone()
+                        } else {
+                            match write_json(&avatar_object, agent_id, &json_path_str) {
+                                Ok(p) => PathBuf::from(p),
+                                Err(e) => {
+                                    error!("write_json failed: {:?}", e);
+                                    return;
+                                }
+                            }
+                        };
+                        let joints_serde = serde_json::to_string(&used_joints).unwrap();
+                        match sqlite_update_avatar_skeleton(&db_conn, agent_id, &joints_serde).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to update avatar askeleton {:?}", e)
+                            }
+                        };
+                        
+                        addr.do_send(MeshFromJson {
+                            json_path,
+                            agent_id,
+                            position,
+                            used_joints,
+                        });
+                    }
+                    .into_actor(self),
+                );
+            }
+        }
+    }
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+struct MeshFromJson {
+    json_path: PathBuf,
+    agent_id: Uuid,
+    position: Vec3,
+    used_joints: BTreeSet<JointName>
+}
+impl Handler<MeshFromJson> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: MeshFromJson, ctx: &mut Self::Context) -> Self::Result {
+        let db_conn = self.inventory_db_connection.clone();
+        let addr = ctx.address();
+
+        ctx.spawn(
+            async move {
+                if let Err(e) = sqlite_update_final_avatar_json_path(
+                    &db_conn,
+                    msg.agent_id,
+                    &msg.json_path.to_string_lossy(),
+                )
+                .await
+                {
+                    warn!("Failed to update json path: {:?}", e);
+                }
+                let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
+                    Ok(base_dir) => base_dir,
                     Err(e) => {
-                        warn!("Failed to create base agent directory: {:?}", e);
+                        error!("failed to create base dir: {:?}", e);
                         return;
                     }
                 };
-                let json_paths: Vec<PathBuf> = avatar
-                    .items
-                    .iter()
-                    .filter_map(|item| {
-                        if let OutfitObject::MeshObject(path) = item {
-                            Some(path.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                let glb_path = base_dir.join(format!("{:?}_high.glb", msg.agent_id));
 
-                let avatar_object = AvatarObject {
-                    objects: json_paths,
-                    global_skeleton: avatar.skeleton.clone(),
-                    used_joints: avatar.used_joints.clone(),
-                };
-
-                let json_path =
-                    write_json(&avatar_object, avatar.agent_id, avatar.agent_id.to_string())
-                        .unwrap();
-
-                let glb_path = agent_dir.join(format!("{:?}_high.glb", avatar.agent_id));
-                // This generates a 3d model with the final skeleton applied, out of all of the paths to
-                // the json scene data retrieved from the avatar.
-                match generate_skinned_mesh(json_path, glb_path.clone()) {
-                    Ok(_) => {
-                        info!(
-                            "Rendering avatar {:?} at {:?}",
-                            avatar.agent_id, avatar.position
-                        )
+                if !glb_path.exists() {
+                    if let Err(e) = generate_skinned_mesh(msg.json_path.clone(), glb_path.clone()) {
+                        error!("mesh generation failed: {:?}", e);
+                        return;
                     }
-                    Err(e) => warn!("{:?}", e),
-                };
+                }
 
-                // Update avatar state and notify UI
-                ctx.address().do_send(SendUIMessage {
-                    ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                        position: avatar.position,
-                        scale: Vec3::ONE,
-                        rotation: Quat::IDENTITY,
-                        parent: None,
-                        scene_id: None,
-                        path: glb_path,
-                        mesh_type: MeshType::Avatar,
-                        id: Some(avatar.agent_id),
-                    }),
-                });
-                avatar.fully_loaded = true;
+                if let Err(e) = sqlite_update_final_avatar_mesh_path(
+                    &db_conn,
+                    msg.agent_id,
+                    &glb_path.to_string_lossy(),
+                )
+                .await
+                {
+                    warn!("Failed to update mesh path: {:?}", e);
+                }
+
+                addr.do_send(RenderAvatar {message: MeshUpdate {
+                         position: msg.position,
+                         scale: Vec3::ONE,
+                         rotation: Quat::IDENTITY,
+                         parent: None,
+                         scene_id: None,
+                         path: glb_path,
+                         mesh_type: MeshType::Avatar,
+                         id: Some(msg.agent_id),
+                 }, agent_id: msg.agent_id, skeleton: msg.used_joints });
+
             }
-        }
+            .into_actor(self),
+        );
     }
 }
 
@@ -400,6 +481,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                 .unwrap()
                 .to_string();
             let addr = ctx.address();
+            let db_conn = self.inventory_db_connection.clone();
             ctx.spawn(
                 async move {
                     match download_object(msg.item_type.to_string(), msg.asset_id, &server_endpoint)
@@ -462,12 +544,28 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                 scene_group.parts[0].metadata.name
                             );
 
-                            // write the json
-                            let json = match write_json(&render_objects, msg.agent_id, json_path) {
-                                Ok(json) => json,
+                            let json = if std::path::Path::new(&json_path).exists() {
+                                PathBuf::from(json_path.clone())
+                            } else {
+                                match write_json(&render_objects, msg.agent_id, &json_path) {
+                                    Ok(json) => json,
+                                    Err(e) => {
+                                        error!("Failed to write json: {:?}", e);
+                                        return;
+                                    }
+                                }
+                            };
+
+                            match sqlite_update_outfit_item_json_path(
+                                &db_conn,
+                                msg.asset_id,
+                                &json_path.clone(),
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
                                 Err(e) => {
-                                    error!("Failed to write json: {:?}", e);
-                                    return;
+                                    warn!("Failed to update sqlite: {:?}", e)
                                 }
                             };
 
@@ -497,8 +595,8 @@ impl Handler<HandleNewAvatar> for Mailbox {
                 let pos = msg.avatar.position;
                 let position = Vec3 {
                     x: pos.x,
-                    y: pos.z,
-                    z: pos.y,
+                    y: pos.y,
+                    z: pos.z,
                 };
                 addr.do_send(SendUIMessage {
                     ui_message: UIMessage::new_camera_position(CameraPosition { position }),
@@ -510,8 +608,82 @@ impl Handler<HandleNewAvatar> for Mailbox {
                     let db_conn = self.inventory_db_connection.clone();
                     ctx.spawn(
                         async move {
-                            match get_current_outfit(&db_conn).await {
+                            match sqlite_get_current_outfit(&db_conn).await {
                                 Ok(outfit) => {
+                                    let current_outfit_version =
+                                        match sqlite_get_current_outfit_version(&db_conn).await {
+                                            Ok(version) => version,
+                                            Err(e) => {
+                                                error!(
+                                                    "Failed to get current outfit version {:?}",
+                                                    e
+                                                );
+                                                0
+                                            }
+                                        };
+                                    let avatar_current_version =
+                                        match sqlite_get_current_avatar_version(
+                                            &db_conn,
+                                            agent_id.to_string(),
+                                        )
+                                        .await
+                                        {
+                                            Ok(version) => version,
+                                            Err(e) => {
+                                                error!(
+                                                    "Failed to get current avatar version {:?}",
+                                                    e
+                                                );
+                                                0
+                                            }
+                                        };
+
+                                    if current_outfit_version == avatar_current_version {
+                                        match sqlite_get_json_and_mesh(&db_conn, agent_id.to_string()).await {
+                                            Ok((json_opt, mesh_opt, skeleton)) => {
+                                                match (json_opt, mesh_opt, skeleton) {
+                                                    (Some(_json_path), Some(glb_path), Some(skeleton)) => {
+                                                        let skeleton: BTreeSet<JointName> =  serde_json::from_str(&skeleton).unwrap();
+                                                        addr.do_send(RenderAvatar {message: MeshUpdate {
+                                                                position,
+                                                                scale: Vec3::ONE,
+                                                                rotation: Quat::IDENTITY,
+                                                                parent: None,
+                                                                scene_id: None,
+                                                                path: glb_path,
+                                                                mesh_type: MeshType::Avatar,
+                                                                id: Some(agent_id),
+                                                        }, agent_id, skeleton})
+                                                    },
+                                                    
+                                                    (Some(json_path), None, Some(skeleton)) => {
+                                                        warn!("Mesh missing for avatar {}, json exists", agent_id);
+                                                        let skeleton: BTreeSet<JointName> =  serde_json::from_str(&skeleton).unwrap();
+                                                        addr.do_send(MeshFromJson{agent_id, json_path, position, used_joints: skeleton});
+                                                    }
+                                                    _ => {
+                                                        warn!("No cached avatar data for {}", agent_id);
+                                                    }
+                                                }
+                                                return;
+                                            }
+                                            Err(e) => {
+                                                error!("Failed to retrieve avatar data from cache: {:?}", e);
+                                            }
+                                        }
+                                    }
+
+                                    if let Err(e) = sqlite_insert_avatar(
+                                        &db_conn,
+                                        agent_id,
+                                        current_outfit_version,
+                                    )
+                                    .await
+                                    {
+                                        error!("DB insert failed: {:?}", e);
+                                        return;
+                                    }
+
                                     if let Err(err) = addr
                                         .send(SetOutfitSize {
                                             agent_id,
@@ -526,11 +698,11 @@ impl Handler<HandleNewAvatar> for Mailbox {
                                         return;
                                     };
                                     for item in outfit {
-                                        match item.2 {
+                                        match item.item_type {
                                             ObjectType::Object => {
                                                 addr.do_send(DownloadAgentAsset {
-                                                    asset_id: item.1,
-                                                    item_type: item.2,
+                                                    asset_id: item.asset_id,
+                                                    item_type: item.item_type,
                                                     agent_id,
                                                 });
                                             }
@@ -574,10 +746,32 @@ impl Handler<HandleNewAvatar> for Mailbox {
     }
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct RenderAvatar {
+    message: MeshUpdate,
+    agent_id: Uuid,
+    skeleton: BTreeSet<JointName>,
+}
+
+impl Handler<RenderAvatar> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: RenderAvatar, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() { 
+            if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
+            avatar.used_joints = msg.skeleton;
+            let addr = ctx.address();
+            addr.do_send(SendUIMessage{ui_message: UIMessage::new_mesh_update(msg.message)});
+                avatar.fully_loaded = true;
+            }
+        }
+    }
+}
+
 /// When an object is retrieved in full, the data will be written in serializable json format, to
 /// create a cache. The JSON will then be sent to another crate to convert it into a 3d model that
 /// can be rendered.
-fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: String) -> io::Result<PathBuf> {
+fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: &str) -> io::Result<PathBuf> {
     match create_sub_agent_dir(&agent_id.to_string()) {
         Ok(mut agent_dir) => match serde_json::to_string(&data) {
             Ok(json) => {
