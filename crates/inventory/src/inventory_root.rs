@@ -1,4 +1,5 @@
 use crate::errors::InventoryError;
+use log::{info, warn};
 use metaverse_messages::http::folder_request::FolderRequest;
 use metaverse_messages::http::folder_types::{Category, Folder};
 use metaverse_messages::utils::item_metadata::ItemMetadata;
@@ -43,7 +44,37 @@ pub async fn refresh_inventory(
 
         for folder in folders {
             if !visited.insert(folder.folder_id) {
-                continue; // skip already processed
+                continue;
+            }
+
+            let needs_refresh = match check_folder_version(pool, folder.folder_id).await {
+                Ok(Some(db_version)) => {
+                    // if the cache version isn't the latest version
+                    if db_version != folder.version {
+                        info!(
+                            "Folder version mismatch for {} (db={}, remote={})",
+                            folder.folder_id, db_version, folder.version
+                        );
+                        // delete the folder
+                        delete_folder(pool, folder.folder_id).await?;
+                        // folder needs refresh
+                        true
+                    } else {
+                        // if it is the latest version, it does not need refresh
+                        false
+                    }
+                }
+                // if it is not present, then it needs refresh
+                Ok(None) => true,
+                // if the lookup failed, it needs refresh
+                Err(e) => {
+                    warn!("Folder Version Lookup Failed: {:?}", e);
+                    true
+                }
+            };
+
+            if !needs_refresh {
+                continue;
             }
 
             insert_folder(pool, &folder).await?;
@@ -73,6 +104,42 @@ pub async fn refresh_inventory(
 
     let mut visited = HashSet::new();
     refresh_recursive(pool, folder_request, &server_endpoint, &mut visited).await
+}
+
+pub async fn check_folder_version(
+    pool: &SqlitePool,
+    folder_id: Uuid,
+) -> Result<Option<i32>, InventoryError> {
+    let row = sqlx::query("SELECT version FROM folders WHERE id = ?")
+        .bind(folder_id.to_string())
+        .fetch_optional(pool)
+        .await?;
+
+    match row {
+        Some(row) => Ok(row.try_get("version")?),
+        None => Ok(None),
+    }
+}
+
+pub async fn delete_folder(pool: &SqlitePool, folder_id: Uuid) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM inventory_items WHERE folder_id = ?")
+        .bind(folder_id.to_string())
+        .execute(pool)
+        .await?;
+
+    sqlx::query("DELETE FROM inventory_categories WHERE parent_folder_id = ?")
+        .bind(folder_id.to_string())
+        .execute(pool)
+        .await?;
+
+    sqlx::query("DELETE FROM inventory_folders WHERE folder_id = ?")
+        .bind(folder_id.to_string())
+        .execute(pool)
+        .await?;
+
+    //TODO: delete on-disk share folder as well
+
+    Ok(())
 }
 
 pub async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), InventoryError> {

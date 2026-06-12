@@ -18,7 +18,6 @@ use glam::Vec3;
 use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
-use metaverse_inventory::errors::InventoryError;
 use metaverse_inventory::object_update::sqlite_check_cache;
 use metaverse_inventory::object_update::sqlite_get_object_scale_rotation_position;
 use metaverse_inventory::object_update::sqlite_get_parent;

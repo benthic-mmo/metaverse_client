@@ -1,6 +1,6 @@
 use actix::Message;
 use benthic_protocol::skeleton::{JointName, Skeleton};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::SystemTime;
 

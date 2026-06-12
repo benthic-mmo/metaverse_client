@@ -6,7 +6,11 @@ CREATE TABLE agents (
     position_z INTEGER, 
     skeleton TEXT, 
     path TEXT, 
-    last_update DATETIME DEFAULT CURRENT_TIMESTAMP
+    last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER,
+
+    json TEXT,
+    mesh TEXT 
 );
 
 
