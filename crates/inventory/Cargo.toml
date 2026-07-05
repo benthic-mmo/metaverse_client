@@ -8,6 +8,7 @@ edition = "2024"
 
 [dependencies]
 metaverse_messages = {path="../messages/"}
+metaverse_agent = {path="../agent/"}
 anyhow = "1.0.102"
 awc = "3.8.2"
 dirs = "6.0.0"

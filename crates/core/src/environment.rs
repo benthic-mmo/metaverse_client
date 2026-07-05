@@ -13,7 +13,7 @@ use log::info;
 use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{parse_layer_data, PatchLayer},
+    layer_handler::{PatchLayer, parse_layer_data},
 };
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::environment_data::DayCycle;
@@ -157,7 +157,6 @@ impl Handler<HandleLayerData> for Mailbox {
                             }
                         }
                         for (mesh, coordinate) in layer_meshes {
-
                             let scale = land.terrain_header.patch_size as f32;
                             let json_path = write_json(
                                 &LandData {
