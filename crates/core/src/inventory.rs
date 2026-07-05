@@ -7,7 +7,7 @@ use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;
 use uuid::Uuid;
 
-use metaverse_inventory::inventory_root::refresh_inventory;
+use metaverse_cache::inventory_root::refresh_inventory;
 
 use super::session::Mailbox;
 

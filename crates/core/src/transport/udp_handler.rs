@@ -10,7 +10,7 @@ use actix::Addr;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use log::{error, warn};
-use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
+use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
@@ -30,8 +30,8 @@ impl Mailbox {
                         }
                     };
                     // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
-                    if packet.header.reliable {
-                        if let Err(e) = mailbox_address
+                    if packet.header.reliable
+                        && let Err(e) = mailbox_address
                             .send(AddToAckList {
                                 id: packet.header.sequence_number,
                             })
@@ -39,7 +39,6 @@ impl Mailbox {
                         {
                             warn!("Failed to send ping: {:?}", e)
                         }
-                    }
 
                     match &packet.body {
                         PacketType::PacketAck(data) => {
@@ -98,7 +97,7 @@ impl Mailbox {
                                     scale: data.scale,
                                     parent: Some(data.parent_id),
                                     texture: data.texture_entry.clone(),
-                                    crc: data.crc.clone(),
+                                    crc: data.crc,
                                 })
                                 .await
                             {
@@ -140,7 +139,7 @@ impl Mailbox {
                                         scale: object.scale,
                                         parent: object.parent_id,
                                         texture: object.texture_entry,
-                                        crc: object.crc.clone(),
+                                        crc: object.crc,
                                     })
                                     .await
                                 {
@@ -168,9 +167,9 @@ impl Mailbox {
                                             from_name: data.from_name.clone(),
                                             audible: data.audible.clone(),
                                             chat_type: data.chat_type.clone(),
-                                            source_id: data.source_id.clone(),
-                                            owner_id: data.owner_id.clone(),
-                                            position: data.position.clone(),
+                                            source_id: data.source_id,
+                                            owner_id: data.owner_id,
+                                            position: data.position,
                                             source_type: data.source_type.clone(),
                                             message: data.message.clone(),
                                         },

@@ -6,12 +6,10 @@
 //! applications.
 //!
 //! ## Goals
-//! - Reflect as closely as possible the naming conventions and struct layout of existing open
-//! metaverse packets
+//! - Reflect as closely as possible the naming conventions and struct layout of existing open metaverse packets
 //! - Efficiently decode into rust structs using sparing external types  
 //! - Maintain clear and complete documentation for all packets and fields
-//! - Implement both encoding and decoding, allowing the crate to be used both in server and viewer
-//! applications
+//! - Implement both encoding and decoding, allowing the crate to be used both in server and viewer applications
 //!
 //! ## Current Status
 //! <div class="warning">Work In Progress</div>

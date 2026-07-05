@@ -9,7 +9,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{U16Vec2, u16, u32, usize};
+use glam::{u16, u32, usize, U16Vec2};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -86,7 +86,7 @@ pub struct TerrainHeader {
     /// stride is the length of the data for each patch
     pub stride: u16,
     /// The size of the patch. Should always be 16.
-    pub patch_size: u8,
+    pub patch_size: usize,
     /// this is the filename of the terrain object, for what will be rendered by the UI.
     /// this is formatted `x_y_<hash>`
     pub filename: String,
@@ -169,7 +169,7 @@ impl TerrainHeader {
 
 /// Decompresss the heightmap data using JPEG like decompression
 pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f32> {
-    let patch_size = terrain_header.patch_size as usize;
+    let patch_size = terrain_header.patch_size;
     let mut block: Vec<f32> = vec![0.0; patch_size * patch_size];
     let mut output: Vec<f32> = vec![0.0; patch_size * patch_size];
     let prequant = (terrain_header.quantized_world_bits >> 4) + 2;

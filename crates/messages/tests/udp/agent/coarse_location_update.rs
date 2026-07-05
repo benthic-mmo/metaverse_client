@@ -1,4 +1,4 @@
-use metaverse_messages::packet::{packet::Packet, packet_types::PacketType};
+use metaverse_messages::packet_protocol::{packet::Packet, packet_types::PacketType};
 
 const TEST_PACKET: [u8; 13] = [0, 0, 0, 0, 1, 0, 255, 6, 0, 255, 255, 255, 255];
 

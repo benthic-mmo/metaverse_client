@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 use bevy_panorbit_camera::PanOrbitCamera;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_1_SQRT_2, PI};
 use std::fs;
 
 use crate::render::{MainCamera, MeshQueue, Renderable, RenderableHandle};
@@ -276,7 +276,7 @@ pub fn handle_water_update(
     for update in ev_water_update.read() {
         let height = update.value.height;
 
-        for mut transform in &mut water_query {
+        if let Some(mut transform) = (&mut water_query).into_iter().next() {
             transform.translation.y = height;
             return;
         }
@@ -288,7 +288,7 @@ pub fn handle_skybox_update(
     mut sun: ResMut<SunState>,
 ) {
     for update in ev_skybox_update.read() {
-        sun.target_phase = update.value.sun_phase as f32;
+        sun.target_phase = update.value.sun_phase;
     }
 }
 
@@ -318,7 +318,7 @@ pub fn update_sun(
 
     if dir.z > 0.0 {
         let sun_dot = dir.z * dir.z;
-        let adjusted_dir = (dir + Vec3::new(0.0, -0.70711, 0.70711)) * 0.5;
+        let adjusted_dir = (dir + Vec3::new(0.0, -FRAC_1_SQRT_2, FRAC_1_SQRT_2)) * 0.5;
         dir = (adjusted_dir * sun_dot + dir * (1.0 - sun_dot)).normalize();
     }
 

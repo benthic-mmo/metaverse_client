@@ -17,7 +17,7 @@ include = [
 metaverse_messages = {path="../messages"}
 metaverse_environment = {path="../environment", optional = true}
 metaverse_agent = {path="../agent", optional = true}
-metaverse_inventory = {path="../inventory", optional = true}
+metaverse_cache = {path="../cache", optional = true}
 metaverse_mesh = {path="../../../metaverse_mesh"}
 serde-llsd-benthic = {path="../../../benthic-serde-llsd"}
 benthic_protocol = {path="../../../benthic_protocol/"}
@@ -62,6 +62,6 @@ environment = ["dep:metaverse_environment"]
 # allow for compiling the viewer without any agent rendering 
 agent = ["dep:metaverse_agent"]
 
-inventory = ["dep:metaverse_inventory"]
+inventory = ["dep:metaverse_cache"]
 
 

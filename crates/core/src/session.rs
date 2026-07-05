@@ -22,7 +22,7 @@ use log::{error, info};
 use metaverse_agent::avatar::Avatar;
 use metaverse_messages::{
     http::capabilities::{Capability, CapabilityRequest},
-    packet::packet::Packet,
+    packet::packet_protocol::Packet,
     udp::{
         agent::agent_update::AgentUpdate,
         chat::chat_from_viewer::ChatFromViewer,
@@ -139,8 +139,9 @@ pub struct RegionData {
     pub water_height: f32,
     /// The time elapsed since there was an update for the region's time
     pub last_time_update: u64,
-
+    /// Coordinates of the region in the world. Region x and region y from the login response.
     pub region_coordinates: Vec2,
+    /// ID of the region. This is a combination of the sim IP and port.
     pub region_id: String,
 }
 
@@ -564,7 +565,7 @@ async fn handle_login(
                     ui_message: UIMessage::new_login_response_event(LoginResponse {
                         firstname: login_response.first_name.clone(),
                         lastname: login_response.last_name.clone(),
-                        agent_id: login_response.agent_id.clone(),
+                        agent_id: login_response.agent_id,
                     }),
                 })
                 .await

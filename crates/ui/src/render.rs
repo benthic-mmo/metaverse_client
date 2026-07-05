@@ -83,8 +83,8 @@ pub fn follow_gltf_with_offset(
     session_data: ResMut<SessionData>,
     mut cameras: Query<&mut PanOrbitCamera, With<MainCamera>>,
 ) {
-    if let Some(login_response) = &session_data.login_response {
-        if let Ok(mut camera) = cameras.single_mut() {
+    if let Some(login_response) = &session_data.login_response
+        && let Ok(mut camera) = cameras.single_mut() {
             for (model_transform, agent_id) in gltf_models.iter() {
                 if agent_id.id == login_response.agent_id {
                     camera.target_focus = model_transform.translation;
@@ -92,7 +92,6 @@ pub fn follow_gltf_with_offset(
                 }
             }
         }
-    }
 }
 
 pub fn handle_mesh_update(
@@ -145,8 +144,8 @@ pub fn extract_gltf_meshes(
     gltfs: Res<Assets<Gltf>>,
     mut scene_spawner: ResMut<SceneSpawner>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut height_materials: ResMut<Assets<HeightMaterial>>,
-    asset_server: Res<AssetServer>,
+    _height_materials: ResMut<Assets<HeightMaterial>>,
+    _asset_server: Res<AssetServer>,
 ) {
     let mut ready = vec![];
 

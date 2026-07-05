@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
+    packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
 use std::io::{Cursor, Read};

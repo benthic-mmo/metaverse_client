@@ -18,7 +18,7 @@ pub mod header;
 /// <https://wiki.secondlife.com/wiki/Packet_Layout>
 ///
 /// Contains information about the packet layout used for serializing and deserializing packets.
-pub mod packet;
+pub mod packet_protocol;
 
 /// Contains structs and enums used for determining types of packets based on header values and
 /// assigning those valeus to rust data types.
