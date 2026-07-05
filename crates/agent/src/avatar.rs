@@ -1,5 +1,6 @@
 use actix::Message;
 use benthic_protocol::skeleton::{JointName, Skeleton};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -9,7 +10,7 @@ use glam::Vec3;
 use uuid::Uuid;
 
 // Definitions for an avatar object
-#[derive(Debug, Clone, Message)]
+#[derive(Debug, Clone, Message, Serialize, Deserialize)]
 #[rtype(result = "()")]
 /// This contains information about the agent appearances as they come into the scene.
 /// this is used to collect agent items, and trigger generation of the GLTF once their assets have
@@ -56,7 +57,7 @@ impl Avatar {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The items that can be stored in an outfit. It can contain generic Items, or SceneGroups, which
 /// contain mesh data.
 pub enum OutfitObject {

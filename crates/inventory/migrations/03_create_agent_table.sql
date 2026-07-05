@@ -1,16 +1,8 @@
 CREATE TABLE agents (
     agent_id TEXT PRIMARY KEY NOT NULL, 
-    local_id INTEGER, 
-    position_x INTEGER, 
-    position_y INTEGER, 
-    position_z INTEGER, 
-    skeleton TEXT, 
-    path TEXT, 
     last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INTEGER,
-
-    json TEXT,
-    mesh TEXT 
+    data TEXT
 );
 
 

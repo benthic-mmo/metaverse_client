@@ -1,7 +1,11 @@
 use crate::errors::InventoryError;
+use metaverse_agent::avatar::Avatar;
 use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::SqlitePool;
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use uuid::Uuid;
 
 use sqlx::Row; // needed for .get()
@@ -13,6 +17,29 @@ pub struct OutfitItem {
     pub item_type: ObjectType,
     pub json_path: PathBuf,
     pub mesh_path: PathBuf,
+}
+
+pub async fn sqlite_update_avatar(pool: &SqlitePool, avatar: Avatar) -> Result<(), InventoryError> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let data = serde_json::to_string(&avatar)?;
+    sqlx::query(
+        r#"
+        UPDATE agents
+        SET last_update = ?,
+            data = ?
+        WHERE agent_id = ?
+        "#,
+    )
+    .bind(now)
+    .bind(data)
+    .bind(avatar.agent_id.to_string())
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 pub async fn sqlite_update_outfit_item_json_path(
@@ -51,26 +78,6 @@ pub async fn sqlite_update_outfit_item_mesh_path(
     )
     .bind(mesh_path)
     .bind(asset_id.to_string())
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-pub async fn sqlite_update_avatar_skeleton(
-    pool: &SqlitePool,
-    agent_id: Uuid,
-    skeleton: &str,
-) -> Result<(), InventoryError> {
-    sqlx::query(
-        r#"
-        UPDATE agents
-        SET skeleton = ?
-        WHERE agent_id = ?
-        "#,
-    )
-    .bind(skeleton)
-    .bind(agent_id.to_string())
     .execute(pool)
     .await?;
 
@@ -260,29 +267,6 @@ pub async fn sqlite_get_current_outfit(
     Ok(map.into_values().collect())
 }
 
-pub async fn sqlite_get_json_and_mesh(
-    pool: &SqlitePool,
-    agent_id: String,
-) -> Result<(Option<PathBuf>, Option<PathBuf>, Option<String>), InventoryError> {
-    let agent_row = sqlx::query(
-        r#"
-        SELECT mesh, json, skeleton
-        FROM agents
-        WHERE agent_id = ?
-        LIMIT 1
-        "#,
-    )
-    .bind(&agent_id)
-    .fetch_one(pool)
-    .await?;
-
-    let json: Option<String> = agent_row.get("json");
-    let mesh: Option<String> = agent_row.get("mesh");
-    let skeleton: Option<String> = agent_row.get("skeleton");
-
-    Ok((json.map(PathBuf::from), mesh.map(PathBuf::from), skeleton))
-}
-
 pub async fn sqlite_insert_avatar(
     pool: &SqlitePool,
     agent_id: Uuid,
@@ -305,42 +289,22 @@ pub async fn sqlite_insert_avatar(
     Ok(())
 }
 
-pub async fn sqlite_update_final_avatar_mesh_path(
+pub async fn sqlite_get_avatar(
     pool: &SqlitePool,
     agent_id: Uuid,
-    mesh_path: &str,
-) -> Result<(), InventoryError> {
-    sqlx::query(
+) -> Result<Avatar, InventoryError> {
+    let agent_row = sqlx::query(
         r#"
-        UPDATE agents
-        SET mesh = ?
+        SELECT data
+        FROM agents
         WHERE agent_id = ?
+        LIMIT 1
         "#,
     )
-    .bind(mesh_path)
     .bind(agent_id.to_string())
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
-
-    Ok(())
-}
-
-pub async fn sqlite_update_final_avatar_json_path(
-    pool: &SqlitePool,
-    agent_id: Uuid,
-    json_path: &str,
-) -> Result<(), InventoryError> {
-    sqlx::query(
-        r#"
-        UPDATE agents
-        SET json = ?
-        WHERE agent_id = ?
-        "#,
-    )
-    .bind(json_path)
-    .bind(agent_id.to_string())
-    .execute(pool)
-    .await?;
-
-    Ok(())
+    let data: String = agent_row.get("data");
+    let avatar: Avatar = serde_json::from_str(&data)?;
+    Ok(avatar)
 }
