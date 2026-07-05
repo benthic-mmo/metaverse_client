@@ -48,19 +48,23 @@ pub async fn refresh_inventory(
             }
 
             let needs_refresh = match check_folder_version(pool, folder.folder_id).await {
-                Ok(Some(db_version)) => {
-                    // if the cache version isn't the latest version
+                Ok(Some((db_version, fully_downloaded))) => {
                     if db_version != folder.version {
                         info!(
                             "Folder version mismatch for {} (db={}, remote={})",
                             folder.folder_id, db_version, folder.version
                         );
-                        // delete the folder
+
                         delete_folder(pool, folder.folder_id).await?;
-                        // folder needs refresh
+                        true
+                    } else if !fully_downloaded {
+                        info!(
+                            "Folder {} was not fully downloaded, refreshing.",
+                            folder.folder_id
+                        );
+
                         true
                     } else {
-                        // if it is the latest version, it does not need refresh
                         false
                     }
                 }
@@ -97,8 +101,8 @@ pub async fn refresh_inventory(
                 ))
                 .await?;
             }
+            mark_folder_downloaded(pool, folder.folder_id).await?;
         }
-
         Ok(())
     }
 
@@ -109,14 +113,17 @@ pub async fn refresh_inventory(
 pub async fn check_folder_version(
     pool: &SqlitePool,
     folder_id: Uuid,
-) -> Result<Option<i32>, InventoryError> {
-    let row = sqlx::query("SELECT version FROM folders WHERE id = ?")
+) -> Result<Option<(i32, bool)>, InventoryError> {
+    let row = sqlx::query("SELECT version, fully_downloaded FROM folders WHERE id = ?")
         .bind(folder_id.to_string())
         .fetch_optional(pool)
         .await?;
 
     match row {
-        Some(row) => Ok(row.try_get("version")?),
+        Some(row) => Ok(Some((
+            row.try_get("version")?,
+            row.try_get("fully_downloaded")?,
+        ))),
         None => Ok(None),
     }
 }
@@ -149,8 +156,8 @@ pub async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), Inv
 
     sqlx::query(
         r#"
-        INSERT OR REPLACE INTO folders (id, owner_id, agent_id, descendent_count, version)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO folders (id, owner_id, agent_id, descendent_count, version, fully_downloaded)
+        VALUES (?, ?, ?, ?, ?, 0)
         "#,
     )
     .bind(&folder_id)
@@ -158,6 +165,24 @@ pub async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), Inv
     .bind(&agent_id)
     .bind(folder.descendent_count)
     .bind(folder.version)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn mark_folder_downloaded(
+    pool: &SqlitePool,
+    folder_id: Uuid,
+) -> Result<(), InventoryError> {
+    sqlx::query(
+        r#"
+        UPDATE folders
+        SET fully_downloaded = 1
+        WHERE id = ?
+        "#,
+    )
+    .bind(folder_id.to_string())
     .execute(pool)
     .await?;
 

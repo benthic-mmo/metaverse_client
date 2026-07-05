@@ -35,6 +35,7 @@ CREATE TABLE folders (
   version INTEGER DEFAULT 1, 
   descendent_count INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  fully_downloaded INTEGER,
   parent TEXT REFERENCES folders(id)
 );
 
