@@ -18,16 +18,17 @@ use glam::Vec3;
 use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
-use metaverse_inventory::object_update::GeneratorObject;
-use metaverse_inventory::object_update::sqlite_check_cache;
-use metaverse_inventory::object_update::sqlite_get_object_scale_rotation_position;
-use metaverse_inventory::object_update::sqlite_get_parent;
-use metaverse_inventory::object_update::sqlite_insert_object_update;
-use metaverse_inventory::object_update::sqlite_update_object_glb_path;
-use metaverse_inventory::object_update::sqlite_update_object_json_path;
+use metaverse_cache::object_update::sqlite_check_cache;
+use metaverse_cache::object_update::sqlite_get_object_scale_rotation_position;
+use metaverse_cache::object_update::sqlite_get_parent;
+use metaverse_cache::object_update::sqlite_insert_object_update;
+use metaverse_cache::object_update::sqlite_update_object_glb_path;
+use metaverse_cache::object_update::sqlite_update_object_json_path;
+use metaverse_cache::object_update::GeneratorObject;
+use metaverse_cache::object_update::ObjectCache;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
-use metaverse_messages::packet::packet::Packet;
+use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams;
@@ -93,6 +94,7 @@ pub struct HandleObjectUpdate {
     /// Object's texture data
     pub texture: TextureEntry,
 
+    /// CRC to enable cache invalidation
     pub crc: u32,
 }
 
@@ -179,22 +181,48 @@ pub struct HandleObjectUpdateCached {
     pub object_update_cached: ObjectUpdateCached,
 }
 
+/// Helper message to generate mesh from stored json
+///
+/// # Cause
+/// [`HandleObjectUpdateCached`]
+/// [`DownloadObject`]
+///
+/// # Effect
+/// [`RenderObjectFromFile`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct GenerateMeshFromJson {
+    /// Path of the json to generate mesh from
     pub json_path: PathBuf,
+    /// Path to the object's dir
     pub base_dir: PathBuf,
+    /// Asset UUID
     pub asset_id: Uuid,
+    /// Minimal object for accessing sqlite fields
     pub object: GeneratorObject,
 }
 
+/// Helper message to render objects from stored json files
+///
+/// # Cause
+/// [`HandleObjectUpdateCached`]
+/// [`GenerateMeshFromJson`]
+///
+/// # Effect
+/// [`MeshUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderObjectFromFile {
+    /// Path of the mesh to render
     pub mesh_path: PathBuf,
+    /// ID of the object to render
     pub asset_id: Uuid,
+    /// Path to the object's dir
     pub base_dir: PathBuf,
+    /// minimal oject for accessing sqlite fields
     pub object: GeneratorObject,
+    /// How many times has this object been retried.
+    /// this if for timing out failed parent lookups
     pub retry_count: u32,
 }
 
@@ -228,15 +256,13 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
         let db_pool = self.inventory_db_connection.clone();
         let addr = ctx.address();
         let region_id = session.region_data.region_id.clone();
-        let session_id = session.session_id.clone();
-        let agent_id = session.agent_id.clone();
+        let session_id = session.session_id;
+        let agent_id = session.agent_id;
 
         Box::pin(async move {
             let mut requests = Vec::new();
             for object in &msg.object_update_cached.objects {
-                match sqlite_check_cache(&db_pool, object.id, object.crc.clone(), region_id.clone())
-                    .await
-                {
+                match sqlite_check_cache(&db_pool, object.id, object.crc, region_id.clone()).await {
                     Ok((asset_id, json_path, glb, generator_object)) => {
                         let base_dir = match create_sub_object_dir(&asset_id.to_string()) {
                             Ok(base_dir) => base_dir,
@@ -309,21 +335,22 @@ impl Handler<HandleObjectUpdate> for Mailbox {
             // if they cannot be added, the object should be retried.
             sqlite_insert_object_update(
                 &db_pool,
-                msg.local_id,
-                msg.full_id,
-                msg.crc,
-                region_id,
-                msg.object_type.clone(),
-                msg.parent_id,
-                msg.position,
-                msg.rotation,
-                msg.scale,
+                ObjectCache {
+                    local_id: msg.local_id,
+                    full_id: msg.full_id,
+                    crc: msg.crc,
+                    region_id,
+                    object_type: msg.object_type,
+                    parent_id: msg.parent_id,
+                    position: msg.position,
+                    rotation: msg.rotation,
+                    scale: msg.scale,
+                },
             )
             .await
             .unwrap_or_else(|e| {
                 error!("Object Update Error: {:?}, {:?}", e, msg.full_id);
                 //addr.do_send(msg.clone());
-                return;
             });
 
             match msg.object_type {
@@ -499,7 +526,6 @@ impl Handler<DownloadObject> for Mailbox {
                             .await
                             .unwrap_or_else(|e| {
                                 error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
-                                return;
                             });
                             addr.do_send(GenerateMeshFromJson {
                                 object: GeneratorObject {
@@ -545,7 +571,6 @@ impl Handler<GenerateMeshFromJson> for Mailbox {
                         .await
                         .unwrap_or_else(|e| {
                             error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
-                            return;
                         });
                     }
                     Err(e) => warn!("{:?}", e),

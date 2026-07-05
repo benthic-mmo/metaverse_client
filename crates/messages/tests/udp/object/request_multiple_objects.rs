@@ -1,6 +1,6 @@
 use metaverse_messages::{
-    packet::{
-        packet::{Packet, PacketData},
+    packet_protocol::{
+        packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
     udp::object::request_multiple_objects::{CacheMissType, RequestMultipleObjects},

@@ -7,7 +7,7 @@
 use std::io::{Cursor};
 use crate::packet::{
     header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
+    packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
 use crate::errors::ParseError;

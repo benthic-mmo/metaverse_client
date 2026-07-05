@@ -8,7 +8,7 @@ use benthic_protocol::messages::ui::errors::FeatureError;
 use benthic_protocol::messages::ui::errors::MailboxSessionError;
 use benthic_protocol::messages::ui::errors::SessionError;
 use log::error;
-use metaverse_inventory::initialize_sqlite::init_sqlite;
+use metaverse_cache::initialize_sqlite::init_sqlite;
 use portpicker::pick_unused_port;
 use std::collections::HashSet;
 use std::fs::create_dir_all;

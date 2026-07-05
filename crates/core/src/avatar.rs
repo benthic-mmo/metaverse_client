@@ -18,10 +18,10 @@ use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
 use metaverse_agent::skeleton::update_global_avatar_skeleton;
-use metaverse_inventory::agent::sqlite_get_current_outfit;
-use metaverse_inventory::agent::{sqlite_get_avatar, sqlite_get_current_avatar_version};
-use metaverse_inventory::agent::{sqlite_get_current_outfit_version, sqlite_insert_avatar};
-use metaverse_inventory::agent::{sqlite_update_avatar, sqlite_update_outfit_item_json_path};
+use metaverse_cache::agent::sqlite_get_current_outfit;
+use metaverse_cache::agent::{sqlite_get_avatar, sqlite_get_current_avatar_version};
+use metaverse_cache::agent::{sqlite_get_current_outfit_version, sqlite_insert_avatar};
+use metaverse_cache::agent::{sqlite_update_avatar, sqlite_update_outfit_item_json_path};
 use metaverse_mesh::animation::generate::generate_gltf_animation;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::capabilities::Capability;
@@ -93,6 +93,31 @@ pub struct SetOutfitSize {
     pub outfit_size: usize,
 }
 
+/// Message to spawn a new avatar
+///
+/// Avatars are added to the scene via ObjectUpdate packet with minimal information aside from the
+/// ID. This adds those IDs to the session and begins downloading their appearances, or loads from
+/// the cache.
+///
+/// # Cause
+/// - [`HandleObjectUpdate`]
+///
+/// # Effect
+/// - Resends a [`HandleNewAvatar`] message if the inventory is not yet loaded
+/// - If the avatar is the current player's avatar
+///    - Dispatches a [`CameraPosition`] message
+///    - If the avatar is in the cache:
+///     - Dispatches a [`LoadFromCache`] message to skip asset downloading.
+///    - else:
+///     - Dispatches a [`DownloadAgentAsset`] message for each object in the outfit
+///     - Dispatches a [`AddObjectToAvatar`] message for each bodypart in the outfit
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleNewAvatar {
+    /// the avatar object to generate
+    pub avatar: Avatar,
+}
+
 /// Message to finalize the avatar
 ///
 /// This is triggered when all of the avatar's objects have loaded in. This finalizes the global
@@ -103,7 +128,7 @@ pub struct SetOutfitSize {
 /// - [`AddObjectToAvatar`]
 ///
 /// # Effects
-/// - Dispatches a [`MeshUpdate`] message to render the finalized avatar
+/// - Dispatches a [`RenderAvatar`] message to render the finalized avatar
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct FinalizeAvatar {
@@ -111,25 +136,40 @@ pub struct FinalizeAvatar {
     pub agent_id: Uuid,
 }
 
-/// Message to spawn a new avatar
-///
-/// Avatars are added to the scene via ObjectUpdate packet with minimal information aside from the
-/// ID. This adds those IDs to the session and begins downloading their appearances.
+/// Helper message to ensure all avatars are marked as fully loaded once the mesh render is triggered.
 ///
 /// # Cause
-/// - [`HandleObjectUpdate`]
+/// - [`FinalizeAvatar`]
+/// - [`LoadFromCache`]
 ///
-/// # Effect
-/// - Resends a [`HandleNewAvatar`] message if the inventory is not yet loaded
-/// - If the avatar is the current player's avatar
-///    - Dispatches a [`CameraPosition`] message
-///    - Dispatches a [`DownloadAgentAsset`] message for each object in the outfit
-///    - Dispatches a [`AddObjectToAvatar`] message for each bodypart in the outfit
+/// # Effects
+/// - Dispatches a [`MeshUpdate`] message to inform the UI of an update
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct HandleNewAvatar {
-    /// the avatar object to generate
-    pub avatar: Avatar,
+pub struct RenderAvatar {
+    message: MeshUpdate,
+    agent_id: Uuid,
+    skeleton: BTreeSet<JointName>,
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+struct LoadFromCache {
+    avatar: Avatar,
+}
+
+/// Message to handle an updated animation
+///
+/// # Cause
+/// - Avatar Appearance packet received from UDP socket
+///
+/// # Effect
+/// - Dispatches a [`PlayAnimation`] message to inform the UI of a new animation
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleNewAvatarAnimation {
+    /// the avatar appearance data to handle
+    pub avatar_animation: AvatarAnimation,
 }
 
 /// Message to handle an updated avatar appearance
@@ -143,441 +183,6 @@ pub struct HandleNewAvatar {
 pub struct HandleNewAvatarAppearance {
     /// the avatar appearance data to handle
     pub avatar_appearance: AvatarAppearance,
-}
-
-/// Message to handle an updatedanimation
-///
-/// TODO: currently a stub
-///
-/// # Cause
-/// - Avatar Appearance packet received from UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleNewAvatarAnimation {
-    /// the avatar appearance data to handle
-    pub avatar_animation: AvatarAnimation,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-struct LoadFromCache {
-    avatar: Avatar,
-}
-
-impl Handler<HandleNewAvatarAppearance> for Mailbox {
-    type Result = ();
-    fn handle(
-        &mut self,
-        _msg: HandleNewAvatarAppearance,
-        _ctx: &mut Self::Context,
-    ) -> Self::Result {
-        // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
-        // the appearance of the avatar.
-        warn!("AvatarAppearance packet received. Currently unimplemented");
-    }
-}
-
-impl Handler<HandleNewAvatarAnimation> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
-        let session = match self.session.as_mut() {
-            Some(session) => session,
-            None => {
-                error!("Handle New Avatar Animation failed. Session is not running.");
-                return;
-            }
-        };
-        let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
-            Some(avatar) => {
-                if !avatar.fully_loaded {
-                    warn!(
-                        "Animation targeting player {:?} is not yet fully loaded. Queueing animation...",
-                        msg.avatar_animation.sender_id
-                    );
-                    ctx.notify_later(msg, Duration::from_secs(1));
-                    return;
-                }
-                avatar
-            }
-            None => {
-                warn!(
-                    "Animation targeting player {:?}, not yet in scene. Queueing animation...",
-                    msg.avatar_animation.sender_id
-                );
-                ctx.notify_later(msg, Duration::from_secs(1));
-                return;
-            }
-        };
-
-        let viewer_asset_endpoint = session
-            .capability_urls
-            .get(&Capability::ViewerAsset)
-            .unwrap()
-            .to_string();
-        let addr = ctx.address();
-        let agent_id = avatar.agent_id.to_string();
-        let sender_id = msg.avatar_animation.sender_id;
-        let used_joints = avatar.used_joints.clone();
-        let mut hasher = DefaultHasher::new();
-        used_joints.hash(&mut hasher);
-        let joint_hash = format!("{:016x}", hasher.finish());
-
-        let animations = msg.avatar_animation.animations;
-
-        ctx.spawn(
-            async move {
-                for animation in animations {
-                    let animation_json_path = if let Some(default_animation) =
-                        DefaultAnimation::from_uuid(&animation.anim_id)
-                    {
-                        PathBuf::from(generated_asset_path())
-                            .join("Animations")
-                            .join(format!("{}.json", default_animation.to_string()))
-                    } else {
-                        match download_asset(
-                            ObjectType::Animation.to_string(),
-                            animation.anim_id,
-                            &viewer_asset_endpoint,
-                        )
-                        .await
-                        {
-                            Ok(_) => {
-                                //TODO: Implement this
-                                warn!("Retrieved animation, but non-default animations are currently unimplemented");
-                                return;
-                            }
-                            Err(e) => {
-                                error!(
-                                    "failed to retrieve animation {:?}: {:?}",
-                                    animation.anim_id, e
-                                );
-                                return;
-                            }
-                        }
-                    };
-
-                    let animation_dir = match create_agent_animation_dir(&agent_id) {
-                        Ok(dir) => dir,
-                        Err(e) => {
-                            warn!("Failed to create animation dir: {:?}", e);
-                            return;
-                        }
-                    };
-
-                    let file_name = format!("{}_{}.glb", joint_hash, animation.anim_id);
-                    let animation_out_path = animation_dir.join(file_name);
-                    if let Err(e) = generate_gltf_animation(
-                        animation_json_path.clone(),
-                        animation_out_path.clone(),
-                        used_joints.clone(),
-                    ) {
-                        error!(
-                            "Failed to generate animation {:?}: {:?}",
-                            animation.anim_id, e
-                        );
-                        return;
-                    }
-
-                    addr.do_send(SendUIMessage {
-                        ui_message: UIMessage::new_play_animation(PlayAnimation {
-                            player_id: sender_id,
-                            animation_path: animation_out_path,
-                        }),
-                    });
-                }
-            }
-            .into_actor(self),
-        );
-    }
-}
-
-impl Handler<SetOutfitSize> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: SetOutfitSize, _ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut()
-            && let Some(agent) = session.avatars.get_mut(&msg.agent_id)
-        {
-            agent.outfit_size = msg.outfit_size;
-        }
-    }
-}
-
-impl Handler<AddObjectToAvatar> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: AddObjectToAvatar, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
-                match &msg.object {
-                    OutfitObject::MeshObject(path) => {
-                        let json_str = fs::read_to_string(&path)
-                            .unwrap_or_else(|_| panic!("Failed to read {:?}", path));
-
-                        let parts: Vec<RenderObject> = serde_json::from_str(&json_str).unwrap();
-
-                        if let Some(skin) = &parts[0].skin {
-                            update_global_avatar_skeleton(avatar, &skin.skeleton);
-                        }
-                    }
-                    _ => {
-                        //TODO: unimplemented!
-                        //warn!("Avatars wearing non-mesh objects are currently not supported.")
-                    }
-                }
-
-                avatar.items.push(msg.object);
-
-                if avatar.items.len() == avatar.outfit_size {
-                    ctx.address().do_send(FinalizeAvatar {
-                        agent_id: avatar.agent_id,
-                    });
-                }
-            } else {
-                warn!("Agent not found for agent_id {:?}", &msg.agent_id);
-            }
-        }
-    }
-}
-
-impl Handler<FinalizeAvatar> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: FinalizeAvatar, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
-                let addr = ctx.address();
-
-                let agent_id = avatar.agent_id;
-                let position = avatar.position;
-                let skeleton = avatar.skeleton.clone();
-                let used_joints = avatar.used_joints.clone();
-                let items = avatar.items.clone();
-
-                let mut avatar_clone = avatar.clone();
-                let db_conn = self.inventory_db_connection.clone();
-
-                avatar.fully_loaded = true;
-                ctx.spawn(
-                    async move {
-                        let json_paths: Vec<PathBuf> = items
-                            .into_iter()
-                            .filter_map(|item| {
-                                if let OutfitObject::MeshObject(path) = item {
-                                    Some(path)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-
-                        let avatar_object = AvatarObject {
-                            objects: json_paths,
-                            global_skeleton: skeleton,
-                            used_joints: used_joints.clone(),
-                        };
-
-                        let json_path_str = agent_id.to_string();
-                        let json_path = PathBuf::from(&json_path_str);
-
-                        let json_path = if json_path.exists() {
-                            json_path.clone()
-                        } else {
-                            match write_json(&avatar_object, agent_id, &json_path_str) {
-                                Ok(p) => PathBuf::from(p),
-                                Err(e) => {
-                                    error!("write_json failed: {:?}", e);
-                                    return;
-                                }
-                            }
-                        };
-
-                        let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
-                            Ok(base_dir) => base_dir,
-                            Err(e) => {
-                                error!("failed to create base dir: {:?}", e);
-                                return;
-                            }
-                        };
-                        let glb_path = base_dir.join(format!("{:?}_high.glb", msg.agent_id));
-
-                        if !glb_path.exists() {
-                            if let Err(e) =
-                                generate_skinned_mesh(json_path.clone(), glb_path.clone())
-                            {
-                                error!("mesh generation failed: {:?}", e);
-                                return;
-                            }
-                        }
-
-                        avatar_clone.path = Some(glb_path.clone());
-                        match sqlite_update_avatar(&db_conn, avatar_clone).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("Failed to update avatar cache {:?}", e)
-                            }
-                        }
-
-                        addr.do_send(RenderAvatar {
-                            message: MeshUpdate {
-                                position: position,
-                                scale: Vec3::ONE,
-                                rotation: Quat::IDENTITY,
-                                parent: None,
-                                scene_id: None,
-                                path: glb_path,
-                                mesh_type: MeshType::Avatar,
-                                id: Some(msg.agent_id),
-                            },
-                            agent_id: agent_id,
-                            skeleton: used_joints,
-                        });
-                    }
-                    .into_actor(self),
-                );
-            }
-        }
-    }
-}
-
-impl Handler<DownloadAgentAsset> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: DownloadAgentAsset, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            let server_endpoint = session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .unwrap()
-                .to_string();
-            let addr = ctx.address();
-            let db_conn = self.inventory_db_connection.clone();
-            ctx.spawn(
-                async move {
-                    match download_object(msg.item_type.to_string(), msg.asset_id, &server_endpoint)
-                        .await
-                    {
-                        Ok(scene_group) => {
-                            let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
-                                Ok(base_dir) => base_dir,
-                                Err(e) => {
-                                    error!("failed to create base dir: {:?}", e);
-                                    return;
-                                }
-                            };
-
-                            // download the texture of the base object, which will have the texture
-                            // for the rest of the object
-                            let texture_id = scene_group.parts[0].shape.texture.texture_id;
-                            let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-                            let texture_path = if texture_path.exists() {
-                                texture_path
-                            } else {
-                                match download_texture(
-                                    ObjectType::Texture.to_string(),
-                                    texture_id,
-                                    &server_endpoint,
-                                    &texture_path,
-                                )
-                                .await
-                                {
-                                    Ok(_) => texture_path,
-                                    Err(e) => {
-                                        error!("Failed to download texture: {:?}", e);
-
-                                        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                                            .join("assets")
-                                            .join("textures")
-                                            .join("benthic_default_texture.png")
-                                    }
-                                }
-                            };
-
-                            // Download the mesh itself
-                            let render_objects = match download_scene_group(
-                                &scene_group,
-                                &server_endpoint,
-                                &texture_path,
-                            )
-                            .await
-                            {
-                                Ok(objects) => objects,
-                                Err(e) => {
-                                    error!("{:?}", e);
-                                    return;
-                                }
-                            };
-
-                            let json_path = format!(
-                                "{:?}_{}",
-                                scene_group.parts[0].sculpt.texture,
-                                scene_group.parts[0].metadata.name
-                            );
-
-                            let json = if std::path::Path::new(&json_path).exists() {
-                                PathBuf::from(json_path.clone())
-                            } else {
-                                match write_json(&render_objects, msg.agent_id, &json_path) {
-                                    Ok(json) => json,
-                                    Err(e) => {
-                                        error!("Failed to write json: {:?}", e);
-                                        return;
-                                    }
-                                }
-                            };
-
-                            match sqlite_update_outfit_item_json_path(
-                                &db_conn,
-                                msg.asset_id,
-                                &json_path.clone(),
-                            )
-                            .await
-                            {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    warn!("Failed to update sqlite: {:?}", e)
-                                }
-                            };
-
-                            // add the object to the avatar
-                            addr.do_send(AddObjectToAvatar {
-                                object: OutfitObject::MeshObject(json),
-                                agent_id: msg.agent_id,
-                            });
-                        }
-                        Err(e) => {
-                            error!("{:?}, {:?}", e, msg);
-                        }
-                    }
-                }
-                .into_actor(self),
-            );
-        }
-    }
-}
-
-impl Handler<LoadFromCache> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: LoadFromCache, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            // insert the avatar to the session
-            session
-                .avatars
-                .insert(msg.avatar.agent_id, msg.avatar.clone());
-
-            // render the cached avatar
-            ctx.address().do_send(RenderAvatar {
-                message: MeshUpdate {
-                    position: msg.avatar.position,
-                    scale: Vec3::ONE,
-                    rotation: Quat::IDENTITY,
-                    parent: None,
-                    scene_id: None,
-                    path: msg.avatar.path.unwrap(),
-                    mesh_type: MeshType::Avatar,
-                    id: Some(msg.avatar.agent_id),
-                },
-                agent_id: msg.avatar.agent_id,
-                skeleton: msg.avatar.used_joints,
-            });
-        };
-    }
 }
 
 impl Handler<HandleNewAvatar> for Mailbox {
@@ -710,19 +315,298 @@ impl Handler<HandleNewAvatar> for Mailbox {
     }
 }
 
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct RenderAvatar {
-    message: MeshUpdate,
-    agent_id: Uuid,
-    skeleton: BTreeSet<JointName>,
+impl Handler<LoadFromCache> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: LoadFromCache, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            // insert the avatar to the session
+            session
+                .avatars
+                .insert(msg.avatar.agent_id, msg.avatar.clone());
+
+            // render the cached avatar
+            ctx.address().do_send(RenderAvatar {
+                message: MeshUpdate {
+                    position: msg.avatar.position,
+                    scale: Vec3::ONE,
+                    rotation: Quat::IDENTITY,
+                    parent: None,
+                    scene_id: None,
+                    path: msg.avatar.path.unwrap(),
+                    mesh_type: MeshType::Avatar,
+                    id: Some(msg.avatar.agent_id),
+                },
+                agent_id: msg.avatar.agent_id,
+                skeleton: msg.avatar.used_joints,
+            });
+        };
+    }
+}
+
+impl Handler<SetOutfitSize> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: SetOutfitSize, _ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut()
+            && let Some(agent) = session.avatars.get_mut(&msg.agent_id)
+        {
+            agent.outfit_size = msg.outfit_size;
+        }
+    }
+}
+
+impl Handler<DownloadAgentAsset> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: DownloadAgentAsset, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            let server_endpoint = session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .unwrap()
+                .to_string();
+            let addr = ctx.address();
+            let db_conn = self.inventory_db_connection.clone();
+            ctx.spawn(
+                async move {
+                    match download_object(msg.item_type.to_string(), msg.asset_id, &server_endpoint)
+                        .await
+                    {
+                        Ok(scene_group) => {
+                            let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
+                                Ok(base_dir) => base_dir,
+                                Err(e) => {
+                                    error!("failed to create base dir: {:?}", e);
+                                    return;
+                                }
+                            };
+
+                            // download the texture of the base object, which will have the texture
+                            // for the rest of the object
+                            let texture_id = scene_group.parts[0].shape.texture.texture_id;
+                            let texture_path = base_dir.join(format!("{:?}.png", texture_id));
+                            let texture_path = if texture_path.exists() {
+                                texture_path
+                            } else {
+                                match download_texture(
+                                    ObjectType::Texture.to_string(),
+                                    texture_id,
+                                    &server_endpoint,
+                                    &texture_path,
+                                )
+                                .await
+                                {
+                                    Ok(_) => texture_path,
+                                    Err(e) => {
+                                        error!("Failed to download texture: {:?}", e);
+
+                                        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                                            .join("assets")
+                                            .join("textures")
+                                            .join("benthic_default_texture.png")
+                                    }
+                                }
+                            };
+
+                            // Download the mesh itself
+                            let render_objects = match download_scene_group(
+                                &scene_group,
+                                &server_endpoint,
+                                &texture_path,
+                            )
+                            .await
+                            {
+                                Ok(objects) => objects,
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                    return;
+                                }
+                            };
+
+                            let json_path = format!(
+                                "{:?}_{}",
+                                scene_group.parts[0].sculpt.texture,
+                                scene_group.parts[0].metadata.name
+                            );
+
+                            let json = if std::path::Path::new(&json_path).exists() {
+                                PathBuf::from(json_path.clone())
+                            } else {
+                                match write_json(&render_objects, msg.agent_id, &json_path) {
+                                    Ok(json) => json,
+                                    Err(e) => {
+                                        error!("Failed to write json: {:?}", e);
+                                        return;
+                                    }
+                                }
+                            };
+
+                            match sqlite_update_outfit_item_json_path(
+                                &db_conn,
+                                msg.asset_id,
+                                &json_path.clone(),
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    warn!("Failed to update sqlite: {:?}", e)
+                                }
+                            };
+
+                            // add the object to the avatar
+                            addr.do_send(AddObjectToAvatar {
+                                object: OutfitObject::MeshObject(json),
+                                agent_id: msg.agent_id,
+                            });
+                        }
+                        Err(e) => {
+                            error!("{:?}, {:?}", e, msg);
+                        }
+                    }
+                }
+                .into_actor(self),
+            );
+        }
+    }
+}
+
+impl Handler<AddObjectToAvatar> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AddObjectToAvatar, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
+                match &msg.object {
+                    OutfitObject::MeshObject(path) => {
+                        let json_str = fs::read_to_string(path)
+                            .unwrap_or_else(|_| panic!("Failed to read {:?}", path));
+
+                        let parts: Vec<RenderObject> = serde_json::from_str(&json_str).unwrap();
+
+                        if let Some(skin) = &parts[0].skin {
+                            update_global_avatar_skeleton(avatar, &skin.skeleton);
+                        }
+                    }
+                    _ => {
+                        //TODO: unimplemented!
+                        //warn!("Avatars wearing non-mesh objects are currently not supported.")
+                    }
+                }
+
+                avatar.items.push(msg.object);
+
+                if avatar.items.len() == avatar.outfit_size {
+                    ctx.address().do_send(FinalizeAvatar {
+                        agent_id: avatar.agent_id,
+                    });
+                }
+            } else {
+                warn!("Agent not found for agent_id {:?}", &msg.agent_id);
+            }
+        }
+    }
+}
+
+impl Handler<FinalizeAvatar> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: FinalizeAvatar, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut()
+            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
+                let addr = ctx.address();
+
+                let agent_id = avatar.agent_id;
+                let position = avatar.position;
+                let skeleton = avatar.skeleton.clone();
+                let used_joints = avatar.used_joints.clone();
+                let items = avatar.items.clone();
+
+                let mut avatar_clone = avatar.clone();
+                let db_conn = self.inventory_db_connection.clone();
+
+                avatar.fully_loaded = true;
+                ctx.spawn(
+                    async move {
+                        let json_paths: Vec<PathBuf> = items
+                            .into_iter()
+                            .filter_map(|item| {
+                                if let OutfitObject::MeshObject(path) = item {
+                                    Some(path)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        let avatar_object = AvatarObject {
+                            objects: json_paths,
+                            global_skeleton: skeleton,
+                            used_joints: used_joints.clone(),
+                        };
+
+                        let json_path_str = agent_id.to_string();
+                        let json_path = PathBuf::from(&json_path_str);
+
+                        let json_path = if json_path.exists() {
+                            json_path.clone()
+                        } else {
+                            match write_json(&avatar_object, agent_id, &json_path_str) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    error!("write_json failed: {:?}", e);
+                                    return;
+                                }
+                            }
+                        };
+
+                        let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
+                            Ok(base_dir) => base_dir,
+                            Err(e) => {
+                                error!("failed to create base dir: {:?}", e);
+                                return;
+                            }
+                        };
+                        let glb_path = base_dir.join(format!("{:?}_high.glb", msg.agent_id));
+
+                        if !glb_path.exists()
+                            && let Err(e) =
+                                generate_skinned_mesh(json_path.clone(), glb_path.clone())
+                            {
+                                error!("mesh generation failed: {:?}", e);
+                                return;
+                            }
+
+                        avatar_clone.path = Some(glb_path.clone());
+                        match sqlite_update_avatar(&db_conn, avatar_clone).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to update avatar cache {:?}", e)
+                            }
+                        }
+
+                        addr.do_send(RenderAvatar {
+                            message: MeshUpdate {
+                                position,
+                                scale: Vec3::ONE,
+                                rotation: Quat::IDENTITY,
+                                parent: None,
+                                scene_id: None,
+                                path: glb_path,
+                                mesh_type: MeshType::Avatar,
+                                id: Some(msg.agent_id),
+                            },
+                            agent_id,
+                            skeleton: used_joints,
+                        });
+                    }
+                    .into_actor(self),
+                );
+            }
+    }
 }
 
 impl Handler<RenderAvatar> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RenderAvatar, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
+        if let Some(session) = self.session.as_mut()
+            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
                 avatar.used_joints = msg.skeleton;
                 let addr = ctx.address();
                 addr.do_send(SendUIMessage {
@@ -730,7 +614,133 @@ impl Handler<RenderAvatar> for Mailbox {
                 });
                 avatar.fully_loaded = true;
             }
-        }
+    }
+}
+
+impl Handler<HandleNewAvatarAppearance> for Mailbox {
+    type Result = ();
+    fn handle(
+        &mut self,
+        _msg: HandleNewAvatarAppearance,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
+        // the appearance of the avatar.
+        warn!("AvatarAppearance packet received. Currently unimplemented");
+    }
+}
+
+impl Handler<HandleNewAvatarAnimation> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
+        let session = match self.session.as_mut() {
+            Some(session) => session,
+            None => {
+                error!("Handle New Avatar Animation failed. Session is not running.");
+                return;
+            }
+        };
+        let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
+            Some(avatar) => {
+                if !avatar.fully_loaded {
+                    warn!(
+                        "Animation targeting player {:?} is not yet fully loaded. Queueing animation...",
+                        msg.avatar_animation.sender_id
+                    );
+                    ctx.notify_later(msg, Duration::from_secs(1));
+                    return;
+                }
+                avatar
+            }
+            None => {
+                warn!(
+                    "Animation targeting player {:?}, not yet in scene. Queueing animation...",
+                    msg.avatar_animation.sender_id
+                );
+                ctx.notify_later(msg, Duration::from_secs(1));
+                return;
+            }
+        };
+
+        let viewer_asset_endpoint = session
+            .capability_urls
+            .get(&Capability::ViewerAsset)
+            .unwrap()
+            .to_string();
+        let addr = ctx.address();
+        let agent_id = avatar.agent_id.to_string();
+        let sender_id = msg.avatar_animation.sender_id;
+        let used_joints = avatar.used_joints.clone();
+        let mut hasher = DefaultHasher::new();
+        used_joints.hash(&mut hasher);
+        let joint_hash = format!("{:016x}", hasher.finish());
+
+        let animations = msg.avatar_animation.animations;
+
+        ctx.spawn(
+            async move {
+                for animation in animations {
+                    let animation_json_path = if let Some(default_animation) =
+                        DefaultAnimation::from_uuid(&animation.anim_id)
+                    {
+                        generated_asset_path()
+                            .join("Animations")
+                            .join(format!("{}.json", default_animation))
+                    } else {
+                        match download_asset(
+                            ObjectType::Animation.to_string(),
+                            animation.anim_id,
+                            &viewer_asset_endpoint,
+                        )
+                        .await
+                        {
+                            Ok(_) => {
+                                //TODO: Implement this
+                                warn!("Retrieved animation, but non-default animations are currently unimplemented");
+                                return;
+                            }
+                            Err(e) => {
+                                error!(
+                                    "failed to retrieve animation {:?}: {:?}",
+                                    animation.anim_id, e
+                                );
+                                return;
+                            }
+                        }
+                    };
+
+                    let animation_dir = match create_agent_animation_dir(&agent_id) {
+                        Ok(dir) => dir,
+                        Err(e) => {
+                            warn!("Failed to create animation dir: {:?}", e);
+                            return;
+                        }
+                    };
+
+                    let file_name = format!("{}_{}.glb", joint_hash, animation.anim_id);
+                    let animation_out_path = animation_dir.join(file_name);
+                    if let Err(e) = generate_gltf_animation(
+                        animation_json_path.clone(),
+                        animation_out_path.clone(),
+                        used_joints.clone(),
+                    ) {
+                        error!(
+                            "Failed to generate animation {:?}: {:?}",
+                            animation.anim_id, e
+                        );
+                        return;
+                    }
+
+                    addr.do_send(SendUIMessage {
+                        ui_message: UIMessage::new_play_animation(PlayAnimation {
+                            player_id: sender_id,
+                            animation_path: animation_out_path,
+                        }),
+                    });
+                }
+            }
+            .into_actor(self),
+        );
     }
 }
 

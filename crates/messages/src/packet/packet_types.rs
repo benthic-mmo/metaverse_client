@@ -2,7 +2,7 @@ use super::header::PacketFrequency;
 use crate::errors::ParseError;
 use crate::legacy::udp::agent_wearables_request::AgentWearablesRequest;
 use crate::legacy::udp::agent_wearables_update::AgentWearablesUpdate;
-use crate::packet::packet::PacketData;
+use crate::packet::packet_protocol::PacketData;
 use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;

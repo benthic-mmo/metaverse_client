@@ -294,6 +294,7 @@ fn handle_disconnect(
 }
 
 // Handle all of the core events that are received from the listener.
+#[allow(clippy::all)]
 fn handle_queue(
     event_channel: Res<EventChannel>,
     mut ev_loginresponse: MessageWriter<LoginResponseEvent>,
@@ -306,7 +307,6 @@ fn handle_queue(
     mut ev_skybox_update: MessageWriter<SkyboxUpdateEvent>,
     mut chat_messages: ResMut<ChatMessages>,
     mut animation_queue: ResMut<AnimationQueue>,
-
     asset_server: Res<AssetServer>,
 ) {
     // Check for events in the channel

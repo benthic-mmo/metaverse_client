@@ -213,9 +213,9 @@ pub async fn sqlite_get_current_outfit(
         let mut json: Option<String> = row.get("json");
         let mut mesh: Option<String> = row.get("mesh");
 
-        if item_type == ObjectType::Link {
-            if let Some(asset_id) = asset_id_str.as_deref() {
-                if let Ok(linked_row) = sqlx::query(
+        if item_type == ObjectType::Link
+            && let Some(asset_id) = asset_id_str.as_deref()
+                && let Ok(linked_row) = sqlx::query(
                     r#"
                     SELECT name, item_id, asset_id, item_type, json, mesh
                     FROM items
@@ -234,8 +234,6 @@ pub async fn sqlite_get_current_outfit(
                     json = linked_row.get("json");
                     mesh = linked_row.get("mesh");
                 }
-            }
-        }
 
         let item_id = match item_id_str {
             Some(v) => Uuid::parse_str(&v)?,

@@ -10,10 +10,10 @@ use twox_hash::XxHash32;
 
 use crate::{
     error::PatchError,
-    generate_triangles::generate_mesh_with_indices,
     layer_handler::{
         bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
     },
+    terrain_mesh_builder::build_terrain,
 };
 
 // This handles receiving and parsing LayerData packets.
@@ -65,7 +65,7 @@ impl Land {
         let corner = total_patches.get(&top_corner_xy).cloned();
 
         if let (Some(north_layer), Some(east_layer), Some(top_corner)) = (north, east, corner) {
-            let object = generate_mesh_with_indices(
+            let object = build_terrain(
                 total_patches.get(&location).unwrap(),
                 &north_layer,
                 &east_layer,
@@ -90,7 +90,7 @@ impl PatchData for Land {
             let mut terrain_header = match TerrainHeader::from_bytes(&mut reader, extended) {
                 Ok(mut header) => {
                     header.stride = packet.stride;
-                    header.patch_size = packet.patch_size;
+                    header.patch_size = packet.patch_size as usize;
                     header
                 }
                 Err(e) => {
@@ -143,7 +143,7 @@ pub fn parse_heightmap(
     reader: &mut BitReader,
     terrain_header: &TerrainHeader,
 ) -> Result<Vec<f32>, BitReaderError> {
-    let patch_size = terrain_header.patch_size as usize;
+    let patch_size = terrain_header.patch_size;
     let total = patch_size * patch_size;
     let mut patch: Vec<f32> = vec![0.0; total];
 

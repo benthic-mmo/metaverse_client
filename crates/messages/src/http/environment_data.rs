@@ -514,7 +514,7 @@ impl SkyFrame {
 impl DayCycle {
     /// convert environment data from bytes retreived from the endpoint
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let data = xml::from_str(&String::from_utf8_lossy(&bytes))?;
+        let data = xml::from_str(&String::from_utf8_lossy(bytes))?;
         Self::from_llsd(data)
     }
     /// convert environment data from LLSD values
@@ -529,7 +529,7 @@ impl DayCycle {
         let frames_map = llsd_get!(day_cycle, "frames", as_map)?;
         let mut sky_frames = HashMap::new();
         let mut water_frames = HashMap::new();
-        for (frame_id, frame_value) in frames_map.into_iter() {
+        for (frame_id, frame_value) in frames_map.iter() {
             let frame_map = frame_value.as_map().ok_or_else(|| {
                 ParseError::InvalidField(format!(
                     "Frame {} is not a map: {:?}",

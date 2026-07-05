@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    packet::{packet::Packet, packet_types::PacketType},
+    packet_protocol::{packet::Packet, packet_types::PacketType},
     udp::core::region_handshake::RegionHandshake,
 };
 

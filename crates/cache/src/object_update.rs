@@ -16,6 +16,19 @@ pub struct GeneratorObject {
     pub rotation: Quat,
 }
 
+#[derive(Debug)]
+pub struct ObjectCache {
+    pub full_id: Uuid,
+    pub local_id: u32,
+    pub crc: u32,
+    pub region_id: String,
+    pub object_type: ObjectType,
+    pub parent_id: Option<u32>,
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
+}
+
 fn vec3_from_row(
     row: &sqlx::sqlite::SqliteRow,
     x: &str,
@@ -145,19 +158,10 @@ pub async fn sqlite_update_object_glb_path(
 
 pub async fn sqlite_insert_object_update(
     pool: &SqlitePool,
-    id: u32,
-    full_id: Uuid,
-    crc: u32,
-    region_id: String,
-    object_type: ObjectType,
-    parent_id: Option<u32>,
-    position: Vec3,
-    rotation: Quat,
-    scale: Vec3,
+    object: ObjectCache,
 ) -> Result<(), InventoryError> {
-    let parent_id = parent_id.unwrap_or(0);
-    let rotation = rotation.normalize();
-
+    let parent_id = object.parent_id.unwrap_or(0);
+    let rotation = object.rotation.normalize();
     sqlx::query(
         r#"
         INSERT INTO object_updates (
@@ -188,22 +192,22 @@ pub async fn sqlite_insert_object_update(
             scale_z = excluded.scale_z
         "#,
     )
-    .bind(id as i64)
-    .bind(full_id.to_string())
-    .bind(crc)
-    .bind(region_id)
+    .bind(object.local_id as i64)
+    .bind(object.full_id.to_string())
+    .bind(object.crc)
+    .bind(object.region_id)
     .bind(parent_id as i64)
-    .bind(object_type.to_string())
-    .bind(position.x)
-    .bind(position.y)
-    .bind(position.z)
+    .bind(object.object_type.to_string())
+    .bind(object.position.x)
+    .bind(object.position.y)
+    .bind(object.position.z)
     .bind(rotation.x)
     .bind(rotation.y)
     .bind(rotation.z)
     .bind(rotation.w)
-    .bind(scale.x)
-    .bind(scale.y)
-    .bind(scale.z)
+    .bind(object.scale.x)
+    .bind(object.scale.y)
+    .bind(object.scale.z)
     .execute(pool)
     .await?;
 

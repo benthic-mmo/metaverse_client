@@ -4,7 +4,7 @@ use glam::Vec3;
 use crate::errors::ParseError;
 use crate::packet::{
     header::{Header, PacketFrequency},
-    packet::{Packet, PacketData},
+    packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
 use std::io::Cursor;
@@ -29,12 +29,19 @@ impl Packet {
 
 /// TODO: unimplemented
 #[derive(Debug, Clone)]
+/// The viewer uses this packet to determine the time of day in the region.
 pub struct SimulatorViewerTimeMessage {
+    /// Microseconds since the sim start, or the region time origin.
     pub seconds_since_start: u64,
+    /// How many seconds are in one day
     pub seconds_per_day: u32,
+    /// How many seconds are in one year. This is for determining live season changes.
     pub seconds_per_year: u32,
+    /// Unit vector to determine which direction the sun is moving
     pub sun_direction: Vec3,
+    /// A value representing the position of the sun in the sky  
     pub sun_phase: f32,
+    /// angular velocity of the sun in 3d space
     pub sun_angle_velocity: Vec3,
 }
 

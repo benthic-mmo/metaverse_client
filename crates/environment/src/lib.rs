@@ -94,10 +94,10 @@
 pub mod constants;
 /// error definitions
 pub mod error;
-/// This module handles generating the triangles required for generating the GLTF files.
-pub mod generate_triangles;
 /// This module handles parsing and decoding LayerData packets
 pub mod layer_handler;
+/// This module handles generating the triangles required for generating the GLTF files.
+pub mod terrain_mesh_builder;
 
 /// Contains information and handling for land patches
 pub mod land;

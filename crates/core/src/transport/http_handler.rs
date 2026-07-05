@@ -13,7 +13,7 @@ use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::utils::object_types::ObjectType;
 use std::io::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 /// send the login to simulator xml-rpc request
@@ -188,7 +188,7 @@ pub async fn download_texture(
         }
         _ => return Err(Error::other("Unknown pixel format".to_string())),
     };
-    output.save(&path).unwrap();
+    output.save(path).unwrap();
     Ok(output)
 }
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
@@ -201,7 +201,7 @@ fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
 pub async fn download_scene_group(
     scene_group: &SceneGroup,
     url: &str,
-    texture_path: &PathBuf,
+    texture_path: &Path,
 ) -> Result<Vec<RenderObject>, std::io::Error> {
     let mut meshes = Vec::new();
     for scene in &scene_group.parts {
@@ -224,7 +224,7 @@ pub async fn download_renderable_mesh(
     asset_id: Uuid,
     name: String,
     url: &str,
-    texture_path: &PathBuf,
+    texture_path: &Path,
 ) -> Result<RenderObject, std::io::Error> {
     let mesh = download_mesh(ObjectType::Mesh.to_string(), asset_id, url).await?;
     let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
@@ -276,12 +276,12 @@ pub async fn download_renderable_mesh(
         };
 
         RenderObject {
-            name: name,
+            name,
             id: asset_id,
             indices: mesh.high_level_of_detail.indices,
             vertices,
             skin: Some(skin_data),
-            texture: Some(texture_path.clone()),
+            texture: Some(texture_path.to_path_buf()),
             uv: Some(uvs),
         }
     } else {
@@ -291,12 +291,12 @@ pub async fn download_renderable_mesh(
         //.collect();
 
         RenderObject {
-            name: name,
+            name,
             id: asset_id,
             indices: mesh.high_level_of_detail.indices,
             vertices,
             skin: None,
-            texture: Some(texture_path.clone()),
+            texture: Some(texture_path.to_path_buf()),
             uv: Some(uvs),
         }
     };

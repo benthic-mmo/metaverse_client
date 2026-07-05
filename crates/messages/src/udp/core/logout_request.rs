@@ -5,7 +5,7 @@ use crate::{
     errors::ParseError,
     packet::{
         header::{Header, PacketFrequency},
-        packet::{Packet, PacketData},
+        packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
 };

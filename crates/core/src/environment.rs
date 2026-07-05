@@ -13,7 +13,7 @@ use log::info;
 use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{PatchLayer, parse_layer_data},
+    layer_handler::{parse_layer_data, PatchLayer},
 };
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::environment_data::DayCycle;
@@ -38,9 +38,31 @@ pub struct EnvironmentCache {
     pub patch_cache: HashMap<U16Vec2, Land>,
 }
 
+/// Handles received SimulatorVIewerTimeMessages
+///
+/// This message contains information about where the sun is in the sky
+///
+/// # Cause
+/// - SimulatorViewerTimeMessage packet received from UDP socket on server
+///
+/// # Effects
+/// - Dispatches a [`SkyboxUpdate`] message to inform the UI of sun movement
 #[derive(Message)]
 #[rtype(result = "()")]
+pub struct HandleSimulatorViewerTimeMessage {
+    /// Seconds since start of sim
+    pub seconds_since_start: u64,
+    /// Phase the sun is currently in
+    pub sun_phase: f32,
+    /// Time it takes for the sun to make one full revolution
+    pub seconds_per_day: u32,
+    /// Seconds per year to handle custom season change
+    pub seconds_per_year: u32,
+}
+
 /// An event to trigger the fetching of the day cycle data from the endpoint
+#[derive(Message)]
+#[rtype(result = "()")]
 pub struct FetchEnvironmentEvent {}
 
 #[cfg(feature = "environment")]
@@ -61,7 +83,7 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
 
                             let mut response = client.get(url.to_string()).send().await.unwrap();
                             let data = response.body().await.unwrap();
-                            let day_cycle = DayCycle::from_bytes(&data).unwrap();
+                            let _day_cycle = DayCycle::from_bytes(&data).unwrap();
                         }
                         .into_actor(self),
                     );
@@ -69,15 +91,6 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
             }
         }
     }
-}
-
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct HandleSimulatorViewerTimeMessage {
-    pub seconds_since_start: u64,
-    pub sun_phase: f32,
-    pub seconds_per_day: u32,
-    pub seconds_per_year: u32,
 }
 
 #[cfg(feature = "environment")]
@@ -100,7 +113,6 @@ impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
             ctx.address().do_send(SendUIMessage {
                 ui_message: UIMessage::new_skybox_update(SkyboxUpdate {
                     sun_phase: msg.sun_phase,
-                    ..Default::default()
                 }),
             });
         }

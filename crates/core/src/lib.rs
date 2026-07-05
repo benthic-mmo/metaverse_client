@@ -6,15 +6,11 @@
 //!
 //! ## Goals
 //! - Enable completely async client-server processing using the actix actor system
-//! - Fully seperate UI and core concerns, using inter-process UDP packets to allow communication
-//! between the server and the player
-//! - Fully seperate core and packet parsing conerns, using only well-defined structs throughout the
-//! project
-//! - Handle as much mesh and vertex math as possible in the core, allowing UI and mesh generation
-//! to be handled with as few gotchas as possible
+//! - Fully seperate UI and core concerns, using inter-process UDP packets to allow communication between the server and the player
+//! - Fully seperate core and packet parsing conerns, using only well-defined structs throughout the project
+//! - Handle as much mesh and vertex math as possible in the core, allowing UI and mesh generation to be handled with as few gotchas as possible
 //! - Complete and understandable documentation
-//! - Create developer-friendly APIs that can be used in lieu of the more confusing
-//! opensimulator/secondlife APIs.
+//! - Create developer-friendly APIs that can be used in lieu of the more confusing opensimulator/secondlife APIs.
 //!
 //!## Current Status
 //! <div class="warning">Work In Progress</div>
