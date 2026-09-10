@@ -2,12 +2,10 @@ use benthic_protocol::messages::ui::login_event::Login;
 use mac_address::get_mac_address;
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{ser::xml_rpc, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, ser::xml_rpc};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
-use std::fs::File;
-use std::io::Read;
 
 ///SimulatorLoginProtocol- the struct for creating a login call
 ///implemented from the protocol as defined by <http://opensimulator.org/wiki/SimulatorLoginProtocol>
@@ -321,20 +319,19 @@ impl SimulatorLoginProtocol {
 fn hash_passwd(passwd_raw: String) -> String {
     let mut hasher = md5::Md5::new();
     hasher.update(passwd_raw);
-    format!("$1${:x}", hasher.finalize())
+    let hash = hasher.finalize();
+
+    format!("$1${}", hex::encode(hash))
 }
 
 /// Creates the viewer digest, a fingerprint of the viewer executable
 /// this isn't used by opensimulator, but it's fun to have
 fn hash_viewer_digest() -> Result<String, Box<dyn Error>> {
     let path = env::args().next().ok_or("No argument found")?;
-    let mut f = File::open(path)?;
-    let mut byt = Vec::new();
-    f.read_to_end(&mut byt)?;
+    let bytes = std::fs::read(path)?;
 
     let mut hasher = Md5::new();
-    hasher.update(&byt);
-    let hash = hasher.finalize();
+    hasher.update(bytes);
 
-    Ok(format!("{:x}", hash))
+    Ok(hex::encode(hasher.finalize()))
 }

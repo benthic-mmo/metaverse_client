@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
@@ -114,8 +115,32 @@ pub fn create_sub_object_dir(name: &str) -> io::Result<PathBuf> {
     create_sub_dir(&object_dir, name)
 }
 
-/// Create a subdirectory inside an agent directory for animations
-pub fn create_agent_animation_dir(agent_name: &str) -> io::Result<PathBuf> {
-    let agent_dir = create_sub_agent_dir(agent_name)?;
-    create_sub_dir(&agent_dir, "animations")
+/// Create the global animations directory.
+pub fn create_animation_dir() -> io::Result<PathBuf> {
+    let share_dir = initialize_share_dir()?;
+    create_sub_dir(&share_dir, "animations")
+}
+
+/// Create the directory containing shared filtered animations.
+pub fn create_filtered_animations_dir() -> io::Result<PathBuf> {
+    let animations_dir = create_animation_dir()?;
+    create_sub_dir(&animations_dir, "filtered_animations")
+}
+
+/// Create the directory for a specific filtered animation.
+pub fn create_filtered_animation_dir(animation_id: &Uuid) -> io::Result<PathBuf> {
+    let filtered_dir = create_filtered_animations_dir()?;
+    create_sub_dir(&filtered_dir, &animation_id.to_string())
+}
+
+/// Create the directory containing agent-specific animations.
+pub fn create_animation_agents_dir() -> io::Result<PathBuf> {
+    let animations_dir = create_animation_dir()?;
+    create_sub_dir(&animations_dir, "agents")
+}
+
+/// Create the directory for a specific agent's animations.
+pub fn create_agent_animation_dir(agent_id: &Uuid) -> io::Result<PathBuf> {
+    let agents_dir = create_animation_agents_dir()?;
+    create_sub_dir(&agents_dir, &agent_id.to_string())
 }

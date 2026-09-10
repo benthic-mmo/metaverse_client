@@ -35,3 +35,5 @@ pub mod objects;
 pub mod session;
 /// handles packet sending between UI and core, and core and server
 pub mod transport;
+
+pub mod object_handler;

@@ -2,9 +2,10 @@ use super::session::Mailbox;
 use crate::avatar::HandleNewAvatar;
 use crate::initialize::create_sub_agent_dir;
 use crate::initialize::create_sub_object_dir;
+use crate::object_handler::create_render_object;
 use crate::session::OutgoingPacket;
 use crate::session::SendUIMessage;
-use crate::transport::http_handler::download_renderable_mesh;
+use crate::transport::http_handler::download_mesh;
 use crate::transport::http_handler::download_texture;
 use actix::AsyncContext;
 use actix::ResponseFuture;
@@ -18,14 +19,14 @@ use glam::Vec3;
 use log::info;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
+use metaverse_cache::object_update::GeneratorObject;
+use metaverse_cache::object_update::ObjectCache;
 use metaverse_cache::object_update::sqlite_check_cache;
 use metaverse_cache::object_update::sqlite_get_object_scale_rotation_position;
 use metaverse_cache::object_update::sqlite_get_parent;
 use metaverse_cache::object_update::sqlite_insert_object_update;
 use metaverse_cache::object_update::sqlite_update_object_glb_path;
 use metaverse_cache::object_update::sqlite_update_object_json_path;
-use metaverse_cache::object_update::GeneratorObject;
-use metaverse_cache::object_update::ObjectCache;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
@@ -495,16 +496,27 @@ impl Handler<DownloadObject> for Mailbox {
                         }
                     };
 
-                    match download_renderable_mesh(
+                    let mesh = match download_mesh(
+                        ObjectType::Mesh.to_string(),
                         msg.asset_id,
-                        "name".to_string(),
                         &server_endpoint,
-                        &texture_path,
                     )
                     .await
                     {
+                        Ok(mesh) => mesh,
+                        Err(e) => {
+                            error!("Failed to download mesh: {:?}", e);
+                            return;
+                        }
+                    };
+
+                    match create_render_object(
+                        mesh,
+                        "name".to_string(),
+                        &texture_path,
+                        msg.asset_id,
+                    ) {
                         Ok(render_object) => {
-                            // write the json
                             let json_path = match write_json(
                                 &render_object,
                                 msg.asset_id,
@@ -542,7 +554,7 @@ impl Handler<DownloadObject> for Mailbox {
                             });
                         }
                         Err(e) => {
-                            error!("{:?}, {:?}", e, msg);
+                            error!("Failed to create render object{:?}, {:?}", e, msg);
                         }
                     }
                 }

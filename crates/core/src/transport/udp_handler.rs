@@ -36,9 +36,9 @@ impl Mailbox {
                                 id: packet.header.sequence_number,
                             })
                             .await
-                        {
-                            warn!("Failed to send ping: {:?}", e)
-                        }
+                    {
+                        warn!("Failed to send ping: {:?}", e)
+                    }
 
                     match &packet.body {
                         PacketType::PacketAck(data) => {

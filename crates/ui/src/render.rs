@@ -6,6 +6,7 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_gltf::{Gltf, GltfLoaderSettings};
 use bevy_panorbit_camera::PanOrbitCamera;
+use bevy_world_serialization::WorldInstanceSpawner;
 
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -84,14 +85,15 @@ pub fn follow_gltf_with_offset(
     mut cameras: Query<&mut PanOrbitCamera, With<MainCamera>>,
 ) {
     if let Some(login_response) = &session_data.login_response
-        && let Ok(mut camera) = cameras.single_mut() {
-            for (model_transform, agent_id) in gltf_models.iter() {
-                if agent_id.id == login_response.agent_id {
-                    camera.target_focus = model_transform.translation;
-                    break;
-                }
+        && let Ok(mut camera) = cameras.single_mut()
+    {
+        for (model_transform, agent_id) in gltf_models.iter() {
+            if agent_id.id == login_response.agent_id {
+                camera.target_focus = model_transform.translation;
+                break;
             }
         }
+    }
 }
 
 pub fn handle_mesh_update(
@@ -142,7 +144,7 @@ pub fn extract_gltf_meshes(
     mut commands: Commands,
     mut queue: ResMut<MeshQueue>,
     gltfs: Res<Assets<Gltf>>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<WorldInstanceSpawner>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     _height_materials: ResMut<Assets<HeightMaterial>>,
     _asset_server: Res<AssetServer>,
@@ -152,7 +154,9 @@ pub fn extract_gltf_meshes(
     for (i, item) in queue.pending.iter().enumerate() {
         match &item.handle {
             RenderableHandle::Gltf(gltf_handle) => {
-                let Some(gltf) = gltfs.get(gltf_handle) else { continue };
+                let Some(gltf) = gltfs.get(gltf_handle) else {
+                    continue;
+                };
                 let scene_root = if let Some(agent_id) = item.id {
                     commands
                         .spawn((

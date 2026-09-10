@@ -305,33 +305,32 @@ pub async fn get_missing_object_updates(
     ids: &[Uuid],
 ) -> Result<Vec<Uuid>, sqlx::Error> {
     if ids.is_empty() {
-        return Ok(vec![]);
+        return Ok(Vec::new());
     }
 
-    let placeholders = vec!["?"; ids.len()].join(",");
-    let query = format!(
-        "SELECT item_id FROM object_updates WHERE full_id IN ({})",
-        placeholders
+    let mut query = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "SELECT full_id FROM object_updates WHERE full_id IN (",
     );
 
-    let mut q = sqlx::query(&query);
+    let mut separated = query.separated(", ");
+
     for id in ids {
-        q = q.bind(id.to_string());
+        separated.push_bind(id.to_string());
     }
 
-    let rows = q.fetch_all(pool).await?;
+    separated.push_unseparated(")");
+
+    let rows = query.build().fetch_all(pool).await?;
 
     let existing_ids: HashSet<Uuid> = rows
         .iter()
         .filter_map(|row| row.try_get::<String, _>("full_id").ok())
-        .filter_map(|s| Uuid::parse_str(&s).ok())
+        .filter_map(|id| Uuid::parse_str(&id).ok())
         .collect();
 
-    let missing_ids: Vec<Uuid> = ids
+    Ok(ids
         .iter()
         .copied()
         .filter(|id| !existing_ids.contains(id))
-        .collect();
-
-    Ok(missing_ids)
+        .collect())
 }

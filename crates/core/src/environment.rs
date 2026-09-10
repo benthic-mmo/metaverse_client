@@ -13,7 +13,7 @@ use log::info;
 use log::warn;
 use metaverse_environment::{
     land::Land,
-    layer_handler::{parse_layer_data, PatchLayer},
+    layer_handler::{PatchLayer, parse_layer_data},
 };
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::environment_data::DayCycle;

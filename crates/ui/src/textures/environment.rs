@@ -3,8 +3,9 @@ use bevy::{
     color::LinearRgba,
     image::Image,
     pbr::Material,
+    prelude::AlphaMode,
     reflect::TypePath,
-    render::{alpha::AlphaMode, render_resource::AsBindGroup},
+    render::render_resource::AsBindGroup,
     shader::ShaderRef,
 };
 

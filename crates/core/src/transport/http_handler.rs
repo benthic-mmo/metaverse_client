@@ -1,12 +1,8 @@
 use benthic_protocol::messages::ui::login_error::{LoginError, Reason};
 use benthic_protocol::messages::ui::login_event::Login;
-use benthic_protocol::render_data::{RenderObject, SkinData};
-use benthic_protocol::skeleton::Skeleton;
-use glam::{Vec3, Vec4};
+use benthic_protocol::render_data::RenderObject;
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
-use log::warn;
-use metaverse_agent::skeleton::create_skeleton;
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 use metaverse_messages::http::mesh::Mesh;
@@ -15,6 +11,8 @@ use metaverse_messages::utils::object_types::ObjectType;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+use crate::object_handler::create_render_object;
 
 /// send the login to simulator xml-rpc request
 pub async fn login_to_simulator(
@@ -203,103 +201,15 @@ pub async fn download_scene_group(
     url: &str,
     texture_path: &Path,
 ) -> Result<Vec<RenderObject>, std::io::Error> {
-    let mut meshes = Vec::new();
+    let mut render_objects = Vec::new();
     for scene in &scene_group.parts {
-        meshes.push(
-            download_renderable_mesh(
-                scene.sculpt.texture,
-                scene.metadata.name.clone(),
-                url,
-                texture_path,
-            )
-            .await?,
-        );
+        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
+        render_objects.push(create_render_object(
+            mesh,
+            scene.metadata.name.clone(),
+            texture_path,
+            scene.sculpt.texture,
+        )?);
     }
-    Ok(meshes)
-}
-
-/// retrieves mesh data and does operations on the received data to ready it for the metaverse_mesh
-/// crate.
-pub async fn download_renderable_mesh(
-    asset_id: Uuid,
-    name: String,
-    url: &str,
-    texture_path: &Path,
-) -> Result<RenderObject, std::io::Error> {
-    let mesh = download_mesh(ObjectType::Mesh.to_string(), asset_id, url).await?;
-    let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
-    let uvs: Vec<[f32; 2]> = mesh
-        .high_level_of_detail
-        .texture_coordinate
-        .iter()
-        .map(|tc| {
-            // Normalize U and V from 0..65535 to 0..1
-            let u_norm = tc.u as f32 / 65535.0;
-            let v_norm = tc.v as f32 / 65535.0;
-
-            // Flip V axis
-            let v_flipped = 1.0 - v_norm;
-
-            [
-                domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
-                domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
-            ]
-        })
-        .collect();
-
-    let object = if let Some(skin) = &mesh.skin {
-        // Apply bind shape matrix
-        let vertices: Vec<Vec3> = mesh
-            .high_level_of_detail
-            .vertices
-            .iter()
-            .map(|v| {
-                let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                Vec3::new(v4.x, v4.y, v4.z)
-            })
-            .collect();
-
-        let skeleton = create_skeleton(name.clone(), asset_id, skin).unwrap_or_else(|e| {
-            warn!("Failed to create skeleton: {:?}", e);
-            Skeleton::default()
-        });
-
-        let skin_data = SkinData {
-            skeleton,
-            weights: mesh
-                .high_level_of_detail
-                .weights
-                .clone()
-                .unwrap_or_default(),
-            joint_names: skin.joint_names.clone(),
-            inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
-        };
-
-        RenderObject {
-            name,
-            id: asset_id,
-            indices: mesh.high_level_of_detail.indices,
-            vertices,
-            skin: Some(skin_data),
-            texture: Some(texture_path.to_path_buf()),
-            uv: Some(uvs),
-        }
-    } else {
-        let vertices: Vec<Vec3> = mesh.high_level_of_detail.vertices;
-        //.iter()
-        //.map(|v| apply_scale_rotation(*v, scale, rotation))
-        //.collect();
-
-        RenderObject {
-            name,
-            id: asset_id,
-            indices: mesh.high_level_of_detail.indices,
-            vertices,
-            skin: None,
-            texture: Some(texture_path.to_path_buf()),
-            uv: Some(uvs),
-        }
-    };
-
-    Ok(object)
+    Ok(render_objects)
 }

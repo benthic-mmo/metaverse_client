@@ -17,10 +17,7 @@ use quick_xml::{
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
-use std::{
-    str::{FromStr, from_utf8},
-    time::SystemTime,
-};
+use std::{str::FromStr, time::SystemTime};
 use uuid::Uuid;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -55,7 +52,7 @@ impl SceneGroup {
         loop {
             match reader.read_event_into(&mut buf)? {
                 Event::Start(ref e) => {
-                    path.push(from_utf8(e.name().as_ref())?.to_string());
+                    path.push(e.name().as_ref().to_owned());
                     // If we are at the part of the XML describing the other parts, create a new
                     // scene object that will be mutated by the read_until_scene_object_end
                     // function.
@@ -333,11 +330,11 @@ impl SceneObject {
         loop {
             match reader.read_event_into(&mut buf)? {
                 Event::Start(ref e) => {
-                    path.push(from_utf8(e.name().as_ref())?.to_string());
+                    path.push(e.name().as_ref().to_owned());
                 }
                 Event::End(ref e) => {
                     let tag_bytes = e.name(); // get the raw name
-                    let tag = from_utf8(tag_bytes.as_ref())?; // convert to &str
+                    let tag = tag_bytes.as_ref(); // convert to &str
                     if let Some(last) = path.last()
                         && last == tag
                     {
@@ -380,7 +377,7 @@ impl SceneObject {
         scene_object: &mut SceneObject,
         offset: usize,
     ) -> Result<(), ParseError> {
-        let text = str::from_utf8(e.as_ref())?;
+        let text = e.as_ref();
         let val = unescape(text)?.into_owned();
         match &path_str[offset..] {
             ["CreatorID", "UUID"] => {

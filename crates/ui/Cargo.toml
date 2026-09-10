@@ -18,7 +18,7 @@ benthic_protocol = {path="../../../benthic_protocol/"}
 metaverse_agent = {path="../agent"}
 
 #disable sound for bevy
-bevy = { version = "0.18", default-features = false, features = [
+bevy = { version = "0.19", default-features = false, features = [
     "bevy_animation",
     "bevy_winit",
     "bevy_render",
@@ -38,24 +38,26 @@ bevy = { version = "0.18", default-features = false, features = [
     "png",
     "jpeg"
 ]}
-bevy_gltf = { version = "0.18", features = ["bevy_animation"] }
-bevy_egui = "0.39.1"
-bevy_panorbit_camera = "0.34.0"
-egui = "0.33.3"
+bevy_gltf = { version = "0.19", features = ["bevy_animation"] }
+bevy_egui = "0.42.0"
+bevy_panorbit_camera = "0.35.1"
+egui = "0.36.2"
 tokio = { version = "1", features = ["full"] }
-actix-rt = "2.11.0"
-accesskit = "0.24.0"
+actix-rt = "2.13.0"
+accesskit = "0.25.0"
 serde = { version = "1.0", features = ["derive"] }
-crossbeam-channel = "0.5.15"
+crossbeam-channel = "0.5.17"
 serde_json = "1.0"
 portpicker = "0.1.1"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
-dirs = "6.0.0"
-log = "0.4.29"
-thiserror = "2.0.18"
-bevy_heightmap = "0.7.0"
+keyring = { version = "4.2.0", features = ["apple-native-keyring-store", "windows-native-keyring-store", "zbus-secret-service-keyring-store"] }
+dirs = "7.0.0"
+log = "0.4.34"
+thiserror = "2.0.20"
+bevy_heightmap = "0.19.0"
+bevy_post_process = "0.19.1"
+bevy_world_serialization = "0.19.1"
 [dependencies.uuid]
-version = "1.23.1"
+version = "1.26.1"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
