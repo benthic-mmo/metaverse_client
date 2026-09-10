@@ -1,19 +1,24 @@
 use super::session::Mailbox;
-use crate::initialize::{create_agent_animation_dir, create_sub_agent_dir};
+use crate::errors::FilterAnimationError;
+use crate::initialize::{
+    create_agent_animation_dir, create_filtered_animation_dir, create_sub_agent_dir,
+};
 use crate::session::SendUIMessage;
 use crate::transport::http_handler::{
     download_asset, download_object, download_scene_group, download_texture,
 };
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
 use benthic_asset_pipeline::generated_asset_path;
-use benthic_protocol::default_animations::DefaultAnimation;
+use benthic_protocol::default_animations::{AnimationClip, BindJoint, DefaultAnimation};
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::render_data::{AvatarObject, RenderObject};
-use benthic_protocol::skeleton::JointName;
+use benthic_protocol::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
+use indexmap::IndexMap;
 use log::{error, warn};
 use metaverse_agent::avatar::Avatar;
 use metaverse_agent::avatar::OutfitObject;
@@ -29,7 +34,7 @@ use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fs::{self, File};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{self, Write};
@@ -406,7 +411,9 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                                 }
                             };
 
-                            // Download the mesh itself
+                            // Download the SceneGroup which also downloads the full mesh
+                            // information.
+                            // this returns a vec of RenderObjects which are stored as JSON to save memory.
                             let render_objects = match download_scene_group(
                                 &scene_group,
                                 &server_endpoint,
@@ -459,7 +466,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                             });
                         }
                         Err(e) => {
-                            error!("{:?}, {:?}", e, msg);
+                            error!("Object contained no SceneGroup: {:?}, {:?}", e, msg);
                         }
                     }
                 }
@@ -476,10 +483,10 @@ impl Handler<AddObjectToAvatar> for Mailbox {
             if let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
                 match &msg.object {
                     OutfitObject::MeshObject(path) => {
-                        let json_str = fs::read_to_string(path)
-                            .unwrap_or_else(|_| panic!("Failed to read {:?}", path));
-
-                        let parts: Vec<RenderObject> = serde_json::from_str(&json_str).unwrap();
+                        let file = fs::File::open(path)
+                            .unwrap_or_else(|e| panic!("Failed to open {:?}: {}", path, e));
+                        let parts: Vec<RenderObject> = serde_json::from_reader(file)
+                            .unwrap_or_else(|e| panic!("Failed to read serde {:?}: {}", path, e));
 
                         if let Some(skin) = &parts[0].skin {
                             update_global_avatar_skeleton(avatar, &skin.skeleton);
@@ -499,7 +506,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
                     });
                 }
             } else {
-                warn!("Agent not found for agent_id {:?}", &msg.agent_id);
+                warn!("Agent not found for agent_id {:?}", msg.agent_id);
             }
         }
     }
@@ -509,96 +516,96 @@ impl Handler<FinalizeAvatar> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: FinalizeAvatar, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
-            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
-                let addr = ctx.address();
+            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id)
+        {
+            let addr = ctx.address();
 
-                let agent_id = avatar.agent_id;
-                let position = avatar.position;
-                let skeleton = avatar.skeleton.clone();
-                let used_joints = avatar.used_joints.clone();
-                let items = avatar.items.clone();
+            let agent_id = avatar.agent_id;
+            let position = avatar.position;
+            let skeleton = avatar.skeleton.clone();
+            let used_joints = avatar.used_joints.clone();
+            let items = avatar.items.clone();
 
-                let mut avatar_clone = avatar.clone();
-                let db_conn = self.inventory_db_connection.clone();
+            let mut avatar_clone = avatar.clone();
+            let db_conn = self.inventory_db_connection.clone();
 
-                avatar.fully_loaded = true;
-                ctx.spawn(
-                    async move {
-                        let json_paths: Vec<PathBuf> = items
-                            .into_iter()
-                            .filter_map(|item| {
-                                if let OutfitObject::MeshObject(path) = item {
-                                    Some(path)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-
-                        let avatar_object = AvatarObject {
-                            objects: json_paths,
-                            global_skeleton: skeleton,
-                            used_joints: used_joints.clone(),
-                        };
-
-                        let json_path_str = agent_id.to_string();
-                        let json_path = PathBuf::from(&json_path_str);
-
-                        let json_path = if json_path.exists() {
-                            json_path.clone()
-                        } else {
-                            match write_json(&avatar_object, agent_id, &json_path_str) {
-                                Ok(p) => p,
-                                Err(e) => {
-                                    error!("write_json failed: {:?}", e);
-                                    return;
-                                }
+            avatar.fully_loaded = true;
+            ctx.spawn(
+                async move {
+                    let json_paths: Vec<PathBuf> = items
+                        .into_iter()
+                        .filter_map(|item| {
+                            if let OutfitObject::MeshObject(path) = item {
+                                Some(path)
+                            } else {
+                                None
                             }
-                        };
+                        })
+                        .collect();
 
-                        let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
-                            Ok(base_dir) => base_dir,
+                    let avatar_object = AvatarObject {
+                        objects: json_paths,
+                        global_skeleton: skeleton,
+                        used_joints: used_joints.clone(),
+                    };
+
+                    let json_path_str = agent_id.to_string();
+                    let json_path = PathBuf::from(&json_path_str);
+
+                    let json_path = if json_path.exists() {
+                        json_path.clone()
+                    } else {
+                        match write_json(&avatar_object, agent_id, &json_path_str) {
+                            Ok(p) => p,
                             Err(e) => {
-                                error!("failed to create base dir: {:?}", e);
+                                error!("write_json failed: {:?}", e);
                                 return;
-                            }
-                        };
-                        let glb_path = base_dir.join(format!("{:?}_high.glb", msg.agent_id));
-
-                        if !glb_path.exists()
-                            && let Err(e) =
-                                generate_skinned_mesh(json_path.clone(), glb_path.clone())
-                            {
-                                error!("mesh generation failed: {:?}", e);
-                                return;
-                            }
-
-                        avatar_clone.path = Some(glb_path.clone());
-                        match sqlite_update_avatar(&db_conn, avatar_clone).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("Failed to update avatar cache {:?}", e)
                             }
                         }
+                    };
 
-                        addr.do_send(RenderAvatar {
-                            message: MeshUpdate {
-                                position,
-                                scale: Vec3::ONE,
-                                rotation: Quat::IDENTITY,
-                                parent: None,
-                                scene_id: None,
-                                path: glb_path,
-                                mesh_type: MeshType::Avatar,
-                                id: Some(msg.agent_id),
-                            },
-                            agent_id,
-                            skeleton: used_joints,
-                        });
+                    let base_dir = match create_sub_agent_dir(&msg.agent_id.to_string()) {
+                        Ok(base_dir) => base_dir,
+                        Err(e) => {
+                            error!("failed to create base dir: {:?}", e);
+                            return;
+                        }
+                    };
+                    let glb_path = base_dir.join(format!("{:?}_high.glb", msg.agent_id));
+
+                    if !glb_path.exists()
+                        && let Err(e) = generate_skinned_mesh(json_path.clone(), glb_path.clone())
+                    {
+                        error!("mesh generation failed: {:?}", e);
+                        return;
                     }
-                    .into_actor(self),
-                );
-            }
+
+                    avatar_clone.path = Some(glb_path.clone());
+                    match sqlite_update_avatar(&db_conn, avatar_clone).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("Failed to update avatar cache {:?}", e)
+                        }
+                    }
+
+                    addr.do_send(RenderAvatar {
+                        message: MeshUpdate {
+                            position,
+                            scale: Vec3::ONE,
+                            rotation: Quat::IDENTITY,
+                            parent: None,
+                            scene_id: None,
+                            path: glb_path,
+                            mesh_type: MeshType::Avatar,
+                            id: Some(msg.agent_id),
+                        },
+                        agent_id,
+                        skeleton: used_joints,
+                    });
+                }
+                .into_actor(self),
+            );
+        }
     }
 }
 
@@ -606,14 +613,15 @@ impl Handler<RenderAvatar> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RenderAvatar, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
-            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id) {
-                avatar.used_joints = msg.skeleton;
-                let addr = ctx.address();
-                addr.do_send(SendUIMessage {
-                    ui_message: UIMessage::new_mesh_update(msg.message),
-                });
-                avatar.fully_loaded = true;
-            }
+            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id)
+        {
+            avatar.used_joints = msg.skeleton;
+            let addr = ctx.address();
+            addr.do_send(SendUIMessage {
+                ui_message: UIMessage::new_mesh_update(msg.message),
+            });
+            avatar.fully_loaded = true;
+        }
     }
 }
 
@@ -668,9 +676,10 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
             .unwrap()
             .to_string();
         let addr = ctx.address();
-        let agent_id = avatar.agent_id.to_string();
+        let agent_id = avatar.agent_id;
         let sender_id = msg.avatar_animation.sender_id;
         let used_joints = avatar.used_joints.clone();
+        let skeleton = avatar.skeleton.clone();
         let mut hasher = DefaultHasher::new();
         used_joints.hash(&mut hasher);
         let joint_hash = format!("{:016x}", hasher.finish());
@@ -680,6 +689,8 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         ctx.spawn(
             async move {
                 for animation in animations {
+                    // if the animation is a default animation, retrieve its JSON from the
+                    // default asset path. 
                     let animation_json_path = if let Some(default_animation) =
                         DefaultAnimation::from_uuid(&animation.anim_id)
                     {
@@ -687,6 +698,8 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                             .join("Animations")
                             .join(format!("{}.json", default_animation))
                     } else {
+                        // if it is not a default animation, retrieve it from the endpoint and
+                        // convert it to an AnimationClip object.
                         match download_asset(
                             ObjectType::Animation.to_string(),
                             animation.anim_id,
@@ -709,39 +722,316 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                         }
                     };
 
-                    let animation_dir = match create_agent_animation_dir(&agent_id) {
-                        Ok(dir) => dir,
-                        Err(e) => {
-                            warn!("Failed to create animation dir: {:?}", e);
+                    let filtered_animation_dir =
+                        match create_filtered_animation_dir(&animation.anim_id) {
+                            Ok(dir) => dir,
+                            Err(e) => {
+                                warn!(
+                                    "Failed to create filtered animation directory for {:?}: {:?}",
+                                    animation.anim_id, e
+                                );
+                                return;
+                            }
+                        };
+                    
+                    let filtered_animation_out_path =
+                        filtered_animation_dir.join(format!("{}.json", joint_hash));
+                    
+                    if !filtered_animation_out_path.exists() {
+                        if let Err(e) = filter_animation(
+                            &animation_json_path,
+                            filtered_animation_out_path.clone(),
+                            used_joints.clone(),
+                        ) {
+                            error!(
+                                "Failed to filter animation {:?}: {:?}",
+                                animation.anim_id, e
+                            );
                             return;
                         }
-                    };
-
-                    let file_name = format!("{}_{}.glb", joint_hash, animation.anim_id);
-                    let animation_out_path = animation_dir.join(file_name);
+                    }
+                    
+                    let agent_animation_dir =
+                        match create_agent_animation_dir(&agent_id) {
+                            Ok(dir) => dir,
+                            Err(e) => {
+                                warn!(
+                                    "Failed to create agent animation directory for {:?}: {:?}",
+                                    agent_id, e
+                                );
+                                return;
+                            }
+                        };
+                    
+                    let agent_animation_out_path =
+                        agent_animation_dir.join(format!("{}.json", animation.anim_id));
+                    
+                    if !agent_animation_out_path.exists() {
+                        if let Err(e) = apply_joint_scale(
+                            &filtered_animation_out_path,
+                            agent_animation_out_path.clone(),
+                            &skeleton,
+                        ) {
+                            error!(
+                                "Failed to scale animation {:?}: {:?}",
+                                animation.anim_id, e
+                            );
+                            return;
+                        }
+                    }
+                    
+                    let animation_out_path =
+                        agent_animation_dir.join(format!("{}.glb", animation.anim_id));
+                    
                     if let Err(e) = generate_gltf_animation(
-                        animation_json_path.clone(),
+                        agent_animation_out_path.clone(),
                         animation_out_path.clone(),
-                        used_joints.clone(),
                     ) {
                         error!(
                             "Failed to generate animation {:?}: {:?}",
                             animation.anim_id, e
                         );
                         return;
-                    }
-
-                    addr.do_send(SendUIMessage {
-                        ui_message: UIMessage::new_play_animation(PlayAnimation {
-                            player_id: sender_id,
-                            animation_path: animation_out_path,
-                        }),
-                    });
+                    }                   addr.do_send(SendUIMessage {
+                       ui_message: UIMessage::new_play_animation(PlayAnimation {
+                           player_id: sender_id,
+                           animation_path: animation_out_path,
+                       }),
+                   });
                 }
             }
             .into_actor(self),
         );
     }
+}
+
+fn effective_parent(
+    skeleton: &Skeleton,
+    joint_name: JointName,
+    joint_filter: &BTreeSet<JointName>,
+) -> Option<JointName> {
+    let mut parent = skeleton.joints[&joint_name].parent;
+
+    while let Some(parent_name) = parent {
+        if joint_filter.contains(&parent_name) {
+            return Some(parent_name);
+        }
+
+        parent = skeleton.joints[&parent_name].parent;
+    }
+    None
+}
+
+pub fn filter_animation(
+    animation_json_path: &PathBuf,
+    animation_out_path: PathBuf,
+    used_joints: BTreeSet<JointName>,
+) -> Result<(), FilterAnimationError> {
+    let file =
+        fs::File::open(&animation_json_path).map_err(|source| FilterAnimationError::ReadFile {
+            path: animation_json_path.clone(),
+            source,
+        })?;
+
+    let animations: AnimationClip =
+        serde_json::from_reader(file).map_err(|source| FilterAnimationError::Deserialize {
+            path: animation_json_path.clone(),
+            source,
+        })?;
+
+    let skeleton: Skeleton = DEFAULT_SKELETON.clone();
+
+    let mut filtered_bind_skeleton = IndexMap::new();
+
+    for (joint_name, joint) in skeleton.joints.iter() {
+        if !used_joints.contains(joint_name) {
+            continue;
+        }
+
+        let joint_global = joint.global_transforms[0].transform;
+
+        let effective_parent = effective_parent(&skeleton, *joint_name, &used_joints);
+
+        let effective_parent_global = match effective_parent {
+            Some(parent_name) => skeleton.joints[&parent_name].global_transforms[0].transform,
+            None => glam::Mat4::IDENTITY,
+        };
+
+        let local = effective_parent_global.inverse() * joint_global;
+
+        let (scale, rotation, translation) = local.to_scale_rotation_translation();
+
+        filtered_bind_skeleton.insert(
+            *joint_name,
+            BindJoint {
+                joint: *joint_name,
+                parent: effective_parent,
+                translation,
+                rotation,
+                scale,
+            },
+        );
+    }
+
+    let mut filtered_joints = Vec::new();
+
+    for joint_anim in animations
+        .joints
+        .iter()
+        .filter(|a| used_joints.contains(&a.joint))
+    {
+        let original_parent_global = match skeleton.joints[&joint_anim.joint].parent {
+            Some(parent_name) => skeleton.joints[&parent_name].global_transforms[0].transform,
+            None => glam::Mat4::IDENTITY,
+        };
+
+        let effective_parent_global =
+            match effective_parent(&skeleton, joint_anim.joint, &used_joints) {
+                Some(parent_name) => skeleton.joints[&parent_name].global_transforms[0].transform,
+                None => glam::Mat4::IDENTITY,
+            };
+
+        let parent_conversion = effective_parent_global.inverse() * original_parent_global;
+
+        let mut filtered_animation = joint_anim.clone();
+
+        for keyframe in &mut filtered_animation.translations {
+            let animated_local = glam::Mat4::from_translation(keyframe.value);
+
+            let effective_local = parent_conversion * animated_local;
+
+            let (_, _, translation) = effective_local.to_scale_rotation_translation();
+
+            keyframe.value = translation;
+        }
+
+        for keyframe in &mut filtered_animation.rotations {
+            let animated_local = glam::Mat4::from_quat(keyframe.value);
+
+            let effective_local = parent_conversion * animated_local;
+
+            let (_, rotation, _) = effective_local.to_scale_rotation_translation();
+
+            keyframe.value = rotation;
+        }
+
+        for keyframe in &mut filtered_animation.scales {
+            let animated_local = glam::Mat4::from_scale(keyframe.value);
+
+            let effective_local = parent_conversion * animated_local;
+
+            let (scale, _, _) = effective_local.to_scale_rotation_translation();
+
+            keyframe.value = scale;
+        }
+
+        filtered_joints.push(filtered_animation);
+    }
+
+    let animation_clip = AnimationClip {
+        bind_skeleton: filtered_bind_skeleton,
+        joints: filtered_joints,
+    };
+
+    let file = fs::File::create(&animation_out_path).map_err(|source| {
+        FilterAnimationError::CreateOutput {
+            path: animation_out_path.clone(),
+            source,
+        }
+    })?;
+
+    serde_json::to_writer_pretty(file, &animation_clip).map_err(|source| {
+        FilterAnimationError::Serialize {
+            path: animation_out_path.clone(),
+            source,
+        }
+    })?;
+    Ok(())
+}
+
+
+pub fn apply_joint_scale(
+    animation_json_path: &PathBuf,
+    animation_out_path: PathBuf,
+    target_skeleton: &Skeleton,
+) -> Result<(), FilterAnimationError> {
+    let file =
+        fs::File::open(animation_json_path).map_err(|source| {
+            FilterAnimationError::ReadFile {
+                path: animation_json_path.clone(),
+                source,
+            }
+        })?;
+
+    let mut animation: AnimationClip =
+        serde_json::from_reader(file).map_err(|source| {
+            FilterAnimationError::Deserialize {
+                path: animation_json_path.clone(),
+                source,
+            }
+        })?;
+
+    // First: scale all local bind translations and animation translations.
+    for joint_animation in &mut animation.joints {
+        let Some(bind_joint) =
+            animation.bind_skeleton.get_mut(&joint_animation.joint)
+        else {
+            continue;
+        };
+
+        let source_bone_length = bind_joint.translation.length();
+
+        let target_bone_length =
+            bone_length(target_skeleton, joint_animation.joint, bind_joint.parent);
+
+        if source_bone_length == 0.0 || target_bone_length == 0.0 {
+            continue;
+        }
+
+        let scale = target_bone_length / source_bone_length;
+
+        bind_joint.translation *= scale;
+
+        for keyframe in &mut joint_animation.translations {
+            keyframe.value *= scale;
+        }
+    }
+
+    let file = fs::File::create(&animation_out_path).map_err(|source| {
+        FilterAnimationError::CreateOutput {
+            path: animation_out_path.clone(),
+            source,
+        }
+    })?;
+
+    serde_json::to_writer_pretty(file, &animation).map_err(|source| {
+        FilterAnimationError::Serialize {
+            path: animation_out_path,
+            source,
+        }
+    })?;
+
+    Ok(())
+}
+
+
+fn bone_length(skeleton: &Skeleton, joint_name: JointName, parent_name: Option<JointName>) -> f32 {
+    let joint = &skeleton.joints[&joint_name];
+
+    let Some(parent_name) = parent_name else {
+        return 1.0;
+    };
+
+    let parent = &skeleton.joints[&parent_name];
+
+    let joint_global = joint.global_transforms.last().unwrap().transform;
+    let parent_global = parent.global_transforms.last().unwrap().transform;
+
+    let local = parent_global * joint_global.inverse();
+
+    let (_, _, translation) = local.to_scale_rotation_translation();
+
+    translation.length()
 }
 
 /// When an object is retrieved in full, the data will be written in serializable json format, to
@@ -769,4 +1059,43 @@ fn write_json<T: Serialize>(data: &T, agent_id: Uuid, filename: &str) -> io::Res
             Err(io::Error::other(e))
         }
     }
+}
+
+fn check_skeleton_cycles(skeleton: &Skeleton) -> Result<(), String> {
+    fn visit(
+        joint: JointName,
+        skeleton: &Skeleton,
+        visiting: &mut HashSet<JointName>,
+        visited: &mut HashSet<JointName>,
+    ) -> Result<(), String> {
+        if visiting.contains(&joint) {
+            return Err(format!("Skeleton cycle detected at {:?}", joint));
+        }
+
+        if visited.contains(&joint) {
+            return Ok(());
+        }
+
+        visiting.insert(joint);
+
+        if let Some(node) = skeleton.joints.get(&joint) {
+            for child in &node.children {
+                visit(*child, skeleton, visiting, visited)?;
+            }
+        }
+
+        visiting.remove(&joint);
+        visited.insert(joint);
+
+        Ok(())
+    }
+
+    let mut visiting = HashSet::new();
+    let mut visited = HashSet::new();
+
+    for joint in skeleton.joints.keys() {
+        visit(*joint, skeleton, &mut visiting, &mut visited)?;
+    }
+
+    Ok(())
 }

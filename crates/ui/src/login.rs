@@ -1,12 +1,13 @@
 use crate::{
     errors::{CredentialDeleteError, CredentialLoadError, CredentialStoreError, PacketSendError},
     login,
-    plugin::{send_packet_to_core, ShareDir, Sockets, ViewerState, VIEWER_NAME},
+    plugin::{ShareDir, Sockets, VIEWER_NAME, ViewerState, send_packet_to_core},
 };
 use benthic_protocol::messages::ui::{login_event::Login, ui_messages::UIResponse};
 use bevy::log::error;
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
+use egui::{LayerId, Ui, UiBuilder};
 use keyring::Entry;
 use std::{fs, path::PathBuf};
 
@@ -33,39 +34,44 @@ pub fn login_screen(
 
     let mut login = false;
     let ctx = contexts.ctx_mut()?;
-    egui::SidePanel::left("Login")
-        .default_width(200.0)
-        .show(ctx, |ui| {
-            ui.heading("Login");
+    let mut viewport_ui = Ui::new(
+        ctx.clone(),
+        "viewport".into(),
+        UiBuilder::new()
+            .layer_id(LayerId::background())
+            .max_rect(ctx.viewport_rect()),
+    );
+    egui::Panel::left("Login").show(&mut viewport_ui, |ui| {
+        ui.heading("Login");
 
-            ui.horizontal(|ui| {
-                ui.label("First Name: ");
-                ui.text_edit_singleline(&mut login_data.first_name);
-            });
-
-            ui.horizontal(|ui| {
-                ui.label("Last Name: ");
-                ui.text_edit_singleline(&mut login_data.last_name);
-            });
-            ui.horizontal(|ui| {
-                ui.label("Password: ");
-                ui.text_edit_singleline(&mut login_data.password);
-            });
-
-            ui.horizontal(|ui| {
-                ui.label("Grid: ");
-                ui.text_edit_singleline(&mut login_data.grid);
-            });
-
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut login_data.remember_me, "Remember Me");
-            });
-
-            ui.allocate_space(egui::Vec2::new(1.0, 100.0));
-            ui.horizontal(|ui| {
-                login = ui.button("Login").clicked();
-            });
+        ui.horizontal(|ui| {
+            ui.label("First Name: ");
+            ui.text_edit_singleline(&mut login_data.first_name);
         });
+
+        ui.horizontal(|ui| {
+            ui.label("Last Name: ");
+            ui.text_edit_singleline(&mut login_data.last_name);
+        });
+        ui.horizontal(|ui| {
+            ui.label("Password: ");
+            ui.text_edit_singleline(&mut login_data.password);
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Grid: ");
+            ui.text_edit_singleline(&mut login_data.grid);
+        });
+
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut login_data.remember_me, "Remember Me");
+        });
+
+        ui.allocate_space(egui::Vec2::new(1.0, 100.0));
+        ui.horizontal(|ui| {
+            login = ui.button("Login").clicked();
+        });
+    });
     if login && let Err(e) = send_login(viewer_state, login_data, share_dir, sockets) {
         error!("{:?}", e)
     };

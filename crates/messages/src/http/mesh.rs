@@ -3,7 +3,7 @@ use benthic_protocol::{render_data::JointWeight, skeleton::JointName};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{de::binary, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, de::binary};
 use std::{collections::HashMap, io::Read, str::FromStr};
 
 /// This is the Zlib magic number. In the binary, this is where the start of the zipped data
@@ -16,7 +16,7 @@ const ZLIB_MAGIC_NUMBER: u8 = 120;
 const ZLIB_DECODING_TYPE: u8 = 218;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-/// A mesh object that will be rendered by the UI.
+/// A raw mesh object. Contains the position, levels of detail, physics data, and skin information.
 pub struct Mesh {
     /// The position of the mesh in the world
     pub position: Option<Vec3>,

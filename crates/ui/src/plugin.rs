@@ -1,12 +1,12 @@
-use crate::animation::{scene_instance_ready, update_animations, AnimationPath, AnimationQueue};
+use crate::animation::{AnimationPath, AnimationQueue, scene_instance_ready, update_animations};
 use crate::environment::{
-    handle_land_update, handle_skybox_update, handle_water_update, setup_environment, update_sun,
-    LandUpdateEvent, SkyboxUpdateEvent, SunState, Water, WaterUpdateEvent,
+    LandUpdateEvent, SkyboxUpdateEvent, SunState, Water, WaterUpdateEvent, handle_land_update,
+    handle_skybox_update, handle_water_update, setup_environment, update_sun,
 };
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::render::{
-    extract_gltf_meshes, follow_gltf_with_offset, handle_camera_update, handle_mesh_update,
-    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap,
+    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap, extract_gltf_meshes,
+    follow_gltf_with_offset, handle_camera_update, handle_mesh_update,
 };
 use crate::subscriber::listen_for_core_events;
 use crate::textures::environment::HeightMaterial;
@@ -20,16 +20,19 @@ use benthic_protocol::messages::ui::login_error::LoginError;
 use benthic_protocol::messages::ui::login_response::LoginResponse;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::{UIMessage, UIResponse};
+use bevy::animation::AnimatedBy;
 use bevy::app::App;
+use bevy::camera::visibility::DynamicSkinnedMeshBounds;
 use bevy::mesh::skinning::SkinnedMesh;
 use bevy::pbr::{DefaultOpaqueRendererMethod, ExtendedMaterial};
 use bevy::platform::collections::HashMap;
-use bevy::post_process::auto_exposure::AutoExposurePlugin;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName};
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin, GltfSceneName};
+use bevy_post_process::auto_exposure::AutoExposurePlugin;
+use bevy_world_serialization::WorldSerializationPlugin;
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use metaverse_core::initialize::initialize;
 use portpicker::pick_unused_port;
 use std::fs::create_dir_all;
@@ -150,6 +153,8 @@ impl Plugin for MetaversePlugin {
             .add_plugins(MaterialPlugin::<HeightMaterial>::default())
             .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
             .add_plugins(AutoExposurePlugin)
+            .add_plugins(GltfPlugin::default())
+            .add_plugins(WorldSerializationPlugin)
             .insert_resource(ClearColor(Color::BLACK))
             .insert_resource(GlobalAmbientLight::NONE)
             .insert_resource(DefaultOpaqueRendererMethod::deferred())
@@ -198,6 +203,7 @@ impl Plugin for MetaversePlugin {
             .add_message::<SkyboxUpdateEvent>()
             .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
+            .register_type::<GltfSceneName>()
             .register_type::<Transform>()
             .register_type::<GlobalTransform>()
             .register_type::<TransformTreeChanged>()
@@ -213,6 +219,8 @@ impl Plugin for MetaversePlugin {
             .register_type::<SkinnedMesh>()
             .register_type::<GltfMeshName>()
             .register_type::<GltfMaterialName>()
+            .register_type::<AnimatedBy>()
+            .register_type::<DynamicSkinnedMeshBounds>()
             .add_systems(Startup, start_listener)
             .add_systems(Startup, setup_timers)
             .add_systems(Startup, setup_environment)

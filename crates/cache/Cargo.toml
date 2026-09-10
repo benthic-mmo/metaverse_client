@@ -9,23 +9,23 @@ edition = "2024"
 [dependencies]
 metaverse_messages = {path="../messages/"}
 metaverse_agent = {path="../agent/"}
-anyhow = "1.0.102"
+anyhow = "1.0.104"
 awc = "3.8.2"
-dirs = "6.0.0"
-log = "0.4.29"
+dirs = "7.0.0"
+log = "0.4.34"
 serde-llsd-benthic = {path="../../../benthic-serde-llsd/"}
-quick-xml = "0.39.2"
-serde = "1.0.228"
-thiserror = "2.0.18"
-uuid = "1.23.1"
+quick-xml = "0.42.0"
+serde = "1.0.229"
+thiserror = "2.0.20"
+uuid = "1.26.1"
 
 include_dir = "0.7.4"
-serde_json = "1.0.149"
-glam = "0.30.10"
+serde_json = "1.0.151"
+glam = "0.32.1"
 rgb = "0.8.53"
-sqlx = {version="0.8.6", features=["sqlite", "runtime-tokio"]}
+sqlx = {version="0.9.0", features=["sqlite", "runtime-tokio"]}
 
 [dev-dependencies]
-tokio = {version = "1.52.1", features=["test-util"]}
+tokio = {version = "1.53.1", features=["test-util"]}
 httpmock = "0.8.3"
 tempfile = "3.27.0"

@@ -487,7 +487,7 @@ impl Handler<HandleRegionHandshake> for Mailbox {
             ctx.address().do_send(SendUIMessage {
                 ui_message: UIMessage::new_water_update(WaterUpdate {
                     height: msg.region_handshake.water_height,
-                    color: Rgba::from((0.0, 94.0, 184.0, 0.5)),
+                    color: Rgba::from((0.0f32, 94.0, 184.0, 0.5)),
                 }),
             });
 

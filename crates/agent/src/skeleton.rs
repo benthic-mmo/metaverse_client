@@ -17,8 +17,8 @@ pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
         // add the mentioned joints to the used joints set.
         avatar.used_joints.insert(joint.name);
         if let Some(global_joint) = avatar.skeleton.joints.get_mut(&joint.name) {
-            for transform in &joint.transforms {
-                set_rank(global_joint, transform, |j| &mut j.transforms);
+            for transform in &joint.global_transforms {
+                set_rank(global_joint, transform, |j| &mut j.global_transforms);
             }
             for local_transform in &joint.local_transforms {
                 set_rank(global_joint, local_transform, |j| &mut j.local_transforms);
@@ -39,11 +39,11 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
     for (i, name) in skin.joint_names.iter().enumerate() {
         // apply the rotations from the default skeleton to the object
         // the default skeleton's transforms are stored in [0]
-        // these rotations need to be applied, because the IBMs from -> *mut c_charthe server are mostly
+        // these rotations need to be applied, because the IBMs from the server are mostly
         // the identity matrix, and only contain translation information. The default
         // skeleton contains the rotations.
         let default_joints = default_skeleton.joints.get(name).unwrap().clone();
-        let mut default_transform = default_joints.transforms[0].transform;
+        let mut default_transform = default_joints.global_transforms[0].transform;
 
         default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
         let transform_matrix = default_transform * skin.inverse_bind_matrices[i];
@@ -62,7 +62,7 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
             name: *name,
             parent: default_joints.parent,
             children: default_joints.children.into_iter().collect(),
-            transforms: vec![transform.clone()],
+            global_transforms: vec![transform.clone()],
             // leave the local tranforms empty for now. They will be added after the loop.
             local_transforms: vec![],
         };
@@ -87,7 +87,7 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
 
     let last_transforms: IndexMap<JointName, Mat4> = joints
         .iter()
-        .map(|(name, joint)| (*name, joint.transforms.last().unwrap().transform))
+        .map(|(name, joint)| (*name, joint.global_transforms.last().unwrap().transform))
         .collect();
 
     for (_, joint) in joints.iter_mut() {
@@ -97,7 +97,14 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
             let parent = last_transforms
                 .get(parent_name)
                 .or_else(|| {
-                    Some(&default_skeleton.joints.get(parent_name).unwrap().transforms[0].transform)
+                    Some(
+                        &default_skeleton
+                            .joints
+                            .get(parent_name)
+                            .unwrap()
+                            .global_transforms[0]
+                            .transform,
+                    )
                 })
                 .unwrap();
 

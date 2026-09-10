@@ -2,30 +2,28 @@ use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::skybox_update::SkyboxUpdate;
 use benthic_protocol::messages::ui::water_update::WaterUpdate;
-use bevy::anti_alias::fxaa::Fxaa;
 use bevy::asset::RenderAssetUsages;
 use bevy::color::palettes::css::BLACK;
+use bevy::core_pipeline::Skybox;
 use bevy::core_pipeline::prepass::DeferredPrepass;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::core_pipeline::Skybox;
 use bevy::image::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
 };
+use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::light_consts::lux;
 use bevy::light::{
-    AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume, SunDisk, VolumetricFog,
+    Atmosphere, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume, SunDisk,
+    VolumetricFog,
 };
 use bevy::math::cubic_splines::LinearSpline;
-use bevy::pbr::{
-    Atmosphere, AtmosphereSettings, ExtendedMaterial, MaterialExtension, ScatteringMedium,
-    ScreenSpaceReflections,
-};
-use bevy::post_process::auto_exposure::{AutoExposure, AutoExposureCompensationCurve};
-use bevy::post_process::bloom::Bloom;
+use bevy::pbr::{AtmosphereSettings, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 use bevy_panorbit_camera::PanOrbitCamera;
+use bevy_post_process::auto_exposure::{AutoExposure, AutoExposureCompensationCurve};
+use bevy_post_process::bloom::Bloom;
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 use std::fs;
 
@@ -92,7 +90,6 @@ pub fn setup_environment(
     .build();
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
@@ -104,7 +101,6 @@ pub fn setup_environment(
 
     commands.spawn((
         DirectionalLight {
-            shadows_enabled: true,
             illuminance: 0.065,
             color: Color::srgb(0.65, 0.7, 1.0),
             ..default()
@@ -123,7 +119,7 @@ pub fn setup_environment(
         affects_lightmapped_meshes: true,
     });
 
-    let skybox_handle = asset_server.load("cubemaps/earth_starmap.ktx2");
+    //let skybox_handle = asset_server.load("cubemaps/earth_starmap.ktx2");
     commands.spawn((
         PanOrbitCamera {
             radius: Some(3.0),
@@ -136,10 +132,10 @@ pub fn setup_environment(
         },
         MainCamera,
         DeferredPrepass,
-        Atmosphere::earthlike(medium.clone()),
+        Atmosphere::earth(medium.clone()),
         AtmosphereSettings::default(),
         Skybox {
-            image: skybox_handle.clone(),
+            //image: skybox_handle.clone(),
             brightness: 0.3,
             ..default()
         },
@@ -151,7 +147,6 @@ pub fn setup_environment(
             ..default()
         },
         Msaa::Off,
-        Fxaa::default(),
         ScreenSpaceReflections::default(),
     ));
     spawn_water(

@@ -1,0 +1,11769 @@
+{
+  "position": null,
+  "high_level_of_detail": {
+    "no_geometry": false,
+    "position_domain": {
+      "min": [
+        -0.5,
+        -0.5,
+        -0.4999995
+      ],
+      "max": [
+        0.5,
+        0.5,
+        0.5000005
+      ]
+    },
+    "weights": [
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8341624,
+          0.16583759,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.842616,
+          0.15738395,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.893994,
+          0.10600604,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.74056214,
+          0.25943786,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7907956,
+          0.20920438,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.9054842,
+          0.09451582,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8826258,
+          0.11737419,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.842616,
+          0.15738395,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.78913236,
+          0.21086764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.75103,
+          0.24897,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7947783,
+          0.20522171,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8826258,
+          0.11737419,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.75103,
+          0.24897,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7812433,
+          0.21875668,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6391186,
+          0.3608814,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7947783,
+          0.20522171,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6391186,
+          0.3608814,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.66350293,
+          0.3364971,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.68774986,
+          0.31225014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.50442517,
+          0.4955748,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5068972,
+          0.49310282,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.61999875,
+          0.38000122,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.66350293,
+          0.3364971,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.53581345,
+          0.46418652,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5592822,
+          0.4407178,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5096591,
+          0.4903409,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732231,
+          0.32677695,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6161229,
+          0.38387707,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.57409894,
+          0.42590106,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.57409894,
+          0.42590106,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5215766,
+          0.47842342,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5187079,
+          0.48129216,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.68480486,
+          0.31519517,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6334574,
+          0.36654255,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7449873,
+          0.25501266,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.71483505,
+          0.28516495,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6993011,
+          0.30069888,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7344432,
+          0.2655568,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6107517,
+          0.38924834,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7449873,
+          0.25501266,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8341624,
+          0.16583759,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5096591,
+          0.4903409,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5838496,
+          0.4161504,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.67561877,
+          0.32438123,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5766625,
+          0.4233375,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.67561877,
+          0.32438123,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.56840724,
+          0.43159276,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5769982,
+          0.4230018,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.50442517,
+          0.4955748,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5316019,
+          0.4683981,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.516831,
+          0.48316905,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5316019,
+          0.4683981,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732231,
+          0.32677695,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6334574,
+          0.36654255,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8502762,
+          0.14972381,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7692038,
+          0.23079623,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.741203,
+          0.25879696,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6880703,
+          0.31192967,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8442335,
+          0.15576647,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.795938,
+          0.20406201,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.85105443,
+          0.14894558,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.795938,
+          0.20406201,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.74404126,
+          0.25595874,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7057863,
+          0.29421368,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.74404126,
+          0.25595874,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.85105443,
+          0.14894558,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7057863,
+          0.29421368,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7422559,
+          0.25774407,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.75859857,
+          0.2414014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6194189,
+          0.38058108,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6528672,
+          0.34713277,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980102,
+          0.40198982,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.63814205,
+          0.36185798,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5429243,
+          0.45707572,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5415662,
+          0.4553209,
+          0.003112888,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5731681,
+          0.42683187,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6528672,
+          0.34713277,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5112766,
+          0.48850977,
+          0.00021362957,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980102,
+          0.40198982,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6625212,
+          0.3217005,
+          0.01577831,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5998352,
+          0.35530192,
+          0.044862892,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.56582844,
+          0.4341716,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.62091434,
+          0.37908566,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.52537614,
+          0.47462386,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.56155586,
+          0.43844417,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.52537614,
+          0.47462386,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.56948406,
+          0.42165017,
+          0.0088657625,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.62965786,
+          0.3703421,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.50866723,
+          0.49133274,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6700644,
+          0.3299356,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6391644,
+          0.36083558,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6728721,
+          0.3271279,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5573748,
+          0.4426252,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6700644,
+          0.3299356,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6082491,
+          0.39175084,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7422559,
+          0.25774407,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8442335,
+          0.15576647,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6126133,
+          0.36800745,
+          0.019379254,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6238288,
+          0.37617114,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.63814205,
+          0.36185798,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6238288,
+          0.37617114,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.519837,
+          0.48016298,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.52772605,
+          0.47227395,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5998352,
+          0.35530192,
+          0.044862892,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5415662,
+          0.4553209,
+          0.003112888,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.514008,
+          0.48133793,
+          0.0046540727,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.56495863,
+          0.42500076,
+          0.01004059,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.514008,
+          0.48133793,
+          0.0046540727,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.62091434,
+          0.37908566,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.7054964,
+          0.29450363,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.50866723,
+          0.49133274,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.56582844,
+          0.4341716,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7907956,
+          0.20920438,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.78913236,
+          0.21086764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.68774986,
+          0.31225014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6161229,
+          0.38387707,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.9054842,
+          0.09451582,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7812433,
+          0.21875668,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6107517,
+          0.38924834,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5769982,
+          0.4230018,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.741203,
+          0.25879696,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.75859857,
+          0.2414014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6194189,
+          0.38058108,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7692038,
+          0.23079623,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5573748,
+          0.4426252,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.7054964,
+          0.29450363,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      }
+    ],
+    "texture_coordinate": [
+      {
+        "u": 25896,
+        "v": 7167
+      },
+      {
+        "u": 12957,
+        "v": 12750
+      },
+      {
+        "u": 11781,
+        "v": 6410
+      },
+      {
+        "u": 12178,
+        "v": 47182
+      },
+      {
+        "u": 15729,
+        "v": 41482
+      },
+      {
+        "u": 18562,
+        "v": 46511
+      },
+      {
+        "u": 26967,
+        "v": 819
+      },
+      {
+        "u": 11689,
+        "v": 0
+      },
+      {
+        "u": 21413,
+        "v": 18032
+      },
+      {
+        "u": 23760,
+        "v": 13329
+      },
+      {
+        "u": 2098,
+        "v": 8535
+      },
+      {
+        "u": 1165,
+        "v": 2327
+      },
+      {
+        "u": 20125,
+        "v": 51527
+      },
+      {
+        "u": 22367,
+        "v": 44260
+      },
+      {
+        "u": 27645,
+        "v": 46535
+      },
+      {
+        "u": 5670,
+        "v": 14298
+      },
+      {
+        "u": 41280,
+        "v": 52912
+      },
+      {
+        "u": 50956,
+        "v": 49779
+      },
+      {
+        "u": 51747,
+        "v": 55217
+      },
+      {
+        "u": 51430,
+        "v": 61590
+      },
+      {
+        "u": 37754,
+        "v": 58579
+      },
+      {
+        "u": 22759,
+        "v": 39376
+      },
+      {
+        "u": 51388,
+        "v": 65535
+      },
+      {
+        "u": 35250,
+        "v": 64669
+      },
+      {
+        "u": 62467,
+        "v": 42592
+      },
+      {
+        "u": 53928,
+        "v": 34983
+      },
+      {
+        "u": 64686,
+        "v": 36446
+      },
+      {
+        "u": 18929,
+        "v": 35702
+      },
+      {
+        "u": 62458,
+        "v": 63543
+      },
+      {
+        "u": 62084,
+        "v": 61047
+      },
+      {
+        "u": 28368,
+        "v": 37511
+      },
+      {
+        "u": 21293,
+        "v": 30723
+      },
+      {
+        "u": 16505,
+        "v": 35572
+      },
+      {
+        "u": 62267,
+        "v": 10443
+      },
+      {
+        "u": 64361,
+        "v": 16773
+      },
+      {
+        "u": 61720,
+        "v": 16570
+      },
+      {
+        "u": 53465,
+        "v": 47282
+      },
+      {
+        "u": 49453,
+        "v": 42512
+      },
+      {
+        "u": 54233,
+        "v": 41472
+      },
+      {
+        "u": 46596,
+        "v": 36579
+      },
+      {
+        "u": 36417,
+        "v": 31534
+      },
+      {
+        "u": 34603,
+        "v": 33910
+      },
+      {
+        "u": 31937,
+        "v": 34855
+      },
+      {
+        "u": 13123,
+        "v": 35391
+      },
+      {
+        "u": 6609,
+        "v": 33065
+      },
+      {
+        "u": 10563,
+        "v": 30148
+      },
+      {
+        "u": 43757,
+        "v": 43752
+      },
+      {
+        "u": 36274,
+        "v": 40581
+      },
+      {
+        "u": 40240,
+        "v": 37963
+      },
+      {
+        "u": 11108,
+        "v": 36877
+      },
+      {
+        "u": 2327,
+        "v": 56529
+      },
+      {
+        "u": 15193,
+        "v": 52461
+      },
+      {
+        "u": 16015,
+        "v": 59245
+      },
+      {
+        "u": 8740,
+        "v": 38624
+      },
+      {
+        "u": 8927,
+        "v": 42526
+      },
+      {
+        "u": 13895,
+        "v": 65210
+      },
+      {
+        "u": 0,
+        "v": 63287
+      },
+      {
+        "u": 2320,
+        "v": 44164
+      },
+      {
+        "u": 2465,
+        "v": 36122
+      },
+      {
+        "u": 23979,
+        "v": 51734
+      },
+      {
+        "u": 26413,
+        "v": 57918
+      },
+      {
+        "u": 26084,
+        "v": 22328
+      },
+      {
+        "u": 54918,
+        "v": 28914
+      },
+      {
+        "u": 26321,
+        "v": 64181
+      },
+      {
+        "u": 9396,
+        "v": 50952
+      },
+      {
+        "u": 61779,
+        "v": 22786
+      },
+      {
+        "u": 48400,
+        "v": 48384
+      },
+      {
+        "u": 44486,
+        "v": 43594
+      },
+      {
+        "u": 13742,
+        "v": 35424
+      },
+      {
+        "u": 44061,
+        "v": 43202
+      },
+      {
+        "u": 22245,
+        "v": 24937
+      },
+      {
+        "u": 19904,
+        "v": 21174
+      },
+      {
+        "u": 25382,
+        "v": 21467
+      },
+      {
+        "u": 37269,
+        "v": 32966
+      },
+      {
+        "u": 10995,
+        "v": 20696
+      },
+      {
+        "u": 17813,
+        "v": 18203
+      },
+      {
+        "u": 18207,
+        "v": 20645
+      },
+      {
+        "u": 39152,
+        "v": 34133
+      },
+      {
+        "u": 65535,
+        "v": 25393
+      },
+      {
+        "u": 60310,
+        "v": 24667
+      },
+      {
+        "u": 40995,
+        "v": 37798
+      },
+      {
+        "u": 46516,
+        "v": 34836
+      },
+      {
+        "u": 47795,
+        "v": 48516
+      },
+      {
+        "u": 25534,
+        "v": 19207
+      },
+      {
+        "u": 53617,
+        "v": 32456
+      },
+      {
+        "u": 31642,
+        "v": 43639
+      },
+      {
+        "u": 37176,
+        "v": 48097
+      },
+      {
+        "u": 11781,
+        "v": 6410
+      },
+      {
+        "u": 23760,
+        "v": 13329
+      },
+      {
+        "u": 25896,
+        "v": 7167
+      },
+      {
+        "u": 12178,
+        "v": 47182
+      },
+      {
+        "u": 18562,
+        "v": 46511
+      },
+      {
+        "u": 15729,
+        "v": 41482
+      },
+      {
+        "u": 11689,
+        "v": 0
+      },
+      {
+        "u": 26967,
+        "v": 819
+      },
+      {
+        "u": 12957,
+        "v": 12750
+      },
+      {
+        "u": 21413,
+        "v": 18032
+      },
+      {
+        "u": 2098,
+        "v": 8535
+      },
+      {
+        "u": 20125,
+        "v": 51527
+      },
+      {
+        "u": 22367,
+        "v": 44260
+      },
+      {
+        "u": 5670,
+        "v": 14298
+      },
+      {
+        "u": 41280,
+        "v": 52912
+      },
+      {
+        "u": 50956,
+        "v": 49779
+      },
+      {
+        "u": 45291,
+        "v": 48532
+      },
+      {
+        "u": 37754,
+        "v": 58579
+      },
+      {
+        "u": 51747,
+        "v": 55217
+      },
+      {
+        "u": 22759,
+        "v": 39376
+      },
+      {
+        "u": 51388,
+        "v": 65535
+      },
+      {
+        "u": 35250,
+        "v": 64669
+      },
+      {
+        "u": 64686,
+        "v": 36446
+      },
+      {
+        "u": 54233,
+        "v": 41472
+      },
+      {
+        "u": 62467,
+        "v": 42592
+      },
+      {
+        "u": 18929,
+        "v": 35702
+      },
+      {
+        "u": 62084,
+        "v": 61047
+      },
+      {
+        "u": 62458,
+        "v": 63543
+      },
+      {
+        "u": 28368,
+        "v": 37511
+      },
+      {
+        "u": 16505,
+        "v": 35572
+      },
+      {
+        "u": 62267,
+        "v": 10443
+      },
+      {
+        "u": 61720,
+        "v": 16570
+      },
+      {
+        "u": 64361,
+        "v": 16773
+      },
+      {
+        "u": 49453,
+        "v": 42512
+      },
+      {
+        "u": 53465,
+        "v": 47282
+      },
+      {
+        "u": 46596,
+        "v": 36579
+      },
+      {
+        "u": 53928,
+        "v": 34983
+      },
+      {
+        "u": 36417,
+        "v": 31534
+      },
+      {
+        "u": 34603,
+        "v": 33910
+      },
+      {
+        "u": 37269,
+        "v": 32966
+      },
+      {
+        "u": 6609,
+        "v": 33065
+      },
+      {
+        "u": 13123,
+        "v": 35391
+      },
+      {
+        "u": 10563,
+        "v": 30148
+      },
+      {
+        "u": 36274,
+        "v": 40581
+      },
+      {
+        "u": 43757,
+        "v": 43752
+      },
+      {
+        "u": 40240,
+        "v": 37963
+      },
+      {
+        "u": 11108,
+        "v": 36877
+      },
+      {
+        "u": 2327,
+        "v": 56529
+      },
+      {
+        "u": 15193,
+        "v": 52461
+      },
+      {
+        "u": 5798,
+        "v": 50759
+      },
+      {
+        "u": 8740,
+        "v": 38624
+      },
+      {
+        "u": 8927,
+        "v": 42526
+      },
+      {
+        "u": 13895,
+        "v": 65210
+      },
+      {
+        "u": 0,
+        "v": 63287
+      },
+      {
+        "u": 2320,
+        "v": 44164
+      },
+      {
+        "u": 2465,
+        "v": 36122
+      },
+      {
+        "u": 16015,
+        "v": 59245
+      },
+      {
+        "u": 23979,
+        "v": 51734
+      },
+      {
+        "u": 52054,
+        "v": 2382
+      },
+      {
+        "u": 26290,
+        "v": 9639
+      },
+      {
+        "u": 26321,
+        "v": 64181
+      },
+      {
+        "u": 61779,
+        "v": 22786
+      },
+      {
+        "u": 48400,
+        "v": 48384
+      },
+      {
+        "u": 51097,
+        "v": 47797
+      },
+      {
+        "u": 13742,
+        "v": 35424
+      },
+      {
+        "u": 44061,
+        "v": 43202
+      },
+      {
+        "u": 44486,
+        "v": 43594
+      },
+      {
+        "u": 22245,
+        "v": 24937
+      },
+      {
+        "u": 19904,
+        "v": 21174
+      },
+      {
+        "u": 20446,
+        "v": 22825
+      },
+      {
+        "u": 17813,
+        "v": 18203
+      },
+      {
+        "u": 10995,
+        "v": 20696
+      },
+      {
+        "u": 18207,
+        "v": 20645
+      },
+      {
+        "u": 39152,
+        "v": 34133
+      },
+      {
+        "u": 60310,
+        "v": 24667
+      },
+      {
+        "u": 65535,
+        "v": 25393
+      },
+      {
+        "u": 40995,
+        "v": 37798
+      },
+      {
+        "u": 46516,
+        "v": 34836
+      },
+      {
+        "u": 47795,
+        "v": 48516
+      },
+      {
+        "u": 25534,
+        "v": 19207
+      },
+      {
+        "u": 25535,
+        "v": 19466
+      },
+      {
+        "u": 53617,
+        "v": 32456
+      },
+      {
+        "u": 31937,
+        "v": 34855
+      },
+      {
+        "u": 31642,
+        "v": 43639
+      },
+      {
+        "u": 37176,
+        "v": 48097
+      },
+      {
+        "u": 40543,
+        "v": 45874
+      },
+      {
+        "u": 15038,
+        "v": 18054
+      },
+      {
+        "u": 45291,
+        "v": 48532
+      },
+      {
+        "u": 62556,
+        "v": 64193
+      },
+      {
+        "u": 51097,
+        "v": 47797
+      },
+      {
+        "u": 40543,
+        "v": 45874
+      },
+      {
+        "u": 5798,
+        "v": 50759
+      },
+      {
+        "u": 26290,
+        "v": 9639
+      },
+      {
+        "u": 35983,
+        "v": 1302
+      },
+      {
+        "u": 52054,
+        "v": 2382
+      },
+      {
+        "u": 50625,
+        "v": 32296
+      },
+      {
+        "u": 36695,
+        "v": 31549
+      },
+      {
+        "u": 20446,
+        "v": 22825
+      },
+      {
+        "u": 7425,
+        "v": 17646
+      },
+      {
+        "u": 25535,
+        "v": 19466
+      },
+      {
+        "u": 28369,
+        "v": 37499
+      },
+      {
+        "u": 15038,
+        "v": 18054
+      },
+      {
+        "u": 1165,
+        "v": 2327
+      },
+      {
+        "u": 27645,
+        "v": 46535
+      },
+      {
+        "u": 51430,
+        "v": 61590
+      },
+      {
+        "u": 62556,
+        "v": 64193
+      },
+      {
+        "u": 21293,
+        "v": 30723
+      },
+      {
+        "u": 26413,
+        "v": 57918
+      },
+      {
+        "u": 35983,
+        "v": 1302
+      },
+      {
+        "u": 26084,
+        "v": 22328
+      },
+      {
+        "u": 36695,
+        "v": 31549
+      },
+      {
+        "u": 54918,
+        "v": 28914
+      },
+      {
+        "u": 50625,
+        "v": 32296
+      },
+      {
+        "u": 9396,
+        "v": 50952
+      },
+      {
+        "u": 25382,
+        "v": 21467
+      },
+      {
+        "u": 7425,
+        "v": 17646
+      },
+      {
+        "u": 28369,
+        "v": 37499
+      }
+    ],
+    "texture_coordinate_domain": {
+      "min": [
+        0.1765368,
+        0.4325985
+      ],
+      "max": [
+        0.5646573,
+        0.3345535
+      ]
+    },
+    "triangles": null,
+    "vertices": [
+      [
+        -0.46066225,
+        -0.16770428,
+        -0.060173452
+      ],
+      [
+        -0.2415427,
+        -0.000831604,
+        0.23421887
+      ],
+      [
+        -0.32078278,
+        0.05031663,
+        -0.060173452
+      ],
+      [
+        -0.2147631,
+        -0.16770428,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.16770428,
+        0.5000005
+      ],
+      [
+        -0.12296483,
+        -0.0774014,
+        0.4309229
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742302
+      ],
+      [
+        -0.34859997,
+        0.068276465,
+        -0.40742302
+      ],
+      [
+        -0.2147631,
+        -0.16770428,
+        0.4309229
+      ],
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.14061952,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742302
+      ],
+      [
+        -0.2415427,
+        -0.000831604,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        -0.039986253,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421887
+      ],
+      [
+        0.12294954,
+        -0.0774014,
+        0.4309229
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421887
+      ],
+      [
+        0.32076752,
+        0.05031663,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        0.14061952,
+        -0.060173452
+      ],
+      [
+        0.12294954,
+        -0.0774014,
+        0.4309229
+      ],
+      [
+        0.34982073,
+        0.04583049,
+        -0.27744666
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742302
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421887
+      ],
+      [
+        0.460647,
+        -0.16770428,
+        -0.060173452
+      ],
+      [
+        0.32076752,
+        0.05031663,
+        -0.060173452
+      ],
+      [
+        0.18088806,
+        -0.16770428,
+        0.4309229
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714377
+      ],
+      [
+        0.460647,
+        -0.16770428,
+        -0.060173452
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421887
+      ],
+      [
+        0.3485847,
+        -0.16770428,
+        0.23421887
+      ],
+      [
+        0.15668726,
+        -0.20540932,
+        0.4309229
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22021008
+      ],
+      [
+        0.4744869,
+        -0.29969484,
+        -0.18151319
+      ],
+      [
+        0.4146105,
+        -0.27943084,
+        -0.20377609
+      ],
+      [
+        0.18088806,
+        -0.16770428,
+        0.4309229
+      ],
+      [
+        0.2997406,
+        -0.24383155,
+        0.23421887
+      ],
+      [
+        0.3485847,
+        -0.16770428,
+        0.23421887
+      ],
+      [
+        0.3857252,
+        -0.28448159,
+        -0.060173452
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        0.22100407,
+        -0.4351339,
+        -0.44486865
+      ],
+      [
+        0.12912947,
+        -0.46212712,
+        -0.48287886
+      ],
+      [
+        0.12294954,
+        -0.25800717,
+        0.4309229
+      ],
+      [
+        0.11530483,
+        -0.36832988,
+        0.23421887
+      ],
+      [
+        0.24152744,
+        -0.33457696,
+        0.23421887
+      ],
+      [
+        0.24152744,
+        -0.33457696,
+        0.23421887
+      ],
+      [
+        0.16498816,
+        -0.42738232,
+        -0.060173452
+      ],
+      [
+        0.32076752,
+        -0.3857252,
+        -0.060173452
+      ],
+      [
+        0.05864805,
+        -0.2752041,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.47602808,
+        -0.060173452
+      ],
+      [
+        -0.2415427,
+        -0.33457696,
+        0.23421887
+      ],
+      [
+        -0.35464257,
+        -0.3857252,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        -0.29542232,
+        0.4309229
+      ],
+      [
+        -0.12296483,
+        -0.25800717,
+        0.4309229
+      ],
+      [
+        -0.34859997,
+        -0.40368506,
+        -0.40742302
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44761527
+      ],
+      [
+        -0.2415427,
+        -0.33457696,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421887
+      ],
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421887
+      ],
+      [
+        -0.46066225,
+        -0.16770428,
+        -0.060173452
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742302
+      ],
+      [
+        0.12912947,
+        -0.46212712,
+        -0.48287886
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742302
+      ],
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421887
+      ],
+      [
+        0.353666,
+        -0.39291218,
+        -0.3122525
+      ],
+      [
+        0.12912947,
+        -0.24837872,
+        0.4309229
+      ],
+      [
+        0.2489891,
+        -0.3229496,
+        0.23421887
+      ],
+      [
+        0.12912947,
+        -0.24837872,
+        0.4309229
+      ],
+      [
+        0.25313956,
+        -0.32935834,
+        0.21248999
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.26896262
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499804
+      ],
+      [
+        0.31286335,
+        -0.4081407,
+        -0.4068584
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.26896262
+      ],
+      [
+        0.4744869,
+        -0.29969484,
+        -0.18151319
+      ],
+      [
+        0.4042496,
+        -0.28132296,
+        -0.15007961
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.26896262
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499804
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        0.32847333,
+        -0.3737011,
+        -0.060173452
+      ],
+      [
+        0.4042496,
+        -0.28132296,
+        -0.15007961
+      ],
+      [
+        0.12294954,
+        -0.25800717,
+        0.4309229
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22021008
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714377
+      ],
+      [
+        -0.016929895,
+        -0.47602808,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421887
+      ],
+      [
+        -0.32078278,
+        -0.05033189,
+        -0.060173452
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421887
+      ],
+      [
+        -0.46066225,
+        0.16768903,
+        -0.060173452
+      ],
+      [
+        -0.2147631,
+        0.16768903,
+        0.4309229
+      ],
+      [
+        -0.12296483,
+        0.07738614,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        0.16768903,
+        0.5000005
+      ],
+      [
+        -0.34859997,
+        -0.06829175,
+        -0.40742302
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742302
+      ],
+      [
+        -0.2415427,
+        0.0008163452,
+        0.23421887
+      ],
+      [
+        -0.2147631,
+        0.16768903,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.14063478,
+        -0.060173452
+      ],
+      [
+        -0.2415427,
+        0.0008163452,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.039970994,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421887
+      ],
+      [
+        0.12294954,
+        0.07738614,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        0.039970994,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.14063478,
+        -0.060173452
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421887
+      ],
+      [
+        0.12294954,
+        0.07738614,
+        0.4309229
+      ],
+      [
+        0.34982073,
+        -0.045845717,
+        -0.27744666
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742302
+      ],
+      [
+        0.32076752,
+        -0.05033189,
+        -0.060173452
+      ],
+      [
+        0.3485847,
+        0.16768903,
+        0.23421887
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421887
+      ],
+      [
+        0.18088806,
+        0.16768903,
+        0.4309229
+      ],
+      [
+        0.460647,
+        0.16768903,
+        -0.060173452
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714377
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421887
+      ],
+      [
+        0.15668726,
+        0.20539409,
+        0.4309229
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22021008
+      ],
+      [
+        0.4146105,
+        0.2794156,
+        -0.20377609
+      ],
+      [
+        0.4744869,
+        0.29967958,
+        -0.18151319
+      ],
+      [
+        0.2997406,
+        0.24381626,
+        0.23421887
+      ],
+      [
+        0.18088806,
+        0.16768903,
+        0.4309229
+      ],
+      [
+        0.3857252,
+        0.28446633,
+        -0.060173452
+      ],
+      [
+        0.460647,
+        0.16768903,
+        -0.060173452
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.22100407,
+        0.43511862,
+        -0.44486865
+      ],
+      [
+        0.31286335,
+        0.4081254,
+        -0.4068584
+      ],
+      [
+        0.11530483,
+        0.36831462,
+        0.23421887
+      ],
+      [
+        0.12294954,
+        0.2579919,
+        0.4309229
+      ],
+      [
+        0.24152744,
+        0.3345617,
+        0.23421887
+      ],
+      [
+        0.16498816,
+        0.42736703,
+        -0.060173452
+      ],
+      [
+        0.24152744,
+        0.3345617,
+        0.23421887
+      ],
+      [
+        0.32076752,
+        0.38570994,
+        -0.060173452
+      ],
+      [
+        0.05864805,
+        0.2751888,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        0.47601283,
+        -0.060173452
+      ],
+      [
+        -0.2415427,
+        0.3345617,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.29540706,
+        0.4309229
+      ],
+      [
+        -0.12296483,
+        0.2579919,
+        0.4309229
+      ],
+      [
+        -0.34859997,
+        0.40366977,
+        -0.40742302
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44763052
+      ],
+      [
+        -0.2415427,
+        0.3345617,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421887
+      ],
+      [
+        -0.35464257,
+        0.38570994,
+        -0.060173452
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421887
+      ],
+      [
+        0.34982073,
+        -0.045845717,
+        -0.27744666
+      ],
+      [
+        -0.34859997,
+        -0.06829175,
+        -0.40742302
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742302
+      ],
+      [
+        0.353666,
+        0.39289695,
+        -0.3122525
+      ],
+      [
+        0.12912947,
+        0.2483635,
+        0.4309229
+      ],
+      [
+        0.15668726,
+        0.20539409,
+        0.4309229
+      ],
+      [
+        0.12912947,
+        0.2483635,
+        0.4309229
+      ],
+      [
+        0.25313956,
+        0.32934308,
+        0.21248999
+      ],
+      [
+        0.2489891,
+        0.32293433,
+        0.23421887
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.26896262
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.31286335,
+        0.4081254,
+        -0.4068584
+      ],
+      [
+        0.4744869,
+        0.29967958,
+        -0.18151319
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.26896262
+      ],
+      [
+        0.4042496,
+        0.2813077,
+        -0.15007961
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.26896262
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499804
+      ],
+      [
+        0.32847333,
+        0.37368584,
+        -0.060173452
+      ],
+      [
+        0.4042496,
+        0.2813077,
+        -0.15007961
+      ],
+      [
+        0.12294954,
+        0.2579919,
+        0.4309229
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22021008
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714377
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714377
+      ],
+      [
+        0.12912947,
+        0.46211183,
+        -0.48287886
+      ],
+      [
+        -0.016929895,
+        0.47601283,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421887
+      ],
+      [
+        0.11530483,
+        0.36831462,
+        0.23421887
+      ],
+      [
+        -0.12296483,
+        -0.0774014,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.039986253,
+        0.4309229
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22021008
+      ],
+      [
+        0.15668726,
+        -0.20540932,
+        0.4309229
+      ],
+      [
+        0.11530483,
+        -0.36832988,
+        0.23421887
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421887
+      ],
+      [
+        -0.34859997,
+        0.068276465,
+        -0.40742302
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742302
+      ],
+      [
+        0.34982073,
+        0.04583049,
+        -0.27744666
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44761527
+      ],
+      [
+        -0.34859997,
+        -0.40368506,
+        -0.40742302
+      ],
+      [
+        0.31286335,
+        -0.4081407,
+        -0.4068584
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499804
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714377
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44761527
+      ],
+      [
+        -0.12296483,
+        0.07738614,
+        0.4309229
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742302
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421887
+      ],
+      [
+        0.32076752,
+        -0.05033189,
+        -0.060173452
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22021008
+      ],
+      [
+        0.3485847,
+        0.16768903,
+        0.23421887
+      ],
+      [
+        -0.46066225,
+        0.16768903,
+        -0.060173452
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742302
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742302
+      ],
+      [
+        -0.34859997,
+        0.40366977,
+        -0.40742302
+      ],
+      [
+        0.12912947,
+        0.46211183,
+        -0.48287886
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44763052
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421887
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499804
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499804
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44763052
+      ]
+    ],
+    "indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      2,
+      7,
+      8,
+      1,
+      9,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      2,
+      15,
+      10,
+      5,
+      4,
+      13,
+      16,
+      17,
+      18,
+      16,
+      19,
+      20,
+      13,
+      4,
+      21,
+      20,
+      22,
+      23,
+      24,
+      25,
+      26,
+      21,
+      4,
+      27,
+      28,
+      22,
+      29,
+      30,
+      27,
+      31,
+      27,
+      4,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      38,
+      39,
+      25,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      43,
+      4,
+      49,
+      50,
+      51,
+      52,
+      53,
+      4,
+      54,
+      50,
+      55,
+      56,
+      53,
+      57,
+      58,
+      52,
+      59,
+      60,
+      54,
+      4,
+      3,
+      61,
+      35,
+      62,
+      52,
+      63,
+      55,
+      57,
+      3,
+      64,
+      34,
+      65,
+      35,
+      37,
+      66,
+      67,
+      32,
+      4,
+      68,
+      37,
+      67,
+      69,
+      70,
+      71,
+      72,
+      47,
+      73,
+      48,
+      74,
+      75,
+      76,
+      77,
+      48,
+      73,
+      69,
+      46,
+      48,
+      65,
+      78,
+      79,
+      80,
+      81,
+      39,
+      67,
+      82,
+      46,
+      68,
+      4,
+      43,
+      83,
+      76,
+      75,
+      25,
+      81,
+      84,
+      85,
+      42,
+      47,
+      47,
+      86,
+      85,
+      49,
+      4,
+      53,
+      44,
+      53,
+      58,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      89,
+      94,
+      95,
+      96,
+      88,
+      93,
+      97,
+      87,
+      98,
+      99,
+      91,
+      87,
+      100,
+      95,
+      91,
+      99,
+      92,
+      101,
+      102,
+      103,
+      104,
+      105,
+      101,
+      99,
+      106,
+      92,
+      107,
+      104,
+      108,
+      109,
+      110,
+      111,
+      106,
+      112,
+      92,
+      113,
+      107,
+      114,
+      115,
+      112,
+      106,
+      112,
+      116,
+      92,
+      117,
+      118,
+      119,
+      120,
+      121,
+      110,
+      122,
+      110,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      128,
+      133,
+      92,
+      134,
+      135,
+      136,
+      137,
+      138,
+      92,
+      139,
+      134,
+      140,
+      141,
+      137,
+      142,
+      143,
+      144,
+      135,
+      138,
+      90,
+      92,
+      118,
+      145,
+      146,
+      147,
+      143,
+      139,
+      141,
+      90,
+      138,
+      148,
+      119,
+      118,
+      120,
+      149,
+      150,
+      116,
+      151,
+      92,
+      120,
+      152,
+      153,
+      154,
+      155,
+      156,
+      130,
+      126,
+      125,
+      157,
+      158,
+      159,
+      132,
+      160,
+      126,
+      132,
+      131,
+      152,
+      148,
+      161,
+      162,
+      163,
+      164,
+      160,
+      153,
+      165,
+      149,
+      151,
+      128,
+      92,
+      166,
+      159,
+      167,
+      164,
+      123,
+      168,
+      130,
+      169,
+      170,
+      130,
+      171,
+      172,
+      133,
+      137,
+      92,
+      127,
+      137,
+      133,
+      0,
+      9,
+      1,
+      6,
+      0,
+      2,
+      8,
+      173,
+      1,
+      7,
+      2,
+      10,
+      12,
+      5,
+      13,
+      2,
+      1,
+      15,
+      16,
+      174,
+      17,
+      16,
+      18,
+      19,
+      20,
+      19,
+      22,
+      24,
+      38,
+      25,
+      175,
+      22,
+      28,
+      22,
+      19,
+      29,
+      30,
+      21,
+      27,
+      36,
+      176,
+      37,
+      38,
+      37,
+      39,
+      40,
+      73,
+      41,
+      43,
+      49,
+      44,
+      46,
+      177,
+      47,
+      50,
+      178,
+      51,
+      50,
+      52,
+      55,
+      53,
+      54,
+      57,
+      52,
+      51,
+      59,
+      179,
+      180,
+      181,
+      181,
+      33,
+      35,
+      35,
+      65,
+      79,
+      79,
+      62,
+      35,
+      62,
+      182,
+      183,
+      61,
+      62,
+      183,
+      61,
+      179,
+      35,
+      179,
+      181,
+      35,
+      52,
+      60,
+      63,
+      57,
+      54,
+      3,
+      34,
+      78,
+      65,
+      37,
+      176,
+      66,
+      80,
+      39,
+      69,
+      39,
+      37,
+      69,
+      70,
+      184,
+      71,
+      47,
+      41,
+      73,
+      74,
+      185,
+      75,
+      77,
+      80,
+      48,
+      48,
+      80,
+      69,
+      69,
+      67,
+      46,
+      80,
+      77,
+      81,
+      67,
+      66,
+      82,
+      83,
+      186,
+      76,
+      25,
+      39,
+      81,
+      187,
+      42,
+      85,
+      42,
+      41,
+      47,
+      47,
+      177,
+      86,
+      44,
+      49,
+      53,
+      87,
+      95,
+      88,
+      93,
+      87,
+      89,
+      95,
+      188,
+      96,
+      93,
+      189,
+      97,
+      98,
+      190,
+      99,
+      87,
+      97,
+      100,
+      101,
+      105,
+      102,
+      104,
+      191,
+      105,
+      107,
+      191,
+      104,
+      109,
+      123,
+      110,
+      191,
+      107,
+      113,
+      107,
+      192,
+      114,
+      115,
+      193,
+      112,
+      120,
+      150,
+      121,
+      122,
+      120,
+      110,
+      124,
+      169,
+      125,
+      127,
+      133,
+      128,
+      130,
+      172,
+      131,
+      134,
+      143,
+      135,
+      139,
+      143,
+      134,
+      141,
+      138,
+      137,
+      143,
+      194,
+      144,
+      145,
+      195,
+      146,
+      146,
+      196,
+      118,
+      196,
+      197,
+      198,
+      197,
+      199,
+      198,
+      198,
+      161,
+      118,
+      161,
+      148,
+      118,
+      118,
+      117,
+      145,
+      196,
+      198,
+      118,
+      147,
+      194,
+      143,
+      141,
+      200,
+      90,
+      148,
+      162,
+      119,
+      120,
+      153,
+      149,
+      120,
+      122,
+      152,
+      122,
+      163,
+      152,
+      154,
+      201,
+      155,
+      130,
+      132,
+      126,
+      157,
+      202,
+      158,
+      132,
+      163,
+      160,
+      152,
+      163,
+      132,
+      131,
+      153,
+      152,
+      163,
+      122,
+      164,
+      153,
+      131,
+      165,
+      166,
+      157,
+      159,
+      164,
+      122,
+      123,
+      125,
+      169,
+      130,
+      169,
+      203,
+      170,
+      130,
+      170,
+      171,
+      127,
+      142,
+      137
+    ]
+  },
+  "medium_level_of_detail": {
+    "no_geometry": false,
+    "position_domain": {
+      "min": [
+        -0.5,
+        -0.5,
+        -0.4999995
+      ],
+      "max": [
+        0.5,
+        0.5,
+        0.43092546
+      ]
+    },
+    "weights": [
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.9054842,
+          0.09451582,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.78913236,
+          0.21086764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7947783,
+          0.20522171,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7947783,
+          0.20522171,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.78913236,
+          0.21086764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.57409894,
+          0.42590106,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6107517,
+          0.38924834,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.50442517,
+          0.4955748,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.8031861,
+          0.19681387,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.50442517,
+          0.4955748,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6732536,
+          0.32674643,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5710623,
+          0.42893764,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.55044025,
+          0.44673675,
+          0.0028230052,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.74404126,
+          0.25595874,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.62091434,
+          0.37908566,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8110141,
+          0.18898587,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.75859857,
+          0.2414014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6194189,
+          0.38058108,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7299417,
+          0.2700583,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5415662,
+          0.4553209,
+          0.003112888,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7418287,
+          0.25817132,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5415662,
+          0.4553209,
+          0.003112888,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.84675133,
+          0.1532487,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6186865,
+          0.3813135,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7697531,
+          0.2302469,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.57409894,
+          0.42590106,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.9054842,
+          0.09451582,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.88949245,
+          0.110507526,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6136662,
+          0.38633382,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.6107517,
+          0.38924834,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.64116335,
+          0.35883662,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          9,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.60974455,
+          0.39025545,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Right",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.74404126,
+          0.25595874,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.75859857,
+          0.2414014,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5744804,
+          0.4255196,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6194189,
+          0.38058108,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5980407,
+          0.4019593,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.8543504,
+          0.14564958,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.5749687,
+          0.38032165,
+          0.044709615,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.6100497,
+          0.33803827,
+          0.051911984,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          8,
+          0
+        ],
+        "weights": [
+          0.65285194,
+          0.30697042,
+          0.040177617,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "FaceJawShaper",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.62091434,
+          0.37908566,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.5714286,
+          0.42857143,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.6617786,
+          0.33822137,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      }
+    ],
+    "texture_coordinate": [
+      {
+        "u": 23760,
+        "v": 13396
+      },
+      {
+        "u": 5670,
+        "v": 14369
+      },
+      {
+        "u": 11689,
+        "v": 0
+      },
+      {
+        "u": 21413,
+        "v": 18122
+      },
+      {
+        "u": 1165,
+        "v": 2339
+      },
+      {
+        "u": 41280,
+        "v": 53176
+      },
+      {
+        "u": 45291,
+        "v": 48774
+      },
+      {
+        "u": 51747,
+        "v": 55492
+      },
+      {
+        "u": 51430,
+        "v": 61897
+      },
+      {
+        "u": 35250,
+        "v": 64991
+      },
+      {
+        "u": 62467,
+        "v": 42804
+      },
+      {
+        "u": 53617,
+        "v": 32618
+      },
+      {
+        "u": 64686,
+        "v": 36628
+      },
+      {
+        "u": 22367,
+        "v": 44480
+      },
+      {
+        "u": 12178,
+        "v": 47417
+      },
+      {
+        "u": 18929,
+        "v": 35880
+      },
+      {
+        "u": 2465,
+        "v": 36302
+      },
+      {
+        "u": 10563,
+        "v": 30298
+      },
+      {
+        "u": 5798,
+        "v": 51012
+      },
+      {
+        "u": 13895,
+        "v": 65535
+      },
+      {
+        "u": 0,
+        "v": 63602
+      },
+      {
+        "u": 9396,
+        "v": 51206
+      },
+      {
+        "u": 26084,
+        "v": 22439
+      },
+      {
+        "u": 64361,
+        "v": 16857
+      },
+      {
+        "u": 50625,
+        "v": 32456
+      },
+      {
+        "u": 23979,
+        "v": 51992
+      },
+      {
+        "u": 26321,
+        "v": 64501
+      },
+      {
+        "u": 22245,
+        "v": 25061
+      },
+      {
+        "u": 19904,
+        "v": 21279
+      },
+      {
+        "u": 25382,
+        "v": 21574
+      },
+      {
+        "u": 10995,
+        "v": 20799
+      },
+      {
+        "u": 17813,
+        "v": 18293
+      },
+      {
+        "u": 25535,
+        "v": 19563
+      },
+      {
+        "u": 65535,
+        "v": 25519
+      },
+      {
+        "u": 60310,
+        "v": 24790
+      },
+      {
+        "u": 25534,
+        "v": 19303
+      },
+      {
+        "u": 37176,
+        "v": 48337
+      },
+      {
+        "u": 28369,
+        "v": 37686
+      },
+      {
+        "u": 39152,
+        "v": 34303
+      },
+      {
+        "u": 5670,
+        "v": 14369
+      },
+      {
+        "u": 23760,
+        "v": 13396
+      },
+      {
+        "u": 26967,
+        "v": 823
+      },
+      {
+        "u": 21413,
+        "v": 18122
+      },
+      {
+        "u": 1165,
+        "v": 2339
+      },
+      {
+        "u": 27645,
+        "v": 46767
+      },
+      {
+        "u": 22367,
+        "v": 44480
+      },
+      {
+        "u": 12178,
+        "v": 47417
+      },
+      {
+        "u": 13123,
+        "v": 35567
+      },
+      {
+        "u": 35250,
+        "v": 64991
+      },
+      {
+        "u": 51747,
+        "v": 55492
+      },
+      {
+        "u": 41280,
+        "v": 53176
+      },
+      {
+        "u": 64686,
+        "v": 36628
+      },
+      {
+        "u": 54233,
+        "v": 41679
+      },
+      {
+        "u": 62467,
+        "v": 42804
+      },
+      {
+        "u": 28368,
+        "v": 37698
+      },
+      {
+        "u": 9396,
+        "v": 51206
+      },
+      {
+        "u": 2465,
+        "v": 36302
+      },
+      {
+        "u": 64361,
+        "v": 16857
+      },
+      {
+        "u": 62267,
+        "v": 10495
+      },
+      {
+        "u": 26084,
+        "v": 22439
+      },
+      {
+        "u": 26321,
+        "v": 64501
+      },
+      {
+        "u": 23979,
+        "v": 51992
+      },
+      {
+        "u": 0,
+        "v": 63602
+      },
+      {
+        "u": 17813,
+        "v": 18293
+      },
+      {
+        "u": 10995,
+        "v": 20799
+      },
+      {
+        "u": 25535,
+        "v": 19563
+      },
+      {
+        "u": 37176,
+        "v": 48337
+      },
+      {
+        "u": 39152,
+        "v": 34303
+      },
+      {
+        "u": 36417,
+        "v": 31691
+      },
+      {
+        "u": 60310,
+        "v": 24790
+      },
+      {
+        "u": 65535,
+        "v": 25519
+      },
+      {
+        "u": 53617,
+        "v": 32618
+      },
+      {
+        "u": 26967,
+        "v": 823
+      },
+      {
+        "u": 27645,
+        "v": 46767
+      },
+      {
+        "u": 62556,
+        "v": 64513
+      },
+      {
+        "u": 53465,
+        "v": 47517
+      },
+      {
+        "u": 62458,
+        "v": 63860
+      },
+      {
+        "u": 28368,
+        "v": 37698
+      },
+      {
+        "u": 43757,
+        "v": 43970
+      },
+      {
+        "u": 26290,
+        "v": 9687
+      },
+      {
+        "u": 35983,
+        "v": 1309
+      },
+      {
+        "u": 62267,
+        "v": 10495
+      },
+      {
+        "u": 36695,
+        "v": 31706
+      },
+      {
+        "u": 7425,
+        "v": 17734
+      },
+      {
+        "u": 36417,
+        "v": 31691
+      },
+      {
+        "u": 45291,
+        "v": 48774
+      },
+      {
+        "u": 51430,
+        "v": 61897
+      },
+      {
+        "u": 62556,
+        "v": 64513
+      },
+      {
+        "u": 62458,
+        "v": 63860
+      },
+      {
+        "u": 21293,
+        "v": 30876
+      },
+      {
+        "u": 5798,
+        "v": 51012
+      },
+      {
+        "u": 35983,
+        "v": 1309
+      },
+      {
+        "u": 50625,
+        "v": 32456
+      },
+      {
+        "u": 22245,
+        "v": 25061
+      },
+      {
+        "u": 25382,
+        "v": 21574
+      },
+      {
+        "u": 19904,
+        "v": 21279
+      },
+      {
+        "u": 7425,
+        "v": 17734
+      },
+      {
+        "u": 47795,
+        "v": 48758
+      },
+      {
+        "u": 25534,
+        "v": 19303
+      },
+      {
+        "u": 28369,
+        "v": 37686
+      }
+    ],
+    "texture_coordinate_domain": {
+      "min": [
+        0.1765368,
+        0.4325985
+      ],
+      "max": [
+        0.5646573,
+        0.3337705
+      ]
+    },
+    "triangles": null,
+    "vertices": [
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421457
+      ],
+      [
+        -0.34859997,
+        0.068276465,
+        -0.40742546
+      ],
+      [
+        -0.2147631,
+        -0.16770428,
+        0.43092546
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742546
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        -0.039986253,
+        0.43092546
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421457
+      ],
+      [
+        0.32076752,
+        0.05031663,
+        -0.060169935
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742546
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421457
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714848
+      ],
+      [
+        0.32076752,
+        0.05031663,
+        -0.060169935
+      ],
+      [
+        -0.016929895,
+        -0.039986253,
+        0.43092546
+      ],
+      [
+        -0.2147631,
+        -0.16770428,
+        0.43092546
+      ],
+      [
+        0.18088806,
+        -0.16770428,
+        0.43092546
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421457
+      ],
+      [
+        0.24152744,
+        -0.33457696,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421457
+      ],
+      [
+        -0.34859997,
+        -0.40368506,
+        -0.40742546
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44762564
+      ],
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421457
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742546
+      ],
+      [
+        0.4744869,
+        -0.29969484,
+        -0.1815091
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44762564
+      ],
+      [
+        -0.34859997,
+        -0.16770428,
+        0.23421457
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742546
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.2689551
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499837
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.2689551
+      ],
+      [
+        0.4744869,
+        -0.29969484,
+        -0.1815091
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714848
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499837
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22020352
+      ],
+      [
+        -0.016929895,
+        -0.40368506,
+        0.23421457
+      ],
+      [
+        -0.015342951,
+        -0.5,
+        -0.44762564
+      ],
+      [
+        0.35304034,
+        -0.39246967,
+        -0.2689551
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421457
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421457
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742546
+      ],
+      [
+        -0.2147631,
+        0.16768903,
+        0.43092546
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742546
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        0.039970994,
+        0.43092546
+      ],
+      [
+        -0.2147631,
+        0.16768903,
+        0.43092546
+      ],
+      [
+        0.12294954,
+        0.2579919,
+        0.43092546
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742546
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        -0.06829175,
+        0.23421457
+      ],
+      [
+        0.32076752,
+        -0.05033189,
+        -0.060169935
+      ],
+      [
+        0.3485847,
+        0.16768903,
+        0.23421457
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421457
+      ],
+      [
+        0.24152744,
+        0.0008163452,
+        0.23421457
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421457
+      ],
+      [
+        0.4744869,
+        0.29967958,
+        -0.1815091
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22020352
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742546
+      ],
+      [
+        -0.5,
+        0.16768903,
+        -0.40742546
+      ],
+      [
+        -0.34859997,
+        0.16768903,
+        0.23421457
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44762564
+      ],
+      [
+        0.4744869,
+        0.29967958,
+        -0.1815091
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.2689551
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714848
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421457
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.2689551
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499837
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714848
+      ],
+      [
+        -0.5,
+        -0.16770428,
+        -0.40742546
+      ],
+      [
+        -0.016929895,
+        0.068276465,
+        0.23421457
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22020352
+      ],
+      [
+        0.18088806,
+        -0.16770428,
+        0.43092546
+      ],
+      [
+        0.49186695,
+        -0.16770428,
+        -0.18714848
+      ],
+      [
+        0.24152744,
+        -0.000831604,
+        0.23421457
+      ],
+      [
+        0.24152744,
+        -0.33457696,
+        0.23421457
+      ],
+      [
+        -0.34859997,
+        0.068276465,
+        -0.40742546
+      ],
+      [
+        -0.016929895,
+        0.16602582,
+        -0.40742546
+      ],
+      [
+        0.5,
+        -0.16770428,
+        -0.22020352
+      ],
+      [
+        -0.34859997,
+        -0.40368506,
+        -0.40742546
+      ],
+      [
+        0.41969174,
+        -0.48310825,
+        -0.4499837
+      ],
+      [
+        0.3105898,
+        -0.41456473,
+        -0.4999995
+      ],
+      [
+        -0.016929895,
+        0.039970994,
+        0.43092546
+      ],
+      [
+        0.32076752,
+        -0.05033189,
+        -0.060169935
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22020352
+      ],
+      [
+        0.49186695,
+        0.16768903,
+        -0.18714848
+      ],
+      [
+        0.3485847,
+        0.16768903,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        0.40366977,
+        0.23421457
+      ],
+      [
+        -0.016929895,
+        -0.16604105,
+        -0.40742546
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44762564
+      ],
+      [
+        0.35304034,
+        0.3924544,
+        -0.2689551
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499837
+      ],
+      [
+        0.3105898,
+        0.41454947,
+        -0.4999995
+      ],
+      [
+        0.41969174,
+        0.48309302,
+        -0.4499837
+      ],
+      [
+        0.12294954,
+        0.2579919,
+        0.43092546
+      ],
+      [
+        0.5,
+        0.16768903,
+        -0.22020352
+      ],
+      [
+        -0.015342951,
+        0.5,
+        -0.44762564
+      ]
+    ],
+    "indices": [
+      0,
+      1,
+      2,
+      3,
+      1,
+      0,
+      2,
+      1,
+      4,
+      5,
+      6,
+      7,
+      5,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      14,
+      21,
+      16,
+      22,
+      23,
+      24,
+      25,
+      26,
+      19,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      23,
+      33,
+      34,
+      35,
+      32,
+      31,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      39,
+      42,
+      40,
+      41,
+      43,
+      39,
+      44,
+      45,
+      46,
+      46,
+      45,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      47,
+      45,
+      55,
+      47,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      57,
+      69,
+      70,
+      66,
+      71,
+      67,
+      72,
+      0,
+      2,
+      73,
+      14,
+      13,
+      5,
+      7,
+      8,
+      9,
+      8,
+      74,
+      10,
+      75,
+      11,
+      74,
+      8,
+      76,
+      77,
+      13,
+      15,
+      78,
+      36,
+      38,
+      18,
+      25,
+      19,
+      79,
+      80,
+      81,
+      34,
+      24,
+      23,
+      22,
+      24,
+      82,
+      22,
+      79,
+      23,
+      79,
+      81,
+      23,
+      11,
+      75,
+      78,
+      30,
+      83,
+      31,
+      38,
+      11,
+      78,
+      37,
+      84,
+      38,
+      16,
+      15,
+      14,
+      50,
+      49,
+      85,
+      48,
+      86,
+      49,
+      87,
+      86,
+      48,
+      51,
+      71,
+      52,
+      86,
+      87,
+      88,
+      54,
+      89,
+      47,
+      62,
+      61,
+      90,
+      55,
+      46,
+      47,
+      58,
+      91,
+      59,
+      92,
+      69,
+      57,
+      59,
+      92,
+      57,
+      52,
+      71,
+      66,
+      93,
+      94,
+      95,
+      63,
+      96,
+      64,
+      52,
+      66,
+      97,
+      98,
+      63,
+      65,
+      68,
+      99,
+      66
+    ]
+  },
+  "low_level_of_detail": {
+    "no_geometry": false,
+    "position_domain": {
+      "min": [
+        -0.5,
+        -0.27942672,
+        -0.40741906
+      ],
+      "max": [
+        0.4146105,
+        0.2794268,
+        0.43092546
+      ]
+    },
+    "weights": [
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5429243,
+          0.45707572,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5068972,
+          0.49310282,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6528672,
+          0.34713277,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      }
+    ],
+    "texture_coordinate": [
+      {
+        "u": 0,
+        "v": 65535
+      },
+      {
+        "u": 19562,
+        "v": 0
+      },
+      {
+        "u": 19562,
+        "v": 0
+      },
+      {
+        "u": 0,
+        "v": 65535
+      },
+      {
+        "u": 65535,
+        "v": 22264
+      },
+      {
+        "u": 8930,
+        "v": 49308
+      },
+      {
+        "u": 65535,
+        "v": 22264
+      },
+      {
+        "u": 8930,
+        "v": 49308
+      }
+    ],
+    "texture_coordinate_domain": {
+      "min": [
+        0.1785119,
+        0.4571393
+      ],
+      "max": [
+        0.5569708,
+        0.2903019
+      ]
+    },
+    "triangles": null,
+    "vertices": [
+      [
+        -0.21475205,
+        -0.16769865,
+        0.43092546
+      ],
+      [
+        -0.5,
+        0.16769019,
+        -0.40741906
+      ],
+      [
+        -0.5,
+        -0.16769865,
+        -0.40741906
+      ],
+      [
+        -0.21475205,
+        0.16769019,
+        0.43092546
+      ],
+      [
+        0.4146105,
+        0.27942678,
+        -0.20377815
+      ],
+      [
+        0.18088835,
+        -0.16769865,
+        0.43092546
+      ],
+      [
+        0.4146105,
+        -0.27942672,
+        -0.20377815
+      ],
+      [
+        0.18088835,
+        0.16769019,
+        0.43092546
+      ]
+    ],
+    "indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      1,
+      5,
+      6,
+      4,
+      0,
+      2,
+      6,
+      2,
+      3,
+      1,
+      0,
+      3,
+      2,
+      0,
+      7,
+      3,
+      0,
+      2,
+      7,
+      2,
+      4,
+      6,
+      3,
+      7,
+      4,
+      0,
+      3,
+      1,
+      0,
+      5,
+      3,
+      5,
+      4,
+      3,
+      2,
+      1,
+      6,
+      6,
+      1,
+      4,
+      0,
+      6,
+      5,
+      2,
+      6,
+      7,
+      6,
+      4,
+      7,
+      2,
+      1,
+      4
+    ]
+  },
+  "lowest_level_of_detail": {
+    "no_geometry": false,
+    "position_domain": {
+      "min": [
+        -0.5,
+        -0.27942672,
+        -0.40741906
+      ],
+      "max": [
+        0.4146105,
+        0.2794268,
+        0.43092546
+      ]
+    },
+    "weights": [
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.7753685,
+          0.22463149,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7343669,
+          0.2656331,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.82088685,
+          0.17911313,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.7179022,
+          0.28209785,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          11,
+          5,
+          0,
+          0
+        ],
+        "weights": [
+          0.5429243,
+          0.45707572,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "FaceEar1Left",
+          "Skull",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.70064396,
+          0.29935607,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          9,
+          0,
+          0
+        ],
+        "weights": [
+          0.5068972,
+          0.49310282,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Right",
+          "Pelvis",
+          "Pelvis"
+        ]
+      },
+      {
+        "indices": [
+          5,
+          11,
+          0,
+          0
+        ],
+        "weights": [
+          0.6528672,
+          0.34713277,
+          0.0,
+          0.0
+        ],
+        "joint_name": [
+          "Skull",
+          "FaceEar1Left",
+          "Pelvis",
+          "Pelvis"
+        ]
+      }
+    ],
+    "texture_coordinate": [
+      {
+        "u": 0,
+        "v": 65535
+      },
+      {
+        "u": 19562,
+        "v": 0
+      },
+      {
+        "u": 19562,
+        "v": 0
+      },
+      {
+        "u": 0,
+        "v": 65535
+      },
+      {
+        "u": 65535,
+        "v": 22264
+      },
+      {
+        "u": 8930,
+        "v": 49308
+      },
+      {
+        "u": 65535,
+        "v": 22264
+      },
+      {
+        "u": 8930,
+        "v": 49308
+      }
+    ],
+    "texture_coordinate_domain": {
+      "min": [
+        0.1785119,
+        0.4571393
+      ],
+      "max": [
+        0.5569708,
+        0.2903019
+      ]
+    },
+    "triangles": null,
+    "vertices": [
+      [
+        -0.21475205,
+        -0.16769865,
+        0.43092546
+      ],
+      [
+        -0.5,
+        0.16769019,
+        -0.40741906
+      ],
+      [
+        -0.5,
+        -0.16769865,
+        -0.40741906
+      ],
+      [
+        -0.21475205,
+        0.16769019,
+        0.43092546
+      ],
+      [
+        0.4146105,
+        0.27942678,
+        -0.20377815
+      ],
+      [
+        0.18088835,
+        -0.16769865,
+        0.43092546
+      ],
+      [
+        0.4146105,
+        -0.27942672,
+        -0.20377815
+      ],
+      [
+        0.18088835,
+        0.16769019,
+        0.43092546
+      ]
+    ],
+    "indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      1,
+      5,
+      6,
+      4,
+      0,
+      2,
+      6,
+      2,
+      3,
+      1,
+      0,
+      3,
+      2,
+      0,
+      7,
+      3,
+      0,
+      2,
+      7,
+      2,
+      4,
+      6,
+      3,
+      7,
+      4,
+      0,
+      3,
+      1,
+      0,
+      5,
+      3,
+      5,
+      4,
+      3,
+      2,
+      1,
+      6,
+      6,
+      1,
+      4,
+      0,
+      6,
+      5,
+      2,
+      6,
+      7,
+      6,
+      4,
+      7,
+      2,
+      1,
+      4
+    ]
+  },
+  "physics_convex": [
+    123,
+    0,
+    0,
+    0,
+    3,
+    107,
+    0,
+    0,
+    0,
+    13,
+    66,
+    111,
+    117,
+    110,
+    100,
+    105,
+    110,
+    103,
+    86,
+    101,
+    114,
+    116,
+    115,
+    98,
+    0,
+    0,
+    0,
+    48,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    0,
+    0,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    0,
+    0,
+    0,
+    0,
+    255,
+    255,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    255,
+    255,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    255,
+    255,
+    255,
+    255,
+    255,
+    255,
+    0,
+    0,
+    0,
+    0,
+    107,
+    0,
+    0,
+    0,
+    3,
+    77,
+    97,
+    120,
+    91,
+    0,
+    0,
+    0,
+    3,
+    114,
+    63,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    114,
+    63,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    114,
+    63,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    93,
+    107,
+    0,
+    0,
+    0,
+    3,
+    77,
+    105,
+    110,
+    91,
+    0,
+    0,
+    0,
+    3,
+    114,
+    191,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    114,
+    191,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    114,
+    191,
+    224,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    93,
+    125
+  ],
+  "skin": {
+    "joint_names": [
+      "Pelvis",
+      "Torso",
+      "Chest",
+      "Neck",
+      "Head",
+      "Skull",
+      "FaceRoot",
+      "FaceJaw",
+      "FaceJawShaper",
+      "FaceEar1Right",
+      "FaceEar2Right",
+      "FaceEar1Left",
+      "FaceEar2Left",
+      "CollarRight",
+      "ShoulderRight",
+      "ElbowRight",
+      "WristRight",
+      "HandThumb1Right",
+      "HandThumb2Right",
+      "HandThumb3Right",
+      "HandIndex1Right",
+      "HandIndex2Right",
+      "HandIndex3Right",
+      "HandMiddle1Right",
+      "HandMiddle2Right",
+      "HandMiddle3Right",
+      "HandRing1Right",
+      "HandRing2Right",
+      "HandRing3Right",
+      "HandPinky1Right",
+      "HandPinky2Right",
+      "HandPinky3Right",
+      "CollarLeft",
+      "ShoulderLeft",
+      "ElbowLeft",
+      "WristLeft",
+      "HandThumb1Left",
+      "HandThumb2Left",
+      "HandThumb3Left",
+      "HandIndex1Left",
+      "HandIndex2Left",
+      "HandIndex3Left",
+      "HandMiddle1Left",
+      "HandMiddle2Left",
+      "HandMiddle3Left",
+      "HandRing1Left",
+      "HandRing2Left",
+      "HandRing3Left",
+      "HandPinky1Left",
+      "HandPinky2Left",
+      "HandPinky3Left",
+      "Tail1",
+      "Tail2",
+      "Tail3",
+      "Tail4",
+      "Tail5",
+      "Tail6",
+      "HipRight",
+      "KneeRight",
+      "AnkleRight",
+      "FootRight",
+      "HipLeft",
+      "KneeLeft",
+      "AnkleLeft",
+      "FootLeft"
+    ],
+    "inverse_bind_matrices": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.04206347,
+        0.009819388,
+        -0.4087019,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.04206353,
+        0.009819388,
+        -0.4486356,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.03476363,
+        0.009819388,
+        -0.5459545,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.03029286,
+        0.009819388,
+        -0.7136553,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.03018838,
+        0.009819388,
+        -0.7666141,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.03018838,
+        0.009819388,
+        -0.8013227,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.08459085,
+        0.009819388,
+        -0.7827605,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.0952121,
+        0.01184362,
+        -0.7742109,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.08459085,
+        0.009819388,
+        -0.7827605,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.04852914,
+        0.09937328,
+        -0.830587,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02341187,
+        0.1702598,
+        -0.9263439,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.04852914,
+        -0.07932984,
+        -0.8305869,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02341187,
+        -0.1502164,
+        -0.9263438,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        0.04401969,
+        -0.6903094,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        0.08174365,
+        -0.6903632,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        0.2535734,
+        -0.6858742,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        0.3914042,
+        -0.6903633,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009871542,
+        0.4136,
+        -0.7242399,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01044017,
+        0.4116273,
+        -0.7443383,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009483158,
+        0.4097437,
+        -0.7625578,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.004153013,
+        0.4576384,
+        -0.7225715,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.003234088,
+        0.481709,
+        -0.7237281,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.002921462,
+        0.5069867,
+        -0.7241024,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009878516,
+        0.4633151,
+        -0.7062618,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.00913006,
+        0.4918939,
+        -0.7061684,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009285628,
+        0.5208264,
+        -0.7062006,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01247149,
+        0.4690451,
+        -0.6878252,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01076984,
+        0.4883988,
+        -0.6887828,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009285569,
+        0.508734,
+        -0.6900834,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01519733,
+        0.4693768,
+        -0.669828,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01336699,
+        0.4924629,
+        -0.6711775,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01240807,
+        0.5073568,
+        -0.6728185,
+        1.0
+      ],
+      [
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        -0.02397632,
+        -0.6903093,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        -0.06170022,
+        -0.6903631,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        -0.2335299,
+        -0.6858742,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.02492249,
+        -0.3713607,
+        -0.6903632,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        -0.009871542,
+        -0.3935564,
+        -0.7242396,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        -0.01044017,
+        -0.3915836,
+        -0.744338,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        -0.009483158,
+        -0.3897,
+        -0.7625576,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.004153013,
+        -0.437595,
+        -0.7225714,
+        1.0
+      ],
+      [
+        0.9999997,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.003234088,
+        -0.4616655,
+        -0.723728,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.002921462,
+        -0.4869431,
+        -0.7241022,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009878516,
+        -0.4432718,
+        -0.7062618,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.00913006,
+        -0.4718503,
+        -0.7061682,
+        1.0
+      ],
+      [
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009285628,
+        -0.5007829,
+        -0.7062005,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01247149,
+        -0.4490015,
+        -0.6878252,
+        1.0
+      ],
+      [
+        0.9999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01076984,
+        -0.4683554,
+        -0.6887827,
+        1.0
+      ],
+      [
+        0.9999997,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.009285569,
+        -0.4886905,
+        -0.6900833,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01519733,
+        -0.4493333,
+        -0.6698279,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01336699,
+        -0.4724193,
+        -0.6711775,
+        1.0
+      ],
+      [
+        0.9999997,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.01240807,
+        -0.4873133,
+        -0.6728184,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0421409,
+        0.009819388,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.1066129,
+        0.009819388,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.204777,
+        0.009819328,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.2903683,
+        0.009819328,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.3624907,
+        0.009819328,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.4214702,
+        0.009819328,
+        -0.4629116,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999787,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.05623662,
+        0.07003188,
+        -0.4550203,
+        1.0
+      ],
+      [
+        0.9999975,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999813,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.0558151,
+        0.0483874,
+        -0.2313322,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999789,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999998,
+        0.0,
+        0.02694606,
+        0.06719452,
+        -0.1665096,
+        1.0
+      ],
+      [
+        0.9999998,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999888,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999901,
+        0.0,
+        0.001931607,
+        0.06093901,
+        0.00318855,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999787,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.05623662,
+        -0.04998886,
+        -0.4550203,
+        1.0
+      ],
+      [
+        0.9999975,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999813,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.0558151,
+        -0.02834439,
+        -0.2313322,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.999979,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999998,
+        0.0,
+        0.02694606,
+        -0.0471515,
+        -0.1665096,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999889,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.9999904,
+        0.0,
+        0.001931607,
+        -0.04089581,
+        0.00318855,
+        1.0
+      ]
+    ],
+    "bind_shape_matrix": [
+      0.10570123,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.16372299,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0602147,
+      0.0,
+      0.05572928,
+      -0.01020259,
+      0.8642703,
+      1.0
+    ]
+  }
+}

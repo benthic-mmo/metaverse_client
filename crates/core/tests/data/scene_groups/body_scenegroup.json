@@ -1,0 +1,1684 @@
+{
+  "parts": [
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 1,
+      "click_action": 0,
+      "scale": [
+        0.19049093,
+        0.068216726,
+        0.09464061
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "73957e7c-55a7-4c30-b811-1ad9f9ff9b0f",
+        "description": "(No Description)",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          77,
+          122,
+          48,
+          107,
+          80,
+          84,
+          55,
+          51,
+          107,
+          57,
+          43,
+          107,
+          100,
+          72,
+          70,
+          114,
+          81,
+          55,
+          122,
+          74,
+          82,
+          77,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 5,
+        "last_attach_point": 5,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "ccf490f4-fbde-4f7e-91d1-c5ad0ef32513",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031531,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 0
+    },
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.20191956,
+        -0.022033691,
+        -0.019853592
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 2,
+      "click_action": 0,
+      "scale": [
+        0.46127588,
+        0.038767748,
+        0.039764762
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body#1",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "c6096b48-1c3c-4b27-a55d-8f07227058ac",
+        "description": "",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          77,
+          113,
+          84,
+          49,
+          80,
+          107,
+          56,
+          43,
+          85,
+          83,
+          54,
+          103,
+          54,
+          49,
+          122,
+          53,
+          116,
+          114,
+          79,
+          99,
+          107,
+          65,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 0,
+        "last_attach_point": 0,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "ca93d4f9-3cf9-44ba-83ad-73e6dace7240",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031532,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 234031531
+    },
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.5265808,
+        -0.01953125,
+        0.3833084
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 3,
+      "click_action": 0,
+      "scale": [
+        0.10570122,
+        0.16372299,
+        0.0602147
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body#2",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "85221754-00f2-40ca-a7b3-353ee929f4df",
+        "description": "",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          74,
+          68,
+          110,
+          121,
+          102,
+          82,
+          74,
+          54,
+          107,
+          113,
+          121,
+          106,
+          118,
+          65,
+          103,
+          120,
+          77,
+          117,
+          43,
+          110,
+          55,
+          107,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 0,
+        "last_attach_point": 0,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "90e7c9f4-49ea-4ab2-8ef0-20c4cbbe9fb9",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031533,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 234031531
+    },
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.5267029,
+        -0.01953125,
+        0.3587742
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 4,
+      "click_action": 0,
+      "scale": [
+        0.098829165,
+        0.15708685,
+        0.102175295
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body#3",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "6ec2f972-4d22-4fca-adf7-1e41a09d4b23",
+        "description": "",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          72,
+          67,
+          106,
+          71,
+          81,
+          68,
+          76,
+          87,
+          107,
+          88,
+          77,
+          112,
+          100,
+          47,
+          76,
+          68,
+          106,
+          50,
+          78,
+          67,
+          115,
+          65,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 0,
+        "last_attach_point": 0,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "70a31900-cb5a-45cc-a5df-cb0e3d8d0ac0",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031534,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 234031531
+    },
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.4991455,
+        -0.01953125,
+        0.4558506
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 5,
+      "click_action": 0,
+      "scale": [
+        0.09172039,
+        0.54702806,
+        0.30782044
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body#4",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "6c984e20-3ec6-4aeb-9c65-c67c189b93ad",
+        "description": "",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          71,
+          89,
+          51,
+          82,
+          66,
+          115,
+          117,
+          115,
+          69,
+          57,
+          117,
+          103,
+          119,
+          71,
+          97,
+          81,
+          52,
+          50,
+          108,
+          47,
+          115,
+          99,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 0,
+        "last_attach_point": 0,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "6637441b-2eb0-4f6e-8301-9a438da5fec7",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031535,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 234031531
+    },
+    {
+      "allowed_drop": false,
+      "creator_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "folder_id": "00000000-0000-0000-0000-000000000000",
+      "inventory_serial": 0,
+      "material": "Wood",
+      "pass_touches": false,
+      "pass_collisions": false,
+      "group_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_position": [
+        0.5232086,
+        -0.01953125,
+        -0.025238037
+      ],
+      "rotation_offset": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 255
+      },
+      "text": "",
+      "touch_name": "",
+      "link_num": 6,
+      "click_action": 0,
+      "scale": [
+        0.26241505,
+        1.0668118,
+        0.98454344
+      ],
+      "legacy_category": "0",
+      "rezzer_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+      "pay_price": [
+        -2,
+        -2,
+        -2,
+        -2,
+        -2
+      ],
+      "attached_pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "volume_detect_active": false,
+      "physics_shape_type": "Unknown",
+      "camera_eye_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "camera_at_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metadata": {
+        "name": "body#5",
+        "sale_info": {
+          "sale_type": "Unknown",
+          "price": 0,
+          "ownership_cost": 0
+        },
+        "permissions": {
+          "owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a",
+          "group_id": "00000000-0000-0000-0000-000000000000",
+          "creator_id": "00000000-0000-0000-0000-000000000000",
+          "base_mask": 647168,
+          "everyone_mask": 0,
+          "group_mask": 0,
+          "next_owner_mask": 532480,
+          "owner_mask": 647168,
+          "is_owner_group": null,
+          "last_owner_id": "770e61e1-44ba-4635-94ef-ce6a85b96d2a"
+        },
+        "id": "3e4e01f7-527f-497e-8919-bebe0006a152",
+        "description": "",
+        "created_at": {
+          "secs_since_epoch": 1789008595,
+          "nanos_since_epoch": 0
+        },
+        "flags": 0
+      },
+      "shape": {
+        "path": {
+          "curve": 32,
+          "begin": 0,
+          "end": 0,
+          "scale_x": 100,
+          "scale_y": 150,
+          "shear_x": 0,
+          "shear_y": 0,
+          "twist_end": 0,
+          "twist_begin": 0,
+          "radius_offset": 0,
+          "taper_y": 0,
+          "taper_x": 0,
+          "revolutions": 0,
+          "skew": 0,
+          "profile_curve": 48,
+          "profile_begin": 0,
+          "profile_end": 0,
+          "profile_hollow": 0.0,
+          "hollow_shape": "Triangle",
+          "profile_shape": "Circle"
+        },
+        "extra_params": [
+          65,
+          84,
+          65,
+          65,
+          69,
+          81,
+          65,
+          65,
+          65,
+          78,
+          105,
+          115,
+          113,
+          67,
+          51,
+          107,
+          111,
+          48,
+          105,
+          50,
+          111,
+          81,
+          83,
+          98,
+          75,
+          71,
+          120,
+          50,
+          99,
+          50,
+          73,
+          70
+        ],
+        "pcode": "Prim",
+        "state": 0,
+        "last_attach_point": 0,
+        "sculpt": {
+          "entry": false,
+          "texture": "00000000-0000-0000-0000-000000000000",
+          "sculpt_type": "Unknown"
+        },
+        "flex": {
+          "entry": false,
+          "softness": 0,
+          "tension": 0,
+          "drag": 0,
+          "gravity": 0,
+          "wind": 0,
+          "force": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "light": {
+          "entry": false,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          },
+          "radius": 0,
+          "cutoff": 0,
+          "intensity": 1,
+          "falloff": 0
+        },
+        "texture": {
+          "texture_id": "072d3056-dbf1-494f-b841-7ea1e797c971",
+          "rgba": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0
+          },
+          "repeat_u": 1.0,
+          "repeat_v": 1.0,
+          "offset_u": 0.0,
+          "offset_v": 0.0,
+          "rotation": 1.0,
+          "material": 0,
+          "media": 0,
+          "glow": 0.0,
+          "material_id": "00000000-0000-0000-0000-000000000000"
+        },
+        "texture_animation": [],
+        "particle_system": []
+      },
+      "sound": {
+        "collision_sound": "00000000-0000-0000-0000-000000000000",
+        "collision_sound_volume": 0,
+        "sound_queueing": false,
+        "attached": {
+          "sound_id": "00000000-0000-0000-0000-000000000000",
+          "owner_id": null,
+          "gain": 0.0,
+          "flags": 0,
+          "radius": 0.0
+        }
+      },
+      "motion_data": {
+        "velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "angular_velocity": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "acceleration": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "buoyancy": 0,
+        "force": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "torque": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "sculpt": {
+        "entry": true,
+        "texture": "d8aca82d-e4a3-48b6-a104-9b286c767362",
+        "sculpt_type": "Mesh"
+      },
+      "sit_data": {
+        "sit_name": "",
+        "orientation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_orientation_ll": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "legacy_position_ll": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "legacy_local_id": 234031536,
+      "legacy_region_handle": 0,
+      "legacy_region_x": 256000,
+      "legacy_region_y": 256000,
+      "legacy_script_access_pin": 0,
+      "legacy_parent_id": 234031531
+    }
+  ]
+}
