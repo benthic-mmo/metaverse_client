@@ -1,6 +1,6 @@
 use crate::errors::ParseError;
 use core::fmt;
-use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, from_str, ser::xml};
 use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]

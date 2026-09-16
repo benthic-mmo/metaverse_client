@@ -9,6 +9,7 @@ use crate::session::{
 use actix::Addr;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
+use benthic_protocol::objects::MinimalObjectUpdate;
 use log::{error, warn};
 use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
 use std::sync::Arc;
@@ -85,7 +86,7 @@ impl Mailbox {
                         }
                         PacketType::ObjectUpdate(data) => {
                             if let Err(e) = mailbox_address
-                                .send(HandleObjectUpdate {
+                                .send(HandleObjectUpdate(MinimalObjectUpdate {
                                     object_type: data.pcode,
                                     full_id: data.full_id,
                                     parent_id: Some(data.parent_id),
@@ -98,7 +99,8 @@ impl Mailbox {
                                     parent: Some(data.parent_id),
                                     texture: data.texture_entry.clone(),
                                     crc: data.crc,
-                                })
+                                    region_id: "".to_string(),
+                                }))
                                 .await
                             {
                                 error!("Failed to handle ObjectUpdate {:?}", e)
@@ -127,7 +129,7 @@ impl Mailbox {
                         PacketType::ObjectUpdateCompressed(data) => {
                             for object in data.object_data.clone() {
                                 if let Err(e) = mailbox_address
-                                    .send(HandleObjectUpdate {
+                                    .send(HandleObjectUpdate(MinimalObjectUpdate {
                                         object_type: object.pcode,
                                         full_id: object.full_id,
                                         parent_id: object.parent_id,
@@ -140,7 +142,8 @@ impl Mailbox {
                                         parent: object.parent_id,
                                         texture: object.texture_entry,
                                         crc: object.crc,
-                                    })
+                                        region_id: "".to_string(),
+                                    }))
                                     .await
                                 {
                                     error!("Failed to handle ObjectUpdateCompressed {:?}", e)

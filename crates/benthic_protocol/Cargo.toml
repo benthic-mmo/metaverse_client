@@ -1,0 +1,22 @@
+[package]
+name = "benthic_protocol"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+glam = {version = "0.32.1", features = ["serde"]}
+indexmap = {version = "2.14.0", features = ["serde"]}
+once_cell = "1.21.4"
+rgb = {version="0.8.53", features=["serde"]}
+serde = { version = "1.0.228", features = ["derive"] }
+serde_derive = "1.0.228"
+serde_json = "1.0.149"
+strum = "0.28.0"
+strum_macros = "0.28.0"
+thiserror = "2.0.18"
+uuid = {version = "1.23.1", features = ["serde"]}
+serde-llsd-benthic = {path="../../../benthic-serde-llsd/"}
+arc = "0.0.1"
+sqlx = {version="0.9.0", features=["sqlite", "runtime-tokio"]}
+dirs = "7.0.0"

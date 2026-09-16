@@ -1,33 +1,14 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use crate::errors::InventoryError;
+use benthic_protocol::objects::{GeneratorObject, MinimalObjectUpdate};
 use glam::{Quat, Vec3};
-use metaverse_messages::utils::object_types::ObjectType;
+use metaverse_messages::{
+    udp::object::object_update::ExtraParams,
+    utils::{object_types::ObjectType, texture_entry::TextureEntry},
+};
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
-
-#[derive(Debug)]
-pub struct GeneratorObject {
-    pub full_id: Uuid,
-    pub local_id: u32,
-    pub parent_id: Option<u32>,
-    pub position: Vec3,
-    pub scale: Vec3,
-    pub rotation: Quat,
-}
-
-#[derive(Debug)]
-pub struct ObjectCache {
-    pub full_id: Uuid,
-    pub local_id: u32,
-    pub crc: u32,
-    pub region_id: String,
-    pub object_type: ObjectType,
-    pub parent_id: Option<u32>,
-    pub position: Vec3,
-    pub rotation: Quat,
-    pub scale: Vec3,
-}
 
 fn vec3_from_row(
     row: &sqlx::sqlite::SqliteRow,
@@ -158,7 +139,7 @@ pub async fn sqlite_update_object_glb_path(
 
 pub async fn sqlite_insert_object_update(
     pool: &SqlitePool,
-    object: ObjectCache,
+    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<(), InventoryError> {
     let parent_id = object.parent_id.unwrap_or(0);
     let rotation = object.rotation.normalize();

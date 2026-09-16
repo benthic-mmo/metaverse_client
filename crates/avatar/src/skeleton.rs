@@ -1,8 +1,8 @@
 use std::io::Error;
 
 use crate::avatar::Avatar;
-use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
 use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
+use default_asset_converter::generated::DEFAULT_SKELETON;
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
 use metaverse_messages::http::mesh::Skin;

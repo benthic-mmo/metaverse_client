@@ -1,3 +1,5 @@
+use crate::errors::CapabilityError;
+
 use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::error;
@@ -44,37 +46,35 @@ impl Handler<SendCapabilityRequest> for Mailbox {
         if let Some(session) = &self.session {
             let seed_capability_url = session.seed_capability_url.clone();
             let address = ctx.address().clone();
+            let caps = msg.capability_request.capabilities;
             ctx.spawn(
                 async move {
-                    let client = awc::Client::default();
-                    match client
-                        .post(seed_capability_url)
-                        .insert_header(("Content-Type", "application/llsd+xml"))
-                        .send_body(msg.capability_request.capabilities)
-                        .await
-                    {
-                        Ok(mut get) => match get.body().await {
-                            Ok(body) => {
-                                match CapabilityRequest::response_from_llsd(&body) {
-                                    Ok(capability_urls) => {
-                                        address.do_send(SetCapabilityUrls { capability_urls })
-                                    }
-                                    Err(e) => {
-                                        error!("Capabilities failed to parse: {:?}: {:?}", e, body)
-                                    }
-                                };
-                            }
-                            Err(e) => {
-                                error!("Failed to retrieve body of capability request {:?}", e);
-                            }
-                        },
-                        Err(e) => {
-                            error!("Failed to send with {:?}", e);
+                    match send_cap_request(seed_capability_url, caps).await {
+                        Ok(capability_urls) => {
+                            address.do_send(SetCapabilityUrls { capability_urls });
                         }
-                    };
+                        Err(e) => {
+                            error!("{:?}", e)
+                        }
+                    }
                 }
                 .into_actor(self),
             );
         }
     }
+}
+
+async fn send_cap_request(
+    seed_capability_url: String,
+    capabilities: String,
+) -> Result<HashMap<Capability, String>, CapabilityError> {
+    let client = awc::Client::default();
+    let body = client
+        .post(seed_capability_url)
+        .insert_header(("Content-Type", "application/llsd+xml"))
+        .send_body(capabilities)
+        .await?
+        .body()
+        .await?;
+    Ok(CapabilityRequest::response_from_llsd(&body)?)
 }

@@ -1,26 +1,19 @@
 use crate::session::Mailbox;
 use crate::session::PingInfo;
-use crate::session::ServerState;
 use crate::transport::ui_event_listener::listen_for_ui_messages;
 use actix::Actor;
 use actix_rt::time;
-use benthic_protocol::messages::ui::errors::FeatureError;
+use benthic_protocol::errors::SessionError;
 use benthic_protocol::messages::ui::errors::MailboxSessionError;
-use benthic_protocol::messages::ui::errors::SessionError;
-use log::error;
-use metaverse_cache::initialize_sqlite::init_sqlite;
+use benthic_protocol::session::ServerState;
+use benthic_protocol::session::initialize_share_dir;
 use portpicker::pick_unused_port;
 use std::collections::HashSet;
-use std::fs::create_dir_all;
-use std::io;
-use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
-use uuid::Uuid;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
@@ -34,14 +27,9 @@ pub async fn initialize(
 
     let share_dir = initialize_share_dir()?;
     let db_path = share_dir.join("inventory.db");
-    let connection = init_sqlite(db_path.clone())
-        .await
-        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
-
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
-        inventory_db_connection: connection,
         inventory_db_location: db_path,
 
         server_acks: HashSet::new(),
@@ -71,76 +59,4 @@ pub async fn initialize(
     });
 
     Ok(handle)
-}
-
-/// Ensure a directory exists
-fn create_sub_dir(base: &Path, name: &str) -> io::Result<PathBuf> {
-    let dir = base.join(name);
-    create_dir_all(&dir).map_err(|e| {
-        error!("Failed to create directory {:?}: {}", dir, e);
-        e
-    })?;
-    Ok(dir)
-}
-
-/// Initialize the viewer's cache in the share dir on disk
-pub fn initialize_share_dir() -> io::Result<PathBuf> {
-    let data_dir = dirs::data_dir()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Failed to find data directory"))?;
-
-    let share_dir = data_dir.join("benthic");
-    create_dir_all(&share_dir).map_err(|e| {
-        error!("Failed to create benthic share directory: {}", e);
-        e
-    })?;
-
-    Ok(share_dir)
-}
-
-/// Create a subdirectory in the benthic share dir
-pub fn create_sub_share_dir(name: &str) -> io::Result<PathBuf> {
-    let share_dir = initialize_share_dir()?;
-    create_sub_dir(&share_dir, name)
-}
-
-/// Create a subdirectory for user agents
-pub fn create_sub_agent_dir(name: &str) -> io::Result<PathBuf> {
-    let agent_dir = create_sub_share_dir("agent")?;
-    create_sub_dir(&agent_dir, name)
-}
-
-/// Create a subdirectory for global objects
-pub fn create_sub_object_dir(name: &str) -> io::Result<PathBuf> {
-    let object_dir = create_sub_share_dir("object")?;
-    create_sub_dir(&object_dir, name)
-}
-
-/// Create the global animations directory.
-pub fn create_animation_dir() -> io::Result<PathBuf> {
-    let share_dir = initialize_share_dir()?;
-    create_sub_dir(&share_dir, "animations")
-}
-
-/// Create the directory containing shared filtered animations.
-pub fn create_filtered_animations_dir() -> io::Result<PathBuf> {
-    let animations_dir = create_animation_dir()?;
-    create_sub_dir(&animations_dir, "filtered_animations")
-}
-
-/// Create the directory for a specific filtered animation.
-pub fn create_filtered_animation_dir(animation_id: &Uuid) -> io::Result<PathBuf> {
-    let filtered_dir = create_filtered_animations_dir()?;
-    create_sub_dir(&filtered_dir, &animation_id.to_string())
-}
-
-/// Create the directory containing agent-specific animations.
-pub fn create_animation_agents_dir() -> io::Result<PathBuf> {
-    let animations_dir = create_animation_dir()?;
-    create_sub_dir(&animations_dir, "agents")
-}
-
-/// Create the directory for a specific agent's animations.
-pub fn create_agent_animation_dir(agent_id: &Uuid) -> io::Result<PathBuf> {
-    let agents_dir = create_animation_agents_dir()?;
-    create_sub_dir(&agents_dir, &agent_id.to_string())
 }

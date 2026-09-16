@@ -16,12 +16,13 @@ include = [
 [dependencies]
 metaverse_messages = {path="../messages"}
 metaverse_environment = {path="../environment", optional = true}
-metaverse_agent = {path="../agent", optional = true}
+metaverse_avatar = {path="../avatar", optional = true}
 metaverse_cache = {path="../cache", optional = true}
+metaverse_objects = {path = "../objects/"}
 metaverse_mesh = {path="../../../metaverse_mesh"}
 serde-llsd-benthic = {path="../../../benthic-serde-llsd"}
-benthic_protocol = {path="../../../benthic_protocol/"}
-benthic_asset_pipeline = {path="../../../benthic_asset_pipeline/"}
+benthic_protocol = {path="../benthic_protocol/"}
+default_asset_converter = {path="../default_asset_converter"}
 tokio = { version = "1.53.1", features = ["full"] }
 log = "0.4"
 actix = "0.13.5"
@@ -61,12 +62,12 @@ lazy_static = "1.5.0"
 
 # allow for compiling a barebones viewer
 [features]
-default = ["environment", "agent", "inventory"]
+default = ["environment", "avatar", "inventory"]
 
 # allow for compiling the viewer without any environment rendering
 environment = ["dep:metaverse_environment"]
 # allow for compiling the viewer without any agent rendering 
-agent = ["dep:metaverse_agent"]
+avatar = ["dep:metaverse_avatar"]
 
 inventory = ["dep:metaverse_cache"]
 

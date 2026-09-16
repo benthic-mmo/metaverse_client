@@ -1,5 +1,5 @@
 use crate::errors::InventoryError;
-use metaverse_agent::avatar::Avatar;
+use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::SqlitePool;
 use std::{
@@ -9,7 +9,8 @@ use std::{
 use uuid::Uuid;
 
 use sqlx::Row; // needed for .get()
-               //
+
+#[derive(Debug)]
 pub struct OutfitItem {
     pub name: String,
     pub item_id: Uuid,
@@ -215,25 +216,25 @@ pub async fn sqlite_get_current_outfit(
 
         if item_type == ObjectType::Link
             && let Some(asset_id) = asset_id_str.as_deref()
-                && let Ok(linked_row) = sqlx::query(
-                    r#"
+            && let Ok(linked_row) = sqlx::query(
+                r#"
                     SELECT name, item_id, asset_id, item_type, json, mesh
                     FROM items
                     WHERE item_id = ?
                     "#,
-                )
-                .bind(asset_id)
-                .fetch_one(pool)
-                .await
-                {
-                    name = linked_row.get("name");
-                    item_id_str = linked_row.get("item_id");
-                    asset_id_str = linked_row.get("asset_id");
-                    item_type_str = linked_row.get("item_type");
-                    item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
-                    json = linked_row.get("json");
-                    mesh = linked_row.get("mesh");
-                }
+            )
+            .bind(asset_id)
+            .fetch_one(pool)
+            .await
+        {
+            name = linked_row.get("name");
+            item_id_str = linked_row.get("item_id");
+            asset_id_str = linked_row.get("asset_id");
+            item_type_str = linked_row.get("item_type");
+            item_type = ObjectType::from(item_type_str.as_deref().unwrap_or_default());
+            json = linked_row.get("json");
+            mesh = linked_row.get("mesh");
+        }
 
         let item_id = match item_id_str {
             Some(v) => Uuid::parse_str(&v)?,

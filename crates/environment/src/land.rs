@@ -11,7 +11,7 @@ use twox_hash::XxHash32;
 use crate::{
     error::PatchError,
     layer_handler::{
-        bits_to_big_endian, decompress_patch, read_bits, PatchData, TerrainHeader, END_OF_PATCHES,
+        END_OF_PATCHES, PatchData, TerrainHeader, bits_to_big_endian, decompress_patch, read_bits,
     },
     terrain_mesh_builder::build_terrain,
 };
@@ -94,9 +94,7 @@ impl PatchData for Land {
                     header
                 }
                 Err(e) => {
-                    return Err(PatchError {
-                        message: format!("Failed to create header: {}", e).to_string(),
-                    });
+                    return Err(PatchError::Header(e.to_string()));
                 }
             };
 

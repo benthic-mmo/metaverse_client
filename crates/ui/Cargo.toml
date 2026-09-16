@@ -14,8 +14,8 @@ benthic_default_assets = {path="../../../benthic_default_assets/"}
 [dependencies]
 metaverse_core = {path="../core"}
 benthic_default_assets = {path="../../../benthic_default_assets/"}
-benthic_protocol = {path="../../../benthic_protocol/"}
-metaverse_agent = {path="../agent"}
+benthic_protocol = {path="../benthic_protocol/"}
+metaverse_avatar = {path="../avatar"}
 
 #disable sound for bevy
 bevy = { version = "0.19", default-features = false, features = [

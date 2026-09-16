@@ -4,4 +4,11 @@ resolver = "2"
 members = [
 	"crates/core",
 	"crates/messages",
-  "crates/ui", "crates/environment", "crates/agent", "crates/cache"]
+  "crates/ui", 
+  "crates/environment", 
+  "crates/avatar", 
+  "crates/cache", 
+  "crates/objects",
+  "crates/benthic_protocol",
+  "crates/default_asset_converter",
+]

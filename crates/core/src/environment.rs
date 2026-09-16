@@ -1,42 +1,19 @@
 use super::session::Mailbox;
-use crate::initialize::create_sub_share_dir;
 use crate::session::SendUIMessage;
 use actix::WrapFuture;
 use actix::{AsyncContext, Handler, Message};
 use awc::Client;
-use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
+use benthic_protocol::messages::ui::land_update::LandUpdate;
 use benthic_protocol::messages::ui::{skybox_update::SkyboxUpdate, ui_messages::UIMessage};
-use glam::U16Vec2;
-use glam::Vec3;
 use log::error;
 use log::info;
 use log::warn;
-use metaverse_environment::{
-    land::Land,
-    layer_handler::{PatchLayer, parse_layer_data},
-};
+use metaverse_environment::layer_handler::handle_layer;
+use metaverse_environment::sim_time::fetch_environment_time;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::environment_data::DayCycle;
 use metaverse_messages::udp::environment::layer_data::LayerData;
-use serde::Serialize;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
 use std::time::Duration;
-
-/// Contains the patch queue and patch cache.
-#[derive(Debug)]
-pub struct EnvironmentCache {
-    /// contains unprocessed patches that are yet to have their dependencies met.
-    /// The dependencies are the required patches that live on their three corners.
-    /// if the north, east and diagonal patches have not loaded in yet, they will remain in
-    /// the patch queue until they come in.
-    pub patch_queue: HashMap<U16Vec2, Land>,
-    /// All of the patches that been received this session.
-    pub patch_cache: HashMap<U16Vec2, Land>,
-}
 
 /// Handles received SimulatorVIewerTimeMessages
 ///
@@ -59,40 +36,6 @@ pub struct HandleSimulatorViewerTimeMessage {
     /// Seconds per year to handle custom season change
     pub seconds_per_year: u32,
 }
-
-/// An event to trigger the fetching of the day cycle data from the endpoint
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct FetchEnvironmentEvent {}
-
-#[cfg(feature = "environment")]
-impl Handler<FetchEnvironmentEvent> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: FetchEnvironmentEvent, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
-            if session.capability_urls.is_empty() {
-                warn!("Capabilities not ready yet. Queueing Environment fetch...");
-                ctx.notify_later(msg, Duration::from_secs(1));
-            } else {
-                let capability_url = session.capability_urls.get(&Capability::ExtEnvironment);
-                if let Some(url) = capability_url {
-                    let url = url.clone();
-                    ctx.spawn(
-                        async move {
-                            let client = Client::default();
-
-                            let mut response = client.get(url.to_string()).send().await.unwrap();
-                            let data = response.body().await.unwrap();
-                            let _day_cycle = DayCycle::from_bytes(&data).unwrap();
-                        }
-                        .into_actor(self),
-                    );
-                }
-            }
-        }
-    }
-}
-
 #[cfg(feature = "environment")]
 impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
     type Result = ();
@@ -119,6 +62,41 @@ impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
     }
 }
 
+/// An event to trigger the fetching of the day cycle data from the endpoint
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct FetchEnvironmentEvent {}
+impl Handler<FetchEnvironmentEvent> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: FetchEnvironmentEvent, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_ref() else {
+            return;
+        };
+
+        if session.capability_urls.is_empty() {
+            warn!("Capabilities not ready yet. Queueing Environment fetch...");
+            ctx.notify_later(msg, Duration::from_secs(1));
+            return;
+        }
+        let capability_url = {
+            session
+                .capability_urls
+                .get(&Capability::ExtEnvironment)
+                .cloned()
+        };
+
+        ctx.spawn(
+            async move {
+                match fetch_environment_time(&capability_url).await {
+                    Ok(_) => {}
+                    Err(e) => error!("{:?}", e),
+                }
+            }
+            .into_actor(self),
+        );
+    }
+}
+
 /// Message to handle new layer data coming in from the server
 ///
 /// Handles land, water, cloud and wind patches. This decoding and handling is done in the
@@ -136,100 +114,24 @@ pub struct HandleLayerData {
     /// The layer data packet to process
     pub layer_data: LayerData,
 }
-
-#[cfg(feature = "environment")]
 impl Handler<HandleLayerData> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleLayerData, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut()
-            && let Ok(patch_data) = parse_layer_data(&msg.layer_data)
-        {
-            match patch_data {
-                PatchLayer::Land(patches) => {
-                    for land in patches {
-                        session
-                            .environment_cache
-                            .patch_cache
-                            .insert(land.terrain_header.location, land.clone());
-                        let mut layer_meshes = Vec::new();
-                        if let Some(mesh) = land.clone().generate_mesh(
-                            &mut session.environment_cache.patch_queue,
-                            &session.environment_cache.patch_cache,
-                        ) {
-                            layer_meshes.push(mesh);
-                        }
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
 
-                        let queue_save = session.environment_cache.patch_queue.clone();
-                        for (_location, land) in queue_save {
-                            if let Some(mesh) = land.generate_mesh(
-                                &mut session.environment_cache.patch_queue,
-                                &session.environment_cache.patch_cache,
-                            ) {
-                                layer_meshes.push(mesh);
-                            }
-                        }
-                        for (mesh, coordinate) in layer_meshes {
-                            let scale = land.terrain_header.patch_size as f32;
-                            let json_path = write_json(
-                                &LandData {
-                                    vertices: mesh.vertices,
-                                    indices: mesh.indices,
-                                    position: Vec3 {
-                                        x: ((coordinate.x as f32) * scale),
-                                        y: 0.0,
-                                        z: ((coordinate.y as f32) * scale),
-                                    },
-                                },
-                                land.terrain_header.filename.clone(),
-                            )
-                            .unwrap();
-                            ctx.address().do_send(SendUIMessage {
-                                ui_message: UIMessage::new_land_update(LandUpdate {
-                                    path: json_path,
-                                }),
-                            });
-                        }
-                    }
+        match handle_layer(msg.layer_data, session) {
+            Ok(paths) => {
+                for path in paths {
+                    ctx.address().do_send(SendUIMessage {
+                        ui_message: UIMessage::new_land_update(LandUpdate { path }),
+                    });
                 }
-                PatchLayer::Wind(_patches) => {
-                    // TODO: implement wind patch
-                    warn!("Wind patch received. Currently unimplemented.");
-                }
-                PatchLayer::Water(_patches) => {
-                    // TODO: implement water patch
-                    warn!("Water patch received. Currently unimplemented.");
-                }
-                PatchLayer::Cloud(_patches) => {
-                    // TODO: implement cloud patch
-                    warn!("Cloud patch received. Currently unimplemented.");
-                }
-            }
-        }
-    }
-}
-
-/// When an object is retrieved in full, the data will be written in serializable json format, to
-/// create a cache.This is used by game engines as a matrix of vertices
-fn write_json<T: Serialize>(data: &T, filename: String) -> io::Result<PathBuf> {
-    match create_sub_share_dir("land") {
-        Ok(mut agent_dir) => match serde_json::to_string(&data) {
-            Ok(json) => {
-                agent_dir.push(format!("{}.json", filename));
-                let mut file = File::create(&agent_dir).unwrap();
-                file.write_all(json.as_bytes()).unwrap();
-                Ok(agent_dir)
             }
             Err(e) => {
-                error!("Failed to serialize scene group {:?}, {:?}", filename, e);
-                Err(io::Error::other(e))
+                error!("{:?}", e);
             }
-        },
-        Err(e) => {
-            error!(
-                "Failed to create agent dir for {:?}. Unable to cache downloaded items.",
-                e
-            );
-            Err(io::Error::other(e))
-        }
+        };
     }
 }

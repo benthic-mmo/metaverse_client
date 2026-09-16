@@ -1,49 +1,32 @@
 use super::session::Mailbox;
 use crate::avatar::HandleNewAvatar;
-use crate::initialize::create_sub_agent_dir;
-use crate::initialize::create_sub_object_dir;
-use crate::object_handler::create_render_object;
 use crate::session::OutgoingPacket;
 use crate::session::SendUIMessage;
-use crate::transport::http_handler::download_mesh;
-use crate::transport::http_handler::download_texture;
 use actix::AsyncContext;
-use actix::ResponseFuture;
 use actix::WrapFuture;
 use actix::{Handler, Message};
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use glam::Quat;
-use glam::Vec3;
-use log::info;
+use benthic_protocol::objects::MinimalObjectUpdate;
 use log::{error, warn};
-use metaverse_agent::avatar::Avatar;
-use metaverse_cache::object_update::GeneratorObject;
-use metaverse_cache::object_update::ObjectCache;
-use metaverse_cache::object_update::sqlite_check_cache;
 use metaverse_cache::object_update::sqlite_get_object_scale_rotation_position;
-use metaverse_cache::object_update::sqlite_get_parent;
-use metaverse_cache::object_update::sqlite_insert_object_update;
-use metaverse_cache::object_update::sqlite_update_object_glb_path;
-use metaverse_cache::object_update::sqlite_update_object_json_path;
-use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
-use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
-use metaverse_messages::udp::object::request_multiple_objects::CacheMissType;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntry;
-use serde::Serialize;
-use std::fs::File;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
-use uuid::Uuid;
+use metaverse_objects::object_handler::download_object;
+use metaverse_objects::object_handler::mesh_from_json;
+use metaverse_objects::object_updates::DownloadObjectData;
+use metaverse_objects::object_updates::GenerateMeshData;
+use metaverse_objects::object_updates::ObjectUpdateAction;
+use metaverse_objects::object_updates::RenderObjectData;
+use metaverse_objects::object_updates::object_update;
+use metaverse_objects::object_updates::object_update_cached;
 
 /// Handles received ObjectUpdate packets.
 ///
@@ -59,74 +42,44 @@ use uuid::Uuid;
 /// - Dispatches a [`HandlePrim`] message if the object is a prim
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
-pub struct HandleObjectUpdate {
-    /// Type of the object. Required for retrieving full data from the capability endpoint
-    pub object_type: ObjectType,
-    /// The full ID of the object
-    pub full_id: Uuid,
-    /// The scene local ID of the object
-    pub local_id: u32,
-    /// The position of the object.
-    ///
-    /// If the object is a child object, this position is relative to its parent object.
-    pub position: Vec3,
-    /// The rotation of the object.
-    ///
-    /// If the object is a child object, this is used to calculate the
-    /// position
-    pub rotation: Quat,
-    /// The scale of the object.
-    pub scale: Vec3,
-    /// The local ID of the obeject's parent.
-    pub parent: Option<u32>,
-    /// The scene local ID of the object's parent.
-    ///
-    /// This is used to determine the scale position and rotation if the object is part of a construction
-    pub parent_id: Option<u32>,
-    /// The name value of the object.
-    ///
-    /// This can encode extra data like attachment objects, or the avatar's name
-    pub name_value: Option<String>,
-    /// Extra parameters.
-    ///
-    /// Can contain definitions for things like sculpts (which include meshes), flexi data, light, and more.
-    pub extra_params: Option<Vec<ExtraParams>>,
+pub struct HandleObjectUpdate(pub MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>);
+impl Handler<HandleObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: HandleObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        msg.0.region_id = session.region_data.region_id.clone();
 
-    /// Object's texture data
-    pub texture: TextureEntry,
-
-    /// CRC to enable cache invalidation
-    pub crc: u32,
-}
-
-/// Begins the pipeline for handling a prim object.
-///
-/// Prim objects can include both mesh objects, sculpt objects, and primitive geometry objects.
-/// # Cause
-/// - [`HandleObjectUpdate`]
-///
-/// # Effects
-/// - Dispatches a [`DownloadObject`] message to retrieve full object data from the server
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandlePrim {
-    /// The prim object to handle
-    pub object: HandleObjectUpdate,
-}
-
-/// Begins the pipeline for handling an attachment object
-///
-/// # Cause
-/// - [`HandleObjectUpdate`]
-///
-/// TODO: currently a stub with no effects
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleAttachment {
-    /// The attachment object to handle
-    pub object: HandleObjectUpdate,
-    /// The attach item data
-    pub item: AttachItem,
+        let db_conn = session.inventory_db_connection.clone();
+        let addr = ctx.address();
+        ctx.spawn(
+            async move {
+                match object_update(&db_conn, msg.0).await {
+                    Ok(actions) => {
+                        for action in actions {
+                            match action {
+                                ObjectUpdateAction::Download(data) => {
+                                    addr.do_send(DownloadObject(data));
+                                }
+                                ObjectUpdateAction::Render(data) => {
+                                    addr.do_send(RenderObjectMessage(data));
+                                }
+                                ObjectUpdateAction::NewAvatar(data) => {
+                                    addr.do_send(HandleNewAvatar(data));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("{:?}", e)
+                    }
+                }
+            }
+            .into_actor(self),
+        );
+    }
 }
 
 /// Message for downloading object update from its capability endpoint
@@ -141,15 +94,36 @@ pub struct HandleAttachment {
 /// - Dispatches a [`MeshUpdate`] to inform the UI of a new object
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct DownloadObject {
-    /// the object data to download
-    pub object: HandleObjectUpdate,
-    /// The object's asset ID to retrieve from the ViewerAsset endpoint
-    pub asset_id: Uuid,
-    /// the object's texture ID to retrieve from the ViewerAsset endpoint  
-    pub texture_id: Uuid,
-    /// the object's location in space
-    pub position: Vec3,
+pub struct DownloadObject(DownloadObjectData);
+impl Handler<DownloadObject> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        let server_endpoint = session
+            .capability_urls
+            .get(&Capability::ViewerAsset)
+            .unwrap()
+            .to_string();
+        let addr = ctx.address();
+        let db_conn = session.inventory_db_connection.clone();
+        ctx.spawn(
+            async move {
+                match download_object(&db_conn, server_endpoint, msg.0).await {
+                    Ok(action) => {
+                        if let ObjectUpdateAction::GenerateFromJSON(action) = action {
+                            addr.do_send(GenerateMeshMessage(action));
+                        }
+                    }
+                    Err(e) => {
+                        error!("{:?}", e)
+                    }
+                };
+            }
+            .into_actor(self),
+        );
+    }
 }
 
 /// Message for handing improved terse object update packets
@@ -163,6 +137,17 @@ pub struct DownloadObject {
 pub struct HandleImprovedTerseObjectUpdate {
     /// The improved terse object update packet to handle
     pub improved_terse_object_update: ImprovedTerseObjectUpdate,
+}
+impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(
+        &mut self,
+        _msg: HandleImprovedTerseObjectUpdate,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        // TODO: unimplemented
+        warn!("ImprovedTerseObjectUpdate packet received. Currently unimplemented.")
+    }
 }
 
 /// Message for handling ObjectUpdateCached packets
@@ -181,6 +166,61 @@ pub struct HandleObjectUpdateCached {
     /// the object update cached packet to handle
     pub object_update_cached: ObjectUpdateCached,
 }
+impl Handler<HandleObjectUpdateCached> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandleObjectUpdateCached, ctx: &mut Self::Context) {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+
+        let db_pool = session.inventory_db_connection.clone();
+        let addr = ctx.address();
+        let region_id = session.region_data.region_id.clone();
+        let session_id = session.session_id;
+        let agent_id = session.agent_id;
+
+        ctx.spawn(
+            async move {
+                match object_update_cached(msg.object_update_cached.objects, &db_pool, region_id)
+                    .await
+                {
+                    Ok(cache_results) => {
+                        let mut requests = Vec::new();
+                        for cache_result in cache_results {
+                            match cache_result {
+                                ObjectUpdateAction::Render(data) => {
+                                    addr.do_send(RenderObjectMessage(data));
+                                }
+                                ObjectUpdateAction::GenerateFromJSON(data) => {
+                                    addr.do_send(GenerateMeshMessage(data));
+                                }
+                                ObjectUpdateAction::HandleCacheMiss(object) => {
+                                    requests.push(object);
+                                }
+                                _ => {}
+                            }
+                        }
+                        if !requests.is_empty() {
+                            addr.do_send(OutgoingPacket {
+                                packet: Packet::new_request_multiple_objects(
+                                    RequestMultipleObjects {
+                                        session_id,
+                                        agent_id,
+                                        requests,
+                                    },
+                                ),
+                            });
+                        }
+                    }
+                    Err(e) => {
+                        error!("{:?}", e)
+                    }
+                };
+            }
+            .into_actor(self),
+        );
+    }
+}
 
 /// Helper message to generate mesh from stored json
 ///
@@ -192,15 +232,32 @@ pub struct HandleObjectUpdateCached {
 /// [`RenderObjectFromFile`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct GenerateMeshFromJson {
-    /// Path of the json to generate mesh from
-    pub json_path: PathBuf,
-    /// Path to the object's dir
-    pub base_dir: PathBuf,
-    /// Asset UUID
-    pub asset_id: Uuid,
-    /// Minimal object for accessing sqlite fields
-    pub object: GeneratorObject,
+pub struct GenerateMeshMessage(pub GenerateMeshData);
+impl Handler<GenerateMeshMessage> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: GenerateMeshMessage, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+
+        let db_conn = session.inventory_db_connection.clone();
+        let addr = ctx.address();
+        ctx.spawn(
+            async move {
+                match mesh_from_json(&db_conn, msg.0).await {
+                    Ok(action) => {
+                        if let ObjectUpdateAction::Render(action) = action {
+                            addr.do_send(RenderObjectMessage(action));
+                        }
+                    }
+                    Err(e) => {
+                        error!("{:?}", e)
+                    }
+                }
+            }
+            .into_actor(self),
+        );
+    }
 }
 
 /// Helper message to render objects from stored json files
@@ -213,402 +270,21 @@ pub struct GenerateMeshFromJson {
 /// [`MeshUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct RenderObjectFromFile {
-    /// Path of the mesh to render
-    pub mesh_path: PathBuf,
-    /// ID of the object to render
-    pub asset_id: Uuid,
-    /// Path to the object's dir
-    pub base_dir: PathBuf,
-    /// minimal oject for accessing sqlite fields
-    pub object: GeneratorObject,
-    /// How many times has this object been retried.
-    /// this if for timing out failed parent lookups
-    pub retry_count: u32,
-}
-
-fn backoff_ms(retry: u32) -> u64 {
-    let base = 50;
-    let cap = 2000;
-
-    (base * 2u64.pow(retry.min(6))).min(cap)
-}
-
-impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
+pub struct RenderObjectMessage(pub RenderObjectData);
+impl Handler<RenderObjectMessage> for Mailbox {
     type Result = ();
-    fn handle(
-        &mut self,
-        _msg: HandleImprovedTerseObjectUpdate,
-        _ctx: &mut Self::Context,
-    ) -> Self::Result {
-        // TODO: unimplemented
-        warn!("ImprovedTerseObjectUpdate packet received. Currently unimplemented.")
-    }
-}
 
-impl Handler<HandleObjectUpdateCached> for Mailbox {
-    type Result = ResponseFuture<()>;
-    fn handle(&mut self, msg: HandleObjectUpdateCached, ctx: &mut Self::Context) -> Self::Result {
-        let session = match self.session.as_ref() {
-            Some(session) => session,
-            None => return Box::pin(async {}),
+    fn handle(&mut self, msg: RenderObjectMessage, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
         };
 
-        let db_pool = self.inventory_db_connection.clone();
-        let addr = ctx.address();
-        let region_id = session.region_data.region_id.clone();
-        let session_id = session.session_id;
-        let agent_id = session.agent_id;
-
-        Box::pin(async move {
-            let mut requests = Vec::new();
-            for object in &msg.object_update_cached.objects {
-                match sqlite_check_cache(&db_pool, object.id, object.crc, region_id.clone()).await {
-                    Ok((asset_id, json_path, glb, generator_object)) => {
-                        let base_dir = match create_sub_object_dir(&asset_id.to_string()) {
-                            Ok(base_dir) => base_dir,
-                            Err(e) => {
-                                error!("failed to create base dir: {:?}", e);
-                                return;
-                            }
-                        };
-
-                        if let Some(mesh_path) = glb {
-                            addr.do_send(RenderObjectFromFile {
-                                mesh_path,
-                                base_dir,
-                                asset_id,
-                                object: generator_object,
-                                retry_count: 0,
-                            })
-                        } else {
-                            warn!(
-                                "Generated mesh file {:?} not found. Generating now.",
-                                asset_id
-                            );
-                            addr.do_send(GenerateMeshFromJson {
-                                json_path,
-                                base_dir,
-                                asset_id,
-                                object: generator_object,
-                            });
-                        }
-                    }
-                    Err(e) => {
-                        info!(
-                            "Cache did not contain {}, {} from {}, {:?}",
-                            object.id, object.crc, region_id, e
-                        );
-                        requests.push((CacheMissType::Normal, object.id));
-                    }
-                }
-            }
-
-            if !requests.is_empty() {
-                let request = RequestMultipleObjects {
-                    session_id,
-                    agent_id,
-                    requests,
-                };
-
-                addr.do_send(OutgoingPacket {
-                    packet: Packet::new_request_multiple_objects(request),
-                });
-            }
-        })
-    }
-}
-
-impl Handler<HandleObjectUpdate> for Mailbox {
-    type Result = ResponseFuture<()>;
-    fn handle(&mut self, msg: HandleObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let db_pool = self.inventory_db_connection.clone();
-        let addr = ctx.address();
-        let msg_cloned = msg.clone();
-
-        let session = match self.session.as_ref() {
-            Some(session) => session,
-            None => return Box::pin(async {}),
-        };
-        let region_id = session.region_data.region_id.clone();
-        Box::pin(async move {
-            // all object updates first should be added to the db.
-            // if they cannot be added, the object should be retried.
-            sqlite_insert_object_update(
-                &db_pool,
-                ObjectCache {
-                    local_id: msg.local_id,
-                    full_id: msg.full_id,
-                    crc: msg.crc,
-                    region_id,
-                    object_type: msg.object_type,
-                    parent_id: msg.parent_id,
-                    position: msg.position,
-                    rotation: msg.rotation,
-                    scale: msg.scale,
-                },
-            )
-            .await
-            .unwrap_or_else(|e| {
-                error!("Object Update Error: {:?}, {:?}", e, msg.full_id);
-                //addr.do_send(msg.clone());
-            });
-
-            match msg.object_type {
-                ObjectType::Prim => {
-                    // if the msg.name_value can be parsed as an attachment, handle it as an
-                    // attachment.
-                    if let Some(name_value) = msg.name_value.clone() {
-                        match AttachItem::parse_attach_item(name_value) {
-                            Ok(item) => {
-                                addr.do_send(HandleAttachment { object: msg, item });
-                            }
-                            Err(_) => {
-                                // parsing failed, treat as generic
-                                addr.do_send(HandlePrim { object: msg });
-                            }
-                        }
-                    } else {
-                        // no name_value, treat as generic
-                        addr.do_send(HandlePrim { object: msg });
-                    }
-                }
-
-                ObjectType::Tree
-                | ObjectType::Grass
-                | ObjectType::Unknown
-                | ObjectType::ParticleSystem
-                | ObjectType::NewTree => {
-                    // TODO: unimplemented
-                    warn!("Received unhandled ObjectUpdate type");
-                }
-                ObjectType::Avatar => {
-                    if let Err(e) = create_sub_agent_dir(&msg.full_id.to_string()) {
-                        warn!("Failed to create agent dir for {:?}: {:?}", msg.full_id, e);
-                    }
-                    // create a new avatar object in the session
-                    addr.do_send(HandleNewAvatar {
-                        avatar: Avatar::new(msg_cloned.full_id, msg_cloned.position),
-                    });
-                }
-                _ => {
-                    warn!("Unknown object type");
-                }
-            }
-        })
-    }
-}
-
-impl Handler<HandlePrim> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandlePrim, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(extra_params) = &msg.object.extra_params {
-            for param in extra_params {
-                match param {
-                    ExtraParams::Sculpt(sculpt) => {
-                        ctx.address().do_send(DownloadObject {
-                            asset_id: sculpt.texture_id,
-                            texture_id: Uuid::nil(),
-                            object: msg.object.clone(),
-                            position: msg.object.position,
-                        });
-                    }
-                    _ => {
-                        warn!("Recieved a non sculpt objectupdate. Currently unimplemented")
-                    }
-                }
-            }
-        };
-    }
-}
-
-impl Handler<HandleAttachment> for Mailbox {
-    type Result = ResponseFuture<()>;
-    fn handle(&mut self, msg: HandleAttachment, _ctx: &mut Self::Context) -> Self::Result {
-        let db_pool = self.inventory_db_connection.clone();
-        Box::pin(async move {
-            let mut current_id = match msg.object.parent_id {
-                Some(id) => id,
-                None => return,
-            };
-
-            let mut visited = std::collections::HashSet::new();
-
-            loop {
-                if !visited.insert(current_id) {
-                    break;
-                }
-
-                let parent = match sqlite_get_parent(&db_pool, current_id).await {
-                    Ok(p) => p,
-                    Err(_) => return,
-                };
-
-                match parent {
-                    Some(p) => {
-                        current_id = p;
-                    }
-                    None => break,
-                }
-            }
-        })
-    }
-}
-
-impl Handler<DownloadObject> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            let server_endpoint = session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .unwrap()
-                .to_string();
-            let addr = ctx.address();
-            let inventory_db = self.inventory_db_connection.clone();
-            ctx.spawn(
-                async move {
-                    let base_dir = match create_sub_object_dir(&msg.asset_id.to_string()) {
-                        Ok(base_dir) => base_dir,
-                        Err(e) => {
-                            error!("failed to create base dir: {:?}", e);
-                            return;
-                        }
-                    };
-
-                    let texture_id = msg.object.texture.texture_id;
-                    let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-                    let texture_path = match download_texture(
-                        ObjectType::Texture.to_string(),
-                        texture_id,
-                        &server_endpoint,
-                        &texture_path,
-                    )
-                    .await
-                    {
-                        Ok(_) => texture_path,
-                        Err(e) => {
-                            error!("Failed to download prim texture: {:?} {:?}", e, texture_id);
-                            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                                .join("assets")
-                                .join("textures")
-                                .join("benthic_default_texture.png")
-                        }
-                    };
-
-                    let mesh = match download_mesh(
-                        ObjectType::Mesh.to_string(),
-                        msg.asset_id,
-                        &server_endpoint,
-                    )
-                    .await
-                    {
-                        Ok(mesh) => mesh,
-                        Err(e) => {
-                            error!("Failed to download mesh: {:?}", e);
-                            return;
-                        }
-                    };
-
-                    match create_render_object(
-                        mesh,
-                        "name".to_string(),
-                        &texture_path,
-                        msg.asset_id,
-                    ) {
-                        Ok(render_object) => {
-                            let json_path = match write_json(
-                                &render_object,
-                                msg.asset_id,
-                                msg.asset_id.to_string(),
-                            ) {
-                                Ok(json) => json,
-                                Err(e) => {
-                                    error!("Failed to write json: {:?}", e);
-                                    return;
-                                }
-                            };
-
-                            sqlite_update_object_json_path(
-                                &inventory_db,
-                                msg.object.full_id,
-                                msg.asset_id,
-                                json_path.to_str().unwrap(),
-                            )
-                            .await
-                            .unwrap_or_else(|e| {
-                                error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
-                            });
-                            addr.do_send(GenerateMeshFromJson {
-                                object: GeneratorObject {
-                                    full_id: msg.object.full_id,
-                                    local_id: msg.object.local_id,
-                                    parent_id: msg.object.parent_id,
-                                    rotation: msg.object.rotation,
-                                    scale: msg.object.scale,
-                                    position: msg.object.position,
-                                },
-                                asset_id: msg.asset_id,
-                                base_dir,
-                                json_path,
-                            });
-                        }
-                        Err(e) => {
-                            error!("Failed to create render object{:?}, {:?}", e, msg);
-                        }
-                    }
-                }
-                .into_actor(self),
-            );
-        }
-    }
-}
-
-impl Handler<GenerateMeshFromJson> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: GenerateMeshFromJson, ctx: &mut Self::Context) -> Self::Result {
-        let inventory_db = self.inventory_db_connection.clone();
-        let addr = ctx.address();
-        ctx.spawn(
-            async move {
-                let glb_path = msg.base_dir.join(format!("{:?}_high.glb", msg.asset_id));
-                match generate_object_mesh(msg.json_path, glb_path.clone()) {
-                    Ok(_) => {
-                        info!("Rendering object at: {:?}", msg.asset_id);
-                        sqlite_update_object_glb_path(
-                            &inventory_db,
-                            msg.object.full_id,
-                            glb_path.to_str().unwrap(),
-                        )
-                        .await
-                        .unwrap_or_else(|e| {
-                            error!("Object Update Error: {:?}, {:?}", e, msg.object.full_id);
-                        });
-                    }
-                    Err(e) => warn!("{:?}", e),
-                };
-                addr.do_send(RenderObjectFromFile {
-                    mesh_path: glb_path,
-                    base_dir: msg.base_dir,
-                    asset_id: msg.asset_id,
-                    object: msg.object,
-                    retry_count: 0,
-                })
-            }
-            .into_actor(self),
-        );
-    }
-}
-
-impl Handler<RenderObjectFromFile> for Mailbox {
-    type Result = ();
-
-    fn handle(&mut self, mut msg: RenderObjectFromFile, ctx: &mut Self::Context) -> Self::Result {
-        let inventory_db = self.inventory_db_connection.clone();
+        let inventory_db = session.inventory_db_connection.clone();
         let addr = ctx.address();
 
         ctx.spawn(
             async move {
+                let mut msg = msg.0;
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
                         // no parent, render directly
@@ -656,7 +332,12 @@ impl Handler<RenderObjectFromFile> for Mailbox {
                             parent_id, msg.object.full_id, inventory_error
                         );
 
-                        schedule_retry(&addr, msg, parent_id, &inventory_error.to_string());
+                        schedule_retry(
+                            &addr,
+                            RenderObjectMessage(msg),
+                            parent_id,
+                            &inventory_error.to_string(),
+                        );
                     }
                 }
             }
@@ -665,12 +346,21 @@ impl Handler<RenderObjectFromFile> for Mailbox {
     }
 }
 
+fn backoff_ms(retry: u32) -> u64 {
+    let base = 50;
+    let cap = 2000;
+
+    (base * 2u64.pow(retry.min(6))).min(cap)
+}
+
 fn schedule_retry(
     addr: &actix::Addr<Mailbox>,
-    mut msg: RenderObjectFromFile,
+    msg: RenderObjectMessage,
     parent_id: u32,
     reason: &str,
 ) {
+    let mut msg = msg.0;
+
     if msg.retry_count >= 6 {
         error!(
             "Dropping object {} after max retries (parent {}): {}",
@@ -692,33 +382,6 @@ fn schedule_retry(
 
     actix::spawn(async move {
         actix::clock::sleep(std::time::Duration::from_millis(delay)).await;
-        addr.do_send(msg);
+        addr.do_send(RenderObjectMessage(msg));
     });
-}
-
-/// When an object is retrieved in full, the data will be written in serializable json format, to
-/// create a cache. The JSON will then be sent to another crate to convert it into a 3d model that
-/// can be rendered.
-pub fn write_json<T: Serialize>(data: &T, asset_id: Uuid, filename: String) -> io::Result<PathBuf> {
-    match create_sub_object_dir(&asset_id.to_string()) {
-        Ok(mut object_dir) => match serde_json::to_string(&data) {
-            Ok(json) => {
-                object_dir.push(format!("{}.json", filename));
-                let mut file = File::create(&object_dir).unwrap();
-                file.write_all(json.as_bytes()).unwrap();
-                Ok(object_dir)
-            }
-            Err(e) => {
-                error!("Failed to serialize scene group {:?}, {:?}", filename, e);
-                Err(io::Error::other(e))
-            }
-        },
-        Err(e) => {
-            error!(
-                "Failed to create agent dir for {:?}. Unable to cache downloaded items.",
-                e
-            );
-            Err(io::Error::other(e))
-        }
-    }
 }

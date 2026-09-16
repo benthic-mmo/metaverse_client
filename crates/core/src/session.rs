@@ -1,5 +1,3 @@
-use super::{environment::EnvironmentCache, inventory::InventoryData};
-#[cfg(feature = "environment")]
 use crate::environment::FetchEnvironmentEvent;
 use crate::{
     capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
@@ -7,19 +5,28 @@ use crate::{
 };
 use actix::prelude::*;
 use actix_rt::time;
-use benthic_protocol::messages::ui::{
-    errors::{
-        CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
-        MailboxSessionError, SessionError,
+use benthic_protocol::errors::SessionError;
+use benthic_protocol::messages::ui::errors::MailboxSessionError;
+#[cfg(feature = "environment")]
+use benthic_protocol::session::EnvironmentCache;
+#[cfg(feature = "inventory")]
+use benthic_protocol::session::InventoryData;
+use benthic_protocol::session::RegionData;
+use benthic_protocol::{
+    messages::ui::{
+        errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError},
+        login_event::Login,
+        login_response::LoginResponse,
+        ui_messages::{UIMessage, UIResponse},
+        water_update::WaterUpdate,
     },
-    login_event::Login,
-    login_response::LoginResponse,
-    ui_messages::{UIMessage, UIResponse},
-    water_update::WaterUpdate,
+    session::{ServerState, Session},
 };
 use glam::Vec2;
 use log::{error, info};
-use metaverse_agent::avatar::Avatar;
+use metaverse_avatar::avatar::Avatar;
+use metaverse_cache::initialize_sqlite::init_sqlite;
+use metaverse_environment::land::Land;
 use metaverse_messages::{
     http::capabilities::{Capability, CapabilityRequest},
     packet::packet_protocol::Packet,
@@ -39,7 +46,6 @@ use metaverse_messages::{
     },
 };
 use rgb::Rgba;
-use sqlx::{Pool, Sqlite};
 use std::{
     collections::{HashMap, HashSet},
     net::UdpSocket as SyncUdpSocket,
@@ -48,7 +54,6 @@ use std::{
     thread::sleep,
 };
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
-use uuid::Uuid;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
 #[derive(Debug)]
@@ -57,9 +62,6 @@ pub struct Mailbox {
     pub client_socket: u16,
     /// UDP socket for connecting mailbox to the UI
     pub server_to_ui_socket: String,
-    /// the connection to the inventory sqlite DB
-    /// this stores folder data and inventory metadata
-    pub inventory_db_connection: Pool<Sqlite>,
     /// the location on disk of the inventory sqlite DB.
     pub inventory_db_location: PathBuf,
     /// queue of acks sent from the server to be responded to by the client
@@ -71,78 +73,22 @@ pub struct Mailbox {
     /// notify for etablishing when it begins running
     pub notify: Arc<Notify>,
     /// Session information for after login
-    pub session: Option<Session>,
+    pub session: Option<Session<Capability, Avatar, Land, UdpSocket>>,
     /// the global number of packets that have been sent to the UI
     pub sent_packet_count: u16,
     /// the global ping information
     pub ping_info: PingInfo,
 }
 
-/// Information struct for storing latency and ping info
-#[derive(Debug)]
-pub struct PingInfo {
-    /// the number of the ping
-    pub ping_number: u8,
-    /// how long the latency is. Currently not doing anything.
-    pub ping_latency: Duration,
-    /// time of last ping
-    pub last_ping: time::Instant,
-}
-
-/// Message and struct for the current user's session.
-///
-/// This includes all data that will be used throughout the session, and much of it is populated by
-/// the LoginResponse packet. This sets the active session for the Mailbox, and ensures the UDP
-/// socket doesn't close.
+/// Message used for initializing the session
 ///
 /// # Cause
-/// - A login is triggered by the UI, and the handle_login function is called
 ///
 /// # Effects
-/// - Starts UDP read between client and server
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct Session {
-    /// address of the server the client is connected to. formatted http://Url:Socket
-    pub address: String,
-    /// agent ID of the user
-    pub agent_id: Uuid,
-    /// session ID of the user
-    pub session_id: Uuid,
-    /// the running UDP socket attached to the session  
-    pub socket: Option<Arc<UdpSocket>>,
-    /// The sequence number of the packets sent. Created as a simple count from the core to the server.
-    pub sequence_number: u16,
-    /// The local IP that the login is sent from. This is stored to ensure the IP of the
-    /// UseCircuitCode packet is sent from the same IP as the login, to prevent server errors.
-    pub local_ip: std::net::IpAddr,
-    /// The URL endpoint to request more capabilities
-    pub seed_capability_url: String,
-    /// The HashMap for storing capability URLs
-    pub capability_urls: HashMap<Capability, String>,
-    /// inventory details retrieved from initial login
-    pub inventory_data: InventoryData,
-    /// The environment cache. Contains things for handling and generating the environment.
-    pub environment_cache: EnvironmentCache,
-    /// The agent list. Contains information about the appearances of all loaded agents
-    pub avatars: HashMap<Uuid, Avatar>,
-    /// data about the region the user is currently in
-    pub region_data: RegionData,
-}
-
-#[derive(Debug, Message, Default)]
-#[rtype(result = "()")]
-/// Information about the current region the user is in
-pub struct RegionData {
-    /// The region global height of the water. This is used to render a flat plane of water over
-    /// the entire region.
-    pub water_height: f32,
-    /// The time elapsed since there was an update for the region's time
-    pub last_time_update: u64,
-    /// Coordinates of the region in the world. Region x and region y from the login response.
-    pub region_coordinates: Vec2,
-    /// ID of the region. This is a combination of the sim IP and port.
-    pub region_id: String,
+pub struct StartSession {
+    pub session: Session<Capability, Avatar, Land, UdpSocket>,
 }
 
 /// Handles incoming pings from the server
@@ -155,18 +101,15 @@ pub struct HandlePing {
     /// The ID of the ping
     pub ping_id: u8,
 }
-
-/// The state of the Mailbox, if it is running, starting, stopping or stopped.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ServerState {
-    /// The mailbox starts in the Starting state
-    Starting,
-    /// The mailbox is running
-    Running,
-    /// The mailbox is preparing to stop
-    Stopping,
-    /// the mailbox is stopped
-    Stopped,
+/// Information struct for storing latency and ping info
+#[derive(Debug)]
+pub struct PingInfo {
+    /// the number of the ping
+    pub ping_number: u8,
+    /// how long the latency is. Currently not doing anything.
+    pub ping_latency: Duration,
+    /// time of last ping
+    pub last_ping: time::Instant,
 }
 
 /// Message used for acknowledging reliable headers for incoming packets.
@@ -308,13 +251,14 @@ impl Actor for Mailbox {
     }
 }
 
-impl Handler<Session> for Mailbox {
+impl Handler<StartSession> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: Session, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_ref() {
-            msg.socket = session.socket.clone();
+    fn handle(&mut self, mut msg: StartSession, ctx: &mut Self::Context) -> Self::Result {
+        let mut session = msg.session;
+        if let Some(current_session) = self.session.as_ref() {
+            session.socket = current_session.socket.clone();
         }
-        self.session = Some(msg);
+        self.session = Some(session);
 
         // if the session doesn't already have a UDP socket to watch, create one
         if let Some(session) = self.session.as_ref()
@@ -330,14 +274,14 @@ impl Handler<Session> for Mailbox {
             let fut = async move {
                 match UdpSocket::bind(&addr).await {
                     Ok(sock) => {
-                        info!("Successfully bound to {}", &addr);
+                        info!("Successfully bound to {}", addr);
                         let sock = Arc::new(sock);
                         // Spawn a new Tokio task for reading from the socket
                         tokio::spawn(Mailbox::start_udp_read(sock.clone(), mailbox_addr));
                         Ok(sock) // Return the socket wrapped in Arc
                     }
                     Err(e) => {
-                        error!("Failed to bind to {}: {}", &addr_clone, e);
+                        error!("Failed to bind to {}: {}", addr_clone, e);
                         Err(e)
                     }
                 }
@@ -376,8 +320,9 @@ impl Handler<HandleUIResponse> for Mailbox {
         if let UIResponse::Login(data) = &msg.ui_response {
             let ctx_addr = ctx.address().clone();
             let login_data = data.clone();
+            let db_location = self.inventory_db_location.clone();
             actix::spawn(async move {
-                if let Err(e) = handle_login(login_data, &ctx_addr).await {
+                if let Err(e) = handle_login(login_data, &ctx_addr, &db_location).await {
                     error!("{:?}", e);
                 };
             });
@@ -557,6 +502,7 @@ impl Handler<SendAckList> for Mailbox {
 async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
+    db_path: &PathBuf,
 ) -> Result<(), SessionError> {
     let (login_response, local_ip) = match login_to_simulator(login_data).await {
         Ok((login_response, local_ip)) => {
@@ -587,48 +533,53 @@ async fn handle_login(
         }
     };
 
+    let connection = init_sqlite(db_path.clone())
+        .await
+        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
+
     if let Err(e) = mailbox_addr
-        .send(Session {
-            agent_id: login_response.agent_id,
-            session_id: login_response.session_id,
-            address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
-            seed_capability_url: login_response.seed_capability.unwrap(),
-            sequence_number: 0,
-            local_ip,
-            capability_urls: HashMap::new(),
-            region_data: RegionData {
-                region_coordinates: Vec2 {
-                    x: (login_response.region_x.unwrap() as f32),
-                    y: (login_response.region_y.unwrap() as f32),
+        .send(StartSession {
+            session: Session {
+                inventory_db_connection: connection,
+                agent_id: login_response.agent_id,
+                session_id: login_response.session_id,
+                address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
+                seed_capability_url: login_response.seed_capability.unwrap(),
+                sequence_number: 0,
+                local_ip,
+                capability_urls: HashMap::new(),
+                region_data: RegionData {
+                    region_coordinates: Vec2 {
+                        x: (login_response.region_x.unwrap() as f32),
+                        y: (login_response.region_y.unwrap() as f32),
+                    },
+                    region_id: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
+                    ..Default::default()
                 },
-                region_id: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
-                ..Default::default()
-            },
 
-            #[cfg(feature = "environment")]
-            environment_cache: EnvironmentCache {
-                patch_queue: HashMap::new(),
-                patch_cache: HashMap::new(),
-            },
+                environment_cache: EnvironmentCache {
+                    patch_queue: HashMap::new(),
+                    patch_cache: HashMap::new(),
+                },
 
-            #[cfg(feature = "inventory")]
-            inventory_data: InventoryData {
-                inventory_root: login_response.inventory_root.ok_or_else(|| {
-                    FeatureError::Inventory(
-                        "Login response contained no inventory_root".to_string(),
-                    )
-                })?,
-                inventory_lib_owner: login_response.inventory_lib_owner.ok_or_else(|| {
-                    FeatureError::Inventory(
-                        "Login response contained no inventory_lib_owner".to_string(),
-                    )
-                })?,
-                inventory_init: false,
-            },
-            socket: None,
+                inventory_data: InventoryData {
+                    inventory_root: login_response.inventory_root.ok_or_else(|| {
+                        FeatureError::Inventory(
+                            "Login response contained no inventory_root".to_string(),
+                        )
+                    })?,
+                    inventory_lib_owner: login_response.inventory_lib_owner.ok_or_else(|| {
+                        FeatureError::Inventory(
+                            "Login response contained no inventory_lib_owner".to_string(),
+                        )
+                    })?,
+                    inventory_init: false,
+                },
+                socket: None,
 
-            #[cfg(feature = "agent")]
-            avatars: HashMap::new(),
+                #[cfg(feature = "avatar")]
+                avatars: HashMap::new(),
+            },
         })
         .await
     {
@@ -720,7 +671,6 @@ async fn handle_login(
         })?
     }
 
-    #[cfg(feature = "environment")]
     if let Err(e) = mailbox_addr.send(FetchEnvironmentEvent {}).await {
         Err(CapabilityError {
             message: e.to_string(),
