@@ -11,19 +11,6 @@ use metaverse_cache::inventory_root::refresh_inventory;
 
 use super::session::Mailbox;
 
-/// Contains information about the Inventory
-#[derive(Debug)]
-pub struct InventoryData {
-    /// The root of the inventory, received from the LoginResponse. This is a vector of the base
-    /// UUIDs that will be used to create the root of the inventory tree using a
-    /// FetchInventoryDescendents2 call.
-    pub inventory_root: Uuid,
-    /// The UUID of the owner of the inventory lib. Used to create the FetchLibDescendents2 call.
-    pub inventory_lib_owner: Uuid,
-    /// boolean to signify the inventory has successfully loaded and is ready for use.
-    pub inventory_init: bool,
-}
-
 /// Message to inform the session that the inventory has been fully initialized.
 ///
 /// # Cause
@@ -31,6 +18,14 @@ pub struct InventoryData {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct InventoryInit;
+impl Handler<InventoryInit> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: InventoryInit, _: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &mut self.session {
+            session.inventory_data.inventory_init = true;
+        }
+    }
+}
 
 /// Performs a full refresh on the user's inventory
 ///
@@ -53,57 +48,51 @@ pub struct RefreshInventoryEvent {
 impl Handler<RefreshInventoryEvent> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
-            if session.capability_urls.is_empty() {
-                warn!("Capabilities not ready yet. Queueing inventory refresh...");
-                ctx.notify_later(msg, Duration::from_secs(1));
-            } else {
-                let capability_url = session
-                    .capability_urls
-                    .get(&Capability::FetchInventoryDescendents2);
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
 
-                if let Some(url) = capability_url {
-                    let owner_id = session.agent_id;
-                    let folder_id = session.inventory_data.inventory_root;
-                    let url = url.clone();
-                    let addr = ctx.address();
-                    let conn = self.inventory_db_connection.clone();
-                    ctx.spawn(
-                        async move {
-                            match refresh_inventory(
-                                &conn,
-                                FolderRequest {
-                                    folder_id,
-                                    owner_id,
-                                    fetch_folders: true,
-                                    fetch_items: true,
-                                    sort_order: 0,
-                                },
-                                url,
-                            )
-                            .await
-                            {
-                                Ok(_) => {
-                                    addr.do_send(InventoryInit);
-                                }
-                                Err(e) => {
-                                    error!("Refresh inventory event failed {:?}", e)
-                                }
-                            }
-                        }
-                        .into_actor(self),
-                    );
-                }
-            }
+        if session.capability_urls.is_empty() {
+            warn!("Capabilities not ready yet. Queueing inventory refresh...");
+            ctx.notify_later(msg, Duration::from_secs(1));
+            return;
         }
-    }
-}
 
-impl Handler<InventoryInit> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, _: InventoryInit, _: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &mut self.session {
-            session.inventory_data.inventory_init = true;
+        let capability_url = session
+            .capability_urls
+            .get(&Capability::FetchInventoryDescendents2);
+
+        if let Some(url) = capability_url {
+            let owner_id = session.agent_id;
+            let folder_id = session.inventory_data.inventory_root;
+            let url = url.clone();
+            let addr = ctx.address();
+            let conn = session.inventory_db_connection.clone();
+            ctx.spawn(
+                async move {
+                    match refresh_inventory(
+                        &conn,
+                        FolderRequest {
+                            folder_id,
+                            owner_id,
+                            fetch_folders: true,
+                            fetch_items: true,
+                            sort_order: 0,
+                        },
+                        url,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            addr.do_send(InventoryInit);
+                        }
+                        Err(e) => {
+                            error!("Refresh inventory event failed {:?}", e)
+                        }
+                    }
+                }
+                .into_actor(self),
+            );
         }
     }
 }

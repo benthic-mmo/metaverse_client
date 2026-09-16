@@ -102,6 +102,8 @@ pub mod terrain_mesh_builder;
 /// Contains information and handling for land patches
 pub mod land;
 
+pub mod sim_time;
+
 /// TODO: unimplemented
 pub mod cloud;
 /// TODO: unimplemented

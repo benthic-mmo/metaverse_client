@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
+use default_asset_converter::generated::DEFAULT_SKELETON;
 use glam::Vec3;
 use uuid::Uuid;
 

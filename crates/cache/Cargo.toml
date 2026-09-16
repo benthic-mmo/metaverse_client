@@ -8,7 +8,8 @@ edition = "2024"
 
 [dependencies]
 metaverse_messages = {path="../messages/"}
-metaverse_agent = {path="../agent/"}
+metaverse_avatar = {path="../avatar/"}
+benthic_protocol = {path="../benthic_protocol/"}
 anyhow = "1.0.104"
 awc = "3.8.2"
 dirs = "7.0.0"

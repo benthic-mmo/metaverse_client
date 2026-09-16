@@ -1,15 +1,22 @@
+use std::path::PathBuf;
+
+use benthic_protocol::{
+    messages::ui::land_update::LandData,
+    session::{CacheDir, Session, write_json},
+};
 use bitreader::{BitReader, BitReaderError};
+use log::warn;
 use metaverse_messages::udp::environment::layer_data::{LayerData, LayerType};
 
 use crate::{
     cloud::Cloud,
     constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16},
-    error::PatchError,
+    error::{LayerError, PatchError},
     land::Land,
     water::Water,
     wind::Wind,
 };
-use glam::{u16, u32, usize, U16Vec2};
+use glam::{U16Vec2, Vec3, u16, u32, usize};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -31,6 +38,77 @@ pub enum PatchLayer {
     Water(Vec<Water>),
     /// a vector of clouds
     Cloud(Vec<Cloud>),
+}
+
+pub fn handle_layer<C, A, U>(
+    layer_data: LayerData,
+    session: &mut Session<C, A, Land, U>,
+) -> Result<Vec<PathBuf>, LayerError> {
+    let patch_data = parse_layer_data(&layer_data)?;
+
+    match patch_data {
+        PatchLayer::Land(patches) => {
+            let mut paths = Vec::new();
+            for land in patches {
+                session
+                    .environment_cache
+                    .patch_cache
+                    .insert(land.terrain_header.location, land.clone());
+                let mut layer_meshes = Vec::new();
+                if let Some(mesh) = land.clone().generate_mesh(
+                    &mut session.environment_cache.patch_queue,
+                    &session.environment_cache.patch_cache,
+                ) {
+                    layer_meshes.push(mesh);
+                }
+
+                let queue_save = session.environment_cache.patch_queue.clone();
+                for (_location, land) in queue_save {
+                    if let Some(mesh) = land.generate_mesh(
+                        &mut session.environment_cache.patch_queue,
+                        &session.environment_cache.patch_cache,
+                    ) {
+                        layer_meshes.push(mesh);
+                    }
+                }
+                for (mesh, coordinate) in layer_meshes {
+                    let scale = land.terrain_header.patch_size as f32;
+                    let json_path = write_json(
+                        &LandData {
+                            vertices: mesh.vertices,
+                            indices: mesh.indices,
+                            position: Vec3 {
+                                x: (coordinate.x as f32) * scale,
+                                y: 0.0,
+                                z: (coordinate.y as f32) * scale,
+                            },
+                        },
+                        &land.terrain_header.filename,
+                        CacheDir::Land,
+                    )?;
+                    paths.push(json_path);
+                }
+            }
+            Ok(paths)
+        }
+        PatchLayer::Wind(_patches) => {
+            // TODO: implement wind patch
+            warn!("Wind patch received. Currently unimplemented.");
+            Ok(Vec::new())
+        }
+        PatchLayer::Water(_patches) => {
+            // TODO: implement water patch
+            warn!("Water patch received. Currently unimplemented.");
+
+            Ok(Vec::new())
+        }
+        PatchLayer::Cloud(_patches) => {
+            // TODO: implement cloud patch
+            warn!("Cloud patch received. Currently unimplemented.");
+
+            Ok(Vec::new())
+        }
+    }
 }
 
 /// Handles the LayerData packet after parsing its headers

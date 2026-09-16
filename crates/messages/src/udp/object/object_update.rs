@@ -731,7 +731,7 @@ impl AttachItem {
     /// Primitive objects rezzed from inventory have their metadata stored in a reference to the
     /// object in the user or the global inventory. This is stored in a string that needs to be
     /// parsed.
-    pub fn parse_attach_item(data: String) -> Result<Self, ParseError> {
+    pub fn parse_attach_item(data: &String) -> Result<Self, ParseError> {
         let parts: Vec<&str> = data.split_whitespace().collect();
         if parts.len() != 5 {
             return Err(ParseError::Message(format!(

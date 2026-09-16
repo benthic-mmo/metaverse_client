@@ -4,6 +4,31 @@ use awc::error::{PayloadError, SendRequestError};
 use metaverse_messages::errors::ParseError;
 use sqlx::migrate::MigrateError;
 use thiserror::Error;
+use uuid::Uuid;
+
+#[derive(Error, Debug)]
+pub enum OutfitError {
+    #[error("Failed to get current outfit version: {error}")]
+    OutfitVersion { error: InventoryError },
+
+    #[error("Failed to get current avatar version: {error}")]
+    AvatarVersion { error: InventoryError },
+
+    #[error("Failed to insert new avatar to cache: {error}")]
+    AvatarCacheFailure { error: InventoryError },
+
+    #[error("Failed to retrieve avatar data from cache: {error}")]
+    AvatarDataRetrieveFailure { error: InventoryError },
+
+    #[error("Failed to set outfit size for {agent_id}: {error}")]
+    OutfitSize {
+        agent_id: Uuid,
+        error: InventoryError,
+    },
+
+    #[error("Failed to retrieve inventory {error}")]
+    InventoryRetrieve { error: InventoryError },
+}
 
 #[derive(Error, Debug)]
 pub enum InventoryError {

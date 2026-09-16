@@ -1,0 +1,64 @@
+use std::{collections::BTreeSet, path::PathBuf};
+
+use glam::{Mat4, Vec3};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::skeleton::{JointName, Skeleton};
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// Information about the weights of each joint.
+/// This corresponds to each vertex in the mesh
+pub struct JointWeight {
+    /// The index of the joint the vertex corresponds to
+    pub indices: [u8; 4],
+    /// How strongly the joint influences the vertex
+    pub weights: [f32; 4],
+    /// The name of the joint that the weight corresponds to.
+    pub joint_name: [JointName; 4],
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// This contains required data that will be used for rendering.
+pub struct RenderObject {
+    /// Name of the object to render
+    pub name: String,
+    /// ID of the object to render
+    pub id: Uuid,
+    /// full list of vertices
+    pub vertices: Vec<Vec3>,
+    /// full list of indices
+    /// This contains information on where in the triangle each of your vertices are. This saves
+    /// space by not duplicating vertices and allows the renderer to handle building the triangles.
+    pub indices: Vec<u16>,
+    /// The skeleton of the object.
+    pub skin: Option<SkinData>,
+    /// The optional png texture of the object
+    pub texture: Option<PathBuf>,
+    /// UV values for applying textures
+    pub uv: Option<Vec<[f32; 2]>>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Contains skinning information for RenderObjects
+pub struct SkinData {
+    /// Joint information for the mesh
+    pub skeleton: Skeleton,
+    /// Weight information for the mesh's joints
+    pub weights: Vec<JointWeight>,
+    /// Names of all of the joints. In order to correspond to weights and inverse bind matrices.
+    pub joint_names: Vec<JointName>,
+    /// Inverse bind matrix. Used to determine the shape of the skeleton in relation to the mesh.
+    pub inverse_bind_matrices: Vec<Mat4>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+/// Object that contains the global skeleton for the agent object,  
+pub struct AvatarObject {
+    /// Path to the RenderObject json on file for the component parts of the outfit
+    pub objects: Vec<PathBuf>,
+    /// global skeleton that is applied to all objects in the outfit
+    pub global_skeleton: Skeleton,
+    /// List of joints used by the avatar
+    pub used_joints: BTreeSet<JointName>,
+}
