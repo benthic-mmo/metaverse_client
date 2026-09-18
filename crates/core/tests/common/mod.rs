@@ -1,14 +1,14 @@
 use ::bevy::ecs::resource::Resource;
-use benthic_asset_pipeline::generated::DEFAULT_SKELETON;
 use benthic_protocol::render_data::{AvatarObject, RenderObject};
+use default_asset_converter::generated::DEFAULT_SKELETON;
 use glam::Vec3;
-use metaverse_agent::{
+use metaverse_avatar::{
     avatar::{Avatar, OutfitObject},
     skeleton::update_global_avatar_skeleton,
 };
-use metaverse_core::object_handler::create_render_object;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
 use metaverse_messages::http::{mesh::Mesh, scene::SceneGroup};
+use metaverse_objects::object_handler::create_render_object;
 use std::{
     collections::{BTreeSet, HashMap},
     fs::{self, File},
