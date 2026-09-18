@@ -2,9 +2,11 @@ use std::{collections::BTreeSet, fs, path::PathBuf};
 
 use benthic_protocol::{
     render_data::{AvatarObject, RenderObject},
-    session::{CacheDir, Session, create_sub_agent_dir, write_json},
+    session::{CacheDir, Session, cache_enabled, create_sub_agent_dir, write_json},
     skeleton::{JointName, Skeleton},
 };
+use glam::Mat4;
+use indexmap::IndexMap;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
 use uuid::Uuid;
 
@@ -82,7 +84,8 @@ pub async fn finalize_avatar(
     skeleton: Skeleton,
     used_joints: BTreeSet<JointName>,
     items: Vec<OutfitObject>,
-) -> Result<PathBuf, AvatarError> {
+) -> Result<(PathBuf, Skeleton), AvatarError> {
+    let skeleton = finalize_skeleton(skeleton);
     let json_paths: Vec<PathBuf> = items
         .into_iter()
         .filter_map(|item| {
@@ -96,14 +99,14 @@ pub async fn finalize_avatar(
 
     let avatar_object = AvatarObject {
         objects: json_paths,
-        global_skeleton: skeleton,
+        global_skeleton: skeleton.clone(),
         used_joints: used_joints.clone(),
     };
 
     let json_path_str = agent_id.to_string();
     let json_path = PathBuf::from(&json_path_str);
 
-    let json_path = if json_path.exists() {
+    let json_path = if json_path.exists() && cache_enabled() {
         json_path.clone()
     } else {
         write_json(&avatar_object, &json_path_str, CacheDir::Agent(agent_id))?
@@ -111,9 +114,30 @@ pub async fn finalize_avatar(
 
     let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
     let glb_path = base_dir.join(format!("{:?}_high.glb", agent_id));
-    if !glb_path.exists() {
+    if !glb_path.exists() || !cache_enabled() {
         generate_skinned_mesh(json_path.clone(), glb_path.clone())?
     }
 
-    Ok(glb_path)
+    Ok((glb_path, skeleton))
+}
+
+fn finalize_skeleton(mut skeleton: Skeleton) -> Skeleton {
+    let globals: IndexMap<JointName, Mat4> = skeleton
+        .joints
+        .iter()
+        .map(|(name, joint)| (*name, joint.global_transforms.last().unwrap().transform))
+        .collect();
+
+    for joint in skeleton.joints.values_mut() {
+        let global = globals[&joint.name];
+
+        let local = match joint.parent {
+            Some(parent_name) => globals[&parent_name].inverse() * global,
+            None => global,
+        };
+
+        joint.local_transforms.last_mut().unwrap().transform = local;
+    }
+
+    skeleton
 }

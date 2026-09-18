@@ -1,7 +1,5 @@
-use std::path::PathBuf;
-
 use benthic_protocol::errors::SessionError;
-use metaverse_mesh::errors::MetaverseMeshError;
+use metaverse_mesh::errors::{MetaverseMeshAnimationError, MetaverseMeshError};
 use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
@@ -39,38 +37,14 @@ pub enum AvatarError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum AnimationError {
-    #[error("{feature} is currently unimplmented")]
-    Unimplemented { feature: String },
-
     #[error("Session Error: {0}")]
     SessionError(#[from] SessionError),
 
-    #[error("Failed to read file: {path}, {source}")]
-    ReadFile {
-        path: PathBuf,
-        source: std::io::Error,
-    },
+    #[error("{feature} is currently unimplmented")]
+    Unimplemented { feature: String },
 
-    #[error("failed to deserialize animation {path}: {source}")]
-    Deserialize {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
-
-    #[error("failed to create animation output {path}: {source}")]
-    CreateOutput {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("failed to serialize animation {path}: {source}")]
-    Serialize {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
+    #[error("Metaverse Mesh Animation Error: {0}")]
+    AnimationError(#[from] MetaverseMeshAnimationError),
 
     #[error("Mesh Error: {0}")]
     MeshError(#[from] MetaverseMeshError),

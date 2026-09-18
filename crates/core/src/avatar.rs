@@ -6,7 +6,7 @@ use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::session::create_agent_animation_dir;
-use benthic_protocol::skeleton::JointName;
+use benthic_protocol::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
 use log::{error, warn};
 use metaverse_avatar::animation::build_animation;
@@ -164,8 +164,13 @@ impl Handler<HandleNewAvatar> for Mailbox {
                 match user_type {
                     AvatarType::User => {
                         addr.do_send(SendUIMessage {
+                            // handle the z-y flip
                             ui_message: UIMessage::new_camera_position(CameraPosition {
-                                position: msg.0.position,
+                                position: Vec3::new(
+                                    msg.0.position.x,
+                                    msg.0.position.z,
+                                    msg.0.position.y,
+                                ),
                             }),
                         });
                         let agent_id = session.agent_id;
@@ -288,9 +293,13 @@ impl Handler<FinalizeAvatar> for Mailbox {
         ctx.spawn(
             async move {
                 match finalize_avatar(agent_id, skeleton, used_joints.clone(), items).await {
-                    Ok(glb_path) => {
+                    Ok((glb_path, skeleton)) => {
                         addr.do_send(SetAvatarGlbPath {
                             path: glb_path.clone(),
+                            agent_id,
+                        });
+                        addr.do_send(SetAvatarFinalSkeleton {
+                            final_skeleton: skeleton,
                             agent_id,
                         });
                         // edit the temp avatar for the sqlite update.
@@ -535,6 +544,28 @@ impl Handler<SetAvatarGlbPath> for Mailbox {
             && let Some(avatar) = session.avatars.get_mut(&msg.agent_id)
         {
             avatar.path = Some(msg.path)
+        }
+    }
+}
+/// Simple helper function to ensure that the avatar's skeleton is updated after finalizing
+///
+/// #Cause
+/// - [`FinalizeAvatar`]
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SetAvatarFinalSkeleton {
+    /// Skeleton
+    pub final_skeleton: Skeleton,
+    /// Agent ID to set
+    pub agent_id: Uuid,
+}
+impl Handler<SetAvatarFinalSkeleton> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: SetAvatarFinalSkeleton, _ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut()
+            && let Some(avatar) = session.avatars.get_mut(&msg.agent_id)
+        {
+            avatar.skeleton = msg.final_skeleton
         }
     }
 }

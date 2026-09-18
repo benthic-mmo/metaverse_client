@@ -1,17 +1,29 @@
 use crate::errors::ChatError;
-use crate::plugin::{send_packet_to_core, ChatMessages, Sockets};
+use crate::plugin::{ChatMessages, Sockets, send_packet_to_core};
 use benthic_protocol::messages::ui::chat_from_viewer::ChatFromUI;
 use benthic_protocol::messages::ui::ui_messages::UIResponse;
 use benthic_protocol::messages::utils::chat_types::ChatType;
+use bevy::app::{App, Plugin};
 use bevy::ecs::error::Result;
 use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
 use bevy::prelude::Resource;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::{EguiContexts, egui};
 
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
     message: String,
+}
+
+pub struct ChatPlugin;
+
+impl Plugin for ChatPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(ChatMessages {
+            messages: Vec::new(),
+        })
+        .insert_resource(ChatMessage::default());
+    }
 }
 
 pub fn chat_screen(

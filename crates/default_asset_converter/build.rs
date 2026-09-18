@@ -1,6 +1,7 @@
 use benthic_protocol::default_animations::{
-    AnimationClip, BindJoint, DefaultAnimation, JointAnimation, Keyframe,
+    AnimationClip, DefaultAnimation, JointAnimation, Keyframe,
 };
+use benthic_protocol::skeleton::JointName::Pelvis;
 use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
 use bvh_anim::ChannelType;
 use glam::Mat4;
@@ -67,10 +68,14 @@ fn main() {
             Err(_) => continue,
         };
 
+        #[cfg(feature = "quaternius_adjustments")]
         let axis_conversion = Mat4::from_quat(
             Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)
                 * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
         );
+
+        #[cfg(not(feature = "quaternius_adjustments"))]
+        let axis_conversion = Mat4::IDENTITY;
 
         // Load animation clip.
         let clip = match extension {
@@ -97,9 +102,9 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
 
     let mut animation_data: HashMap<JointName, JointAnimation> = HashMap::new();
 
-    let (bind_skeleton, root_transform) = bind_skeleton_from_gltf(&document, axis_conversion);
+    let (mut bind_skeleton, mut _root_transform) =
+        bind_skeleton_from_gltf(&document, axis_conversion);
 
-    let converted_root = root_transform;
     let inverse_conversion = axis_conversion.inverse();
 
     for anim in document.animations() {
@@ -141,13 +146,11 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
                                 * Mat4::from_translation(value)
                                 * inverse_conversion;
 
-                            let mut value = converted.to_scale_rotation_translation().2;
+                            let value = converted.to_scale_rotation_translation().2;
 
-                            if joint_name == JointName::Pelvis {
-                                let baked = converted_root * Mat4::from_translation(value);
-
-                                value = baked.to_scale_rotation_translation().2;
-                            }
+                            if entry.joint != Pelvis {
+                                continue;
+                            };
 
                             entry.translations.push(Keyframe { time: *time, value });
                         }
@@ -164,13 +167,7 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
                             let converted =
                                 axis_conversion * Mat4::from_quat(value) * inverse_conversion;
 
-                            let mut rotation = converted.to_scale_rotation_translation().1;
-
-                            if joint_name == JointName::Pelvis {
-                                let baked = converted_root * Mat4::from_quat(rotation);
-
-                                rotation = baked.to_scale_rotation_translation().1;
-                            }
+                            let rotation = converted.to_scale_rotation_translation().1;
 
                             entry.rotations.push(Keyframe {
                                 time: *time,
@@ -190,13 +187,7 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
                             let converted =
                                 axis_conversion * Mat4::from_scale(value) * inverse_conversion;
 
-                            let mut scale = converted.to_scale_rotation_translation().0;
-
-                            if joint_name == JointName::Pelvis {
-                                let baked = converted_root * Mat4::from_scale(scale);
-
-                                scale = baked.to_scale_rotation_translation().0;
-                            }
+                            let scale = converted.to_scale_rotation_translation().0;
 
                             entry.scales.push(Keyframe {
                                 time: *time,
@@ -210,30 +201,46 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
             }
         }
     }
+    #[cfg(feature = "quaternius_adjustments")]
+    {
+        let hip_rotation = Quat::from_rotation_z(std::f32::consts::PI);
+        rotate_hip_subtree(
+            &mut bind_skeleton,
+            &mut animation_data,
+            JointName::HipLeft,
+            hip_rotation,
+        );
 
+        rotate_hip_subtree(
+            &mut bind_skeleton,
+            &mut animation_data,
+            JointName::HipRight,
+            hip_rotation,
+        );
+    }
     AnimationClip {
         bind_skeleton,
         joints: animation_data.into_values().collect(),
     }
 }
 
-fn bind_skeleton_from_gltf(
-    document: &gltf::Document,
-    axis_conversion: Mat4,
-) -> (IndexMap<JointName, BindJoint>, Mat4) {
-    let mut bind_skeleton = IndexMap::new();
+fn bind_skeleton_from_gltf(document: &gltf::Document, axis_conversion: Mat4) -> (Skeleton, Mat4) {
+    let mut skeleton = Skeleton {
+        joints: IndexMap::new(),
+        root: vec![JointName::Pelvis],
+    };
+
     let mut root_transform = Mat4::IDENTITY;
 
     fn recurse(
         node: gltf::Node,
         parent: Option<JointName>,
-        bind_skeleton: &mut IndexMap<JointName, BindJoint>,
+        skeleton: &mut Skeleton,
         root_transform: &mut Mat4,
         found_root_joint: &mut bool,
     ) {
-        let name = match node.name() {
-            Some(name) => name,
-            None => return,
+        let Some(name) = node.name() else {
+            return;
         };
 
         let (translation, rotation, scale) = node.transform().decomposed();
@@ -245,25 +252,39 @@ fn bind_skeleton_from_gltf(
         );
 
         match JointName::resolve_joint_name(name) {
-            Some(joint) => {
+            Some(joint_name) => {
                 *found_root_joint = true;
 
-                bind_skeleton.insert(
-                    joint,
-                    BindJoint {
-                        joint,
+                skeleton.joints.insert(
+                    joint_name,
+                    Joint {
+                        name: joint_name,
                         parent,
-                        translation: Vec3::from(translation),
-                        rotation: Quat::from_array(rotation),
-                        scale: Vec3::from(scale),
+                        children: Vec::new(),
+                        local_transforms: vec![Transform {
+                            transform: local_transform,
+                            id: Uuid::nil(),
+                            rank: 0,
+                            name: String::new(),
+                        }],
+                        global_transforms: Vec::new(),
                     },
                 );
+
+                if let Some(parent_name) = parent {
+                    skeleton
+                        .joints
+                        .get_mut(&parent_name)
+                        .unwrap()
+                        .children
+                        .push(joint_name);
+                }
 
                 for child in node.children() {
                     recurse(
                         child,
-                        Some(joint),
-                        bind_skeleton,
+                        Some(joint_name),
+                        skeleton,
                         root_transform,
                         found_root_joint,
                     );
@@ -276,13 +297,7 @@ fn bind_skeleton_from_gltf(
                 }
 
                 for child in node.children() {
-                    recurse(
-                        child,
-                        parent,
-                        bind_skeleton,
-                        root_transform,
-                        found_root_joint,
-                    );
+                    recurse(child, parent, skeleton, root_transform, found_root_joint);
                 }
             }
         }
@@ -303,12 +318,12 @@ fn bind_skeleton_from_gltf(
             recurse(
                 node,
                 None,
-                &mut bind_skeleton,
+                &mut skeleton,
                 &mut root_transform,
                 &mut found_root_joint,
             );
 
-            if !bind_skeleton.is_empty() {
+            if !skeleton.joints.is_empty() {
                 break;
             }
         }
@@ -316,49 +331,64 @@ fn bind_skeleton_from_gltf(
 
     let inverse_conversion = axis_conversion.inverse();
 
-    // Convert the accumulated root transform into the Benthic basis.
+    // Convert the accumulated root transform into Benthic space.
     let converted_root = axis_conversion * root_transform * inverse_conversion;
 
-    // Convert each joint into the Benthic basis.
-    for joint in &mut bind_skeleton {
-        let local = Mat4::from_scale_rotation_translation(
-            joint.1.scale,
-            joint.1.rotation,
-            joint.1.translation,
-        );
+    // Convert each local joint transform into Benthic space.
+    for joint in skeleton.joints.values_mut() {
+        let local = joint.local_transforms[0].transform;
 
-        let converted = axis_conversion * local * inverse_conversion;
-
-        let (scale, rotation, translation) = converted.to_scale_rotation_translation();
-
-        joint.1.translation = translation;
-        joint.1.rotation = rotation;
-        joint.1.scale = scale;
+        joint.local_transforms[0].transform = axis_conversion * local * inverse_conversion;
     }
 
     // Bake the pre-skeleton root transform into Pelvis.
-    if let Some(pelvis) = bind_skeleton
-        .iter_mut()
-        .find(|joint| joint.1.joint == JointName::Pelvis)
-    {
-        let pelvis_local = Mat4::from_scale_rotation_translation(
-            pelvis.1.scale,
-            pelvis.1.rotation,
-            pelvis.1.translation,
-        );
+    if let Some(pelvis) = skeleton.joints.get_mut(&JointName::Pelvis) {
+        let pelvis_local = pelvis.local_transforms[0].transform;
 
-        let baked = converted_root * pelvis_local;
-
-        let (scale, rotation, translation) = baked.to_scale_rotation_translation();
-
-        pelvis.1.translation = translation;
-        pelvis.1.rotation = rotation;
-        pelvis.1.scale = scale;
+        pelvis.local_transforms[0].transform = converted_root * pelvis_local;
     }
 
-    (bind_skeleton, converted_root)
+    // Calculate final bind-pose globals from the final locals.
+    calculate_bind_globals(&mut skeleton);
+
+    (skeleton, converted_root)
 }
 
+fn calculate_bind_globals(skeleton: &mut Skeleton) {
+    fn recurse(joint_name: JointName, skeleton: &mut Skeleton, parent_global: Mat4) {
+        let local = skeleton.joints[&joint_name].local_transforms[0].transform;
+
+        let global = parent_global * local;
+
+        skeleton
+            .joints
+            .get_mut(&joint_name)
+            .unwrap()
+            .global_transforms = vec![Transform {
+            transform: global,
+            id: Uuid::nil(),
+            rank: 0,
+            name: String::new(),
+        }];
+
+        let children = skeleton.joints[&joint_name].children.clone();
+
+        for child in children {
+            recurse(child, skeleton, global);
+        }
+    }
+
+    let roots: Vec<JointName> = skeleton
+        .joints
+        .values()
+        .filter(|joint| joint.parent.is_none())
+        .map(|joint| joint.name)
+        .collect();
+
+    for root in roots {
+        recurse(root, skeleton, Mat4::IDENTITY);
+    }
+}
 fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
     let bvh_file = File::open(path).unwrap();
 
@@ -437,7 +467,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
     }
 
     AnimationClip {
-        bind_skeleton: IndexMap::new(),
+        bind_skeleton: Skeleton::default(),
         joints: animation_data.into_values().collect(),
     }
 }
@@ -446,7 +476,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
 ///
 /// The GLTF has an incorrect axis basis. I'm keeping it as gltf for
 /// viewability and editability, but parsing it to JSON must convert
-/// to the Second Life orientation.
+/// to the OpenSim orientation.
 fn skeleton_from_gltf(skeleton_path: PathBuf) -> Skeleton {
     let (document, _, _) = gltf::import(&skeleton_path)
         .unwrap_or_else(|_| panic!("Failed to load skeleton {:?}", skeleton_path));
@@ -539,4 +569,103 @@ fn build_joint_recursive(
             }],
         },
     );
+}
+
+fn rotate_hip_subtree(
+    skeleton: &mut Skeleton,
+    animation_data: &mut HashMap<JointName, JointAnimation>,
+    hip: JointName,
+    rotation: Quat,
+) {
+    let correction = Mat4::from_quat(rotation);
+
+    let joints = match hip {
+        JointName::HipLeft => [JointName::HipLeft, JointName::KneeLeft, JointName::FootLeft],
+        JointName::HipRight => [
+            JointName::HipRight,
+            JointName::KneeRight,
+            JointName::FootRight,
+        ],
+        _ => return,
+    };
+
+    // Rotate hip.
+    {
+        let joint_name = joints[0];
+
+        let local = skeleton.joints[&joint_name].local_transforms[0].transform;
+        skeleton
+            .joints
+            .get_mut(&joint_name)
+            .unwrap()
+            .local_transforms[0]
+            .transform = local * correction;
+
+        if let Some(animation) = animation_data.get_mut(&joint_name) {
+            for keyframe in &mut animation.rotations {
+                let corrected = Mat4::from_quat(keyframe.value) * correction;
+                keyframe.value = corrected.to_scale_rotation_translation().1;
+            }
+        }
+    }
+
+    // Recalculate globals: hip -> knee -> foot.
+    let parent_global = skeleton.joints[&hip]
+        .parent
+        .map(|parent| {
+            skeleton.joints[&parent]
+                .global_transforms
+                .last()
+                .unwrap()
+                .transform
+        })
+        .unwrap_or(Mat4::IDENTITY);
+
+    let hip_local = skeleton.joints[&joints[0]]
+        .local_transforms
+        .last()
+        .unwrap()
+        .transform;
+    let hip_global = parent_global * hip_local;
+
+    skeleton
+        .joints
+        .get_mut(&joints[0])
+        .unwrap()
+        .global_transforms
+        .last_mut()
+        .unwrap()
+        .transform = hip_global;
+
+    let knee_local = skeleton.joints[&joints[1]]
+        .local_transforms
+        .last()
+        .unwrap()
+        .transform;
+    let knee_global = hip_global * knee_local;
+
+    skeleton
+        .joints
+        .get_mut(&joints[1])
+        .unwrap()
+        .global_transforms
+        .last_mut()
+        .unwrap()
+        .transform = knee_global;
+
+    let foot_local = skeleton.joints[&joints[2]]
+        .local_transforms
+        .last_mut()
+        .unwrap()
+        .transform;
+    let foot_global = knee_global * foot_local;
+
+    skeleton
+        .joints
+        .get_mut(&joints[2])
+        .unwrap()
+        .global_transforms
+        .last_mut()
+        .unwrap()
+        .transform = foot_global;
 }

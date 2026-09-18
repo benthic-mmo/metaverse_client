@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use benthic_protocol::errors::SessionError;
 use metaverse_cache::errors::InventoryError;
 use metaverse_mesh::errors::MetaverseMeshError;
@@ -13,7 +11,6 @@ pub enum MeshBuildError {
     #[error("Inventory error: {0}")]
     InventoryError(#[from] InventoryError),
 }
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {

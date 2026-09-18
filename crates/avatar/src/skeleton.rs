@@ -26,6 +26,7 @@ pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
         }
     }
 }
+
 /// Determine the local and global joint transforms for a skinned SceneObject.
 pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Skeleton, Error> {
     // if the object has a mesh, handle the skeleton
@@ -46,8 +47,12 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
         let mut default_transform = default_joints.global_transforms[0].transform;
 
         default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);
-        let transform_matrix = default_transform * skin.inverse_bind_matrices[i];
 
+        // this one generates correct global coordinates. Currently working out the bugs with this.
+        let transform_matrix = Mat4::from_rotation_translation(
+            default_transform.to_scale_rotation_translation().1,
+            skin.inverse_bind_matrices[i].inverse().w_axis.truncate(),
+        );
         let transform = Transform {
             name: object_name.clone(),
             id,
@@ -76,15 +81,6 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
         .map(|joint| joint.name)
         .collect();
 
-    // Attach the IBMs to their corresponding joint name
-    let ibm_map: IndexMap<JointName, Mat4> = skin
-        .joint_names
-        .iter()
-        .cloned()
-        .enumerate()
-        .map(|(i, name)| (name, skin.inverse_bind_matrices[i]))
-        .collect();
-
     let last_transforms: IndexMap<JointName, Mat4> = joints
         .iter()
         .map(|(name, joint)| (*name, joint.global_transforms.last().unwrap().transform))
@@ -110,7 +106,7 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
 
             let child = last_transforms.get(&joint.name).unwrap();
             // IBM-based local matrix
-            let local_matrix = *parent * child.inverse();
+            let local_matrix = parent.inverse() * child;
             let local_transform = Transform {
                 name: object_name.clone(),
                 id,
@@ -119,18 +115,19 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
             };
             joint.local_transforms.push(local_transform);
         } else {
-            // root joint: local transform = its own IBM
-            if let Some(child_ibm) = ibm_map.get(&joint.name) {
-                let local_transform = Transform {
-                    name: object_name.clone(),
-                    id,
-                    transform: *child_ibm,
-                    rank: 1,
-                };
-                joint.local_transforms.push(local_transform);
-            }
+            let child = last_transforms.get(&joint.name).unwrap();
+
+            let local_transform = Transform {
+                name: object_name.clone(),
+                id,
+                transform: *child,
+                rank: 1,
+            };
+
+            joint.local_transforms.push(local_transform);
         }
     }
+
     Ok(Skeleton {
         root: root_joints,
         joints,
@@ -150,7 +147,7 @@ where
     for t in transforms.iter_mut().skip(1) {
         if t.transform.abs_diff_eq(transform.transform, 1e-4) {
             t.rank += 1;
-            transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+            transforms.sort_by_key(|a| a.rank);
             return;
         }
     }
@@ -174,6 +171,6 @@ where
             new_t.rank = 1;
         }
         transforms.push(new_t);
-        transforms.sort_by(|a, b| a.rank.cmp(&b.rank));
+        transforms.sort_by_key(|a| a.rank);
     }
 }

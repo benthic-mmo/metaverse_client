@@ -193,35 +193,35 @@ pub async fn handle_attachment(
 }
 
 fn handle_tree(
-    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    _object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     Err(ObjectUpdateError::Unimplemented {
         feature: "Trees".to_string(),
     })
 }
 fn handle_grass(
-    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    _object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     Err(ObjectUpdateError::Unimplemented {
         feature: "Grass".to_string(),
     })
 }
 fn handle_unknown(
-    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    _object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     Err(ObjectUpdateError::Unimplemented {
         feature: "Unknown".to_string(),
     })
 }
 fn handle_particle_system(
-    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    _object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     Err(ObjectUpdateError::Unimplemented {
         feature: "Partilce System".to_string(),
     })
 }
 fn handle_new_tree(
-    object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    _object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     Err(ObjectUpdateError::Unimplemented {
         feature: "New Tree".to_string(),

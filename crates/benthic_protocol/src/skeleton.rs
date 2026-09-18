@@ -609,16 +609,12 @@ static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::
     // Left Leg
     m.insert("thigh_l", JointName::HipLeft);
     m.insert("calf_l", JointName::KneeLeft);
-    m.insert("foot_l", JointName::AnkleLeft);
-    m.insert("ball_leaf_l", JointName::ToeLeft);
-    m.insert("ball_l", JointName::FootLeft);
+    m.insert("foot_l", JointName::FootLeft);
 
     // Right Leg
     m.insert("thigh_r", JointName::HipRight);
     m.insert("calf_r", JointName::KneeRight);
-    m.insert("foot_r", JointName::AnkleRight);
-    m.insert("ball_leaf_r", JointName::ToeRight);
-    m.insert("ball_r", JointName::FootRight);
+    m.insert("foot_r", JointName::FootRight);
 
     // Fingers
     m.insert("thumb_01_l", JointName::HandThumb1Left);

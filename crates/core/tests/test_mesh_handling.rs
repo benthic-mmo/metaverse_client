@@ -16,19 +16,19 @@ use crate::common::{
     mock_avatar_load,
 };
 
-#[test]
 /// this test debugs the entire pipeline from the very beginning.
 /// Input data is the SceneObject and Mesh data coming directly from the server.
 /// this is meant to create an easy debugging setup for each step of the process to find bugs in
 /// mesh handling.
-fn test_mesh_generation() {
-    let _artifacts = mock_avatar_load();
+#[tokio::test]
+async fn test_mesh_generation() {
+    let _artifacts = mock_avatar_load().await;
 }
 
 /// this test builds the model and displays using Bevy.
-#[test]
-fn display_test_model() {
-    let artifacts = mock_avatar_load();
+#[tokio::test]
+async fn display_test_model() {
+    let artifacts = mock_avatar_load().await;
 
     let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("tests/generated/{}", common::AGENT_ID));

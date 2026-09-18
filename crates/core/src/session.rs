@@ -46,6 +46,7 @@ use metaverse_messages::{
     },
 };
 use rgb::Rgba;
+use std::path::Path;
 use std::{
     collections::{HashMap, HashSet},
     net::UdpSocket as SyncUdpSocket,
@@ -79,154 +80,6 @@ pub struct Mailbox {
     /// the global ping information
     pub ping_info: PingInfo,
 }
-
-/// Message used for initializing the session
-///
-/// # Cause
-///
-/// # Effects
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct StartSession {
-    pub session: Session<Capability, Avatar, Land, UdpSocket>,
-}
-
-/// Handles incoming pings from the server
-///
-/// # Cause
-/// - Received StartPingCheck packet from UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandlePing {
-    /// The ID of the ping
-    pub ping_id: u8,
-}
-/// Information struct for storing latency and ping info
-#[derive(Debug)]
-pub struct PingInfo {
-    /// the number of the ping
-    pub ping_number: u8,
-    /// how long the latency is. Currently not doing anything.
-    pub ping_latency: Duration,
-    /// time of last ping
-    pub last_ping: time::Instant,
-}
-
-/// Message used for acknowledging reliable headers for incoming packets.
-///
-/// When a UDP packet is received from the server with a reliable header, its sequence number is
-/// sent back to the server in a PacketAck, so the server knows that sequence number was received.
-/// Then the ack queue is cleared, to prevent sending acks for packets that have already been
-/// received.
-///
-/// # Cause
-/// - [`AddToAckList`]
-///
-/// # Effects
-/// - Dispatches a [`PacketAck`] packet to the server
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct SendAckList {}
-
-/// Message for updating the list of unacked packets sent from the core to the server
-///
-/// Messages marked as reliable sent from the core must be resent until the server replies with a
-/// PacketAck message. This adds thoes packets to the ack list.
-///
-/// # Cause
-/// - Received a reliable packet from UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct AddToAckList {
-    /// The ID of the packet to be acked
-    pub id: u32,
-}
-
-/// Message for determining if a packet should be resent
-///
-/// When an outgoing packet is labeled reliable, this message is used to determine if it should be
-/// resent to the server. An [`OutgoingPacket`] packet is sent initially, followed by a brief
-/// timeout. This allows the server enough time to respond with an ack. If an ack is not received,
-/// the packet is not resent. If it isn't, the packet will be resent.
-///
-/// # Cause
-/// - [`OutgoingPacket`] on a reliable packet
-///
-/// # Effect
-/// - [`OutgoingPacket`] if the ack was not received
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct ResendPacket {
-    /// the packet to resend
-    pub packet: Packet,
-}
-
-/// Message for sending packets from the core to the server
-///
-/// Simply a wrapper for the packet struct to send UDP packets to the server
-///
-/// # Effect
-/// - UDP packet sent to the server
-/// - [`ResendPacket`] if the packet is marked reliable
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct OutgoingPacket {
-    /// The outgoing packet
-    pub packet: Packet,
-}
-
-/// Message for handling region handshakes
-///
-/// Handles receiving region handshake data, and sending region handshake response packets.
-///
-/// # Cause
-/// - Received a RegionHandshake packet from the UDP socket
-///
-/// # Effect
-/// - Dispatches a [`RegionHandshakeReply`] packet to the server
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleRegionHandshake {
-    /// The region hanshake data
-    pub region_handshake: RegionHandshake,
-}
-
-/// Message for handling packet acks
-///
-/// Removes IDs from the outgoing packet ack queue. Received from the server to inform the core
-/// that a reliable message sent from the core has successfully been received from the server
-///
-/// # Cause
-/// - Received a PacketAck packet from the UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandlePacketAck {
-    /// Ack data
-    pub packet_ack: PacketAck,
-}
-
-/// Message for receiving updates from the UI to the core
-///
-/// # Cause
-/// - Received a UIRespones message forom the UI-Core UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleUIResponse {
-    /// UI response data
-    pub ui_response: UIResponse,
-}
-
-/// Message for sending data from the core to the UI
-///
-/// # Effect
-/// - UDP packet sent to UI
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct SendUIMessage {
-    /// UI response data
-    pub ui_message: UIMessage,
-}
-
 impl Mailbox {
     /// Set the state of the mailbox.
     /// Determines if it's running or started or stopped.
@@ -242,7 +95,6 @@ impl Mailbox {
         }
     }
 }
-
 impl Actor for Mailbox {
     type Context = Context<Self>;
     fn started(&mut self, ctx: &mut Self::Context) {
@@ -251,9 +103,22 @@ impl Actor for Mailbox {
     }
 }
 
+/// Message used for initializing the session
+///
+/// # Cause
+/// [`HandleUIResponse`]
+///
+/// # Effects
+/// Spawns UDP handlers and initializes session
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct StartSession {
+    /// The session to start
+    pub session: Session<Capability, Avatar, Land, UdpSocket>,
+}
 impl Handler<StartSession> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: StartSession, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: StartSession, ctx: &mut Self::Context) -> Self::Result {
         let mut session = msg.session;
         if let Some(current_session) = self.session.as_ref() {
             session.socket = current_session.socket.clone();
@@ -302,17 +167,244 @@ impl Handler<StartSession> for Mailbox {
     }
 }
 
-impl Handler<SendUIMessage> for Mailbox {
+/// Information struct for storing latency and ping info
+#[derive(Debug)]
+pub struct PingInfo {
+    /// the number of the ping
+    pub ping_number: u8,
+    /// how long the latency is. Currently not doing anything.
+    pub ping_latency: Duration,
+    /// time of last ping
+    pub last_ping: time::Instant,
+}
+/// Handles incoming pings from the server
+///
+/// # Cause
+/// - Received StartPingCheck packet from UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandlePing {
+    /// The ID of the ping
+    pub ping_id: u8,
+}
+impl Handler<HandlePing> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: SendUIMessage, _: &mut Self::Context) -> Self::Result {
-        let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
-        if let Err(e) = client_socket.send_to(&msg.ui_message.to_bytes(), &self.server_to_ui_socket)
-        {
-            error!("Failed to send UI message:{:?}", e)
+    fn handle(&mut self, msg: HandlePing, ctx: &mut Self::Context) -> Self::Result {
+        ctx.address().do_send(OutgoingPacket {
+            packet: Packet::new_complete_ping_check(CompletePingCheck {
+                ping_id: msg.ping_id,
+            }),
+        });
+        self.ping_info.ping_latency = time::Instant::now() - self.ping_info.last_ping;
+    }
+}
+
+/// Message used for acknowledging reliable headers for incoming packets.
+///
+/// When a UDP packet is received from the server with a reliable header, its sequence number is
+/// sent back to the server in a PacketAck, so the server knows that sequence number was received.
+/// Then the ack queue is cleared, to prevent sending acks for packets that have already been
+/// received.
+///
+/// # Cause
+/// - [`AddToAckList`]
+///
+/// # Effects
+/// - Dispatches a [`PacketAck`] packet to the server
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SendAckList {}
+impl Handler<SendAckList> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(ref session) = self.session {
+            // send ack directly to the server
+            if self.server_acks.is_empty() {
+                return;
+            }
+            let packet_ids: Vec<u32> = self.server_acks.drain().collect();
+
+            let addr = session.address.clone();
+            let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
+            let sock_clone = session.socket.clone().unwrap();
+            let ack_wait = async move {
+                if let Err(e) = sock_clone.send_to(&packet, addr).await {
+                    println!("Failed to send ack: {:?}", e)
+                };
+            };
+            ctx.spawn(ack_wait.into_actor(self));
         }
     }
 }
 
+/// Message for updating the list of unacked packets sent from the core to the server
+///
+/// Messages marked as reliable sent from the core must be resent until the server replies with a
+/// PacketAck message. This adds thoes packets to the ack list.
+///
+/// # Cause
+/// - Received a reliable packet from UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct AddToAckList {
+    /// The ID of the packet to be acked
+    pub id: u32,
+}
+impl Handler<AddToAckList> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AddToAckList, ctx: &mut Self::Context) -> Self::Result {
+        self.server_acks.insert(msg.id);
+        ctx.address().do_send(SendAckList {});
+    }
+}
+
+/// Message for determining if a packet should be resent
+///
+/// When an outgoing packet is labeled reliable, this message is used to determine if it should be
+/// resent to the server. An [`OutgoingPacket`] packet is sent initially, followed by a brief
+/// timeout. This allows the server enough time to respond with an ack. If an ack is not received,
+/// the packet is not resent. If it isn't, the packet will be resent.
+///
+/// # Cause
+/// - [`OutgoingPacket`] on a reliable packet
+///
+/// # Effect
+/// - [`OutgoingPacket`] if the ack was not received
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct ResendPacket {
+    /// the packet to resend
+    pub packet: Packet,
+}
+impl Handler<ResendPacket> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: ResendPacket, ctx: &mut Self::Context) -> Self::Result {
+        if self
+            .viewer_acks
+            .contains(&msg.packet.header.sequence_number)
+        {
+            msg.packet.header.resent = true;
+            ctx.address().do_send(OutgoingPacket { packet: msg.packet });
+        }
+    }
+}
+
+/// Message for sending packets from the core to the server
+///
+/// Simply a wrapper for the packet struct to send UDP packets to the server
+///
+/// # Effect
+/// - UDP packet sent to the server
+/// - [`ResendPacket`] if the packet is marked reliable
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct OutgoingPacket {
+    /// The outgoing packet
+    pub packet: Packet,
+}
+impl Handler<OutgoingPacket> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: OutgoingPacket, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = self.session.as_mut() {
+            let addr = session.address.clone();
+            if !msg.packet.header.resent {
+                msg.packet.header.sequence_number = session.sequence_number as u32;
+                session.sequence_number += 1;
+            }
+
+            let data = msg.packet.to_bytes().clone();
+            let socket_clone = session.socket.as_ref().unwrap().clone();
+            let fut = async move {
+                if let Err(e) = socket_clone.send_to(&data, &addr).await {
+                    error!("Failed to send data: {}", e);
+                }
+            };
+            ctx.spawn(fut.into_actor(self));
+
+            // if the header is reliable, resend the packet until the viewer_acks contains the key
+            if msg.packet.header.reliable {
+                self.viewer_acks.insert(msg.packet.header.sequence_number);
+                // give one second for the ack to come in.
+                // the ResendPacket message check if viewer_acks still contains the sequence
+                // number. if it doesn't, that means it's been removed by an ack. If it does,
+                // that means it should be resent with the resent flag
+                ctx.notify_later(ResendPacket { packet: msg.packet }, Duration::from_secs(1));
+            };
+        }
+    }
+}
+
+/// Message for handling region handshakes
+///
+/// Handles receiving region handshake data, and sending region handshake response packets.
+///
+/// # Cause
+/// - Received a RegionHandshake packet from the UDP socket
+///
+/// # Effect
+/// - Dispatches a [`RegionHandshakeReply`] packet to the server
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleRegionHandshake {
+    /// The region hanshake data
+    pub region_handshake: RegionHandshake,
+}
+impl Handler<HandleRegionHandshake> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
+        if let Some(session) = &mut self.session {
+            // set some region info
+            session.region_data.water_height = msg.region_handshake.water_height;
+            ctx.address().do_send(SendUIMessage {
+                ui_message: UIMessage::new_water_update(WaterUpdate {
+                    height: msg.region_handshake.water_height,
+                    color: Rgba::from((0.0f32, 94.0, 184.0, 0.5)),
+                }),
+            });
+
+            ctx.address().do_send(OutgoingPacket {
+                packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
+                    session_id: session.session_id,
+                    agent_id: session.agent_id,
+                    flags: 0,
+                }),
+            });
+        }
+    }
+}
+
+/// Message for handling packet acks
+///
+/// Removes IDs from the outgoing packet ack queue. Received from the server to inform the core
+/// that a reliable message sent from the core has successfully been received from the server
+///
+/// # Cause
+/// - Received a PacketAck packet from the UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandlePacketAck {
+    /// Ack data
+    pub packet_ack: PacketAck,
+}
+impl Handler<HandlePacketAck> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: HandlePacketAck, _ctx: &mut Self::Context) -> Self::Result {
+        for id in msg.packet_ack.packet_ids {
+            self.viewer_acks.remove(&id);
+        }
+    }
+}
+
+/// Message for receiving updates from the UI to the core
+///
+/// # Cause
+/// - Received a UIRespones message forom the UI-Core UDP socket
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleUIResponse {
+    /// UI response data
+    pub ui_response: UIResponse,
+}
 impl Handler<HandleUIResponse> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleUIResponse, ctx: &mut Self::Context) -> Self::Result {
@@ -377,124 +469,23 @@ impl Handler<HandleUIResponse> for Mailbox {
     }
 }
 
-/// Handles sending packets to the server
-impl Handler<OutgoingPacket> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, mut msg: OutgoingPacket, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            let addr = session.address.clone();
-            if !msg.packet.header.resent {
-                msg.packet.header.sequence_number = session.sequence_number as u32;
-                session.sequence_number += 1;
-            }
-
-            let data = msg.packet.to_bytes().clone();
-            let socket_clone = session.socket.as_ref().unwrap().clone();
-            let fut = async move {
-                if let Err(e) = socket_clone.send_to(&data, &addr).await {
-                    error!("Failed to send data: {}", e);
-                }
-            };
-            ctx.spawn(fut.into_actor(self));
-
-            // if the header is reliable, resend the packet until the viewer_acks contains the key
-            if msg.packet.header.reliable {
-                self.viewer_acks.insert(msg.packet.header.sequence_number);
-                // give one second for the ack to come in.
-                // the ResendPacket message check if viewer_acks still contains the sequence
-                // number. if it doesn't, that means it's been removed by an ack. If it does,
-                // that means it should be resent with the resent flag
-                ctx.notify_later(ResendPacket { packet: msg.packet }, Duration::from_secs(1));
-            };
-        }
-    }
+/// Message for sending data from the core to the UI
+///
+/// # Effect
+/// - UDP packet sent to UI
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SendUIMessage {
+    /// UI response data
+    pub ui_message: UIMessage,
 }
-
-impl Handler<ResendPacket> for Mailbox {
+impl Handler<SendUIMessage> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: ResendPacket, ctx: &mut Self::Context) -> Self::Result {
-        if self
-            .viewer_acks
-            .contains(&msg.packet.header.sequence_number)
+    fn handle(&mut self, msg: SendUIMessage, _: &mut Self::Context) -> Self::Result {
+        let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
+        if let Err(e) = client_socket.send_to(&msg.ui_message.to_bytes(), &self.server_to_ui_socket)
         {
-            msg.packet.header.resent = true;
-            ctx.address().do_send(OutgoingPacket { packet: msg.packet });
-        }
-    }
-}
-
-impl Handler<HandleRegionHandshake> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &mut self.session {
-            // set some region info
-            session.region_data.water_height = msg.region_handshake.water_height;
-            ctx.address().do_send(SendUIMessage {
-                ui_message: UIMessage::new_water_update(WaterUpdate {
-                    height: msg.region_handshake.water_height,
-                    color: Rgba::from((0.0f32, 94.0, 184.0, 0.5)),
-                }),
-            });
-
-            ctx.address().do_send(OutgoingPacket {
-                packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
-                    session_id: session.session_id,
-                    agent_id: session.agent_id,
-                    flags: 0,
-                }),
-            });
-        }
-    }
-}
-
-impl Handler<HandlePing> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandlePing, ctx: &mut Self::Context) -> Self::Result {
-        ctx.address().do_send(OutgoingPacket {
-            packet: Packet::new_complete_ping_check(CompletePingCheck {
-                ping_id: msg.ping_id,
-            }),
-        });
-        self.ping_info.ping_latency = time::Instant::now() - self.ping_info.last_ping;
-    }
-}
-
-impl Handler<HandlePacketAck> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandlePacketAck, _ctx: &mut Self::Context) -> Self::Result {
-        for id in msg.packet_ack.packet_ids {
-            self.viewer_acks.remove(&id);
-        }
-    }
-}
-
-impl Handler<AddToAckList> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: AddToAckList, ctx: &mut Self::Context) -> Self::Result {
-        self.server_acks.insert(msg.id);
-        ctx.address().do_send(SendAckList {});
-    }
-}
-
-impl Handler<SendAckList> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(ref session) = self.session {
-            // send ack directly to the server
-            if self.server_acks.is_empty() {
-                return;
-            }
-            let packet_ids: Vec<u32> = self.server_acks.drain().collect();
-
-            let addr = session.address.clone();
-            let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
-            let sock_clone = session.socket.clone().unwrap();
-            let ack_wait = async move {
-                if let Err(e) = sock_clone.send_to(&packet, addr).await {
-                    println!("Failed to send ack: {:?}", e)
-                };
-            };
-            ctx.spawn(ack_wait.into_actor(self));
+            error!("Failed to send UI message:{:?}", e)
         }
     }
 }
@@ -502,7 +493,7 @@ impl Handler<SendAckList> for Mailbox {
 async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
-    db_path: &PathBuf,
+    db_path: &Path,
 ) -> Result<(), SessionError> {
     let (login_response, local_ip) = match login_to_simulator(login_data).await {
         Ok((login_response, local_ip)) => {
@@ -533,7 +524,7 @@ async fn handle_login(
         }
     };
 
-    let connection = init_sqlite(db_path.clone())
+    let connection = init_sqlite(db_path.to_path_buf())
         .await
         .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
 

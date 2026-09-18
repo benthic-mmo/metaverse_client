@@ -1,12 +1,11 @@
 use crate::plugin::{CameraUpdateEvent, SessionData};
-use crate::textures::environment::HeightMaterial;
 use benthic_protocol::messages::ui::land_update::LandUpdate;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy_gltf::{Gltf, GltfLoaderSettings};
+use bevy_gltf::{Gltf, GltfAssetLabel};
 use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_world_serialization::WorldInstanceSpawner;
+use bevy_world_serialization::WorldAssetRoot;
 
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -98,131 +97,111 @@ pub fn follow_gltf_with_offset(
 
 pub fn handle_mesh_update(
     mut ev_mesh_update: MessageReader<MeshUpdateEvent>,
-    mut mesh_queue: ResMut<MeshQueue>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut agent_id_map: ResMut<AgentIDMap>,
 ) {
     for renderable in ev_mesh_update.read() {
-        let handle: Handle<Gltf> = asset_server.load_with_settings(
-            renderable.value.path.clone(),
-            |settings: &mut GltfLoaderSettings| {
-                settings.load_animations = true;
-            },
-        );
-
         let transform = Transform {
             translation: renderable.value.position,
             rotation: renderable.value.rotation,
             scale: renderable.value.scale,
         };
 
+        let scene =
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset(renderable.value.path.clone()));
+
+        let mut entity_commands = commands.spawn((
+            WorldAssetRoot(scene),
+            transform,
+            Visibility::Visible,
+            Name::new("SceneRoot"),
+        ));
+
         if renderable.value.mesh_type == MeshType::Avatar {
-            let agent_root = commands.spawn((Name::new("AgentRoot"), transform)).id();
+            let agent_id = renderable.value.id.unwrap();
+
+            entity_commands.insert(AgentID { id: agent_id });
+
+            let entity = entity_commands.id();
 
             agent_id_map.entities.insert(
-                renderable.value.id.unwrap(),
+                agent_id,
                 AgentEntity {
-                    entity: agent_root,
-                    skeleton: agent_root,
+                    entity,
+                    skeleton: entity,
                     animation: None,
                 },
             );
-        }
 
-        mesh_queue.pending.push(Renderable {
-            handle: RenderableHandle::Gltf(handle),
-            transform,
-            parent: renderable.value.parent,
-            mesh_type: renderable.value.mesh_type.clone(),
-            id: renderable.value.id,
-        });
+            info!("Spawned avatar {:?} as {:?}", agent_id, entity);
+        }
     }
 }
 
-pub fn extract_gltf_meshes(
+pub fn render_land(
     mut commands: Commands,
     mut queue: ResMut<MeshQueue>,
-    gltfs: Res<Assets<Gltf>>,
-    mut scene_spawner: ResMut<WorldInstanceSpawner>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    _height_materials: ResMut<Assets<HeightMaterial>>,
-    _asset_server: Res<AssetServer>,
 ) {
     let mut ready = vec![];
 
     for (i, item) in queue.pending.iter().enumerate() {
-        match &item.handle {
-            RenderableHandle::Gltf(gltf_handle) => {
-                let Some(gltf) = gltfs.get(gltf_handle) else {
-                    continue;
-                };
-                let scene_root = if let Some(agent_id) = item.id {
-                    commands
-                        .spawn((
-                            item.transform,
-                            Name::new("SceneRoot"),
-                            AgentID { id: agent_id },
-                        ))
-                        .id()
-                } else {
-                    commands
-                        .spawn((item.transform, Name::new("SceneRoot")))
-                        .id()
-                };
-                let instance = scene_spawner.spawn_as_child(gltf.scenes[0].clone(), scene_root);
+        let RenderableHandle::Mesh(mesh_handle) = &item.handle else {
+            continue;
+        };
 
-                for entity in scene_spawner.iter_instance_entities(instance) {
-                    commands.entity(entity).insert(item.transform);
-                }
-
-                ready.push(i);
-            }
-
-            RenderableHandle::Mesh(mesh_handle) => {
-                match item.mesh_type {
-                    MeshType::Land => {
-                        //TODO: this height material is unfinished. the shader attached to this
-                        //does not have any ability to shade.
-                        //
-                        //let height_mat = HeightMaterial {
-                        //    color: LinearRgba::WHITE,
-                        //    color_texture: Some(asset_server.load("textures/grass.png")),
-                        //    alpha_mode: AlphaMode::Opaque,
-                        //};
-                        //let mat_handle = height_materials.add(height_mat);
-
-                        let standard_mat = StandardMaterial {
-                            base_color: Color::WHITE,
-                            ..Default::default()
-                        };
-                        let mat_handle = standard_materials.add(standard_mat);
-
-                        commands.spawn((
-                            Mesh3d(mesh_handle.clone()),
-                            item.transform,
-                            MeshMaterial3d(mat_handle),
-                        ));
-                    }
-
-                    _ => {
-                        let standard_mat = StandardMaterial {
-                            base_color: Color::WHITE,
-                            ..Default::default()
-                        };
-                        let mat_handle = standard_materials.add(standard_mat);
-
-                        commands.spawn((
-                            Mesh3d(mesh_handle.clone()),
-                            item.transform,
-                            MeshMaterial3d::from(mat_handle),
-                        ));
-                    }
-                }
-
-                ready.push(i);
-            }
+        if item.mesh_type != MeshType::Land {
+            continue;
         }
+
+        let standard_mat = standard_materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            ..default()
+        });
+
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            item.transform,
+            MeshMaterial3d(standard_mat),
+        ));
+
+        ready.push(i);
+    }
+
+    for i in ready.into_iter().rev() {
+        queue.pending.remove(i);
+    }
+}
+
+pub fn render_meshes(
+    mut commands: Commands,
+    mut queue: ResMut<MeshQueue>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mut ready = vec![];
+
+    for (i, item) in queue.pending.iter().enumerate() {
+        let RenderableHandle::Mesh(mesh_handle) = &item.handle else {
+            continue;
+        };
+
+        if item.mesh_type == MeshType::Land {
+            continue;
+        }
+
+        let mat_handle = standard_materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            ..default()
+        });
+
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            item.transform,
+            MeshMaterial3d(mat_handle),
+        ));
+
+        ready.push(i);
     }
 
     for i in ready.into_iter().rev() {

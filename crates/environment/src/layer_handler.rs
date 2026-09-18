@@ -40,6 +40,7 @@ pub enum PatchLayer {
     Cloud(Vec<Cloud>),
 }
 
+/// Handle incoming terrain layers
 pub fn handle_layer<C, A, U>(
     layer_data: LayerData,
     session: &mut Session<C, A, Land, U>,

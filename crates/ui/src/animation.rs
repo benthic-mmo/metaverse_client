@@ -2,6 +2,7 @@ use crate::render::AgentID;
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::observer::On;
+use bevy::gltf::Gltf;
 use bevy::prelude::Res;
 use bevy::{
     animation::{
@@ -15,7 +16,6 @@ use bevy::{
     },
     platform::collections::HashMap,
 };
-use bevy_gltf::Gltf;
 use bevy_world_serialization::WorldInstanceReady;
 use log::warn;
 use std::path::PathBuf;

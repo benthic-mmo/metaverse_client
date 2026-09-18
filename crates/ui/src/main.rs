@@ -3,11 +3,13 @@ use benthic_ui::loading::loading_screen;
 use benthic_ui::login::login_screen;
 use benthic_ui::plugin::MetaversePlugin;
 use benthic_ui::plugin::ViewerState;
+use benthic_ui::render::MainCamera;
 use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_egui::EguiPrimaryContextPass;
+use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 
 pub const CONFIG_FILE: &str = "login_conf.json";
@@ -19,6 +21,7 @@ fn main() {
                 .set(AssetPlugin {
                     file_path: "assets".into(),
                     unapproved_path_mode: UnapprovedPathMode::Allow,
+                    mode: AssetMode::Unprocessed,
                     ..default()
                 })
                 .set(WindowPlugin {
@@ -28,6 +31,7 @@ fn main() {
                 .set(TerminalCtrlCHandlerPlugin {}),
         )
         .add_plugins(PanOrbitCameraPlugin)
+        .add_systems(Startup, setup_camera)
         .add_plugins(EguiPlugin::default())
         .add_plugins(MetaversePlugin)
         .add_systems(
@@ -43,4 +47,20 @@ fn main() {
             chat_screen.run_if(in_state(ViewerState::Chat)),
         )
         .run();
+}
+
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera3d::default(),
+        PanOrbitCamera {
+            radius: Some(3.0),
+            ..default()
+        },
+        MainCamera,
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 500.0,
+            affects_lightmapped_meshes: true,
+        },
+    ));
 }

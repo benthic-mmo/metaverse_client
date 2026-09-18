@@ -2,7 +2,6 @@ use super::session::Mailbox;
 use crate::session::SendUIMessage;
 use actix::WrapFuture;
 use actix::{AsyncContext, Handler, Message};
-use awc::Client;
 use benthic_protocol::messages::ui::land_update::LandUpdate;
 use benthic_protocol::messages::ui::{skybox_update::SkyboxUpdate, ui_messages::UIMessage};
 use log::error;
@@ -11,7 +10,6 @@ use log::warn;
 use metaverse_environment::layer_handler::handle_layer;
 use metaverse_environment::sim_time::fetch_environment_time;
 use metaverse_messages::http::capabilities::Capability;
-use metaverse_messages::http::environment_data::DayCycle;
 use metaverse_messages::udp::environment::layer_data::LayerData;
 use std::time::Duration;
 

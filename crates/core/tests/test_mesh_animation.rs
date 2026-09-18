@@ -1,8 +1,16 @@
-use benthic_protocol::default_animations::AnimationClip;
+use benthic_protocol::default_animations::DefaultAnimation;
 use benthic_protocol::skeleton::{JointName, Skeleton};
 use bevy::app::Update;
 use bevy::asset::{AssetMode, AssetPlugin, UnapprovedPathMode};
+use bevy::camera::Camera3d;
+use bevy::color::Color;
 use bevy::ecs::prelude::*;
+use bevy::light::PointLight;
+use bevy::math::primitives::Sphere;
+use bevy::mesh::{Mesh, Mesh3d, Meshable};
+use bevy::pbr::{MeshMaterial3d, StandardMaterial};
+use bevy::transform::components::Transform;
+use bevy::utils::default;
 use bevy::winit::WinitPlugin;
 use bevy::{
     DefaultPlugins,
@@ -13,12 +21,12 @@ use bevy::{
     gltf::GltfAssetLabel,
     prelude::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex, Resource},
 };
-use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use default_asset_converter::generated_asset_path;
+use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use glam::Vec3;
 use lazy_static::lazy_static;
-use metaverse_avatar::animation::{apply_joint_scale, filter_animation};
-use metaverse_mesh::animation::generate::generate_gltf_animation;
-use metaverse_mesh::animation::gltf::export_animation;
+use metaverse_avatar::animation::build_animation;
+use metaverse_avatar::errors::AnimationError;
+use metaverse_messages::udp::agent::avatar_animation::AnimationEntry;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -105,115 +113,161 @@ fn generated_animation_path(name: &str) -> PathBuf {
         .join(AGENT_ID.to_string())
         .join("animation");
 
-    std::fs::create_dir_all(&path).unwrap();
-
-    path.join(name)
+    let final_path = path.join(name);
+    std::fs::create_dir_all(&final_path).unwrap();
+    final_path
 }
 
-fn load_animation(name: &str, target_skeleton: &Skeleton) -> AnimationClip {
-    let path = generated_asset_path();
-    let filename = path.join("Animations").join(format!("{name}.json"));
+async fn load_animation(
+    name: &str,
+    target_skeleton: &Skeleton,
+    used_joints: &BTreeSet<JointName>,
+) -> Result<Vec<PathBuf>, AnimationError> {
+    let anim_id = DefaultAnimation::from_string(name)
+        .unwrap_or_else(|| panic!("unknown default animation: {name}"))
+        .uuid();
 
-    println!("loading animation: {:?}", filename);
+    let animations = vec![AnimationEntry {
+        anim_id,
+        sequence_id: 1,
+    }];
 
-    let filtered_animation_out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("generated")
-        .join("animation")
-        .join(format!("{name}_filtered.json"));
-
-    filter_animation(
-        &filename,
-        &filtered_animation_out_path.clone(),
-        PUFFBALL_JOINT_FILTER.clone(),
+    build_animation(
+        animations,
+        used_joints.clone(),
+        target_skeleton.clone(),
+        generated_animation_path("Retargeted"),
     )
-    .unwrap();
-
-    let agent_animation_out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("generated")
-        .join("animation")
-        .join(format!("{name}_agent_scaled.json"));
-
-    apply_joint_scale(
-        &filtered_animation_out_path,
-        agent_animation_out_path.clone(),
-        target_skeleton,
-    )
-    .unwrap();
-
-    serde_json::from_reader(
-        std::fs::File::open(&agent_animation_out_path)
-            .expect("failed to open scaled animation json"),
-    )
-    .expect("failed to deserialize scaled animation json")
+    .await
 }
 
-#[test]
-fn run_stand() {
-    display_animation("Stand");
-}
-
-#[test]
-fn run_dance() {
-    display_animation("Dance");
-}
-
-#[test]
-fn build_animation() {
-    let artifacts = mock_avatar_load();
-
-    let path = generated_asset_path();
-    let filename = path.join("Animations").join("Stand.json");
-
-    // Filtered intermediate JSON.
-    let filtered_animation_out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("generated")
-        .join("animation")
-        .join("Stand_filtered.json");
-
-    filter_animation(
-        &filename,
-        &filtered_animation_out_path.clone(),
-        PUFFBALL_JOINT_FILTER.clone(),
-    )
-    .unwrap();
-
-    // Avatar-specific scaled JSON.
-    let agent_animation_out_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("generated")
-        .join("animation")
-        .join("Stand_agent_scaled.json");
-
-    apply_joint_scale(
-        &filtered_animation_out_path,
-        agent_animation_out_path.clone(),
+#[tokio::test]
+async fn load_stand() {
+    let artifacts = mock_avatar_load().await;
+    load_animation(
+        "Stand",
         &artifacts.avatar_object.global_skeleton,
+        &artifacts.avatar_object.used_joints,
     )
+    .await
     .unwrap();
-
-    // Final GLB.
-    let out_path = generated_animation_path("Stand.glb");
-
-    generate_gltf_animation(&agent_animation_out_path, &out_path).unwrap();
 }
 
+#[tokio::test]
+async fn run_stand() {
+    display_animation("Stand").await;
+}
+
+#[tokio::test]
+async fn run_dance() {
+    display_animation("Dance").await;
+}
+
+#[tokio::test]
+async fn build_test_animation() {
+    let artifacts = mock_avatar_load().await;
+
+    let animations = vec![AnimationEntry {
+        anim_id: DefaultAnimation::Stand.uuid(),
+        sequence_id: 1,
+    }];
+
+    let paths = build_animation(
+        animations,
+        artifacts.avatar_object.used_joints.clone(),
+        artifacts.avatar_object.global_skeleton.clone(),
+        generated_animation_path("Retargeted"),
+    )
+    .await
+    .unwrap();
+
+    println!("Generated animations: {:?}", paths);
+}
+
+fn display_vertices(vertices_a: Vec<Vec3>, vertices_b: Vec<Vec3>) {
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins.set(WinitPlugin {
+        run_on_any_thread: true,
+    }));
+    app.add_plugins(PanOrbitCameraPlugin);
+
+    app.add_systems(
+        Startup,
+        move |mut commands: Commands,
+              mut meshes: ResMut<Assets<Mesh>>,
+              mut materials: ResMut<Assets<StandardMaterial>>| {
+            let mesh = meshes.add(Sphere::new(0.015).mesh().ico(2).unwrap());
+
+            // material a is red
+            let material_a = materials.add(StandardMaterial {
+                base_color: Color::srgb(1.0, 0.0, 0.0),
+                ..default()
+            });
+
+            // material b is green
+            let material_b = materials.add(StandardMaterial {
+                base_color: Color::srgb(0.0, 1.0, 0.0),
+                ..default()
+            });
+
+            for position in &vertices_a {
+                commands.spawn((
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material_a.clone()),
+                    Transform::from_translation(*position),
+                ));
+            }
+
+            for position in &vertices_b {
+                commands.spawn((
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material_b.clone()),
+                    Transform::from_translation(*position),
+                ));
+            }
+
+            commands.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(0.0, -3.0, 1.5).looking_at(Vec3::new(0.0, 0.0, 0.8), Vec3::Z),
+                PanOrbitCamera {
+                    focus: Vec3::new(0.0, 0.0, 0.8),
+                    radius: Some(3.0),
+                    ..default()
+                },
+            ));
+
+            commands.spawn((
+                PointLight {
+                    intensity: 5000.0,
+                    ..default()
+                },
+                Transform::from_xyz(2.0, 2.0, 4.0),
+            ));
+        },
+    );
+
+    app.run();
+}
 #[derive(Debug, Resource)]
 struct AnimationName(String);
 
-fn display_animation(animation: &str) {
-    let artifacts = mock_avatar_load();
+async fn display_animation(animation: &str) {
+    let artifacts = mock_avatar_load().await;
 
-    let out_path = generated_animation_path(&format!("{}.glb", animation));
+    let animation_path = load_animation(
+        animation,
+        &artifacts.avatar_object.global_skeleton,
+        &artifacts.avatar_object.used_joints,
+    )
+    .await
+    .unwrap()
+    .last()
+    .unwrap()
+    .clone();
 
-    let animations = load_animation(animation, &artifacts.avatar_object.global_skeleton);
-
-    export_animation(&animations, &out_path.clone()).unwrap();
-
-    let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(format!("tests/generated/{}", common::AGENT_ID));
+    let animation_dir = animation_path.parent().unwrap().to_path_buf();
+    let animation_file = animation_path.file_name().unwrap().to_string_lossy();
 
     let mut app = App::new();
 
@@ -223,7 +277,7 @@ fn display_animation(animation: &str) {
                 run_on_any_thread: true,
             })
             .set(AssetPlugin {
-                file_path: tests_dir.into_string().unwrap(),
+                file_path: animation_dir.to_string_lossy().into_owned(),
                 mode: AssetMode::Unprocessed,
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..Default::default()
@@ -239,7 +293,7 @@ fn display_animation(animation: &str) {
     });
 
     app.insert_resource(artifacts);
-    app.insert_resource(AnimationName(animation.to_string()));
+    app.insert_resource(AnimationName(animation_file.to_string()));
 
     app.add_systems(Startup, setup);
     app.add_systems(Update, handle_ui_buttons);
@@ -260,7 +314,7 @@ fn setup_animation_graph(
 ) {
     let mut graph = AnimationGraph::new();
 
-    let animation_path = format!("animation/{}.glb", animation_name.0);
+    let animation_path = format!("{}", animation_name.0);
 
     let animations = vec![graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(animation_path)),

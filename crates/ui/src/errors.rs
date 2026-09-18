@@ -1,3 +1,4 @@
+use benthic_protocol::errors::SessionError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -11,11 +12,8 @@ pub enum CredentialLoadError {
 
 #[derive(Debug, Error)]
 pub enum ShareDirError {
-    #[error("share dir does not exist")]
-    NoShareDir(),
-
-    #[error("Failed to create local share: {0}")]
-    CreateFailed(#[from] std::io::Error),
+    #[error("Failed to create share dir:")]
+    SessionError(#[from] SessionError),
 }
 
 #[derive(Debug, Error)]

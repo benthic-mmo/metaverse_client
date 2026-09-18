@@ -21,6 +21,7 @@ metaverse_avatar = {path="../avatar"}
 bevy = { version = "0.19", default-features = false, features = [
     "bevy_animation",
     "bevy_winit",
+    "bevy_gltf",
     "bevy_render",
     "bevy_scene",
     "bevy_pbr",
@@ -40,7 +41,7 @@ bevy = { version = "0.19", default-features = false, features = [
 ]}
 bevy_gltf = { version = "0.19", features = ["bevy_animation"] }
 bevy_egui = "0.42.0"
-bevy_panorbit_camera = "0.35.1"
+bevy_panorbit_camera = {version="0.35.1", features=["bevy_egui"]}
 egui = "0.36.2"
 tokio = { version = "1", features = ["full"] }
 actix-rt = "2.13.0"
@@ -56,6 +57,8 @@ thiserror = "2.0.20"
 bevy_heightmap = "0.19.0"
 bevy_post_process = "0.19.1"
 bevy_world_serialization = "0.19.1"
+bevy-inspector-egui = "0.37.0"
+bevy_gizmos = "0.19.1"
 [dependencies.uuid]
 version = "1.26.1"
 features = [

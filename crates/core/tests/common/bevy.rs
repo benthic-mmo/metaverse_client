@@ -113,7 +113,7 @@ pub fn setup(
 
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(3.0, 5.0, 3.0).looking_at(Vec3::ZERO, Dir3::Y),
+        Transform::from_xyz(0.0, 2.0, -10.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Dir3::Y),
     ));
 
     commands.spawn((
@@ -213,47 +213,49 @@ pub fn draw_skeleton_debug(
 
     for skinned_mesh in &skinned_mesh_query {
         for &joint_entity in &skinned_mesh.joints {
-            if let Ok(joint_transform) = global_transform_query.get(joint_entity) {
-                let joint_pos = joint_transform.translation();
+            let Ok(joint_transform) = global_transform_query.get(joint_entity) else {
+                continue;
+            };
 
-                // Joint position
-                gizmos.sphere(
-                    Isometry3d::from_translation(joint_pos),
-                    0.02,
-                    Color::srgb(0.0, 1.0, 0.0),
-                );
+            let joint_pos = joint_transform.translation();
 
-                // Parent -> joint bone
-                if let Ok(parent_component) = parent_query.get(joint_entity) {
-                    let parent_entity = parent_component.parent();
+            // Joint position
+            gizmos.sphere(
+                Isometry3d::from_translation(joint_pos),
+                0.02,
+                Color::srgb(0.0, 1.0, 0.0),
+            );
 
-                    if skinned_mesh.joints.contains(&parent_entity)
-                        && let Ok(parent_transform) = global_transform_query.get(parent_entity)
-                    {
-                        let parent_pos = parent_transform.translation();
+            // Parent -> joint bone
+            if let Ok(parent_component) = parent_query.get(joint_entity) {
+                let parent_entity = parent_component.parent();
 
-                        gizmos.line(parent_pos, joint_pos, Color::srgb(1.0, 1.0, 0.0));
-                    }
+                if skinned_mesh.joints.contains(&parent_entity)
+                    && let Ok(parent_transform) = global_transform_query.get(parent_entity)
+                {
+                    let parent_pos = parent_transform.translation();
+
+                    gizmos.line(parent_pos, joint_pos, Color::srgb(1.0, 1.0, 0.0));
                 }
+            }
 
-                // Joint local orientation axes
-                if debug_visibility.show_joint_axes {
-                    let rotation = joint_transform.rotation();
-                    let axis_length = 0.1;
+            // Joint local orientation axes
+            if debug_visibility.show_joint_axes {
+                let rotation = joint_transform.rotation();
+                let axis_length = 0.1;
 
-                    let x = rotation * Vec3::X * axis_length;
-                    let y = rotation * Vec3::Y * axis_length;
-                    let z = rotation * Vec3::Z * axis_length;
+                let x = rotation * Vec3::X * axis_length;
+                let y = rotation * Vec3::Y * axis_length;
+                let z = rotation * Vec3::Z * axis_length;
 
-                    // X = red
-                    gizmos.line(joint_pos, joint_pos + x, Color::srgb(1.0, 0.0, 0.0));
+                // X = red
+                gizmos.line(joint_pos, joint_pos + x, Color::srgb(1.0, 0.0, 0.0));
 
-                    // Y = green
-                    gizmos.line(joint_pos, joint_pos + y, Color::srgb(0.0, 1.0, 0.0));
+                // Y = green
+                gizmos.line(joint_pos, joint_pos + y, Color::srgb(0.0, 1.0, 0.0));
 
-                    // Z = blue
-                    gizmos.line(joint_pos, joint_pos + z, Color::srgb(0.0, 0.0, 1.0));
-                }
+                // Z = blue
+                gizmos.line(joint_pos, joint_pos + z, Color::srgb(0.0, 0.0, 1.0));
             }
         }
     }

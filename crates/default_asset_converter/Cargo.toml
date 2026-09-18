@@ -17,7 +17,9 @@ serde = {version = "1.0.228", features=["derive"] }
 serde_json = "1.0"
 
 [features]
-animations = []
+animations = ["quaternius_adjustments"]
+quaternius_adjustments = []
+
 
 [dependencies]
 anyhow = "1.0.104"

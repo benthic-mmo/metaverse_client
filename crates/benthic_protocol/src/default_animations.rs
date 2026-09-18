@@ -1,21 +1,11 @@
-use crate::skeleton::JointName;
+use crate::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BindJoint {
-    pub joint: JointName,
-    pub parent: Option<JointName>,
-    pub translation: Vec3,
-    pub rotation: Quat,
-    pub scale: Vec3,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimationClip {
-    pub bind_skeleton: IndexMap<JointName, BindJoint>,
+    pub bind_skeleton: Skeleton,
     pub joints: Vec<JointAnimation>,
 }
 
@@ -61,11 +51,14 @@ macro_rules! define_animations {
                 )*
                 None
             }
+            pub fn from_string(name: &str) -> Option<Self> {
+                name.parse().ok()
+            }
         }
     };
 }
 
 define_animations! {
     Stand => "2408fe9e-df1d-1d7d-f4ff-1384fa7b350f",
-    Dance => "2408fe9e-df1d-1d7d-f4ff-1384fa7b350g"
+    Dance => "2408fe9e-df1d-1d7d-f4ff-1384fa7b350a"
 }

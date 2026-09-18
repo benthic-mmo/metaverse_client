@@ -1,16 +1,15 @@
 use crate::animation::{AnimationPath, AnimationQueue, scene_instance_ready, update_animations};
-use crate::environment::{
-    LandUpdateEvent, SkyboxUpdateEvent, SunState, Water, WaterUpdateEvent, handle_land_update,
-    handle_skybox_update, handle_water_update, setup_environment, update_sun,
-};
+use crate::chat::ChatPlugin;
+use crate::environment::{LandPlugin, LandUpdateEvent};
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
+use crate::login;
 use crate::render::{
-    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap, extract_gltf_meshes,
-    follow_gltf_with_offset, handle_camera_update, handle_mesh_update,
+    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap, follow_gltf_with_offset,
+    handle_camera_update, handle_mesh_update, render_land, render_meshes,
 };
+use crate::sky::SkyboxUpdateEvent;
 use crate::subscriber::listen_for_core_events;
-use crate::textures::environment::HeightMaterial;
-use crate::{chat, login};
+use crate::water::{WaterPlugin, WaterUpdateEvent};
 use actix_rt::System;
 use benthic_protocol::messages::ui::agent_update::AgentUpdate;
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
@@ -20,22 +19,20 @@ use benthic_protocol::messages::ui::login_error::LoginError;
 use benthic_protocol::messages::ui::login_response::LoginResponse;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::{UIMessage, UIResponse};
+use benthic_protocol::session::initialize_share_dir;
 use bevy::animation::AnimatedBy;
 use bevy::app::App;
 use bevy::camera::visibility::DynamicSkinnedMeshBounds;
 use bevy::mesh::skinning::SkinnedMesh;
-use bevy::pbr::{DefaultOpaqueRendererMethod, ExtendedMaterial};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfPlugin, GltfSceneName};
-use bevy_post_process::auto_exposure::AutoExposurePlugin;
-use bevy_world_serialization::WorldSerializationPlugin;
+use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfSceneName};
+
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use metaverse_core::initialize::initialize;
 use portpicker::pick_unused_port;
-use std::fs::create_dir_all;
 use std::net::UdpSocket;
 use std::path::PathBuf;
 
@@ -114,12 +111,7 @@ struct LogoutRequestEvent;
 
 //ensure the share dir exists, and create the Benthic folder in the share dir at startup time.
 fn setup_share_dir() -> Result<PathBuf, ShareDirError> {
-    let data_dir = dirs::data_dir().ok_or(ShareDirError::NoShareDir())?;
-    let local_share_dir = data_dir.join(VIEWER_NAME);
-    if !local_share_dir.exists() {
-        create_dir_all(&local_share_dir)?
-    };
-    Ok(local_share_dir)
+    Ok(initialize_share_dir()?)
 }
 
 pub struct MetaversePlugin;
@@ -150,27 +142,20 @@ impl Plugin for MetaversePlugin {
         };
 
         app.init_state::<ViewerState>()
-            .add_plugins(MaterialPlugin::<HeightMaterial>::default())
-            .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
-            .add_plugins(AutoExposurePlugin)
-            .add_plugins(GltfPlugin::default())
-            .add_plugins(WorldSerializationPlugin)
+            .add_plugins(WaterPlugin)
+            //.add_plugins(SkyPlugin)
+            .add_plugins(LandPlugin)
+            .add_plugins(ChatPlugin)
             .insert_resource(ClearColor(Color::BLACK))
-            .insert_resource(GlobalAmbientLight::NONE)
-            .insert_resource(DefaultOpaqueRendererMethod::deferred())
             .insert_resource(SessionData {
                 login_response: None,
                 avatar_location: Vec3::ZERO,
-            })
-            .insert_resource(ChatMessages {
-                messages: Vec::new(),
             })
             .insert_resource(Sockets {
                 ui_to_core_socket,
                 core_to_ui_socket,
             })
             .insert_resource(login_data)
-            .insert_resource(chat::ChatMessage::default())
             .insert_resource(EventChannel {
                 sender: s1,
                 receiver: r1,
@@ -188,21 +173,15 @@ impl Plugin for MetaversePlugin {
             .insert_resource(AnimationQueue {
                 pending: HashMap::new(),
             })
-            .insert_resource(SunState {
-                current_phase: 0.0,
-                target_phase: 0.0,
-            })
-            .insert_resource(Assets::<ExtendedMaterial<StandardMaterial, Water>>::default())
             .insert_resource(MeshQueue { pending: vec![] })
             .add_message::<LoginResponseEvent>()
             .add_message::<CameraUpdateEvent>()
             .add_message::<CoarseLocationUpdateEvent>()
             .add_message::<MeshUpdateEvent>()
             .add_message::<LandUpdateEvent>()
-            .add_message::<WaterUpdateEvent>()
-            .add_message::<SkyboxUpdateEvent>()
             .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
+            .add_message::<SkyboxUpdateEvent>()
             .register_type::<GltfSceneName>()
             .register_type::<Transform>()
             .register_type::<GlobalTransform>()
@@ -223,22 +202,18 @@ impl Plugin for MetaversePlugin {
             .register_type::<DynamicSkinnedMeshBounds>()
             .add_systems(Startup, start_listener)
             .add_systems(Startup, setup_timers)
-            .add_systems(Startup, setup_environment)
             .add_systems(Startup, start_core)
-            .add_systems(Update, extract_gltf_meshes)
             .add_systems(Update, handle_window_close)
             .add_systems(Update, handle_logout)
             .add_systems(Update, handle_queue)
             .add_systems(Update, handle_login_response)
             .add_systems(Update, handle_disconnect)
             .add_systems(Update, handle_mesh_update)
-            .add_systems(Update, handle_land_update)
-            .add_systems(Update, handle_water_update)
-            .add_systems(Update, handle_skybox_update)
             .add_systems(Update, update_animations)
             .add_systems(Update, handle_camera_update)
             .add_systems(Update, follow_gltf_with_offset)
-            .add_systems(Update, update_sun)
+            .add_systems(Update, render_land)
+            .add_systems(Update, render_meshes)
             .add_systems(
                 Update,
                 send_agent_update.run_if(in_state(ViewerState::Chat)),
@@ -434,14 +409,6 @@ fn start_core(sockets: Res<Sockets>) {
     });
 }
 
-fn handle_logout(mut events: MessageReader<LogoutRequestEvent>, sockets: Res<Sockets>) {
-    for _ in events.read() {
-        if let Err(e) = send_packet_to_core(&UIResponse::new_logout().to_bytes(), &sockets) {
-            error!("{:?}", e)
-        };
-    }
-}
-
 pub fn retrieve_login_response<'a>(
     session_data: &'a Res<SessionData>,
     viewer_state: &mut ResMut<NextState<ViewerState>>,
@@ -475,4 +442,12 @@ fn send_agent_update(
     {
         error!("{:?}", e)
     };
+}
+
+fn handle_logout(mut events: MessageReader<LogoutRequestEvent>, sockets: Res<Sockets>) {
+    for _ in events.read() {
+        if let Err(e) = send_packet_to_core(&UIResponse::new_logout().to_bytes(), &sockets) {
+            error!("{:?}", e)
+        };
+    }
 }

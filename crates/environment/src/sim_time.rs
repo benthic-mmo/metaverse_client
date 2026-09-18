@@ -1,7 +1,7 @@
+use crate::error::SimTimeError;
 use metaverse_messages::http::environment_data::DayCycle;
 
-use crate::error::SimTimeError;
-
+/// Retrieve environment time from the server's capability url
 pub async fn fetch_environment_time(capability_url: &Option<String>) -> Result<(), SimTimeError> {
     let url = capability_url
         .clone()

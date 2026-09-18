@@ -1,9 +1,12 @@
 use std::{
     collections::HashMap,
     fs::{File, create_dir_all},
-    io::{self, Write},
+    io::Write,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use glam::{U16Vec2, Vec2};
@@ -12,6 +15,17 @@ use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
 use crate::errors::SessionError;
+
+/// flag for setting if caching is allowed.
+pub static CACHE_ENABLED: AtomicBool = AtomicBool::new(true);
+/// return the cache status, on or off.
+pub fn cache_enabled() -> bool {
+    CACHE_ENABLED.load(Ordering::Relaxed)
+}
+/// set the cache status
+pub fn set_cache_enabled(enabled: bool) {
+    CACHE_ENABLED.store(enabled, Ordering::Relaxed);
+}
 
 /// Message and struct for the current user's session.
 ///

@@ -13,6 +13,7 @@ fn main() {
     let target_shaders = target_assets.join("shaders");
     let target_cubemaps = target_assets.join("cubemaps");
 
+    // this moves the default assets into Bevy's asset folder.
     copy_dir(&source_shaders, &target_shaders);
     copy_dir(&source_textures, &target_textures);
     copy_dir(&source_cubemaps, &target_cubemaps);

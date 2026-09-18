@@ -22,7 +22,7 @@ metaverse_objects = {path = "../objects/"}
 metaverse_mesh = {path="../../../metaverse_mesh"}
 serde-llsd-benthic = {path="../../../benthic-serde-llsd"}
 benthic_protocol = {path="../benthic_protocol/"}
-default_asset_converter = {path="../default_asset_converter"}
+default_asset_converter = {path="../default_asset_converter", features = ["animations"]}
 tokio = { version = "1.53.1", features = ["full"] }
 log = "0.4"
 actix = "0.13.5"
@@ -59,6 +59,7 @@ bevy = "0.19.0"
 bevy_world_serialization = "0.19.0"
 bevy_panorbit_camera = "0.35.0"
 lazy_static = "1.5.0"
+
 
 # allow for compiling a barebones viewer
 [features]
