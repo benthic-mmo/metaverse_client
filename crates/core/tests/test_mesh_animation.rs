@@ -14,8 +14,9 @@ use bevy::{
     prelude::{AnimationGraph, AnimationGraphHandle, AnimationNodeIndex, Resource},
 };
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
+use default_asset_converter::generated_asset_path;
 use lazy_static::lazy_static;
-use metaverse_core::avatar::{apply_joint_scale, filter_animation};
+use metaverse_avatar::animation::{apply_joint_scale, filter_animation};
 use metaverse_mesh::animation::generate::generate_gltf_animation;
 use metaverse_mesh::animation::gltf::export_animation;
 use std::collections::BTreeSet;
@@ -110,7 +111,7 @@ fn generated_animation_path(name: &str) -> PathBuf {
 }
 
 fn load_animation(name: &str, target_skeleton: &Skeleton) -> AnimationClip {
-    let path = benthic_asset_pipeline::generated_asset_path();
+    let path = generated_asset_path();
     let filename = path.join("Animations").join(format!("{name}.json"));
 
     println!("loading animation: {:?}", filename);
@@ -123,7 +124,7 @@ fn load_animation(name: &str, target_skeleton: &Skeleton) -> AnimationClip {
 
     filter_animation(
         &filename,
-        filtered_animation_out_path.clone(),
+        &filtered_animation_out_path.clone(),
         PUFFBALL_JOINT_FILTER.clone(),
     )
     .unwrap();
@@ -162,7 +163,7 @@ fn run_dance() {
 fn build_animation() {
     let artifacts = mock_avatar_load();
 
-    let path = benthic_asset_pipeline::generated_asset_path();
+    let path = generated_asset_path();
     let filename = path.join("Animations").join("Stand.json");
 
     // Filtered intermediate JSON.
@@ -174,7 +175,7 @@ fn build_animation() {
 
     filter_animation(
         &filename,
-        filtered_animation_out_path.clone(),
+        &filtered_animation_out_path.clone(),
         PUFFBALL_JOINT_FILTER.clone(),
     )
     .unwrap();
@@ -196,7 +197,7 @@ fn build_animation() {
     // Final GLB.
     let out_path = generated_animation_path("Stand.glb");
 
-    generate_gltf_animation(agent_animation_out_path, out_path).unwrap();
+    generate_gltf_animation(&agent_animation_out_path, &out_path).unwrap();
 }
 
 #[derive(Debug, Resource)]
@@ -209,7 +210,7 @@ fn display_animation(animation: &str) {
 
     let animations = load_animation(animation, &artifacts.avatar_object.global_skeleton);
 
-    export_animation(&animations, out_path.clone()).unwrap();
+    export_animation(&animations, &out_path.clone()).unwrap();
 
     let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("tests/generated/{}", common::AGENT_ID));
