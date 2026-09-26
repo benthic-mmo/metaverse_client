@@ -12,7 +12,7 @@ This package is meant to be used as a platform for creating fast, multithreaded 
 
 ### Documented
 
-This project aims to be fully documented and developer friendly. High level protocol docs can be found at [benthic-mmo.github.io](https://benthic-mmo.github.io), and lower level packet parsing and implementation docs can be found on [docs.rs](docs.rs). If you find that docs are missing or confusing feel free to open an issue here, or on the [docs repo](https://github.com/benthic-mmo/benthic-mmo.github.io).
+This project aims to be fully documented and developer friendly. High level protocol docs can be found at [benthic-mmo.github.io](https://benthic-mmo.github.io), and lower level packet parsing and implementation docs can be found on [docs.rs](https://docs.rs). If you find that docs are missing or confusing feel free to open an issue here, or on the [docs repo](https://github.com/benthic-mmo/benthic-mmo.github.io).
 
 ### Modular
 
@@ -119,20 +119,20 @@ Will run the tests.
 [docs.rs-badge]: https://img.shields.io/badge/docs-Docs.rs-red?&style=flat-square
 [crates.io-core-badge]: https://img.shields.io/crates/v/metaverse_core?logo=rust&logoColor=white&style=flat-square
 [crates.io-core]: https://crates.io/crates/metaverse_core
-[docs.rs-core]: https://docs.rs/metaverse_session/latest/metaverse_core/
+[docs.rs-core]: https://docs.rs/crate/metaverse_core/latest
 [crates.io-messages-badge]: https://img.shields.io/crates/v/metaverse_messages?logo=rust&logoColor=white&style=flat-square
 [crates.io-messages]: https://crates.io/crates/metaverse_messages
-[docs.rs-messages]: https://docs.rs/metaverse_messages/latest/metaverse_session/
+[docs.rs-messages]: https://docs.rs/metaverse_messages/latest/metaverse_messages/
 [last-commit-badge]: https://img.shields.io/github/last-commit/benthic-mmo/metaverse_client?logo=github&style=flat-square
-[crates.io-inventory-badge]: https://img.shields.io/crates/v/metaverse_inventory?logo=rust&logoColor=white&style=flat-square
-[crates.io-inventory]: https://crates.io/crates/metaverse_inventory
-[docs.rs-inventory]: https://docs.rs/metaverse_session/latest/metaverse_inventory/
+[crates.io-inventory-badge]: https://img.shields.io/crates/v/metaverse_cache?logo=rust&logoColor=white&style=flat-square
+[crates.io-inventory]: https://crates.io/crates/metaverse_cache
+[docs.rs-inventory]: https://docs.rs/crate/metaverse_cache/latest
 [crates.io-agent-badge]: https://img.shields.io/crates/v/metaverse_agent?logo=rust&logoColor=white&style=flat-square
-[crates.io-agent]: https://crates.io/crates/metaverse_agent
-[docs.rs-agent]: https://docs.rs/metaverse_session/latest/metaverse_agent/
+[crates.io-agent]: https://crates.io/crates/metaverse_avatar
+[docs.rs-agent]: https://docs.rs/crate/metaverse_avatar/latest
 [crates.io-ui-badge]: https://img.shields.io/crates/v/metaverse_ui?logo=rust&logoColor=white&style=flat-square
-[crates.io-ui]: https://crates.io/crates/metaverse_ui
-[docs.rs-ui]: https://docs.rs/metaverse_session/latest/metaverse_ui/
+[crates.io-ui]: https://crates.io/crates/benthic_ui
+[docs.rs-ui]: https://docs.rs/crate/benthic_ui/latest
 [last-commit]: https://github.com/benthic-mmo/metaverse_client/commits/main/
 [open-pr-badge]: https://img.shields.io/github/issues-pr/benthic-mmo/metaverse_client?logo=github&style=flat-square
 [open-pr]: https://github.com/benthic-mmo/metaverse_client/pulls
