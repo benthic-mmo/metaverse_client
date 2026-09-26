@@ -4,6 +4,10 @@ use std::{
 };
 
 fn main() {
+    // prevent this copying on docs.rs, which causes the build to fail
+    if std::env::var_os("DOCS_RS").is_some() {
+        return;
+    }
     let source_assets = benthic_default_asset_converter::default_assets();
 
     let source_textures = source_assets.join("Textures");
