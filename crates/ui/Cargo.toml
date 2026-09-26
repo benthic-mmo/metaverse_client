@@ -11,16 +11,16 @@ resolver = "2"
 build = "build.rs"
 
 [build-dependencies]
-benthic_default_asset_converter = "0.3.2"
+benthic_default_asset_converter.workspace = true 
 
 [dependencies]
-metaverse_core = "0.3.2" 
-benthic_default_asset_converter = "0.3.2" 
-benthic_protocol = "0.3.2" 
-metaverse_avatar = "0.3.2" 
+metaverse_core.workspace = true 
+benthic_default_asset_converter.workspace = true 
+benthic_protocol.workspace = true 
+metaverse_avatar.workspace = true 
 
 #disable sound for bevy
-bevy = { version = "0.19", default-features = false, features = [
+bevy = { version="0.19.0", default-features = false, features = [
     "bevy_animation",
     "bevy_winit",
     "bevy_gltf",
@@ -41,28 +41,29 @@ bevy = { version = "0.19", default-features = false, features = [
     "png",
     "jpeg"
 ]}
-bevy_gltf = { version = "0.19", features = ["bevy_animation"] }
-bevy_egui = "0.42.0"
-bevy_panorbit_camera = {version="0.35.1", features=["bevy_egui"]}
-egui = "0.36.2"
-tokio = { version = "1", features = ["full"] }
-actix-rt = "2.13.0"
 accesskit = "0.25.0"
-serde = { version = "1.0", features = ["derive"] }
-crossbeam-channel = "0.5.17"
-serde_json = "1.0"
-portpicker = "0.1.1"
-keyring = { version = "4.2.0", features = ["apple-native-keyring-store", "windows-native-keyring-store", "zbus-secret-service-keyring-store"] }
-dirs = "7.0.0"
-log = "0.4.34"
-thiserror = "2.0.20"
 bevy_heightmap = "0.19.0"
 bevy_post_process = "0.19.1"
 bevy_world_serialization = "0.19.1"
 bevy-inspector-egui = "0.37.0"
 bevy_gizmos = "0.19.1"
+keyring = { version = "4.2.0", features = ["apple-native-keyring-store", "windows-native-keyring-store", "zbus-secret-service-keyring-store"] }
+egui = "0.36.2"
+bevy_gltf = { version = "0.19", features = ["bevy_animation"] }
+bevy_egui = "0.42.0"
+
+actix-rt.workspace = true 
+bevy_panorbit_camera = {workspace=true, features=["bevy_egui"]}
+tokio = { workspace=true, features = ["full"] }
+serde.workspace = true 
+crossbeam-channel.workspace = true 
+serde_json.workspace = true 
+portpicker.workspace = true 
+dirs.workspace = true 
+log.workspace = true 
+thiserror.workspace = true 
 [dependencies.uuid]
-version = "1.26.1"
+workspace = true 
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG

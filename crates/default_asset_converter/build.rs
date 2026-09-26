@@ -18,14 +18,14 @@ use uuid::Uuid;
 const DEFAULT_ASSETS_REPO: &str = "https://github.com/benthic-mmo/benthic_default_assets.git";
 const DEFAULT_ASSETS_TAG: &str = "v0.3.1";
 
-fn download_default_assets(out_dir: &Path) -> PathBuf {
+fn download_default_assets(out_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let assets_dir = out_dir.join("benthic_default_assets");
 
     if assets_dir.exists() {
-        return assets_dir;
+        return Ok(assets_dir);
     }
 
-    println!("cargo:warning=Downloading benthic_default_assets {DEFAULT_ASSETS_TAG}");
+    println!("Downloading benthic_default_assets {DEFAULT_ASSETS_TAG}");
 
     let status = Command::new("git")
         .args([
@@ -38,19 +38,40 @@ fn download_default_assets(out_dir: &Path) -> PathBuf {
         ])
         .arg(&assets_dir)
         .status()
-        .expect("Failed to execute git. Is git installed?");
+        .map_err(|e| format!("Failed to execute git: {e}"))?;
 
     if !status.success() {
-        panic!("Failed to download benthic_default_assets {DEFAULT_ASSETS_TAG}");
+        return Err(
+            format!("Failed to download benthic_default_assets {DEFAULT_ASSETS_TAG}").into(),
+        );
     }
 
-    assets_dir
+    Ok(assets_dir)
 }
 
 fn main() {
     let gen_animations = std::env::var("CARGO_FEATURE_ANIMATIONS").is_ok();
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let default_assets = download_default_assets(&out_dir);
+
+    let default_assets = match download_default_assets(&out_dir) {
+        Ok(path) => path,
+        Err(error) => {
+            println!(
+                "cargo:warning=FAILED TO FETCH DEFAULT ASSETS. USING MOCK ASSETS: {}",
+                error
+            );
+            let skeleton_file = out_dir.join("default_skeleton.json");
+            let skeleton = Skeleton::default();
+
+            let json = serde_json::to_string_pretty(&skeleton)
+                .expect("Failed to serialize default skeleton");
+
+            fs::write(&skeleton_file, json).expect("Failed to write fallback default skeleton");
+
+            println!("cargo:rustc-env=BENTHIC_DEFAULT_ASSETS=");
+            return;
+        }
+    };
 
     println!(
         "cargo:rustc-env=BENTHIC_DEFAULT_ASSETS={}",
@@ -87,7 +108,7 @@ fn main() {
     let skeleton_file = out_dir.join("default_skeleton.json");
     fs::write(&skeleton_file, skeleton_json).unwrap();
 
-    println!("cargo:warning=Generating {:?}", skeleton_file);
+    println!("Generating {:?}", skeleton_file);
 
     if !gen_animations {
         return;
@@ -133,7 +154,7 @@ fn main() {
 
         fs::write(&out_path, json).unwrap();
 
-        println!("cargo:warning=Generating animation {:?}", out_path);
+        println!("Generating animation {:?}", out_path);
     }
 }
 

@@ -9,41 +9,38 @@ license = "AGPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
-metaverse_messages = "0.3.2"
-metaverse_environment = {version="0.3.2", optional = true}
-metaverse_avatar = {version="0.3.2", optional = true}
-metaverse_cache = {version="0.3.2", optional = true}
-metaverse_objects = {version="0.3.2"}
-metaverse_mesh = {version="0.3.2"}
-serde-llsd-benthic = {version="0.3.2"}
-benthic_protocol = {version="0.3.2"}
-benthic_default_asset_converter = {version="0.3.2", features = ["animations"]}
+metaverse_objects.workspace = true 
+metaverse_mesh.workspace = true 
+benthic_protocol.workspace = true 
+metaverse_messages.workspace = true
+serde-llsd-benthic.workspace = true 
+metaverse_environment = {workspace=true, optional = true }
+metaverse_avatar = { workspace=true, optional = true }
+metaverse_cache = { workspace=true, optional = true }
+benthic_default_asset_converter = {workspace=true, features = ["animations"]}
 
-tokio = { version = "1.53.1", features = ["full"] }
-log = "0.4"
-actix = "0.13.5"
-thiserror = "2.0.20"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-crossbeam-channel = "0.5.17"
-actix-rt = "2.13"
-bincode = { version = "2.0.1", features = ["serde"] }
-portpicker = "0.1.1"
-glam = {version = "0.32.1", features = ["serde"]}
-actix-http = "3.13.5"
-awc = "3.8.2"
-quick-xml = "0.42.0"
-dirs = "7.0.0"
-bytemuck = "1.25.2"
-bytes = "1.12.1"
-indexmap = "2.14.2"
-jpeg2k = "0.10.1"
-image = "0.25.10"
-sqlx = {version="0.9.0", features=["runtime-tokio"]}
-url = "2.5.8"
-rgb = "0.8.53"
+tokio = { workspace=true, features = ["full"] }
+log.workspace = true 
+actix.workspace = true 
+thiserror.workspace = true
+serde.workspace = true 
+serde_json.workspace = true
+rgb.workspace = true 
+sqlx.workspace = true
+indexmap.workspace = true 
+awc.workspace = true 
+glam = {workspace=true, features = ["serde"]}
+actix-http.workspace = true 
+url.workspace = true 
+bytes.workspace = true 
+actix-rt.workspace = true 
+crossbeam-channel.workspace = true 
+bincode = {workspace=true, features = ["serde"] }
+portpicker.workspace = true 
+jpeg2k.workspace = true 
+image.workspace = true 
 [dependencies.uuid]
-version = "1.26.1"
+workspace=true
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
@@ -51,10 +48,10 @@ features = [
 ]
 
 [dev-dependencies]
-bevy = "0.19.0"
-bevy_world_serialization = "0.19.0"
-bevy_panorbit_camera = "0.35.0"
-lazy_static = "1.5.0"
+bevy.workspace = true 
+bevy_world_serialization.workspace = true 
+bevy_panorbit_camera.workspace = true 
+lazy_static.workspace = true
 
 
 # allow for compiling a barebones viewer

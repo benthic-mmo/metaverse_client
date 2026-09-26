@@ -11,21 +11,20 @@ edition = "2024"
 exclude = ["tests/**/*"]
 
 [dependencies]
-metaverse_messages = "0.3.2"
-benthic_default_asset_converter = "0.3.2"
-benthic_protocol = "0.3.2"
-metaverse_mesh = "0.3.2"
+metaverse_messages.workspace = true
+benthic_default_asset_converter.workspace = true
+benthic_protocol.workspace = true
+metaverse_mesh.workspace = true 
 
-byteorder = "1.5.0"
-rgb = "0.8.53"
-uuid = "1.26.1"
-glam = "0.32.1"
-log = "0.4.34"
-indexmap = "2.14.2"
-serde_json = "1.0.151"
-actix = "0.13.5"
-serde = { version = "1.0", features = ["derive"] }
-strum = "0.28"
-strum_macros = "0.28"
-thiserror = "2.0.20"
-
+byteorder.workspace = true 
+strum.workspace = true 
+strum_macros.workspace = true 
+rgb.workspace = true 
+uuid.workspace = true
+glam.workspace = true
+indexmap.workspace = true
+serde_json.workspace = true 
+serde.workspace = true 
+actix.workspace = true 
+thiserror.workspace = true 
+log.workspace = true 

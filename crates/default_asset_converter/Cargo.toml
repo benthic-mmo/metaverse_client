@@ -10,16 +10,17 @@ edition = "2024"
 links = "benthic_default_asset_converter"
 
 [build-dependencies]
-benthic_protocol = "0.3.2"
+benthic_protocol.workspace = true 
 
-gltf = "1.4.1"
-uuid = "1.23.4"
-indexmap = "2.14.0"
 bvh_anim = "0.4.0"
-bytemuck = "1.25.0"
-glam = {version = "0.32.1", features=["serde"]}
-serde = {version = "1.0.228", features=["derive"] }
-serde_json = "1.0"
+
+bytemuck.workspace = true 
+gltf.workspace = true 
+uuid.workspace = true 
+indexmap.workspace = true 
+glam = {workspace=true, features=["serde"]}
+serde.workspace = true 
+serde_json.workspace = true 
 
 [features]
 animations = ["quaternius_adjustments"]
@@ -27,15 +28,15 @@ quaternius_adjustments = []
 
 
 [dependencies]
-benthic_protocol = "0.3.2"
+benthic_protocol.workspace = true 
 
-anyhow = "1.0.104"
-glam = "0.32.1"
-gltf = "1.4.1"
-gltf-json = "1.4.1"
-once_cell = "1.21.4"
-serde = "1.0.228"
-serde_json = "1.0"
-strum = "0.28.0"
-strum_macros = "0.28.0"
-uuid = "1.23.4"
+gltf.workspace = true 
+gltf-json.workspace = true
+once_cell.workspace = true 
+anyhow.workspace = true 
+glam.workspace = true 
+serde.workspace = true 
+serde_json.workspace = true 
+strum.workspace = true 
+strum_macros.workspace = true
+uuid.workspace = true 

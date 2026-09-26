@@ -9,20 +9,21 @@ repository = "https://github.com/benthic-mmo/metaverse_client/tree/main/crates/e
 edition = "2024"
 
 [dependencies]
-metaverse_messages = "0.3.2" 
-benthic_protocol = "0.3.2" 
-metaverse_mesh = "0.3.2" 
+metaverse_messages.workspace = true 
+benthic_protocol.workspace = true 
+metaverse_mesh.workspace = true 
 
-bitreader = "0.3.11"
-bytemuck = {version = "1.25.2", features = ["derive"] }
-byteorder = "1.5.0"
-glam = {version="0.32.1", features=["serde"]}
-gltf = "1.4.1"
-gltf-json = "1.4.1"
-log = "0.4.34"
-once_cell = "1.21.4"
 twox-hash = "2.1.4"
-uuid = "1.26.1"
-image = "0.25.10"
-thiserror = "2.0.20"
-awc = "3.8.2"
+bitreader = "0.3.11"
+
+bytemuck = {workspace=true, features = ["derive"] }
+byteorder.workspace = true 
+glam = {workspace = true, features=["serde"]}
+gltf.workspace = true 
+gltf-json.workspace = true 
+log.workspace = true 
+once_cell.workspace = true 
+uuid.workspace = true 
+image.workspace = true 
+thiserror.workspace = true 
+awc.workspace = true
