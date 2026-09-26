@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_environment"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "metaverse environment data handler"
 license = "AGPL-3.0-or-later"

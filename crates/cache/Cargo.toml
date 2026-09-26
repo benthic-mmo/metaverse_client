@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_cache"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "inventory and cache handling for the open metaverse"
 license = "AGPL-3.0-or-later"

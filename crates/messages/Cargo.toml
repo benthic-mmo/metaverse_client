@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_messages"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "packet definitions for the open metaverse"
 homepage= "https://benthic-mmo.github.io/"

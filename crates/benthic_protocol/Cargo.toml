@@ -1,6 +1,6 @@
 [package]
 name = "benthic_protocol"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "Benthic protocol, an intermediate layer between metaverse protocols and client programs."
 license = "AGPL-3.0-or-later"

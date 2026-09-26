@@ -1,6 +1,6 @@
 [package]
 name = "benthic_ui"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "Bevy UI plugin for open metaverse clients"
 license = "AGPL-3.0-or-later"

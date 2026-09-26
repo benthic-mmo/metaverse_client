@@ -1,6 +1,6 @@
 [package]
 name = "benthic_default_asset_converter"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "A simple patching build script to download and convert benthic default assets to json represntations for use in the wider project."
 license = "AGPL-3.0-or-later"

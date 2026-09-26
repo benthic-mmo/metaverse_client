@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_core"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "core program for server and client IO"
 homepage= "https://benthic-mmo.github.io/"

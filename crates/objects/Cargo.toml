@@ -1,6 +1,6 @@
 [package]
 name = "metaverse_objects"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "Metaverse objects, a crate for handling objects in Benthic"
 license = "AGPL-3.0-or-later"
