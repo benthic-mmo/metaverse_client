@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    packet::packet::PacketData, udp::object::object_update_cached::ObjectUpdateCached,
+    packet::packet_protocol::PacketData, udp::object::object_update_cached::ObjectUpdateCached,
 };
 
 const BODY_BYTES: [u8; 60] = [

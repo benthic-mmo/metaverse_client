@@ -1,11 +1,6 @@
 use metaverse_messages::{
-    packet_protocol::{
-        packet_protocol::{Packet, PacketData},
-        packet_types::PacketType,
-    },
-    udp::object::{
-        object_update_cached::ObjectUpdateCached, object_update_compressed::ObjectUpdateCompressed,
-    },
+    packet::packet_protocol::PacketData,
+    udp::object::object_update_compressed::ObjectUpdateCompressed,
 };
 
 const PACKET_BYTES: [u8; 1526] = [

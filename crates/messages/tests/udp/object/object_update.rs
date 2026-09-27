@@ -1,5 +1,8 @@
 use metaverse_messages::{
-    packet_protocol::{packet::Packet, packet::PacketData, packet_types::PacketType},
+    packet::{
+        packet_protocol::{Packet, PacketData},
+        packet_types::PacketType,
+    },
     udp::object::object_update::ObjectUpdate,
 };
 use uuid::{Uuid, uuid};

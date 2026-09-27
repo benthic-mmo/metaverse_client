@@ -1,7 +1,5 @@
-use metaverse_messages::http::login::{
-    login_error::Reason,
-    login_response::{LoginResponse, LoginStatus},
-};
+use benthic_protocol::messages::ui::login_error::Reason;
+use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use std::{fs::File, io::Read};
 use uuid::uuid;
 

@@ -1,4 +1,6 @@
-use metaverse_messages::{packet::packet::Packet, udp::core::disable_simulator::DisableSimulator};
+use metaverse_messages::{
+    packet::packet_protocol::Packet, udp::core::disable_simulator::DisableSimulator,
+};
 
 const TEST_PACKET: [u8; 10] = [64, 0, 0, 0, 0, 0, 255, 255, 0, 152];
 #[test]

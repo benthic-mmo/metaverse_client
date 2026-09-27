@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    packet::packet::PacketData,
+    packet::packet_protocol::PacketData,
     udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate,
 };
 

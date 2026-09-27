@@ -1,7 +1,4 @@
-use metaverse_messages::{
-    packet_protocol::{packet::Packet, packet_types::PacketType},
-    udp::core::region_handshake::RegionHandshake,
-};
+use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
 
 const TEST_PACKET: [u8; 4095] = [
     192, 0, 0, 0, 0, 0, 255, 255, 0, 1, 148, 38, 128, 16, 20, 13, 8, 87, 101, 108, 99, 111, 109,

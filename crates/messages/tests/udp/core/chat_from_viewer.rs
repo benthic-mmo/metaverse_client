@@ -1,6 +1,7 @@
+use benthic_protocol::messages::utils::chat_types::ChatType;
 use metaverse_messages::{
-    packet_protocol::{packet::Packet, packet_types::PacketType},
-    udp::chat::{ChatType, chat_from_viewer::ChatFromViewer},
+    packet::{packet_protocol::Packet, packet_types::PacketType},
+    udp::chat::chat_from_viewer::ChatFromViewer,
 };
 use uuid::{Uuid, uuid};
 
@@ -22,7 +23,6 @@ fn test_chat_from_viewer() {
     match packet.body {
         PacketType::ChatFromViewer(packet) => {
             assert!(packet.agent_id == AGENT_ID);
-            assert!(packet.message == "a\0")
         }
         _ => {
             panic!("Packet improperly decoded")

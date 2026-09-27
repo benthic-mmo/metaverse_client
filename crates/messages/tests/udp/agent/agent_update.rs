@@ -1,4 +1,4 @@
-use metaverse_messages::packet_protocol::{packet::Packet, packet_types::PacketType};
+use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
 use uuid::{Uuid, uuid};
 
 const TEST_PACKET: [u8; 129] = [
