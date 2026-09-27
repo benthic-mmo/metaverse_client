@@ -384,6 +384,7 @@ impl Handler<LoadFromCache> for Mailbox {
 pub struct HandleNewAvatarAnimation {
     /// the avatar appearance data to handle
     pub avatar_animation: AvatarAnimation,
+    /// number of times this message has been requeued
     pub retries: u32,
 }
 impl Handler<HandleNewAvatarAnimation> for Mailbox {
@@ -396,6 +397,11 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+        if msg.avatar_animation.sender_id != session.agent_id {
+            //TODO: IMPLEMENT NON-USER ANIMATIONS
+            warn!("Non-user animation triggered. Currently unimplemented. Dropping animtaiton");
+            return;
+        }
 
         let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
             Some(avatar) => {

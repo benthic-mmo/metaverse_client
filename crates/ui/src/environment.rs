@@ -1,23 +1,17 @@
-use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
+use crate::core_plugin::LandUpdateEvent;
+use crate::mesh::{MeshQueue, Renderable, RenderableHandle};
+use crate::textures::environment::HeightMaterial;
+use benthic_protocol::messages::ui::land_update::LandData;
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use std::fs;
 
-use crate::render::{MeshQueue, Renderable, RenderableHandle};
-use crate::textures::environment::HeightMaterial;
-
-#[derive(Message)]
-pub struct LandUpdateEvent {
-    pub value: LandUpdate,
-}
-
 pub struct LandPlugin;
 
 impl Plugin for LandPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<LandUpdateEvent>()
-            .add_systems(Update, handle_land_update)
+        app.add_systems(Update, handle_land_update)
             .add_plugins(MaterialPlugin::<HeightMaterial>::default());
     }
 }

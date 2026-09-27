@@ -1,4 +1,3 @@
-use benthic_protocol::messages::ui::water_update::WaterUpdate;
 use bevy::image::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
 };
@@ -7,10 +6,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderType};
 use bevy::shader::ShaderRef;
 
-#[derive(Message)]
-pub struct WaterUpdateEvent {
-    pub value: WaterUpdate,
-}
+use crate::core_plugin::WaterUpdateEvent;
 
 #[derive(Component)]
 pub struct WaterPlane;
@@ -42,8 +38,7 @@ pub struct WaterPlugin;
 
 impl Plugin for WaterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<WaterUpdateEvent>()
-            .add_systems(Startup, setup_water)
+        app.add_systems(Startup, setup_water)
             .add_systems(Update, handle_water_update)
             .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default());
     }

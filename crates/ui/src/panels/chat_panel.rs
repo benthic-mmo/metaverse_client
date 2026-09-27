@@ -1,32 +1,45 @@
+use crate::core_plugin::ChatMessageEvent;
 use crate::errors::ChatError;
-use crate::plugin::{ChatMessages, Sockets, send_packet_to_core};
+use crate::plugin::{ChatMessage, Sockets, ViewerState, send_packet_to_core};
 use benthic_protocol::messages::ui::chat_from_viewer::ChatFromUI;
 use benthic_protocol::messages::ui::ui_messages::UIResponse;
 use benthic_protocol::messages::utils::chat_types::ChatType;
 use bevy::app::{App, Plugin};
 use bevy::ecs::error::Result;
+use bevy::ecs::message::MessageReader;
+use bevy::ecs::resource::Resource;
+use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
-use bevy::prelude::Resource;
-use bevy_egui::{EguiContexts, egui};
-
-#[derive(Default, Resource, Clone)]
-pub struct ChatMessage {
-    message: String,
-}
+use bevy::state::condition::in_state;
+use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 pub struct ChatPlugin;
+
+#[derive(Resource)]
+pub struct ChatMessages {
+    pub messages: Vec<ChatFromClientMessage>,
+}
+
+pub struct ChatFromClientMessage {
+    pub user: String,
+    pub message: String,
+}
 
 impl Plugin for ChatPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ChatMessages {
             messages: Vec::new(),
         })
-        .insert_resource(ChatMessage::default());
+        .insert_resource(ChatMessage::default())
+        .add_systems(
+            EguiPrimaryContextPass,
+            chat_panel.run_if(in_state(ViewerState::Main)),
+        );
     }
 }
 
-pub fn chat_screen(
+pub fn chat_panel(
     mut contexts: EguiContexts,
     mut chat_message: ResMut<ChatMessage>,
     sockets: Res<Sockets>,
@@ -82,6 +95,19 @@ pub fn chat_screen(
     }
     Ok(())
 }
+
+fn handle_chat_update(
+    mut events: MessageReader<ChatMessageEvent>,
+    mut chat_messages: ResMut<ChatMessages>,
+) {
+    for event in events.read() {
+        chat_messages.messages.push(ChatFromClientMessage {
+            user: event.value.from_name.clone(),
+            message: event.value.message.clone(),
+        });
+    }
+}
+
 fn send_chat(message: &str, sockets: Res<Sockets>) -> Result<(), ChatError> {
     let packet = UIResponse::new_chat_from_viewer(ChatFromUI {
         message: message.to_owned(),

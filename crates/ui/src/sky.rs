@@ -1,6 +1,5 @@
-use std::f32::consts::{FRAC_1_SQRT_2, PI};
-
-use benthic_protocol::messages::ui::skybox_update::SkyboxUpdate;
+use crate::core_plugin::SkyboxUpdateEvent;
+use crate::mesh::MainCamera;
 use bevy::core_pipeline::Skybox;
 use bevy::core_pipeline::prepass::DeferredPrepass;
 use bevy::core_pipeline::tonemapping::Tonemapping;
@@ -16,13 +15,7 @@ use bevy_post_process::auto_exposure::{
     AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
 };
 use bevy_post_process::bloom::Bloom;
-
-use crate::render::MainCamera;
-
-#[derive(Message)]
-pub struct SkyboxUpdateEvent {
-    pub value: SkyboxUpdate,
-}
+use std::f32::consts::{FRAC_1_SQRT_2, PI};
 
 #[derive(Component)]
 pub struct SunLight;
