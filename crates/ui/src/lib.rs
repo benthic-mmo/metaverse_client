@@ -1,12 +1,13 @@
 pub mod animation;
-pub mod chat;
+pub mod core_plugin;
 pub mod environment;
 pub mod errors;
 pub mod inspector;
 pub mod loading;
 pub mod login;
+pub mod mesh;
+pub mod panels;
 pub mod plugin;
-pub mod render;
 pub mod sky;
 pub mod subscriber;
 pub mod textures;

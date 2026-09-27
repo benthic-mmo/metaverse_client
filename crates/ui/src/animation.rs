@@ -1,6 +1,10 @@
-use crate::render::AgentID;
+use crate::core_plugin::AnimationEvent;
+use crate::mesh::AgentID;
+use bevy::app::{App, Plugin, Update};
+use bevy::asset::AssetServer;
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
+use bevy::ecs::message::MessageReader;
 use bevy::ecs::observer::On;
 use bevy::gltf::Gltf;
 use bevy::prelude::Res;
@@ -20,6 +24,17 @@ use bevy_world_serialization::WorldInstanceReady;
 use log::warn;
 use std::path::PathBuf;
 use uuid::Uuid;
+
+pub struct BenthicAnimationPlugin;
+impl Plugin for BenthicAnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, update_animations)
+            .add_systems(Update, handle_animation_update)
+            .insert_resource(AnimationQueue {
+                pending: HashMap::new(),
+            });
+    }
+}
 
 #[derive(Resource)]
 pub struct AnimationQueue {
@@ -55,6 +70,23 @@ pub fn scene_instance_ready(
                 player_entity, agent_id.id
             );
         }
+    }
+}
+
+pub fn handle_animation_update(
+    mut events: MessageReader<AnimationEvent>,
+    mut animation_queue: ResMut<AnimationQueue>,
+    asset_server: Res<AssetServer>,
+) {
+    for event in events.read() {
+        let gltf_handle: Handle<Gltf> = asset_server.load(event.value.animation_path.clone());
+        animation_queue.pending.insert(
+            event.value.player_id,
+            AnimationPath {
+                path_on_disk: event.value.animation_path.clone(),
+                gltf_handle,
+            },
+        );
     }
 }
 

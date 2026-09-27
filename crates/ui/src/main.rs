@@ -1,9 +1,8 @@
-use benthic_ui::chat::chat_screen;
 use benthic_ui::loading::loading_screen;
 use benthic_ui::login::login_screen;
+use benthic_ui::mesh::MainCamera;
 use benthic_ui::plugin::MetaversePlugin;
 use benthic_ui::plugin::ViewerState;
-use benthic_ui::render::MainCamera;
 use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
@@ -33,6 +32,7 @@ fn main() {
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup_camera)
         .add_plugins(EguiPlugin::default())
+        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(MetaversePlugin)
         .add_systems(
             EguiPrimaryContextPass,
@@ -41,10 +41,6 @@ fn main() {
         .add_systems(
             EguiPrimaryContextPass,
             loading_screen.run_if(in_state(ViewerState::Loading)),
-        )
-        .add_systems(
-            EguiPrimaryContextPass,
-            chat_screen.run_if(in_state(ViewerState::Chat)),
         )
         .run();
 }

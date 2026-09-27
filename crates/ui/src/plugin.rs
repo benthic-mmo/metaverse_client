@@ -1,34 +1,21 @@
-use crate::animation::{AnimationPath, AnimationQueue, scene_instance_ready, update_animations};
-use crate::chat::ChatPlugin;
-use crate::environment::{LandPlugin, LandUpdateEvent};
+use crate::animation::{BenthicAnimationPlugin, scene_instance_ready};
+use crate::core_plugin::{CorePlugin, DisableSimulatorEvent, LoginResponseEvent};
+use crate::environment::LandPlugin;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::login;
-use crate::render::{
-    AgentIDMap, MeshQueue, MeshUpdateEvent, SceneIDMap, follow_gltf_with_offset,
-    handle_camera_update, handle_mesh_update, render_land, render_meshes,
-};
-use crate::sky::SkyboxUpdateEvent;
+use crate::mesh::BenthicMeshPlugin;
+use crate::panels::chat_panel::ChatPlugin;
 use crate::subscriber::listen_for_core_events;
-use crate::water::{WaterPlugin, WaterUpdateEvent};
+use crate::water::WaterPlugin;
 use actix_rt::System;
 use benthic_protocol::messages::ui::agent_update::AgentUpdate;
-use benthic_protocol::messages::ui::camera_position::CameraPosition;
-use benthic_protocol::messages::ui::coarse_location_update::CoarseLocationUpdate;
-use benthic_protocol::messages::ui::errors::SessionError;
-use benthic_protocol::messages::ui::login_error::LoginError;
 use benthic_protocol::messages::ui::login_response::LoginResponse;
-use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::{UIMessage, UIResponse};
 use benthic_protocol::session::initialize_share_dir;
-use bevy::animation::AnimatedBy;
 use bevy::app::App;
-use bevy::camera::visibility::DynamicSkinnedMeshBounds;
-use bevy::mesh::skinning::SkinnedMesh;
-use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
-use bevy_gltf::{Gltf, GltfMaterialName, GltfMeshName, GltfSceneName};
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use metaverse_core::initialize::initialize;
@@ -37,6 +24,20 @@ use std::net::UdpSocket;
 use std::path::PathBuf;
 
 pub const VIEWER_NAME: &str = "benthic";
+
+#[derive(Default, Resource, Clone)]
+pub struct ChatMessage {
+    pub message: String,
+}
+
+#[derive(Resource)]
+pub struct AgentUpdateTimer(Timer);
+
+#[derive(Resource)]
+pub struct ShareDir {
+    pub _path: PathBuf,
+    pub login_cred_path: PathBuf,
+}
 
 #[derive(Resource)]
 pub struct SessionData {
@@ -49,7 +50,7 @@ pub enum ViewerState {
     #[default]
     Login,
     Loading,
-    Chat,
+    Main,
 }
 
 #[derive(Resource)]
@@ -59,52 +60,10 @@ pub struct Sockets {
 }
 
 #[derive(Resource)]
-struct EventChannel {
+pub struct EventChannel {
     pub sender: Sender<UIMessage>,
     pub receiver: Receiver<UIMessage>,
 }
-
-#[derive(Resource)]
-pub struct ChatMessages {
-    pub messages: Vec<ChatFromClientMessage>,
-}
-
-#[derive(Resource)]
-pub struct ShareDir {
-    pub _path: PathBuf,
-    pub login_cred_path: PathBuf,
-}
-
-pub struct ChatFromClientMessage {
-    pub user: String,
-    pub message: String,
-}
-
-#[derive(Message)]
-pub struct LoginResponseEvent {
-    pub value: Result<LoginResponse, LoginError>,
-}
-
-#[derive(Message)]
-pub struct CameraUpdateEvent {
-    pub value: CameraPosition,
-}
-
-#[derive(Message, Clone)]
-pub struct PlayAnimationEvent {
-    pub value: PlayAnimation,
-}
-
-#[derive(Message)]
-pub struct CoarseLocationUpdateEvent {
-    pub _value: CoarseLocationUpdate,
-}
-
-#[derive(Resource)]
-pub struct AgentUpdateTimer(Timer);
-
-#[derive(Message)]
-struct DisableSimulatorEvent;
 
 #[derive(Message)]
 struct LogoutRequestEvent;
@@ -142,11 +101,14 @@ impl Plugin for MetaversePlugin {
         };
 
         app.init_state::<ViewerState>()
+            .add_plugins(CorePlugin)
             .add_plugins(WaterPlugin)
+            .add_plugins(ChatPlugin)
             //.add_plugins(SkyPlugin)
             .add_plugins(LandPlugin)
-            .add_plugins(ChatPlugin)
-            .insert_resource(ClearColor(Color::BLACK))
+            .add_plugins(BenthicMeshPlugin)
+            .add_plugins(BenthicAnimationPlugin)
+            .insert_resource(login_data)
             .insert_resource(SessionData {
                 login_response: None,
                 avatar_location: Vec3::ZERO,
@@ -155,7 +117,6 @@ impl Plugin for MetaversePlugin {
                 ui_to_core_socket,
                 core_to_ui_socket,
             })
-            .insert_resource(login_data)
             .insert_resource(EventChannel {
                 sender: s1,
                 receiver: r1,
@@ -164,59 +125,17 @@ impl Plugin for MetaversePlugin {
                 _path: local_share_dir,
                 login_cred_path,
             })
-            .insert_resource(AgentIDMap {
-                entities: HashMap::new(),
-            })
-            .insert_resource(SceneIDMap {
-                entities: HashMap::new(),
-            })
-            .insert_resource(AnimationQueue {
-                pending: HashMap::new(),
-            })
-            .insert_resource(MeshQueue { pending: vec![] })
-            .add_message::<LoginResponseEvent>()
-            .add_message::<CameraUpdateEvent>()
-            .add_message::<CoarseLocationUpdateEvent>()
-            .add_message::<MeshUpdateEvent>()
-            .add_message::<LandUpdateEvent>()
-            .add_message::<DisableSimulatorEvent>()
             .add_message::<LogoutRequestEvent>()
-            .add_message::<SkyboxUpdateEvent>()
-            .register_type::<GltfSceneName>()
-            .register_type::<Transform>()
-            .register_type::<GlobalTransform>()
-            .register_type::<TransformTreeChanged>()
-            .register_type::<Children>()
-            .register_type::<Visibility>()
-            .register_type::<ChildOf>()
-            .register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<AnimationPlayer>()
-            .register_type::<Name>()
-            .register_type::<Mesh3d>()
-            .register_type::<bevy::camera::primitives::Aabb>()
-            .register_type::<SkinnedMesh>()
-            .register_type::<GltfMeshName>()
-            .register_type::<GltfMaterialName>()
-            .register_type::<AnimatedBy>()
-            .register_type::<DynamicSkinnedMeshBounds>()
             .add_systems(Startup, start_listener)
             .add_systems(Startup, setup_timers)
             .add_systems(Startup, start_core)
             .add_systems(Update, handle_window_close)
             .add_systems(Update, handle_logout)
-            .add_systems(Update, handle_queue)
             .add_systems(Update, handle_login_response)
             .add_systems(Update, handle_disconnect)
-            .add_systems(Update, handle_mesh_update)
-            .add_systems(Update, update_animations)
-            .add_systems(Update, handle_camera_update)
-            .add_systems(Update, follow_gltf_with_offset)
-            .add_systems(Update, render_land)
-            .add_systems(Update, render_meshes)
             .add_systems(
                 Update,
-                send_agent_update.run_if(in_state(ViewerState::Chat)),
+                send_agent_update.run_if(in_state(ViewerState::Main)),
             )
             .add_observer(scene_instance_ready);
     }
@@ -230,7 +149,7 @@ pub fn handle_login_response(
     for response in ev_loginresponse.read() {
         match response.value.as_ref() {
             Ok(login_response) => {
-                viewer_state.set(ViewerState::Chat);
+                viewer_state.set(ViewerState::Main);
                 session_data.login_response = Some(login_response.clone());
             }
             Err(_) => viewer_state.set(ViewerState::Login),
@@ -252,7 +171,7 @@ fn handle_window_close(
 ) {
     for _ in events.read() {
         info!("Window close requested. Exiting...");
-        if *viewer_state == ViewerState::Chat {
+        if *viewer_state == ViewerState::Main {
             info!("Sending Logout");
             logout.write(LogoutRequestEvent);
         }
@@ -273,104 +192,6 @@ fn handle_disconnect(
 ) {
     for _ in ev_disable_simulator.read() {
         viewer_state.set(ViewerState::Login);
-    }
-}
-
-// Handle all of the core events that are received from the listener.
-#[allow(clippy::all)]
-fn handle_queue(
-    event_channel: Res<EventChannel>,
-    mut ev_loginresponse: MessageWriter<LoginResponseEvent>,
-    mut ev_coarselocationupdate: MessageWriter<CoarseLocationUpdateEvent>,
-    mut ev_disable_simulator: MessageWriter<DisableSimulatorEvent>,
-    mut ev_mesh_update: MessageWriter<MeshUpdateEvent>,
-    mut ev_land_update: MessageWriter<LandUpdateEvent>,
-    mut ev_camera_update: MessageWriter<CameraUpdateEvent>,
-    mut ev_water_update: MessageWriter<WaterUpdateEvent>,
-    mut ev_skybox_update: MessageWriter<SkyboxUpdateEvent>,
-    mut chat_messages: ResMut<ChatMessages>,
-    mut animation_queue: ResMut<AnimationQueue>,
-    asset_server: Res<AssetServer>,
-) {
-    // Check for events in the channel
-    let receiver = event_channel.receiver.clone();
-    while let Ok(event) = receiver.try_recv() {
-        match event {
-            UIMessage::LandUpdate(land_update) => {
-                ev_land_update.write(LandUpdateEvent { value: land_update });
-            }
-            UIMessage::LoginResponse(login_response) => {
-                ev_loginresponse.write(LoginResponseEvent {
-                    value: Ok(login_response),
-                });
-            }
-            UIMessage::MeshUpdate(mesh_update) => {
-                ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
-            }
-            UIMessage::PlayAnimation(play_animation) => {
-                let gltf_handle: Handle<Gltf> =
-                    asset_server.load(play_animation.animation_path.clone());
-                animation_queue.pending.insert(
-                    play_animation.player_id,
-                    AnimationPath {
-                        path_on_disk: play_animation.animation_path.clone(),
-                        gltf_handle,
-                    },
-                );
-            }
-            UIMessage::CoarseLocationUpdate(coarse_location_update) => {
-                ev_coarselocationupdate.write(CoarseLocationUpdateEvent {
-                    _value: coarse_location_update,
-                });
-            }
-            UIMessage::ChatFromSimulator(chat_from_simulator) => {
-                chat_messages.messages.push(ChatFromClientMessage {
-                    user: chat_from_simulator.from_name,
-                    message: chat_from_simulator.message,
-                });
-            }
-            UIMessage::DisableSimulator(_) => {
-                ev_disable_simulator.write(DisableSimulatorEvent {});
-            }
-            UIMessage::CameraPosition(data) => {
-                ev_camera_update.write(CameraUpdateEvent { value: data });
-            }
-            UIMessage::WaterUpdate(data) => {
-                ev_water_update.write(WaterUpdateEvent { value: data });
-            }
-            UIMessage::SkyboxUpdate(data) => {
-                ev_skybox_update.write(SkyboxUpdateEvent { value: data });
-            }
-            UIMessage::Error(error) => match error {
-                SessionError::Login(e) => {
-                    ev_loginresponse.write(LoginResponseEvent {
-                        value: Err(e.clone()),
-                    });
-                    error!("{:?}", e)
-                }
-                SessionError::MailboxSession(e) => {
-                    info!("MailboxError {:?}", e)
-                }
-                SessionError::AckError(e) => {
-                    info!("AckError {:?}", e)
-                }
-                SessionError::CircuitCode(e) => {
-                    info!("CircuitcodeError {:?}", e)
-                }
-                SessionError::CompleteAgentMovement(e) => {
-                    info!("CompleteAgentMovmentError {:?}", e)
-                }
-                SessionError::Capability(e) => {
-                    info!("CapabilityError {:?}", e)
-                }
-                SessionError::IOError(e) => {
-                    info!("IOError {:?}", e)
-                }
-                SessionError::FeatureError(e) => {
-                    info!("FeatureError {:?}", e)
-                }
-            },
-        };
     }
 }
 

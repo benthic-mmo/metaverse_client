@@ -1,14 +1,53 @@
-use crate::plugin::{CameraUpdateEvent, SessionData};
-use benthic_protocol::messages::ui::land_update::LandUpdate;
-use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
+use crate::core_plugin::{CameraUpdateEvent, MeshUpdateEvent};
+use crate::plugin::SessionData;
+use benthic_protocol::messages::ui::mesh_update::MeshType;
+use bevy::animation::AnimatedBy;
+use bevy::camera::visibility::DynamicSkinnedMeshBounds;
+use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy_gltf::{Gltf, GltfAssetLabel};
+use bevy_gltf::{Gltf, GltfAssetLabel, GltfMaterialName, GltfMeshName, GltfSceneName};
 use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_world_serialization::WorldAssetRoot;
 
 use std::path::PathBuf;
 use uuid::Uuid;
+
+pub struct BenthicMeshPlugin;
+impl Plugin for BenthicMeshPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(AgentIDMap {
+            entities: HashMap::new(),
+        })
+        .insert_resource(MeshQueue { pending: vec![] })
+        .insert_resource(SceneIDMap {
+            entities: HashMap::new(),
+        })
+        .register_type::<GltfSceneName>()
+        .register_type::<Transform>()
+        .register_type::<GlobalTransform>()
+        .register_type::<TransformTreeChanged>()
+        .register_type::<Children>()
+        .register_type::<Visibility>()
+        .register_type::<ChildOf>()
+        .register_type::<InheritedVisibility>()
+        .register_type::<ViewVisibility>()
+        .register_type::<AnimationPlayer>()
+        .register_type::<Name>()
+        .register_type::<Mesh3d>()
+        .register_type::<bevy::camera::primitives::Aabb>()
+        .register_type::<SkinnedMesh>()
+        .register_type::<GltfMeshName>()
+        .register_type::<GltfMaterialName>()
+        .register_type::<AnimatedBy>()
+        .register_type::<DynamicSkinnedMeshBounds>()
+        .add_systems(Update, handle_camera_update)
+        .add_systems(Update, follow_gltf_with_offset)
+        .add_systems(Update, render_land)
+        .add_systems(Update, render_meshes)
+        .add_systems(Update, handle_mesh_update);
+    }
+}
 
 #[derive(Component)]
 pub struct WaterPlane;
@@ -27,16 +66,6 @@ pub struct AgentEntity {
     pub entity: Entity,
     pub animation: Option<PathBuf>,
     pub skeleton: Entity,
-}
-
-#[derive(Message)]
-pub struct MeshUpdateEvent {
-    pub value: MeshUpdate,
-}
-
-#[derive(Message)]
-pub struct LandUpdateEvent {
-    pub value: LandUpdate,
 }
 
 pub enum RenderableHandle {
