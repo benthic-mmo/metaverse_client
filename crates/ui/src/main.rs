@@ -18,7 +18,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
-                    file_path: "assets".into(),
+                    file_path: format!("{}/assets", env!("CARGO_MANIFEST_DIR")),
                     unapproved_path_mode: UnapprovedPathMode::Allow,
                     mode: AssetMode::Unprocessed,
                     ..default()

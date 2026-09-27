@@ -1,22 +1,37 @@
-use metaverse_inventory::agent::get_current_outfit;
-use metaverse_inventory::initialize_sqlite::init_sqlite;
-use metaverse_inventory::{errors::InventoryError, inventory_root::refresh_inventory_2};
+use httpmock::{Method::POST, MockServer};
 use metaverse_messages::http::folder_request::FolderRequest;
-use rusqlite::Connection;
-use rusqlite::types::Value;
+use metaverse_store::{
+    errors::InventoryError,
+    initialize_sqlite::{Inventory, init_sqlite},
+};
+use sqlx::Row;
 use std::{fs::File, io::Read};
 use tempfile::TempDir;
 use tokio::task::LocalSet;
 
-use httpmock::{Method::POST, MockServer};
+fn folder_request() -> FolderRequest {
+    FolderRequest {
+        folder_id: Default::default(),
+        owner_id: Default::default(),
+        fetch_items: true,
+        fetch_folders: true,
+        sort_order: 0,
+    }
+}
 
-#[tokio::test(flavor = "current_thread")]
-async fn test_refresh_inventory_no_categories() {
-    let _ = MockServer::start();
+async fn create_test_inventory() -> (TempDir, Inventory) {
+    let temp_dir = TempDir::new().unwrap();
+    let db_path = temp_dir.path().join("inventory.db");
 
+    let pool = init_sqlite(db_path).await.unwrap();
+
+    (temp_dir, Inventory::new(pool))
+}
+
+async fn mock_inventory_server(file_path: &str) -> MockServer {
     let server = MockServer::start();
 
-    let mut file = File::open("tests/data/folder_data_3.txt").unwrap();
+    let mut file = File::open(file_path).unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
 
@@ -24,108 +39,98 @@ async fn test_refresh_inventory_no_categories() {
         when.method(POST)
             .path("/inventory")
             .header("Content-Type", "application/llsd+xml");
+
         then.status(200).body(buffer);
     });
 
-    let folder_request = FolderRequest {
-        folder_id: Default::default(),
-        owner_id: Default::default(),
-        fetch_items: true,
-        fetch_folders: true,
-        sort_order: 0,
-    };
+    server
+}
 
-    let server_endpoint = format!("{}{}", server.url("/inventory"), "");
-    let temp_file = TempDir::new().unwrap();
-    let path = temp_file.path();
-    let mut conn = init_sqlite(path.into()).unwrap();
-
+#[tokio::test(flavor = "current_thread")]
+async fn test_refresh_inventory_no_categories() {
     let local_set = LocalSet::new();
+
     local_set
         .run_until(async {
-            let result = refresh_inventory_2(&mut conn, folder_request, server_endpoint).await;
-            println!("refresh inventory result {:?}", result);
-            print_tables(&conn);
+            let server = mock_inventory_server("tests/data/folder_data_3.txt").await;
+
+            let (_temp_dir, inventory) = create_test_inventory().await;
+
+            let result = inventory
+                .refresh(folder_request(), server.url("/inventory"))
+                .await;
+
+            println!("refresh inventory result: {:?}", result);
+
+            print_tables(&inventory.db).await;
         })
         .await;
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn test_refresh_inventory_categories() {
-    let _ = MockServer::start();
-
-    let server = MockServer::start();
-
-    let mut file = File::open("tests/data/folder_data_4.txt").unwrap();
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).unwrap();
-
-    server.mock(|when, then| {
-        when.method(POST)
-            .path("/inventory")
-            .header("Content-Type", "application/llsd+xml");
-        then.status(200).body(buffer);
-    });
-
-    let folder_request = FolderRequest {
-        folder_id: Default::default(),
-        owner_id: Default::default(),
-        fetch_items: true,
-        fetch_folders: true,
-        sort_order: 0,
-    };
-
-    let server_endpoint = format!("{}{}", server.url("/inventory"), "");
-    let temp_file = TempDir::new().unwrap();
-    let path = temp_file.path();
-    let mut conn = init_sqlite(path.into()).unwrap();
-
     let local_set = LocalSet::new();
+
     local_set
         .run_until(async {
-            let result = refresh_inventory_2(&mut conn, folder_request, server_endpoint).await;
-            println!("refresh inventory result {:?}", result);
+            let server = mock_inventory_server("tests/data/folder_data_4.txt").await;
 
-            let outfit = get_current_outfit(&conn);
+            let (_temp_dir, inventory) = create_test_inventory().await;
+
+            let result = inventory
+                .refresh(folder_request(), server.url("/inventory"))
+                .await;
+
+            println!("refresh inventory result: {:?}", result);
+
+            let outfit = inventory.get_current_outfit().await;
 
             println!("outfit: {:?}", outfit);
-            print_tables(&conn);
+
+            print_tables(&inventory.db).await;
         })
         .await;
 }
 
-fn print_tables(conn: &Connection) {
+async fn print_tables(pool: &sqlx::SqlitePool) {
     println!("____FOLDERS _______________");
-    print_table(&conn, "folders").unwrap();
+    print_table(pool, "folders").await.unwrap();
 
-    println!("____CATEGORIES _______________");
-    print_table(&conn, "categories").unwrap();
+    println!("____CATEGORIES ____________");
+    print_table(pool, "categories").await.unwrap();
 
-    println!("____ITEMS __________________");
-    print_table(&conn, "items").unwrap();
-
-    println!("____PERMISSIONS _____________");
-    print_table(&conn, "permissions").unwrap();
-
-    println!("____SALEINFO _____________");
-    print_table(&conn, "sale_info").unwrap();
+    println!("____ITEMS _________________");
+    print_table(pool, "items").await.unwrap();
 }
 
-fn print_table(conn: &Connection, table: &str) -> Result<(), InventoryError> {
-    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table))?;
-    let column_count = stmt.column_count();
+async fn print_table(pool: &sqlx::SqlitePool, table: &str) -> Result<(), InventoryError> {
+    let rows = match table {
+        "folders" => sqlx::query("SELECT * FROM folders").fetch_all(pool).await?,
 
-    let rows = stmt.query_map([], |row| {
-        let mut values = Vec::with_capacity(column_count);
-        for i in 0..column_count {
-            let val: Value = row.get(i)?;
-            values.push(format!("{val:?}"));
+        "categories" => {
+            sqlx::query("SELECT * FROM categories")
+                .fetch_all(pool)
+                .await?
         }
-        Ok(values.join(" | "))
-    })?;
 
-    for r in rows {
-        println!("{}", r?);
+        "items" => sqlx::query("SELECT * FROM items").fetch_all(pool).await?,
+
+        _ => return Err(InventoryError::Error("Unknown table".into())),
+    };
+
+    for row in rows {
+        let mut values = Vec::with_capacity(row.len());
+
+        for i in 0..row.len() {
+            let value: Result<String, _> = row.try_get(i);
+
+            values.push(match value {
+                Ok(value) => value,
+                Err(_) => "<non-string>".to_string(),
+            });
+        }
+
+        println!("{}", values.join(" | "));
     }
 
     Ok(())

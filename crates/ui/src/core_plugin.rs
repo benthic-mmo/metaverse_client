@@ -7,6 +7,7 @@ use benthic_protocol::messages::ui::login_error::LoginError;
 use benthic_protocol::messages::ui::login_response::LoginResponse;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
+use benthic_protocol::messages::ui::populate_inventory::PopulateInventory;
 use benthic_protocol::messages::ui::skybox_update::SkyboxUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::messages::ui::water_update::WaterUpdate;
@@ -66,6 +67,11 @@ pub struct LandUpdateEvent {
 }
 
 #[derive(Message)]
+pub struct InventoryPopulateEvent {
+    pub value: PopulateInventory,
+}
+
+#[derive(Message)]
 pub struct DisableSimulatorEvent;
 
 pub struct CorePlugin;
@@ -81,6 +87,7 @@ impl Plugin for CorePlugin {
             .add_message::<LandUpdateEvent>()
             .add_message::<ChatMessageEvent>()
             .add_message::<AnimationEvent>()
+            .add_message::<InventoryPopulateEvent>()
             .add_systems(Update, handle_queue);
     }
 }
@@ -99,6 +106,7 @@ fn handle_queue(
     mut ev_skybox_update: MessageWriter<SkyboxUpdateEvent>,
     mut ev_chat_update: MessageWriter<ChatMessageEvent>,
     mut ev_animation_update: MessageWriter<AnimationEvent>,
+    mut ev_inventory_update: MessageWriter<InventoryPopulateEvent>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
@@ -141,6 +149,9 @@ fn handle_queue(
             }
             UIMessage::SkyboxUpdate(data) => {
                 ev_skybox_update.write(SkyboxUpdateEvent { value: data });
+            }
+            UIMessage::PopulateInventory(data) => {
+                ev_inventory_update.write(InventoryPopulateEvent { value: data });
             }
             UIMessage::Error(error) => match error {
                 SessionError::Login(e) => {

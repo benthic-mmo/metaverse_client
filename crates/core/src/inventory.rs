@@ -1,5 +1,8 @@
+use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use log::error;
 use std::time::Duration;
+
+use crate::session::SendUIMessage;
 
 use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
@@ -17,10 +20,29 @@ use uuid::Uuid;
 pub struct InventoryInit;
 impl Handler<InventoryInit> for Mailbox {
     type Result = ();
-    fn handle(&mut self, _: InventoryInit, _: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &mut self.session {
-            session.inventory_data.inventory_init = true;
-        }
+    fn handle(&mut self, _: InventoryInit, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        session.inventory_data.inventory_init = true;
+        let addr = ctx.address().clone();
+        let inventory = session.inventory.clone();
+        ctx.spawn(
+            async move {
+                for folder in match inventory.fetch_inventory().await {
+                    Ok(folders) => folders,
+                    Err(e) => {
+                        error!("InventoryInit {:}", e);
+                        return;
+                    }
+                } {
+                    addr.do_send(SendUIMessage {
+                        ui_message: UIMessage::PopulateInventory(folder),
+                    });
+                }
+            }
+            .into_actor(self),
+        );
     }
 }
 
@@ -40,7 +62,6 @@ pub struct RefreshInventoryEvent {
     /// The agent ID for the inventory refresh. Determines which endpoint to use.
     pub agent_id: Uuid,
 }
-
 #[cfg(feature = "inventory")]
 impl Handler<RefreshInventoryEvent> for Mailbox {
     type Result = ();

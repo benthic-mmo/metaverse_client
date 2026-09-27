@@ -6,7 +6,8 @@ use crate::messages::{
         coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator,
         errors::SessionError, land_update::LandUpdate, login_event::Login,
         login_response::LoginResponse, logout::Logout, mesh_update::MeshUpdate,
-        play_animation::PlayAnimation, skybox_update::SkyboxUpdate, water_update::WaterUpdate,
+        play_animation::PlayAnimation, populate_inventory::PopulateInventory,
+        skybox_update::SkyboxUpdate, water_update::WaterUpdate,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -67,6 +68,8 @@ pub enum UIMessage {
     CameraPosition(CameraPosition),
     /// message for informing the UI of an animation that is currently playing
     PlayAnimation(PlayAnimation),
+
+    PopulateInventory(PopulateInventory),
 }
 
 impl UIMessage {
