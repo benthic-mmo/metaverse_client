@@ -1,2 +1,2 @@
 pub mod agent;
-pub mod inventory_root;
+pub mod inventory_init;
