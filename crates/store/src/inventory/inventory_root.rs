@@ -1,4 +1,5 @@
 use crate::errors::InventoryError;
+use crate::initialize_sqlite::Inventory;
 use log::{info, warn};
 use metaverse_messages::http::folder_request::FolderRequest;
 use metaverse_messages::http::folder_types::{Category, Folder};
@@ -9,105 +10,107 @@ use sqlx::{Row, SqlitePool};
 use std::time::SystemTime;
 use uuid::Uuid;
 
-pub async fn refresh_inventory(
-    pool: &SqlitePool,
-    folder_request: FolderRequest,
-    server_endpoint: String,
-) -> Result<(), InventoryError> {
-    use awc::Client;
-    use std::collections::HashSet;
-
-    async fn refresh_recursive(
-        pool: &SqlitePool,
+impl Inventory {
+    pub async fn refresh(
+        &self,
         folder_request: FolderRequest,
-        server_endpoint: &str,
-        visited: &mut HashSet<Uuid>,
+        server_endpoint: String,
     ) -> Result<(), InventoryError> {
-        let client = Client::default();
-        let url = server_endpoint.to_string();
+        use awc::Client;
+        use std::collections::HashSet;
 
-        let mut response = client
-            .post(url)
-            .insert_header(("Content-Type", "application/llsd+xml"))
-            .send_body(folder_request.to_llsd()?)
-            .await?;
+        async fn refresh_recursive(
+            pool: &SqlitePool,
+            folder_request: FolderRequest,
+            server_endpoint: &str,
+            visited: &mut HashSet<Uuid>,
+        ) -> Result<(), InventoryError> {
+            let client = Client::default();
+            let url = server_endpoint.to_string();
 
-        let body_bytes = response.body().await?;
-        let data = String::from_utf8_lossy(&body_bytes);
-
-        if data.is_empty() || data == "<llsd><map><key>folders</key><array /></map></llsd>" {
-            return Err(InventoryError::Error("Empty endpoint response".to_string()));
-        }
-
-        let parsed_data = from_str(&data)?;
-        let folders = Folder::from_llsd(parsed_data)?;
-
-        for folder in folders {
-            if !visited.insert(folder.folder_id) {
-                continue;
-            }
-
-            let needs_refresh = match check_folder_version(pool, folder.folder_id).await {
-                Ok(Some((db_version, fully_downloaded))) => {
-                    if db_version != folder.version {
-                        info!(
-                            "Folder version mismatch for {} (db={}, remote={})",
-                            folder.folder_id, db_version, folder.version
-                        );
-
-                        delete_folder(pool, folder.folder_id).await?;
-                        true
-                    } else if !fully_downloaded {
-                        info!(
-                            "Folder {} was not fully downloaded, refreshing.",
-                            folder.folder_id
-                        );
-
-                        true
-                    } else {
-                        false
-                    }
-                }
-                // if it is not present, then it needs refresh
-                Ok(None) => true,
-                // if the lookup failed, it needs refresh
-                Err(e) => {
-                    warn!("Folder Version Lookup Failed: {:?}", e);
-                    true
-                }
-            };
-
-            if !needs_refresh {
-                continue;
-            }
-
-            insert_folder(pool, &folder).await?;
-            insert_items(pool, &folder.folder_id, &folder.items).await?;
-            insert_categories(pool, &folder.folder_id, &folder.categories).await?;
-
-            for category in &folder.categories {
-                let category_request = FolderRequest {
-                    folder_id: category.category_id,
-                    owner_id: folder.owner_id,
-                    fetch_items: true,
-                    fetch_folders: true,
-                    sort_order: 0,
-                };
-                Box::pin(refresh_recursive(
-                    pool,
-                    category_request,
-                    server_endpoint,
-                    visited,
-                ))
+            let mut response = client
+                .post(url)
+                .insert_header(("Content-Type", "application/llsd+xml"))
+                .send_body(folder_request.to_llsd()?)
                 .await?;
-            }
-            mark_folder_downloaded(pool, folder.folder_id).await?;
-        }
-        Ok(())
-    }
 
-    let mut visited = HashSet::new();
-    refresh_recursive(pool, folder_request, &server_endpoint, &mut visited).await
+            let body_bytes = response.body().await?;
+            let data = String::from_utf8_lossy(&body_bytes);
+
+            if data.is_empty() || data == "<llsd><map><key>folders</key><array /></map></llsd>" {
+                return Err(InventoryError::Error("Empty endpoint response".to_string()));
+            }
+
+            let parsed_data = from_str(&data)?;
+            let folders = Folder::from_llsd(parsed_data)?;
+
+            for folder in folders {
+                if !visited.insert(folder.folder_id) {
+                    continue;
+                }
+
+                let needs_refresh = match check_folder_version(pool, folder.folder_id).await {
+                    Ok(Some((db_version, fully_downloaded))) => {
+                        if db_version != folder.version {
+                            info!(
+                                "Folder version mismatch for {} (db={}, remote={})",
+                                folder.folder_id, db_version, folder.version
+                            );
+
+                            delete_folder(pool, folder.folder_id).await?;
+                            true
+                        } else if !fully_downloaded {
+                            info!(
+                                "Folder {} was not fully downloaded, refreshing.",
+                                folder.folder_id
+                            );
+
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    // if it is not present, then it needs refresh
+                    Ok(None) => true,
+                    // if the lookup failed, it needs refresh
+                    Err(e) => {
+                        warn!("Folder Version Lookup Failed: {:?}", e);
+                        true
+                    }
+                };
+
+                if !needs_refresh {
+                    continue;
+                }
+
+                insert_folder(pool, &folder).await?;
+                insert_items(pool, &folder.folder_id, &folder.items).await?;
+                insert_categories(pool, &folder.folder_id, &folder.categories).await?;
+
+                for category in &folder.categories {
+                    let category_request = FolderRequest {
+                        folder_id: category.category_id,
+                        owner_id: folder.owner_id,
+                        fetch_items: true,
+                        fetch_folders: true,
+                        sort_order: 0,
+                    };
+                    Box::pin(refresh_recursive(
+                        pool,
+                        category_request,
+                        server_endpoint,
+                        visited,
+                    ))
+                    .await?;
+                }
+                mark_folder_downloaded(pool, folder.folder_id).await?;
+            }
+            Ok(())
+        }
+
+        let mut visited = HashSet::new();
+        refresh_recursive(&self.db, folder_request, &server_endpoint, &mut visited).await
+    }
 }
 
 pub async fn check_folder_version(

@@ -1,12 +1,46 @@
 use crate::errors::InventoryError;
 use sqlx::migrate::Migrator;
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     SqlitePool,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use std::{path::PathBuf, str::FromStr};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
+
+#[derive(Debug, Clone)]
+pub struct Inventory {
+    pub db: SqlitePool,
+}
+impl Inventory {
+    pub fn new(db: SqlitePool) -> Self {
+        Inventory { db }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Cache {
+    pub avatar: AvatarCache,
+    pub object: ObjectCache,
+}
+impl Cache {
+    pub fn new(db: SqlitePool) -> Self {
+        Cache {
+            avatar: AvatarCache { db: db.clone() },
+            object: ObjectCache { db: db.clone() },
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AvatarCache {
+    pub db: SqlitePool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ObjectCache {
+    pub db: SqlitePool,
+}
 
 pub async fn init_sqlite(path: PathBuf) -> Result<SqlitePool, InventoryError> {
     if let Some(parent) = path.parent() {
@@ -26,4 +60,3 @@ pub async fn init_sqlite(path: PathBuf) -> Result<SqlitePool, InventoryError> {
 
     Ok(pool)
 }
-

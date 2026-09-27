@@ -6,9 +6,6 @@ use benthic_protocol::{
 };
 use log::{info, warn};
 use metaverse_avatar::avatar::Avatar;
-use metaverse_cache::object_update::{
-    sqlite_check_cache, sqlite_get_parent, sqlite_insert_object_update,
-};
 use metaverse_messages::{
     udp::object::{
         object_update::{AttachItem, ExtraParams},
@@ -17,7 +14,7 @@ use metaverse_messages::{
     },
     utils::{object_types::ObjectType, texture_entry::TextureEntry},
 };
-use sqlx::{Pool, Sqlite};
+use metaverse_store::initialize_sqlite::Cache;
 use uuid::Uuid;
 
 use crate::errors::ObjectUpdateError;
@@ -69,12 +66,16 @@ pub enum ObjectUpdateAction {
 
 pub async fn object_update_cached(
     objects: Vec<CachedObjectData>,
-    db_pool: &Pool<Sqlite>,
+    cache: Cache,
     region_id: String,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let mut cache_results = Vec::new();
     for object in objects {
-        match sqlite_check_cache(db_pool, object.id, object.crc, region_id.clone()).await {
+        match cache
+            .object
+            .check_cache(object.id, object.crc, region_id.clone())
+            .await
+        {
             Ok((asset_id, json_path, glb, generator_object)) => {
                 let base_dir = create_sub_object_dir(&asset_id.to_string())?;
                 if let Some(mesh_path) = glb {
@@ -114,12 +115,12 @@ pub async fn object_update_cached(
 }
 
 pub async fn object_update(
-    db_conn: &Pool<Sqlite>,
+    cache: Cache,
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-    sqlite_insert_object_update(db_conn, object.clone()).await?;
+    cache.object.update(object.clone()).await?;
     let actions = match object.object_type {
-        ObjectType::Prim => handle_prim(object, db_conn).await?,
+        ObjectType::Prim => handle_prim(object, cache).await?,
         ObjectType::Tree => handle_tree(object)?,
         ObjectType::Grass => handle_grass(object)?,
         ObjectType::Unknown => handle_unknown(object)?,
@@ -135,12 +136,12 @@ pub async fn object_update(
 
 async fn handle_prim(
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
-    db_conn: &Pool<Sqlite>,
+    cache: Cache,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     if let Some(name) = object.name_value.as_ref()
         && let Ok(attachment) = AttachItem::parse_attach_item(name)
     {
-        return handle_attachment(attachment, object, db_conn).await;
+        return handle_attachment(attachment, object, cache).await;
     }
     let mut actions: Vec<ObjectUpdateAction> = Vec::new();
     if let Some(extra_params) = &object.extra_params {
@@ -167,7 +168,7 @@ async fn handle_prim(
 pub async fn handle_attachment(
     _attachment: AttachItem,
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
-    db_conn: &Pool<Sqlite>,
+    cache: Cache,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let actions: Vec<ObjectUpdateAction> = Vec::new();
     let mut current_id = match object.parent_id {
@@ -182,7 +183,7 @@ pub async fn handle_attachment(
             break;
         }
 
-        let parent = match sqlite_get_parent(db_conn, current_id).await {
+        let parent = match cache.object.get_parent(current_id).await {
             Ok(p) => p,
             Err(_) => return Ok(actions),
         };

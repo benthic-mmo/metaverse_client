@@ -8,12 +8,9 @@ use benthic_protocol::{
 use glam::{Vec3, Vec4};
 use log::{info, warn};
 use metaverse_avatar::skeleton::create_skeleton;
-use metaverse_cache::object_update::{
-    sqlite_update_object_glb_path, sqlite_update_object_json_path,
-};
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::{http::mesh::Mesh, utils::object_types::ObjectType};
-use sqlx::{Pool, Sqlite};
+use metaverse_store::initialize_sqlite::Cache;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -51,7 +48,7 @@ pub async fn handle_texture(
 }
 
 pub async fn download_object(
-    db_conn: &Pool<Sqlite>,
+    cache: Cache,
     server_endpoint: String,
     data: DownloadObjectData,
 ) -> Result<ObjectUpdateAction, DownloadError> {
@@ -75,13 +72,14 @@ pub async fn download_object(
         CacheDir::Object(data.asset_id),
     )?;
 
-    sqlite_update_object_json_path(
-        db_conn,
-        data.object.full_id,
-        data.asset_id,
-        &json_path.to_string_lossy(),
-    )
-    .await?;
+    cache
+        .object
+        .update_json_path(
+            data.object.full_id,
+            data.asset_id,
+            &json_path.to_string_lossy(),
+        )
+        .await?;
 
     Ok(ObjectUpdateAction::GenerateFromJSON(GenerateMeshData {
         object: GeneratorObject {
@@ -99,13 +97,15 @@ pub async fn download_object(
 }
 
 pub async fn mesh_from_json(
-    db_conn: &Pool<Sqlite>,
+    cache: Cache,
     data: GenerateMeshData,
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
     let glb_path = data.base_dir.join(format!("{:?}_high.glb", data.asset_id));
     generate_object_mesh(data.json_path, glb_path.clone())?;
     info!("Rendering object {:?}", data.asset_id);
-    sqlite_update_object_glb_path(db_conn, data.object.full_id, &glb_path.to_string_lossy())
+    cache
+        .object
+        .update_glb_path(data.object.full_id, &glb_path.to_string_lossy())
         .await?;
     Ok(ObjectUpdateAction::Render(RenderObjectData {
         mesh_path: glb_path,

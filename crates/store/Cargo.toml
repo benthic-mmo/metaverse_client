@@ -1,5 +1,5 @@
 [package]
-name = "metaverse_cache"
+name = "metaverse_store"
 version = "0.3.3"
 authors = ["Skyler Clark<skylerjaneclark@gmail.com>"]
 description = "inventory and cache handling for the open metaverse"

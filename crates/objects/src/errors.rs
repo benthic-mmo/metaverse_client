@@ -1,7 +1,7 @@
 use benthic_protocol::errors::SessionError;
-use metaverse_cache::errors::InventoryError;
 use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
+use metaverse_store::errors::InventoryError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MeshBuildError {

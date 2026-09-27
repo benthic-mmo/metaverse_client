@@ -5,7 +5,7 @@ use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::session::create_agent_animation_dir;
+use benthic_protocol::session::{cache_enabled, create_agent_animation_dir};
 use benthic_protocol::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
 use log::{error, warn};
@@ -17,8 +17,6 @@ use metaverse_avatar::avatar_object_handler::{
     AvatarType, add_object_to_avatar, finalize_avatar, init_avatar,
 };
 use metaverse_avatar::errors::AvatarError::{self};
-use metaverse_cache::agent::sqlite_update_avatar;
-use metaverse_cache::avatar::cache_current_outfit;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
@@ -54,7 +52,6 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let db_conn = session.inventory_db_connection.clone();
         let server_endpoint = session
             .capability_urls
             .get(&Capability::ViewerAsset)
@@ -63,16 +60,16 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let object_type = msg.item_type;
         let asset_id = msg.asset_id;
         let agent_id = msg.agent_id;
-
+        let cache = session.cache.clone();
         let addr = ctx.address();
         ctx.spawn(
             async move {
                 match download_asset_objects(
                     &server_endpoint,
-                    db_conn,
                     object_type,
                     asset_id,
                     agent_id,
+                    cache,
                 )
                 .await
                 {
@@ -174,59 +171,72 @@ impl Handler<HandleNewAvatar> for Mailbox {
                             }),
                         });
                         let agent_id = session.agent_id;
-                        let db_conn = session.inventory_db_connection.clone();
+                        let cache = session.cache.clone();
+                        let inventory = session.inventory.clone();
                         ctx.spawn(
                             async move {
-                                match cache_current_outfit(db_conn, agent_id).await {
-                                    Ok((avatar, outfit_items)) => {
-                                        if addr
-                                            .send(SetOutfitSize {
-                                                agent_id,
-                                                outfit_size: outfit_items.len(),
-                                            })
-                                            .await
-                                            .is_err()
-                                        {
-                                            error!("Failed to set outfit size for {:?}", agent_id);
+                                let (avatar, outfit_items) = if cache_enabled() {
+                                    match cache.avatar.current_outfit(agent_id, inventory).await {
+                                        Ok(result) => result,
+                                        Err(e) => {
+                                            error!("{:?}", e);
                                             return;
-                                        }
-
-                                        if let Some(avatar) = avatar {
-                                            addr.do_send(LoadFromCache { avatar });
-                                            return;
-                                        }
-                                        for item in outfit_items {
-                                            match item.item_type {
-                                                ObjectType::Object => {
-                                                    addr.do_send(DownloadAgentAsset {
-                                                        asset_id: item.asset_id,
-                                                        item_type: item.item_type,
-                                                        agent_id,
-                                                    });
-                                                }
-                                                ObjectType::Bodypart => {
-                                                    addr.do_send(AddObjectToAvatar {
-                                                        object: OutfitObject::Bodypart,
-                                                        agent_id,
-                                                    });
-                                                }
-                                                ObjectType::Clothing => {
-                                                    addr.do_send(AddObjectToAvatar {
-                                                        object: OutfitObject::Clothing,
-                                                        agent_id,
-                                                    });
-                                                }
-                                                _ => {
-                                                    addr.do_send(AddObjectToAvatar {
-                                                        object: OutfitObject::Other,
-                                                        agent_id,
-                                                    });
-                                                }
-                                            }
                                         }
                                     }
-                                    Err(e) => {
-                                        error!("{:?}", e)
+                                } else {
+                                    match inventory.get_current_outfit().await {
+                                        Ok(outfit_items) => (None, outfit_items),
+                                        Err(e) => {
+                                            error!("{:?}", e);
+                                            return;
+                                        }
+                                    }
+                                };
+
+                                if addr
+                                    .send(SetOutfitSize {
+                                        agent_id,
+                                        outfit_size: outfit_items.len(),
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    error!("Failed to set outfit size for {:?}", agent_id);
+                                    return;
+                                }
+
+                                if let Some(avatar) = avatar {
+                                    addr.do_send(LoadFromCache { avatar });
+                                    return;
+                                }
+
+                                for item in outfit_items {
+                                    match item.item_type {
+                                        ObjectType::Object => {
+                                            addr.do_send(DownloadAgentAsset {
+                                                asset_id: item.asset_id,
+                                                item_type: item.item_type,
+                                                agent_id,
+                                            });
+                                        }
+                                        ObjectType::Bodypart => {
+                                            addr.do_send(AddObjectToAvatar {
+                                                object: OutfitObject::Bodypart,
+                                                agent_id,
+                                            });
+                                        }
+                                        ObjectType::Clothing => {
+                                            addr.do_send(AddObjectToAvatar {
+                                                object: OutfitObject::Clothing,
+                                                agent_id,
+                                            });
+                                        }
+                                        _ => {
+                                            addr.do_send(AddObjectToAvatar {
+                                                object: OutfitObject::Other,
+                                                agent_id,
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -243,7 +253,7 @@ impl Handler<HandleNewAvatar> for Mailbox {
                     let info_message = format!("{:?}, Requeueing avatar download...", e);
                     msg.0.retry_count += 1;
                     ctx.address().do_send(RetryMessage {
-                        retries: msg.0.retry_count.clone(),
+                        retries: msg.0.retry_count,
                         message: msg,
                         info_message,
                         long_backoff: true,
@@ -291,8 +301,8 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let skeleton = avatar.skeleton.clone();
         let used_joints = avatar.used_joints.clone();
         let items = avatar.items.clone();
-        let db_conn = session.inventory_db_connection.clone();
         let position = avatar.position;
+        let cache = session.cache.clone();
         let mut avatar = avatar.clone();
 
         let addr = ctx.address();
@@ -310,7 +320,9 @@ impl Handler<FinalizeAvatar> for Mailbox {
                         });
                         // edit the temp avatar for the sqlite update.
                         avatar.path = Some(glb_path.clone());
-                        if let Err(e) = sqlite_update_avatar(&db_conn, avatar).await {
+                        if cache_enabled()
+                            && let Err(e) = cache.avatar.update(avatar).await
+                        {
                             error!("{:?}", e);
                         }
                         addr.do_send(RenderAvatar {

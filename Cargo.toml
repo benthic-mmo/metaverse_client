@@ -7,7 +7,7 @@ members = [
   "crates/ui", 
   "crates/environment", 
   "crates/avatar", 
-  "crates/cache", 
+  "crates/store", 
   "crates/objects",
   "crates/benthic_protocol",
   "crates/default_asset_converter",
@@ -16,7 +16,7 @@ members = [
 [workspace.dependencies]
 metaverse_mesh = {version = "0.3.3", path = "../metaverse_mesh/"}
 metaverse_messages = {version = "0.3.3", path = "./crates/messages"}
-metaverse_cache = {version = "0.3.3", path = "./crates/cache"}
+metaverse_store = {version = "0.3.3", path = "./crates/store"}
 metaverse_core = {version = "0.3.3", path = "./crates/core"}
 metaverse_objects = {version = "0.3.3", path = "./crates/objects"}
 metaverse_avatar = { version = "0.3.3", path = "./crates/avatar/"} 

@@ -11,7 +11,6 @@ use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::MinimalObjectUpdate;
 use log::{error, warn};
-use metaverse_cache::object_update::sqlite_get_object_scale_rotation_position;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -52,11 +51,11 @@ impl Handler<HandleObjectUpdate> for Mailbox {
         };
         msg.0.region_id = session.region_data.region_id.clone();
 
-        let db_conn = session.inventory_db_connection.clone();
+        let cache = session.cache.clone();
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match object_update(&db_conn, msg.0).await {
+                match object_update(cache, msg.0).await {
                     Ok(actions) => {
                         for action in actions {
                             match action {
@@ -117,10 +116,10 @@ impl Handler<DownloadObject> for Mailbox {
             }
         };
         let addr = ctx.address();
-        let db_conn = session.inventory_db_connection.clone();
+        let cache = session.cache.clone();
         ctx.spawn(
             async move {
-                match download_object(&db_conn, server_endpoint, msg.0).await {
+                match download_object(cache, server_endpoint, msg.0).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::GenerateFromJSON(action) = action {
                             addr.do_send(GenerateMeshMessage(action));
@@ -183,7 +182,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
             return;
         };
 
-        let db_pool = session.inventory_db_connection.clone();
+        let cache = session.cache.clone();
         let addr = ctx.address();
         let region_id = session.region_data.region_id.clone();
         let session_id = session.session_id;
@@ -191,8 +190,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
 
         ctx.spawn(
             async move {
-                match object_update_cached(msg.object_update_cached.objects, &db_pool, region_id)
-                    .await
+                match object_update_cached(msg.object_update_cached.objects, cache, region_id).await
                 {
                     Ok(cache_results) => {
                         let mut requests = Vec::new();
@@ -250,11 +248,11 @@ impl Handler<GenerateMeshMessage> for Mailbox {
             return;
         };
 
-        let db_conn = session.inventory_db_connection.clone();
+        let cache = session.cache.clone();
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match mesh_from_json(&db_conn, msg.0).await {
+                match mesh_from_json(cache, msg.0).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::Render(action) = action {
                             addr.do_send(RenderObjectMessage(action));
@@ -289,8 +287,8 @@ impl Handler<RenderObjectMessage> for Mailbox {
             return;
         };
 
-        let inventory_db = session.inventory_db_connection.clone();
         let addr = ctx.address();
+        let cache = session.cache.clone();
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
@@ -314,7 +312,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     Some(id) => id,
                 };
 
-                match sqlite_get_object_scale_rotation_position(&inventory_db, parent_id).await {
+                match cache.object.get_scale_rotation_position(parent_id).await {
                     Ok((_parent_scale, parent_rotation, parent_position)) => {
                         let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
 
