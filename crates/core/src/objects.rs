@@ -98,19 +98,20 @@ impl Handler<HandleObjectUpdate> for Mailbox {
 pub struct DownloadObject(DownloadObjectData);
 impl Handler<DownloadObject> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
         let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
             Some(endpoint) => endpoint.to_string(),
             None => {
+                msg.0.retry_count += 1;
                 ctx.address().do_send(RetryMessage {
+                    retries: msg.0.retry_count,
                     message: msg,
-                    no_backoff: true,
+                    long_backoff: true,
                     info_message: "ViewerAsset capability not currently enabled. Requeueing..."
                         .to_string(),
-                    retries: 0,
                 });
                 return;
             }
@@ -343,7 +344,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                         let retries = msg.retry_count;
                         addr.do_send(RetryMessage {
                             message: RenderObjectMessage(msg),
-                            no_backoff: false,
+                            long_backoff: false,
                             info_message,
                             retries,
                         });

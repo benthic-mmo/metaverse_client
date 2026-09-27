@@ -197,6 +197,7 @@ impl Mailbox {
                             if let Err(e) = mailbox_address
                                 .send(HandleNewAvatarAnimation {
                                     avatar_animation: *data.clone(),
+                                    retries: 0,
                                 })
                                 .await
                             {

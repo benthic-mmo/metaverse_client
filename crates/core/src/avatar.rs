@@ -24,6 +24,7 @@ use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::avatar_asset::download_asset_objects;
+use metaverse_objects::object_updates::NewAvatarData;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -150,15 +151,15 @@ impl Handler<AddObjectToAvatar> for Mailbox {
 ///     - Dispatches a [`AddObjectToAvatar`] message for each bodypart in the outfit
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct HandleNewAvatar(pub Avatar);
+pub struct HandleNewAvatar(pub NewAvatarData);
 impl Handler<HandleNewAvatar> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: HandleNewAvatar, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: HandleNewAvatar, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
         let addr = ctx.address();
-        match init_avatar(session, &msg.0) {
+        match init_avatar(session, &msg.0.avatar) {
             Ok(user_type) => {
                 match user_type {
                     AvatarType::User => {
@@ -166,9 +167,9 @@ impl Handler<HandleNewAvatar> for Mailbox {
                             // handle the z-y flip
                             ui_message: UIMessage::new_camera_position(CameraPosition {
                                 position: Vec3::new(
-                                    msg.0.position.x,
-                                    msg.0.position.z,
-                                    msg.0.position.y,
+                                    msg.0.avatar.position.x,
+                                    msg.0.avatar.position.z,
+                                    msg.0.avatar.position.y,
                                 ),
                             }),
                         });
@@ -240,11 +241,12 @@ impl Handler<HandleNewAvatar> for Mailbox {
             Err(e) => match e {
                 AvatarError::InventoryUninitialized { .. } => {
                     let info_message = format!("{:?}, Requeueing avatar download...", e);
+                    msg.0.retry_count += 1;
                     ctx.address().do_send(RetryMessage {
+                        retries: msg.0.retry_count.clone(),
                         message: msg,
                         info_message,
-                        no_backoff: true,
-                        retries: 0,
+                        long_backoff: true,
                     });
                 }
                 e => {
@@ -382,10 +384,15 @@ impl Handler<LoadFromCache> for Mailbox {
 pub struct HandleNewAvatarAnimation {
     /// the avatar appearance data to handle
     pub avatar_animation: AvatarAnimation,
+    pub retries: u32,
 }
 impl Handler<HandleNewAvatarAnimation> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        mut msg: HandleNewAvatarAnimation,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -397,11 +404,12 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                         "Animation targeting player {:?} is not yet fully loaded. Queueing animation...",
                         msg.avatar_animation.sender_id
                     );
+                    msg.retries += 1;
                     ctx.address().do_send(RetryMessage {
+                        retries: msg.retries,
                         message: msg,
                         info_message,
-                        no_backoff: true,
-                        retries: 0,
+                        long_backoff: true,
                     });
                     return;
                 }
@@ -412,11 +420,12 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                     "Animation targeting player {:?} is not yet in scene. Queueing animation...",
                     msg.avatar_animation.sender_id
                 );
+                msg.retries += 1;
                 ctx.address().do_send(RetryMessage {
+                    retries: msg.retries,
                     message: msg,
                     info_message,
-                    no_backoff: true,
-                    retries: 0,
+                    long_backoff: true,
                 });
                 return;
             }

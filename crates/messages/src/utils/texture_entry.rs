@@ -271,15 +271,13 @@ impl TextureEntry {
     /// used by ObjectUpdate and ObjectUpdateCompressed packets
     pub fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
         let mut texture = TextureEntry::default();
+
         let mut faces: HashMap<u32, TextureEntry> = HashMap::new();
         if bytes.len() < 16 {
             return Ok(texture);
         }
-        let mut cursor = Cursor::new(bytes);
 
-        // two mysterious bytes of padding?
-        cursor.read_u8()?;
-        cursor.read_u8()?;
+        let mut cursor = Cursor::new(bytes);
 
         fn remaining(cursor: &Cursor<&[u8]>) -> usize {
             cursor.get_ref().len() - cursor.position() as usize

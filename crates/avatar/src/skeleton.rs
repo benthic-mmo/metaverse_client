@@ -48,9 +48,9 @@ pub fn create_skeleton(
         let default_joints = default_skeleton
             .joints
             .get(name)
-            .unwrap_or(Err(AvatarError::UnknownJoint {
+            .ok_or(AvatarError::UnknownJoint {
                 joint: name.to_string(),
-            })?)
+            })?
             .clone();
         let mut default_transform = default_joints.global_transforms[0].transform;
 
