@@ -685,7 +685,7 @@ where
 {
     pub message: Retriable,
     pub retries: u32,
-    pub no_backoff: bool,
+    pub long_backoff: bool,
     pub info_message: String,
 }
 impl<Retriable> Handler<RetryMessage<Retriable>> for Mailbox
@@ -717,8 +717,6 @@ where
             msg.retries,
             delay
         );
-
-        msg.retries += 1;
 
         let addr = ctx.address();
         ctx.spawn(

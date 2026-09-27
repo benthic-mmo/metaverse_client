@@ -20,7 +20,7 @@ use metaverse_messages::{
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
-use crate::{errors::ObjectUpdateError, object_updates::ObjectUpdateAction::NewAvatar};
+use crate::errors::ObjectUpdateError;
 
 #[derive(Debug)]
 pub struct RenderObjectData {
@@ -39,6 +39,12 @@ pub struct GenerateMeshData {
     pub object: GeneratorObject,
 }
 
+#[derive(Debug)]
+pub struct NewAvatarData {
+    pub avatar: Avatar,
+    pub retry_count: u32,
+}
+
 pub enum CacheResult {
     RenderObject(RenderObjectData),
     GenerateObect(GenerateMeshData),
@@ -50,12 +56,13 @@ pub struct DownloadObjectData {
     pub object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
     pub asset_id: Uuid,
     pub texture_id: Uuid,
+    pub retry_count: u32,
 }
 
 pub enum ObjectUpdateAction {
     Download(DownloadObjectData),
     Render(RenderObjectData),
-    NewAvatar(Avatar),
+    NewAvatar(NewAvatarData),
     GenerateFromJSON(GenerateMeshData),
     HandleCacheMiss((CacheMissType, u32)),
 }
@@ -144,6 +151,7 @@ async fn handle_prim(
                         asset_id: sculpt.texture_id,
                         texture_id: object.texture.texture_id,
                         object: object.clone(),
+                        retry_count: 0,
                     }))
                 }
                 _ => Err(ObjectUpdateError::Unimplemented {
@@ -232,8 +240,8 @@ fn handle_avatar(
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     create_sub_agent_dir(&object.full_id.to_string())?;
-    Ok(vec![NewAvatar(Avatar::new(
-        object.full_id,
-        object.position,
-    ))])
+    Ok(vec![ObjectUpdateAction::NewAvatar(NewAvatarData {
+        avatar: Avatar::new(object.full_id, object.position),
+        retry_count: 0,
+    })])
 }
