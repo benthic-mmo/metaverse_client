@@ -73,7 +73,7 @@ impl Handler<HandleObjectUpdate> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("HandleObjectUpdate error: {:?}", e)
                     }
                 }
             }
@@ -126,7 +126,7 @@ impl Handler<DownloadObject> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("DownloadObject error: {:?}", e)
                     }
                 };
             }
@@ -221,7 +221,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("HandleObjectUpdateCached error: {:?}", e)
                     }
                 };
             }
@@ -259,7 +259,7 @@ impl Handler<GenerateMeshMessage> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("GenerateMeshMessage error: {:?}", e)
                     }
                 }
             }
