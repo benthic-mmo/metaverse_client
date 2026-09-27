@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    packet::packet::PacketData, udp::agent::avatar_animation::AvatarAnimation,
+    packet::packet_protocol::PacketData, udp::agent::avatar_animation::AvatarAnimation,
 };
 
 const EXAMPLE_ANIM: [u8; 39] = [

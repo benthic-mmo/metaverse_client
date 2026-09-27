@@ -1,5 +1,5 @@
 use metaverse_messages::{
-    packet::packet::Packet,
+    packet::packet_protocol::Packet,
     udp::core::agent_throttle::{AgentThrottle, ThrottleData},
 };
 use uuid::Uuid;
