@@ -92,7 +92,7 @@ impl ObjectCache {
             r#"
         UPDATE object_updates
         SET asset_id = ?,
-            json = 
+            json = ? 
         WHERE full_id = ?
         "#,
         )

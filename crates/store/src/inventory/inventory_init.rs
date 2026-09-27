@@ -113,7 +113,7 @@ impl Inventory {
     }
 }
 
-pub async fn check_folder_version(
+async fn check_folder_version(
     pool: &SqlitePool,
     folder_id: Uuid,
 ) -> Result<Option<(i32, bool)>, InventoryError> {
@@ -131,7 +131,7 @@ pub async fn check_folder_version(
     }
 }
 
-pub async fn delete_folder(pool: &SqlitePool, folder_id: Uuid) -> Result<(), sqlx::Error> {
+async fn delete_folder(pool: &SqlitePool, folder_id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM inventory_items WHERE folder_id = ?")
         .bind(folder_id.to_string())
         .execute(pool)
@@ -152,7 +152,7 @@ pub async fn delete_folder(pool: &SqlitePool, folder_id: Uuid) -> Result<(), sql
     Ok(())
 }
 
-pub async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), InventoryError> {
+async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), InventoryError> {
     let folder_id = folder.folder_id.to_string();
     let owner_id = folder.owner_id.to_string();
     let agent_id = folder.agent_id.to_string();
@@ -174,10 +174,7 @@ pub async fn insert_folder(pool: &SqlitePool, folder: &Folder) -> Result<(), Inv
     Ok(())
 }
 
-pub async fn mark_folder_downloaded(
-    pool: &SqlitePool,
-    folder_id: Uuid,
-) -> Result<(), InventoryError> {
+async fn mark_folder_downloaded(pool: &SqlitePool, folder_id: Uuid) -> Result<(), InventoryError> {
     sqlx::query(
         r#"
         UPDATE folders
@@ -192,7 +189,7 @@ pub async fn mark_folder_downloaded(
     Ok(())
 }
 
-pub async fn insert_categories(
+async fn insert_categories(
     pool: &SqlitePool,
     folder_id: &Uuid,
     categories: &[Category],
@@ -219,7 +216,7 @@ pub async fn insert_categories(
     Ok(())
 }
 
-pub async fn insert_items(
+async fn insert_items(
     pool: &SqlitePool,
     folder_id: &Uuid,
     items: &[ItemMetadata],
@@ -278,7 +275,7 @@ pub async fn insert_items(
     Ok(())
 }
 
-pub async fn get_object_type_by_id(
+async fn _get_object_type_by_id(
     pool: &SqlitePool,
     item_id: &Uuid,
 ) -> Result<Option<(ObjectType, Uuid, String)>, InventoryError> {
