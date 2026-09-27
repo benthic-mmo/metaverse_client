@@ -1,6 +1,4 @@
-use std::io::Error;
-
-use crate::avatar::Avatar;
+use crate::{avatar::Avatar, errors::AvatarError};
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
 use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
 use glam::{Mat4, Vec4};
@@ -28,7 +26,11 @@ pub fn update_global_avatar_skeleton(avatar: &mut Avatar, skeleton: &Skeleton) {
 }
 
 /// Determine the local and global joint transforms for a skinned SceneObject.
-pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Skeleton, Error> {
+pub fn create_skeleton(
+    object_name: String,
+    id: Uuid,
+    skin: &Skin,
+) -> Result<Skeleton, AvatarError> {
     // if the object has a mesh, handle the skeleton
     // fetch the default skeleton which is generated at compile time
     // this will be used for calculating transforms, and getting joint local transforms for the
@@ -43,7 +45,13 @@ pub fn create_skeleton(object_name: String, id: Uuid, skin: &Skin) -> Result<Ske
         // these rotations need to be applied, because the IBMs from the server are mostly
         // the identity matrix, and only contain translation information. The default
         // skeleton contains the rotations.
-        let default_joints = default_skeleton.joints.get(name).unwrap().clone();
+        let default_joints = default_skeleton
+            .joints
+            .get(name)
+            .unwrap_or(Err(AvatarError::UnknownJoint {
+                joint: name.to_string(),
+            })?)
+            .clone();
         let mut default_transform = default_joints.global_transforms[0].transform;
 
         default_transform.w_axis = Vec4::new(0.0, 0.0, 0.0, 1.0);

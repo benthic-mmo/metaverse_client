@@ -23,7 +23,7 @@ use benthic_protocol::{
     session::{ServerState, Session},
 };
 use glam::Vec2;
-use log::{error, info};
+use log::{error, info, warn};
 use metaverse_avatar::avatar::Avatar;
 use metaverse_cache::initialize_sqlite::init_sqlite;
 use metaverse_environment::land::Land;
@@ -46,6 +46,7 @@ use metaverse_messages::{
     },
 };
 use rgb::Rgba;
+use std::any::type_name;
 use std::path::Path;
 use std::{
     collections::{HashMap, HashSet},
@@ -55,6 +56,9 @@ use std::{
     thread::sleep,
 };
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
+
+static DEFAULT_MAX_RETRIES: u32 = 6;
+static DEFAULT_LONG_TIMEOUT_RETRIES: u32 = 20;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
 #[derive(Debug)]
@@ -669,4 +673,74 @@ async fn handle_login(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
+pub struct RetryMessage<Retriable>
+where
+    Retriable: Send + actix::Message,
+    Retriable::Result: Send,
+    Mailbox: Handler<Retriable>,
+{
+    pub message: Retriable,
+    pub retries: u32,
+    pub no_backoff: bool,
+    pub info_message: String,
+}
+impl<Retriable> Handler<RetryMessage<Retriable>> for Mailbox
+where
+    Retriable: Send + 'static + actix::Message,
+    Retriable::Result: Send,
+    Mailbox: Handler<Retriable>,
+{
+    type Result = ();
+    fn handle(&mut self, msg: RetryMessage<Retriable>, ctx: &mut Self::Context) -> Self::Result {
+        let (max_retries, delay) = if msg.long_backoff {
+            (DEFAULT_LONG_TIMEOUT_RETRIES, long_backoff_ms(msg.retries))
+        } else {
+            (DEFAULT_MAX_RETRIES, backoff_ms(msg.retries))
+        };
+
+        if msg.retries >= max_retries {
+            error!(
+                "Dropping message {} after max retries {}",
+                type_name::<Retriable>(),
+                DEFAULT_MAX_RETRIES
+            );
+            return;
+        }
+        info!("{:?}", msg.info_message);
+        warn!(
+            "Message retrying. Retry {} #{} in {} ms",
+            type_name::<Retriable>(),
+            msg.retries,
+            delay
+        );
+
+        msg.retries += 1;
+
+        let addr = ctx.address();
+        ctx.spawn(
+            async move {
+                actix::clock::sleep(std::time::Duration::from_millis(delay)).await;
+                addr.do_send(msg.message);
+            }
+            .into_actor(self),
+        );
+    }
+}
+
+fn backoff_ms(retry: u32) -> u64 {
+    let base = 50;
+    let cap = 2000;
+
+    (base * 2u64.pow(retry.min(6))).min(cap)
+}
+
+fn long_backoff_ms(retry: u32) -> u64 {
+    let base = 1000;
+    let cap = 7000;
+
+    (base * 2u64.pow(retry.min(6))).min(cap)
 }

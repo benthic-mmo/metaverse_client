@@ -1,5 +1,5 @@
 use super::session::Mailbox;
-use crate::session::SendUIMessage;
+use crate::session::{RetryMessage, SendUIMessage};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
@@ -26,7 +26,6 @@ use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::avatar_asset::download_asset_objects;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use std::time::Duration;
 use uuid::Uuid;
 
 /// Requests Agent data from the ViewerAsset capability endpoint
@@ -240,8 +239,13 @@ impl Handler<HandleNewAvatar> for Mailbox {
             }
             Err(e) => match e {
                 AvatarError::InventoryUninitialized { .. } => {
-                    warn!("{:?}, Requeueing avatar download...", e);
-                    ctx.notify_later(msg, Duration::from_secs(1));
+                    let info_message = format!("{:?}, Requeueing avatar download...", e);
+                    ctx.address().do_send(RetryMessage {
+                        message: msg,
+                        info_message,
+                        no_backoff: true,
+                        retries: 0,
+                    });
                 }
                 e => {
                     error!("{:?}", e)
@@ -389,21 +393,31 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
             Some(avatar) => {
                 if !avatar.fully_loaded {
-                    warn!(
+                    let info_message = format!(
                         "Animation targeting player {:?} is not yet fully loaded. Queueing animation...",
                         msg.avatar_animation.sender_id
                     );
-                    ctx.notify_later(msg, Duration::from_secs(1));
+                    ctx.address().do_send(RetryMessage {
+                        message: msg,
+                        info_message,
+                        no_backoff: true,
+                        retries: 0,
+                    });
                     return;
                 }
                 avatar
             }
             None => {
-                warn!(
-                    "Animation targeting player {:?}, not yet in scene. Queueing animation...",
+                let info_message = format!(
+                    "Animation targeting player {:?} is not yet in scene. Queueing animation...",
                     msg.avatar_animation.sender_id
                 );
-                ctx.notify_later(msg, Duration::from_secs(1));
+                ctx.address().do_send(RetryMessage {
+                    message: msg,
+                    info_message,
+                    no_backoff: true,
+                    retries: 0,
+                });
                 return;
             }
         };
