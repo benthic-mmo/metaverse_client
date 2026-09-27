@@ -16,7 +16,7 @@ metaverse_messages.workspace = true
 serde-llsd-benthic.workspace = true 
 metaverse_environment = {workspace=true, optional = true }
 metaverse_avatar = { workspace=true, optional = true }
-metaverse_cache = { workspace=true, optional = true }
+metaverse_store = { workspace=true, optional = true }
 benthic_default_asset_converter = {workspace=true, features = ["animations"]}
 
 tokio = { workspace=true, features = ["full"] }
@@ -63,6 +63,6 @@ environment = ["dep:metaverse_environment"]
 # allow for compiling the viewer without any agent rendering 
 avatar = ["dep:metaverse_avatar"]
 
-inventory = ["dep:metaverse_cache"]
+inventory = ["dep:metaverse_store"]
 
 

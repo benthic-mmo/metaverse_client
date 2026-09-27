@@ -1,15 +1,12 @@
 use log::error;
 use std::time::Duration;
 
+use super::session::Mailbox;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::warn;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;
 use uuid::Uuid;
-
-use metaverse_cache::inventory_root::refresh_inventory;
-
-use super::session::Mailbox;
 
 /// Message to inform the session that the inventory has been fully initialized.
 ///
@@ -67,21 +64,21 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
             let folder_id = session.inventory_data.inventory_root;
             let url = url.clone();
             let addr = ctx.address();
-            let conn = session.inventory_db_connection.clone();
+            let inventory = session.inventory.clone();
             ctx.spawn(
                 async move {
-                    match refresh_inventory(
-                        &conn,
-                        FolderRequest {
-                            folder_id,
-                            owner_id,
-                            fetch_folders: true,
-                            fetch_items: true,
-                            sort_order: 0,
-                        },
-                        url,
-                    )
-                    .await
+                    match inventory
+                        .refresh(
+                            FolderRequest {
+                                folder_id,
+                                owner_id,
+                                fetch_folders: true,
+                                fetch_items: true,
+                                sort_order: 0,
+                            },
+                            url,
+                        )
+                        .await
                     {
                         Ok(_) => {
                             addr.do_send(InventoryInit);

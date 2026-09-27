@@ -16,6 +16,7 @@ benthic_default_asset_converter.workspace = true
 benthic_protocol.workspace = true
 metaverse_mesh.workspace = true 
 
+sqlx.workspace = true
 byteorder.workspace = true 
 strum.workspace = true 
 strum_macros.workspace = true 

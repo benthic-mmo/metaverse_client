@@ -12,7 +12,7 @@ edition = "2024"
 benthic_protocol.workspace = true 
 metaverse_messages.workspace = true 
 metaverse_avatar.workspace = true 
-metaverse_cache.workspace = true 
+metaverse_store.workspace = true 
 benthic_default_asset_converter.workspace = true 
 metaverse_mesh.workspace = true 
 

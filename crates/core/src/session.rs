@@ -25,7 +25,6 @@ use benthic_protocol::{
 use glam::Vec2;
 use log::{error, info, warn};
 use metaverse_avatar::avatar::Avatar;
-use metaverse_cache::initialize_sqlite::init_sqlite;
 use metaverse_environment::land::Land;
 use metaverse_messages::{
     http::capabilities::{Capability, CapabilityRequest},
@@ -45,6 +44,7 @@ use metaverse_messages::{
         },
     },
 };
+use metaverse_store::initialize_sqlite::{Cache, Inventory, init_sqlite};
 use rgb::Rgba;
 use std::any::type_name;
 use std::path::Path;
@@ -78,7 +78,7 @@ pub struct Mailbox {
     /// notify for etablishing when it begins running
     pub notify: Arc<Notify>,
     /// Session information for after login
-    pub session: Option<Session<Capability, Avatar, Land, UdpSocket>>,
+    pub session: Option<Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache>>,
     /// the global number of packets that have been sent to the UI
     pub sent_packet_count: u16,
     /// the global ping information
@@ -118,7 +118,7 @@ impl Actor for Mailbox {
 #[rtype(result = "()")]
 pub struct StartSession {
     /// The session to start
-    pub session: Session<Capability, Avatar, Land, UdpSocket>,
+    pub session: Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache>,
 }
 impl Handler<StartSession> for Mailbox {
     type Result = ();
@@ -535,7 +535,8 @@ async fn handle_login(
     if let Err(e) = mailbox_addr
         .send(StartSession {
             session: Session {
-                inventory_db_connection: connection,
+                inventory: Inventory::new(connection.clone()),
+                cache: Cache::new(connection.clone()),
                 agent_id: login_response.agent_id,
                 session_id: login_response.session_id,
                 address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),

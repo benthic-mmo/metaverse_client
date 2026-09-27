@@ -41,9 +41,9 @@ pub enum PatchLayer {
 }
 
 /// Handle incoming terrain layers
-pub fn handle_layer<C, A, U>(
+pub fn handle_layer<C, A, U, I, X>(
     layer_data: LayerData,
-    session: &mut Session<C, A, Land, U>,
+    session: &mut Session<C, A, Land, U, I, X>,
 ) -> Result<Vec<PathBuf>, LayerError> {
     let patch_data = parse_layer_data(&layer_data)?;
 

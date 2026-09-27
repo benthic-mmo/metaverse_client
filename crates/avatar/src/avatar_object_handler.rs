@@ -27,8 +27,8 @@ pub enum AvatarType {
     NonUser,
 }
 
-pub fn init_avatar<C, L, U>(
-    session: &mut Session<C, Avatar, L, U>,
+pub fn init_avatar<C, L, U, I, X>(
+    session: &mut Session<C, Avatar, L, U, I, X>,
     avatar: &Avatar,
 ) -> Result<AvatarType, AvatarError> {
     if session.agent_id == avatar.agent_id {
@@ -48,8 +48,8 @@ pub fn init_avatar<C, L, U>(
     }
 }
 
-pub fn add_object_to_avatar<C, L, U>(
-    session: &mut Session<C, Avatar, L, U>,
+pub fn add_object_to_avatar<C, L, U, I, X>(
+    session: &mut Session<C, Avatar, L, U, I, X>,
     agent_id: Uuid,
     object: OutfitObject,
 ) -> Result<AvatarState, AvatarError> {

@@ -11,7 +11,6 @@ use std::{
 
 use glam::{U16Vec2, Vec2};
 use serde::Serialize;
-use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
 use crate::errors::SessionError;
@@ -39,7 +38,7 @@ pub fn set_cache_enabled(enabled: bool) {
 /// # Effects
 /// - Starts UDP read between client and server
 #[derive(Debug)]
-pub struct Session<Capability, Avatar, Land, UdpSocket> {
+pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     /// address of the server the client is connected to. formatted http://Url:Socket
     pub address: String,
     /// agent ID of the user
@@ -67,7 +66,8 @@ pub struct Session<Capability, Avatar, Land, UdpSocket> {
     pub region_data: RegionData,
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
-    pub inventory_db_connection: Pool<Sqlite>,
+    pub inventory: Inventory,
+    pub cache: Cache,
 }
 
 #[derive(Debug, Default)]

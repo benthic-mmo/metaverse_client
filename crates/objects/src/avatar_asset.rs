@@ -7,17 +7,16 @@ use crate::{
 };
 use benthic_protocol::session::{CacheDir, cache_enabled, create_sub_agent_dir, write_json};
 use log::warn;
-use metaverse_cache::agent::sqlite_update_outfit_item_json_path;
 use metaverse_messages::utils::object_types::ObjectType;
-use sqlx::{Pool, Sqlite};
+use metaverse_store::initialize_sqlite::Cache;
 use uuid::Uuid;
 
 pub async fn download_asset_objects(
     server_endpoint: &str,
-    db_conn: Pool<Sqlite>,
     object_type: ObjectType,
     asset_id: Uuid,
     agent_id: Uuid,
+    cache: Cache,
 ) -> Result<PathBuf, DownloadError> {
     let scene_group = download_object(object_type.to_string(), asset_id, server_endpoint).await?;
     let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
@@ -36,8 +35,12 @@ pub async fn download_asset_objects(
     } else {
         write_json(&render_objects, &json_path, CacheDir::Agent(agent_id))?
     };
-
-    if let Err(e) = sqlite_update_outfit_item_json_path(&db_conn, asset_id, &json_path).await {
+    if cache_enabled()
+        && let Err(e) = cache
+            .avatar
+            .update_outfit_item_json_path(asset_id, &json_path)
+            .await
+    {
         warn!("{:?}", e);
     }
     Ok(json)
