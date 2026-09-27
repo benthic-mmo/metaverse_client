@@ -33,6 +33,9 @@ pub enum AvatarError {
 
     #[error("Avatar {agent_id} not yet in scene")]
     NotPresent { agent_id: Uuid },
+
+    #[error("Unknown Joint in skeleton: {joint}")]
+    UnknownJoint { joint: String },
 }
 
 #[derive(Debug, thiserror::Error)]

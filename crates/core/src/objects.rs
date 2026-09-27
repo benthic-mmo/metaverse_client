@@ -1,6 +1,7 @@
 use super::session::Mailbox;
 use crate::avatar::HandleNewAvatar;
 use crate::session::OutgoingPacket;
+use crate::session::RetryMessage;
 use crate::session::SendUIMessage;
 use actix::AsyncContext;
 use actix::WrapFuture;
@@ -101,11 +102,19 @@ impl Handler<DownloadObject> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let server_endpoint = session
-            .capability_urls
-            .get(&Capability::ViewerAsset)
-            .unwrap()
-            .to_string();
+        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
+            Some(endpoint) => endpoint.to_string(),
+            None => {
+                ctx.address().do_send(RetryMessage {
+                    message: msg,
+                    no_backoff: true,
+                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
+                        .to_string(),
+                    retries: 0,
+                });
+                return;
+            }
+        };
         let addr = ctx.address();
         let db_conn = session.inventory_db_connection.clone();
         ctx.spawn(
@@ -270,7 +279,7 @@ impl Handler<GenerateMeshMessage> for Mailbox {
 /// [`MeshUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct RenderObjectMessage(pub RenderObjectData);
+pub struct RenderObjectMessage(RenderObjectData);
 impl Handler<RenderObjectMessage> for Mailbox {
     type Result = ();
 
@@ -281,7 +290,6 @@ impl Handler<RenderObjectMessage> for Mailbox {
 
         let inventory_db = session.inventory_db_connection.clone();
         let addr = ctx.address();
-
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
@@ -327,61 +335,22 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     }
 
                     Err(inventory_error) => {
-                        warn!(
+                        let info_message = format!(
                             "Parent {} not ready, requeuing object {}: {}",
                             parent_id, msg.object.full_id, inventory_error
                         );
-
-                        schedule_retry(
-                            &addr,
-                            RenderObjectMessage(msg),
-                            parent_id,
-                            &inventory_error.to_string(),
-                        );
+                        msg.retry_count += 1;
+                        let retries = msg.retry_count;
+                        addr.do_send(RetryMessage {
+                            message: RenderObjectMessage(msg),
+                            no_backoff: false,
+                            info_message,
+                            retries,
+                        });
                     }
                 }
             }
             .into_actor(self),
         );
     }
-}
-
-fn backoff_ms(retry: u32) -> u64 {
-    let base = 50;
-    let cap = 2000;
-
-    (base * 2u64.pow(retry.min(6))).min(cap)
-}
-
-fn schedule_retry(
-    addr: &actix::Addr<Mailbox>,
-    msg: RenderObjectMessage,
-    parent_id: u32,
-    reason: &str,
-) {
-    let mut msg = msg.0;
-
-    if msg.retry_count >= 6 {
-        error!(
-            "Dropping object {} after max retries (parent {}): {}",
-            msg.object.full_id, parent_id, reason
-        );
-        return;
-    }
-
-    let delay = backoff_ms(msg.retry_count);
-
-    warn!(
-        "Parent {} not ready for {}, retry {} in {}ms",
-        parent_id, msg.object.full_id, msg.retry_count, delay
-    );
-
-    msg.retry_count += 1;
-
-    let addr = addr.clone();
-
-    actix::spawn(async move {
-        actix::clock::sleep(std::time::Duration::from_millis(delay)).await;
-        addr.do_send(RenderObjectMessage(msg));
-    });
 }
