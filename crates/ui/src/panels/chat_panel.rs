@@ -4,7 +4,7 @@ use crate::plugin::{ChatMessage, Sockets, ViewerState, send_packet_to_core};
 use benthic_protocol::messages::ui::chat_from_viewer::ChatFromUI;
 use benthic_protocol::messages::ui::ui_messages::UIResponse;
 use benthic_protocol::messages::utils::chat_types::ChatType;
-use bevy::app::{App, Plugin};
+use bevy::app::{App, Plugin, Update};
 use bevy::ecs::error::Result;
 use bevy::ecs::message::MessageReader;
 use bevy::ecs::resource::Resource;
@@ -13,8 +13,6 @@ use bevy::ecs::system::{Res, ResMut};
 use bevy::log::error;
 use bevy::state::condition::in_state;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
-
-pub struct ChatPlugin;
 
 #[derive(Resource)]
 pub struct ChatMessages {
@@ -26,12 +24,14 @@ pub struct ChatFromClientMessage {
     pub message: String,
 }
 
+pub struct ChatPlugin;
 impl Plugin for ChatPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ChatMessages {
             messages: Vec::new(),
         })
         .insert_resource(ChatMessage::default())
+        .add_systems(Update, handle_chat_update)
         .add_systems(
             EguiPrimaryContextPass,
             chat_panel.run_if(in_state(ViewerState::Main)),

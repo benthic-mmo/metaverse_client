@@ -5,6 +5,7 @@ use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::login;
 use crate::mesh::BenthicMeshPlugin;
 use crate::panels::chat_panel::ChatPlugin;
+use crate::panels::inventory_panel::InventoryPanelPlugin;
 use crate::subscriber::listen_for_core_events;
 use crate::water::WaterPlugin;
 use actix_rt::System;
@@ -25,6 +26,14 @@ use std::path::PathBuf;
 
 pub const VIEWER_NAME: &str = "benthic";
 
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum ViewerState {
+    #[default]
+    Login,
+    Loading,
+    Main,
+}
+
 #[derive(Default, Resource, Clone)]
 pub struct ChatMessage {
     pub message: String,
@@ -43,14 +52,6 @@ pub struct ShareDir {
 pub struct SessionData {
     pub login_response: Option<LoginResponse>,
     pub avatar_location: Vec3,
-}
-
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum ViewerState {
-    #[default]
-    Login,
-    Loading,
-    Main,
 }
 
 #[derive(Resource)]
@@ -104,6 +105,7 @@ impl Plugin for MetaversePlugin {
             .add_plugins(CorePlugin)
             .add_plugins(WaterPlugin)
             .add_plugins(ChatPlugin)
+            .add_plugins(InventoryPanelPlugin)
             //.add_plugins(SkyPlugin)
             .add_plugins(LandPlugin)
             .add_plugins(BenthicMeshPlugin)
