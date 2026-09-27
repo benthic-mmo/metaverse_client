@@ -24,8 +24,10 @@ CREATE TABLE items (
   sale_type TEXT, 
   price INTEGER,
   ownership_cost INTEGER,
+
   json TEXT, 
-  mesh TEXT
+  mesh TEXT,
+  thumbnail TEXT
 );
 
 CREATE TABLE folders (

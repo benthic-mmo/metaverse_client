@@ -36,3 +36,4 @@ pub mod agent_update;
 pub mod chat_from_simulator;
 pub mod coarse_location_update;
 pub mod disable_simulator;
+pub mod populate_inventory;

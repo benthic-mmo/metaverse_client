@@ -14,7 +14,7 @@ metaverse_avatar.workspace = true
 benthic_protocol.workspace = true 
 serde-llsd-benthic.workspace = true 
 
-sqlx.workspace = true 
+sqlx = {workspace = true, features =["chrono", "uuid"] }
 anyhow.workspace = true
 awc.workspace = true
 log.workspace = true 
@@ -25,6 +25,7 @@ serde_json.workspace = true
 glam.workspace = true 
 rgb.workspace = true 
 quick-xml.workspace = true 
+chrono = "0.4.45"
 
 [dev-dependencies]
 tokio = {workspace=true, features=["test-util"]}

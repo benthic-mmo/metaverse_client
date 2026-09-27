@@ -30,7 +30,7 @@ pub struct Water {
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/water_material.wgsl".into()
+        "Shaders/water_material.wgsl".into()
     }
 }
 
@@ -80,7 +80,7 @@ fn setup_water(
                                 ..default()
                             });
                         })
-                        .load("textures/water_normals.png"),
+                        .load("Textures/water_normals.png"),
                     settings: WaterSettings {
                         octave_vectors: [
                             vec4(0.080, 0.059, 0.073, -0.062),
