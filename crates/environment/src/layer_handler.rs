@@ -86,6 +86,7 @@ pub fn handle_layer<C, A, U, I, X>(
                         },
                         &land.terrain_header.filename,
                         CacheDir::Land,
+                        &session.share_dir_root,
                     )?;
                     paths.push(json_path);
                 }

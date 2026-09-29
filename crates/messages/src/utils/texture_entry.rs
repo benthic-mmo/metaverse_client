@@ -263,6 +263,7 @@ impl TextureEntry {
         for face in faces.values_mut() {
             face.inherit_missing(&texture);
         }
+        println!("faces: {:?}", faces);
 
         Ok(texture)
     }

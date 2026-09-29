@@ -51,8 +51,9 @@ pub async fn download_object(
     cache: Cache,
     server_endpoint: String,
     data: DownloadObjectData,
+    out_dir: PathBuf,
 ) -> Result<ObjectUpdateAction, DownloadError> {
-    let base_dir = create_sub_object_dir(&data.asset_id.to_string())?;
+    let base_dir = create_sub_object_dir(&out_dir, &data.asset_id.to_string())?;
 
     let mesh = download_mesh(
         ObjectType::Mesh.to_string(),
@@ -70,6 +71,7 @@ pub async fn download_object(
         &render_object,
         &data.asset_id.to_string(),
         CacheDir::Object(data.asset_id),
+        &out_dir,
     )?;
 
     cache

@@ -84,6 +84,7 @@ pub async fn finalize_avatar(
     skeleton: Skeleton,
     used_joints: BTreeSet<JointName>,
     items: Vec<OutfitObject>,
+    out_dir: PathBuf,
 ) -> Result<(PathBuf, Skeleton), AvatarError> {
     let skeleton = finalize_skeleton(skeleton);
     let json_paths: Vec<PathBuf> = items
@@ -109,10 +110,15 @@ pub async fn finalize_avatar(
     let json_path = if json_path.exists() && cache_enabled() {
         json_path.clone()
     } else {
-        write_json(&avatar_object, &json_path_str, CacheDir::Agent(agent_id))?
+        write_json(
+            &avatar_object,
+            &json_path_str,
+            CacheDir::Agent(agent_id),
+            &out_dir,
+        )?
     };
 
-    let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
+    let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
     let glb_path = base_dir.join(format!("{:?}_high.glb", agent_id));
     if !glb_path.exists() || !cache_enabled() {
         generate_skinned_mesh(json_path.clone(), glb_path.clone())?

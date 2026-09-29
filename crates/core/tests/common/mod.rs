@@ -1,9 +1,9 @@
 use ::bevy::ecs::resource::Resource;
+use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
 use benthic_protocol::{
     render_data::{AvatarObject, RenderObject},
     session::{EnvironmentCache, InventoryData, RegionData, Session, set_cache_enabled},
 };
-use default_asset_converter::generated::DEFAULT_SKELETON;
 use glam::{Vec2, Vec3};
 use metaverse_avatar::{
     avatar::{Avatar, OutfitObject},
@@ -11,6 +11,7 @@ use metaverse_avatar::{
 };
 use metaverse_messages::http::{mesh::Mesh, scene::SceneGroup};
 use metaverse_objects::object_handler::create_render_object;
+use metaverse_store::initialize_sqlite::{Cache, Inventory};
 use std::{
     collections::{BTreeSet, HashMap},
     fs::{self, File},
@@ -27,6 +28,7 @@ pub struct CreationArtifacts {
     pub avatar_object: AvatarObject,
     pub gltf_object: PathBuf,
 }
+
 impl CreationArtifacts {
     fn new() -> CreationArtifacts {
         CreationArtifacts {
@@ -47,8 +49,15 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
     let mut artifacts = CreationArtifacts::new();
     let inventory_db_connection = sqlx::SqlitePool::connect(":memory:").await.unwrap();
 
-    let mut session: Session<(), Avatar, (), ()> = Session {
-        inventory_db_connection,
+    let inventory = Inventory::new(inventory_db_connection.clone());
+    let cache = Cache::new(inventory_db_connection.clone());
+
+    let generated_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/generated");
+    fs::create_dir_all(&generated_dir).unwrap();
+
+    let mut session: Session<(), Avatar, (), (), Inventory, Cache> = Session {
+        inventory,
+        cache,
         agent_id: AGENT_ID,
         session_id: Uuid::nil(),
         address: String::new(),
@@ -75,6 +84,7 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
         },
 
         socket: None,
+        share_dir_root: generated_dir.clone(),
 
         #[cfg(feature = "avatar")]
         avatars: HashMap::new(),
@@ -86,9 +96,6 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
     avatar.outfit_size = 4;
 
     init_avatar(&mut session, &avatar).unwrap();
-
-    let generated_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/generated");
-    fs::create_dir_all(&generated_dir).unwrap();
 
     let generated_agent_dir = generated_dir.join(AGENT_ID.to_string());
     fs::create_dir_all(&generated_agent_dir).unwrap();
@@ -160,6 +167,7 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
                 avatar.skeleton.clone(),
                 avatar.used_joints.clone(),
                 avatar.items.clone(),
+                session.share_dir_root.clone(),
             )
             .await
             .unwrap();

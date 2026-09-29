@@ -183,15 +183,29 @@ impl<'a> MeshBuilder<'a> {
         if col == gs - 2 && row == 0 {
             let corner_index = gs * (gs - 1);
 
+            let north_top_right = gs * (gs - 1) + (gs - 1);
+
+            let n1 = Vec3::new(
+                (col + 1) as f32,
+                self.north_layer.heightmap[north_top_right] * scale,
+                -1.0,
+            );
+
             let c0 = Vec3::new(
                 (col as f32 + 2.0) * scale,
                 self.top_corner.heightmap[corner_index] * scale,
-                row as f32 - 1.0,
+                -1.0,
             );
 
-            let i_n1 = self.add_vertex(v1);
+            let e0 = Vec3::new(
+                (col as f32 + 2.0) * scale,
+                self.east_layer.heightmap[0] * scale,
+                0.0,
+            );
+
+            let i_n1 = self.add_vertex(n1);
             let i_v1 = self.add_vertex(v1);
-            let i_e0 = self.add_vertex(v3);
+            let i_e0 = self.add_vertex(e0);
             let i_c0 = self.add_vertex(c0);
 
             self.indices.extend_from_slice(&[i_n1, i_v1, i_c0]);

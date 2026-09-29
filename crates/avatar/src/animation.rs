@@ -39,7 +39,7 @@ pub async fn build_animation(
                 feature: "non-default animations".to_string(),
             })?;
 
-        let filtered_animation_dir = create_filtered_animation_dir(&animation.anim_id)?;
+        let filtered_animation_dir = create_filtered_animation_dir(&out_dir, &animation.anim_id)?;
         let filtered_animation_out_path = filtered_animation_dir.join(format!("{joint_hash}.json"));
 
         let json_out_path = out_dir.join(format!("{}.json", animation.anim_id));

@@ -11,7 +11,7 @@ use benthic_protocol::messages::ui::errors::MailboxSessionError;
 use benthic_protocol::session::EnvironmentCache;
 #[cfg(feature = "inventory")]
 use benthic_protocol::session::InventoryData;
-use benthic_protocol::session::RegionData;
+use benthic_protocol::session::{RegionData, initialize_share_dir};
 use benthic_protocol::{
     messages::ui::{
         errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError},
@@ -572,6 +572,7 @@ async fn handle_login(
                     inventory_init: false,
                 },
                 socket: None,
+                share_dir_root: initialize_share_dir()?,
 
                 #[cfg(feature = "avatar")]
                 avatars: HashMap::new(),

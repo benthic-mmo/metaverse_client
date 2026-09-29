@@ -17,9 +17,10 @@ pub async fn download_asset_objects(
     asset_id: Uuid,
     agent_id: Uuid,
     cache: Cache,
+    out_dir: PathBuf,
 ) -> Result<PathBuf, DownloadError> {
     let scene_group = download_object(object_type.to_string(), asset_id, server_endpoint).await?;
-    let base_dir = create_sub_agent_dir(&agent_id.to_string())?;
+    let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
 
     let texture_id = scene_group.parts[0].shape.texture.texture_id;
     let texture_path = handle_texture(base_dir, texture_id, server_endpoint.to_string()).await;
@@ -33,7 +34,12 @@ pub async fn download_asset_objects(
     let json = if std::path::Path::new(&json_path).exists() || !cache_enabled() {
         PathBuf::from(json_path.clone())
     } else {
-        write_json(&render_objects, &json_path, CacheDir::Agent(agent_id))?
+        write_json(
+            &render_objects,
+            &json_path,
+            CacheDir::Agent(agent_id),
+            &out_dir,
+        )?
     };
     if cache_enabled()
         && let Err(e) = cache

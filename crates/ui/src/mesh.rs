@@ -6,7 +6,7 @@ use bevy::camera::visibility::DynamicSkinnedMeshBounds;
 use bevy::mesh::skinning::SkinnedMesh;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy_gltf::{Gltf, GltfAssetLabel, GltfMaterialName, GltfMeshName, GltfSceneName};
+use bevy_gltf::{GltfAssetLabel, GltfMaterialName, GltfMeshName, GltfSceneName};
 use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_world_serialization::WorldAssetRoot;
 
@@ -14,12 +14,12 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub struct BenthicMeshPlugin;
+
 impl Plugin for BenthicMeshPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(AgentIDMap {
             entities: HashMap::new(),
         })
-        .insert_resource(MeshQueue { pending: vec![] })
         .insert_resource(SceneIDMap {
             entities: HashMap::new(),
         })
@@ -43,14 +43,9 @@ impl Plugin for BenthicMeshPlugin {
         .register_type::<DynamicSkinnedMeshBounds>()
         .add_systems(Update, handle_camera_update)
         .add_systems(Update, follow_gltf_with_offset)
-        .add_systems(Update, render_land)
-        .add_systems(Update, render_meshes)
         .add_systems(Update, handle_mesh_update);
     }
 }
-
-#[derive(Component)]
-pub struct WaterPlane;
 
 #[derive(Resource)]
 pub struct SceneIDMap {
@@ -66,25 +61,6 @@ pub struct AgentEntity {
     pub entity: Entity,
     pub animation: Option<PathBuf>,
     pub skeleton: Entity,
-}
-
-pub enum RenderableHandle {
-    Gltf(Handle<Gltf>),
-    Mesh(Handle<Mesh>),
-}
-
-#[derive(Resource)]
-pub struct Renderable {
-    pub handle: RenderableHandle,
-    pub transform: Transform,
-    pub parent: Option<u32>,
-    pub mesh_type: MeshType,
-    pub id: Option<Uuid>,
-}
-
-#[derive(Resource)]
-pub struct MeshQueue {
-    pub pending: Vec<Renderable>,
 }
 
 #[derive(Component, Debug)]
@@ -165,75 +141,5 @@ pub fn handle_mesh_update(
 
             info!("Spawned avatar {:?} as {:?}", agent_id, entity);
         }
-    }
-}
-
-pub fn render_land(
-    mut commands: Commands,
-    mut queue: ResMut<MeshQueue>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let mut ready = vec![];
-
-    for (i, item) in queue.pending.iter().enumerate() {
-        let RenderableHandle::Mesh(mesh_handle) = &item.handle else {
-            continue;
-        };
-
-        if item.mesh_type != MeshType::Land {
-            continue;
-        }
-
-        let standard_mat = standard_materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            ..default()
-        });
-
-        commands.spawn((
-            Mesh3d(mesh_handle.clone()),
-            item.transform,
-            MeshMaterial3d(standard_mat),
-        ));
-
-        ready.push(i);
-    }
-
-    for i in ready.into_iter().rev() {
-        queue.pending.remove(i);
-    }
-}
-
-pub fn render_meshes(
-    mut commands: Commands,
-    mut queue: ResMut<MeshQueue>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let mut ready = vec![];
-
-    for (i, item) in queue.pending.iter().enumerate() {
-        let RenderableHandle::Mesh(mesh_handle) = &item.handle else {
-            continue;
-        };
-
-        if item.mesh_type == MeshType::Land {
-            continue;
-        }
-
-        let mat_handle = standard_materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            ..default()
-        });
-
-        commands.spawn((
-            Mesh3d(mesh_handle.clone()),
-            item.transform,
-            MeshMaterial3d(mat_handle),
-        ));
-
-        ready.push(i);
-    }
-
-    for i in ready.into_iter().rev() {
-        queue.pending.remove(i);
     }
 }
