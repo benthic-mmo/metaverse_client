@@ -53,9 +53,10 @@ impl Handler<HandleObjectUpdate> for Mailbox {
 
         let cache = session.cache.clone();
         let addr = ctx.address();
+        let out_dir = session.share_dir_root.clone();
         ctx.spawn(
             async move {
-                match object_update(cache, msg.0).await {
+                match object_update(cache, msg.0, out_dir).await {
                     Ok(actions) => {
                         for action in actions {
                             match action {
@@ -117,9 +118,10 @@ impl Handler<DownloadObject> for Mailbox {
         };
         let addr = ctx.address();
         let cache = session.cache.clone();
+        let out_dir = session.share_dir_root.clone();
         ctx.spawn(
             async move {
-                match download_object(cache, server_endpoint, msg.0).await {
+                match download_object(cache, server_endpoint, msg.0, out_dir).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::GenerateFromJSON(action) = action {
                             addr.do_send(GenerateMeshMessage(action));
@@ -187,10 +189,17 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
         let region_id = session.region_data.region_id.clone();
         let session_id = session.session_id;
         let agent_id = session.agent_id;
+        let out_dir = session.share_dir_root.clone();
 
         ctx.spawn(
             async move {
-                match object_update_cached(msg.object_update_cached.objects, cache, region_id).await
+                match object_update_cached(
+                    msg.object_update_cached.objects,
+                    cache,
+                    region_id,
+                    out_dir,
+                )
+                .await
                 {
                     Ok(cache_results) => {
                         let mut requests = Vec::new();

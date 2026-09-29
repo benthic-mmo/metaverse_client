@@ -113,7 +113,7 @@ pub fn setup(
 
     commands.spawn((
         DirectionalLight::default(),
-        Transform::from_xyz(0.0, 2.0, -10.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Dir3::Y),
+        Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Dir3::Y),
     ));
 
     commands.spawn((

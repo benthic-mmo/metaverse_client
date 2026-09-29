@@ -68,6 +68,7 @@ pub async fn object_update_cached(
     objects: Vec<CachedObjectData>,
     cache: Cache,
     region_id: String,
+    out_dir: PathBuf,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let mut cache_results = Vec::new();
     for object in objects {
@@ -77,7 +78,7 @@ pub async fn object_update_cached(
             .await
         {
             Ok((asset_id, json_path, glb, generator_object)) => {
-                let base_dir = create_sub_object_dir(&asset_id.to_string())?;
+                let base_dir = create_sub_object_dir(&out_dir, &asset_id.to_string())?;
                 if let Some(mesh_path) = glb {
                     cache_results.push(ObjectUpdateAction::Render(RenderObjectData {
                         mesh_path,
@@ -117,6 +118,7 @@ pub async fn object_update_cached(
 pub async fn object_update(
     cache: Cache,
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    out_dir: PathBuf,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     cache.object.update(object.clone()).await?;
     let actions = match object.object_type {
@@ -126,7 +128,7 @@ pub async fn object_update(
         ObjectType::Unknown => handle_unknown(object)?,
         ObjectType::ParticleSystem => handle_particle_system(object)?,
         ObjectType::NewTree => handle_new_tree(object)?,
-        ObjectType::Avatar => handle_avatar(object)?,
+        ObjectType::Avatar => handle_avatar(object, out_dir)?,
         object_type => Err(ObjectUpdateError::UnknownObjectError {
             object_type: object_type.to_string(),
         })?,
@@ -239,8 +241,9 @@ fn handle_new_tree(
 
 fn handle_avatar(
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+    out_dir: PathBuf,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-    create_sub_agent_dir(&object.full_id.to_string())?;
+    create_sub_agent_dir(&out_dir, &object.full_id.to_string())?;
     Ok(vec![ObjectUpdateAction::NewAvatar(NewAvatarData {
         avatar: Avatar::new(object.full_id, object.position),
         retry_count: 0,

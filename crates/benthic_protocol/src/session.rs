@@ -68,6 +68,7 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     /// this stores folder data and inventory metadata
     pub inventory: Inventory,
     pub cache: Cache,
+    pub share_dir_root: PathBuf,
 }
 
 #[derive(Debug, Default)]
@@ -146,54 +147,56 @@ pub fn initialize_share_dir() -> Result<PathBuf, SessionError> {
 }
 
 /// Create a subdirectory in the benthic share dir
-pub fn create_sub_share_dir(name: &str) -> Result<PathBuf, SessionError> {
-    let share_dir = initialize_share_dir()?;
-    create_sub_dir(&share_dir, name)
+pub fn create_sub_share_dir(root: &Path, name: &str) -> Result<PathBuf, SessionError> {
+    create_sub_dir(root, name)
 }
 
 /// Create a subdirectory for user agents
-pub fn create_sub_agent_dir(name: &str) -> Result<PathBuf, SessionError> {
-    let agent_dir = create_sub_share_dir("agent")?;
+pub fn create_sub_agent_dir(root: &Path, name: &str) -> Result<PathBuf, SessionError> {
+    let agent_dir = create_sub_share_dir(root, "agent")?;
     create_sub_dir(&agent_dir, name)
 }
 
 /// Create a subdirectory for global objects
-pub fn create_sub_object_dir(name: &str) -> Result<PathBuf, SessionError> {
-    let land_dir = create_sub_share_dir("object")?;
-    create_sub_dir(&land_dir, name)
+pub fn create_sub_object_dir(root: &Path, name: &str) -> Result<PathBuf, SessionError> {
+    let object_dir = create_sub_share_dir(root, "object")?;
+    create_sub_dir(&object_dir, name)
 }
 
 /// Create a subdirectory for user agents
-pub fn create_sub_land_dir() -> Result<PathBuf, SessionError> {
-    create_sub_share_dir("land")
+pub fn create_sub_land_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    create_sub_share_dir(root, "land")
 }
+
 /// Create the global animations directory.
-pub fn create_animation_dir() -> Result<PathBuf, SessionError> {
-    let share_dir = initialize_share_dir()?;
-    create_sub_dir(&share_dir, "animations")
+pub fn create_animation_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    create_sub_share_dir(root, "animations")
 }
 
 /// Create the directory containing shared filtered animations.
-pub fn create_filtered_animations_dir() -> Result<PathBuf, SessionError> {
-    let animations_dir = create_animation_dir()?;
+pub fn create_filtered_animations_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    let animations_dir = create_animation_dir(root)?;
     create_sub_dir(&animations_dir, "filtered_animations")
 }
 
 /// Create the directory for a specific filtered animation.
-pub fn create_filtered_animation_dir(animation_id: &Uuid) -> Result<PathBuf, SessionError> {
-    let filtered_dir = create_filtered_animations_dir()?;
+pub fn create_filtered_animation_dir(
+    root: &Path,
+    animation_id: &Uuid,
+) -> Result<PathBuf, SessionError> {
+    let filtered_dir = create_filtered_animations_dir(root)?;
     create_sub_dir(&filtered_dir, &animation_id.to_string())
 }
 
 /// Create the directory containing agent-specific animations.
-pub fn create_animation_agents_dir() -> Result<PathBuf, SessionError> {
-    let animations_dir = create_animation_dir()?;
+pub fn create_animation_agents_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    let animations_dir = create_animation_dir(root)?;
     create_sub_dir(&animations_dir, "agents")
 }
 
 /// Create the directory for a specific agent's animations.
-pub fn create_agent_animation_dir(agent_id: &Uuid) -> Result<PathBuf, SessionError> {
-    let agents_dir = create_animation_agents_dir()?;
+pub fn create_agent_animation_dir(root: &Path, agent_id: &Uuid) -> Result<PathBuf, SessionError> {
+    let agents_dir = create_animation_agents_dir(root)?;
     create_sub_dir(&agents_dir, &agent_id.to_string())
 }
 
@@ -207,11 +210,12 @@ pub fn write_json<T: Serialize>(
     data: &T,
     filename: &str,
     cache_dir: CacheDir,
+    root: &Path,
 ) -> Result<PathBuf, SessionError> {
     let dir = match cache_dir {
-        CacheDir::Agent(id) => create_sub_agent_dir(&id.to_string())?,
-        CacheDir::Object(id) => create_sub_object_dir(&id.to_string())?,
-        CacheDir::Land => create_sub_land_dir()?,
+        CacheDir::Agent(id) => create_sub_agent_dir(root, &id.to_string())?,
+        CacheDir::Object(id) => create_sub_object_dir(root, &id.to_string())?,
+        CacheDir::Land => create_sub_land_dir(root)?,
     };
 
     let path = dir.join(format!("{filename}.json"));

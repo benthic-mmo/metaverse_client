@@ -3,7 +3,7 @@ use std::{fs::File, io::Read};
 use metaverse_messages::http::scene::SceneGroup;
 
 #[test]
-fn parse_scenegroup_1() {
+fn parse_scenegroup_t_shirt() {
     let mut file1 = File::open("tests/data/scenegroup_1.txt").unwrap();
     let mut buffer1 = Vec::new();
 
@@ -14,7 +14,7 @@ fn parse_scenegroup_1() {
 }
 
 #[test]
-fn parse_scenegroup_2() {
+fn parse_scenegroup_overalls() {
     let mut file2 = File::open("tests/data/scenegroup_2.txt").unwrap();
     let mut buffer2 = Vec::new();
 
@@ -26,7 +26,7 @@ fn parse_scenegroup_2() {
 }
 
 #[test]
-fn parse_scenegroup_3() {
+fn parse_scenegroup_body() {
     let mut file3 = File::open("tests/data/scenegroup_3.txt").unwrap();
     let mut buffer3 = Vec::new();
 
@@ -34,5 +34,6 @@ fn parse_scenegroup_3() {
 
     let scenegroup3 = SceneGroup::from_xml(&buffer3).unwrap();
 
+    println!("{:?}", scenegroup3.parts[0].metadata.name);
     println!("{:?}", scenegroup3.parts[0].shape.texture);
 }

@@ -119,7 +119,7 @@ impl PatchData for Land {
             let hash = XxHash32::oneshot(1234, cast_slice(&patch));
             terrain_header.filename = format!(
                 "{}_{}_{}",
-                &terrain_header.location.x, &terrain_header.location.y, hash
+                terrain_header.location.x, terrain_header.location.y, hash
             );
 
             // this decompresses the data using JPEG type decompression

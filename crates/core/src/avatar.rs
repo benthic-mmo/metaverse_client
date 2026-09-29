@@ -62,6 +62,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let agent_id = msg.agent_id;
         let cache = session.cache.clone();
         let addr = ctx.address();
+        let out_dir = session.share_dir_root.clone();
         ctx.spawn(
             async move {
                 match download_asset_objects(
@@ -70,6 +71,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                     asset_id,
                     agent_id,
                     cache,
+                    out_dir,
                 )
                 .await
                 {
@@ -303,12 +305,15 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let items = avatar.items.clone();
         let position = avatar.position;
         let cache = session.cache.clone();
+        let base_dir = session.share_dir_root.clone();
         let mut avatar = avatar.clone();
 
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items).await {
+                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items, base_dir)
+                    .await
+                {
                     Ok((glb_path, skeleton)) => {
                         addr.do_send(SetAvatarGlbPath {
                             path: glb_path.clone(),
@@ -452,7 +457,8 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let animations = msg.avatar_animation.animations;
         let used_joints = avatar.used_joints.clone();
         let target_skeleton = avatar.skeleton.clone();
-        let Ok(out_dir) = create_agent_animation_dir(&avatar.agent_id) else {
+        let out_dir = session.share_dir_root.clone();
+        let Ok(out_dir) = create_agent_animation_dir(&out_dir, &avatar.agent_id) else {
             error!("Failed to create agent animation directory");
             return;
         };
