@@ -64,207 +64,140 @@ impl TextureEntry {
         if b64.len() < 16 {
             return Ok(texture);
         }
-        let bytes = general_purpose::STANDARD.decode(b64).unwrap();
+        let bytes = general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         let mut cursor = Cursor::new(&bytes[..]);
 
-        {
-            let mut id_bytes = [0u8; 16];
-            cursor.read_exact(&mut id_bytes)?;
-            texture.texture_id = Uuid::from_bytes(id_bytes);
-            loop {
-                let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-                if bitfield == 0 {
-                    break;
-                }
-                for face_index in 0..size {
-                    let bit = 1 << face_index;
-                    if bitfield & bit != 0 {
-                        let mut id_bytes = [0u8; 16];
-                        cursor.read_exact(&mut id_bytes)?;
-                        faces.entry(face_index).or_default().texture_id =
-                            Uuid::from_bytes(id_bytes);
-                    }
-                }
+        let mut uuid = [0u8; 16];
+        cursor.read_exact(&mut uuid)?;
+        texture.texture_id = Uuid::from_bytes(uuid);
+        loop {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
+                break;
             }
+            cursor.read_exact(&mut uuid)?;
+            let id = Uuid::from_bytes(uuid);
+            for_each_face(mask, |f| faces.entry(f).or_default().texture_id = id);
         }
 
-        {
-            let red = cursor.read_u8()?;
-            let green = cursor.read_u8()?;
-            let blue = cursor.read_u8()?;
-            let alpha = cursor.read_u8()?;
-            texture.rgba = Rgba::new(red, green, blue, alpha);
-            loop {
-                let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-                if bitfield == 0 {
-                    break;
-                }
-                for face_index in 0..size {
-                    let bit = 1 << face_index;
-                    if bitfield & bit != 0 {
-                        let r = cursor.read_u8()?;
-                        let g = cursor.read_u8()?;
-                        let b = cursor.read_u8()?;
-                        let a = cursor.read_u8()?;
-                        faces.entry(face_index).or_default().rgba = Rgba::new(r, g, b, a);
-                    }
-                }
+        let mut c = [0u8; 4];
+        cursor.read_exact(&mut c)?;
+        for b in &mut c {
+            *b = !*b;
+        }
+        texture.rgba = Rgba::from(c);
+        loop {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
+                break;
             }
+            cursor.read_exact(&mut c)?;
+            for b in &mut c {
+                *b = !*b;
+            }
+            let col = Rgba::from(c);
+            for_each_face(mask, |f| faces.entry(f).or_default().rgba = col);
         }
 
         texture.repeat_u = cursor.read_f32::<LittleEndian>()?;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    faces.entry(face_index).or_default().repeat_u =
-                        cursor.read_f32::<LittleEndian>()?;
-                }
-            }
+            let v = cursor.read_f32::<LittleEndian>()?;
+            for_each_face(mask, |f| faces.entry(f).or_default().repeat_u = v);
         }
-
         texture.repeat_v = cursor.read_f32::<LittleEndian>()?;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    faces.entry(face_index).or_default().repeat_v =
-                        cursor.read_f32::<LittleEndian>()?;
-                }
-            }
+            let v = cursor.read_f32::<LittleEndian>()?;
+            for_each_face(mask, |f| faces.entry(f).or_default().repeat_v = v);
         }
 
-        texture.offset_u = (cursor.read_i16::<LittleEndian>()? as f32) / 32767.0;
+        texture.offset_u = cursor.read_i16::<LittleEndian>()? as f32 / 32767.0;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    let val = (cursor.read_i16::<LittleEndian>()? as f32) / 32767.0;
-                    faces.entry(face_index).or_default().offset_u = val;
-                }
-            }
+            let v = cursor.read_i16::<LittleEndian>()? as f32 / 32767.0;
+            for_each_face(mask, |f| faces.entry(f).or_default().offset_u = v);
         }
-
-        texture.offset_v = (cursor.read_i16::<LittleEndian>()? as f32) / 32767.0;
+        texture.offset_v = cursor.read_i16::<LittleEndian>()? as f32 / 32767.0;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    let val = (cursor.read_i16::<LittleEndian>()? as f32) / 32767.0;
-                    faces.entry(face_index).or_default().offset_v = val;
-                }
-            }
+            let v = cursor.read_i16::<LittleEndian>()? as f32 / 32767.0;
+            for_each_face(mask, |f| faces.entry(f).or_default().offset_v = v);
         }
 
-        {
-            let rotation = cursor.read_i16::<LittleEndian>()? as f32;
-            let wrapped = rotation.rem_euclid(TAU);
-            let remainder = if wrapped > PI { wrapped - TAU } else { wrapped };
-            let normalized = (remainder / TAU) * 32768.0 + 0.5;
-            texture.rotation = normalized.round();
-            loop {
-                let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-                if bitfield == 0 {
-                    break;
-                }
-                for face_index in 0..size {
-                    let bit = 1 << face_index;
-                    if bitfield & bit != 0 {
-                        let rotation = cursor.read_i16::<LittleEndian>()? as f32;
-                        let wrapped = rotation.rem_euclid(TAU);
-                        let remainder = if wrapped > PI { wrapped - TAU } else { wrapped };
-                        let normalized = (remainder / TAU) * 32768.0 + 0.5;
-                        faces.entry(face_index).or_default().rotation = normalized.round();
-                    }
-                }
+        texture.rotation = cursor.read_i16::<LittleEndian>()? as f32 / 32768.0 * TAU;
+        loop {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
+                break;
             }
+            let r = cursor.read_i16::<LittleEndian>()? as f32 / 32768.0 * TAU;
+            for_each_face(mask, |f| faces.entry(f).or_default().rotation = r);
         }
 
         texture.material = cursor.read_u8()?;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    faces.entry(face_index).or_default().material = cursor.read_u8()?;
-                }
-            }
+            let v = cursor.read_u8()?;
+            for_each_face(mask, |f| faces.entry(f).or_default().material = v);
         }
-
         texture.media = cursor.read_u8()?;
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    faces.entry(face_index).or_default().media = cursor.read_u8()?;
-                }
-            }
+            let v = cursor.read_u8()?;
+            for_each_face(mask, |f| faces.entry(f).or_default().media = v);
         }
-
-        texture.glow = cursor.read_u8()? as f32 * 255.0;
+        texture.glow = cursor.read_u8()? as f32 / 255.0; // divide, not multiply  
         loop {
-            let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-            if bitfield == 0 {
+            let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+            if mask == 0 {
                 break;
             }
-            for face_index in 0..size {
-                let bit = 1 << face_index;
-                if bitfield & bit != 0 {
-                    faces.entry(face_index).or_default().glow = cursor.read_u8()? as f32 * 255.0;
-                }
-            }
+            let g = cursor.read_u8()? as f32 / 255.0;
+            for_each_face(mask, |f| faces.entry(f).or_default().glow = g);
         }
 
-        {
-            let mut id_bytes = [0u8; 16];
-            cursor.read_exact(&mut id_bytes)?;
-            texture.material_id = Uuid::from_bytes(id_bytes);
+        let remaining = cursor.get_ref().len() - cursor.position() as usize;
+        if remaining >= 16 {
+            cursor.read_exact(&mut uuid)?;
+            texture.material_id = Uuid::from_bytes(uuid);
             loop {
-                let (bitfield, size) = read_b64_face_bitfield(&mut cursor)?;
-                if bitfield == 0 {
+                if cursor.position() as usize >= cursor.get_ref().len() {
                     break;
                 }
-                for face_index in 0..size {
-                    let bit = 1 << face_index;
-                    if bitfield & bit != 0 {
-                        let mut id_bytes = [0u8; 16];
-                        cursor.read_exact(&mut id_bytes)?;
-                        faces.entry(face_index).or_default().material_id =
-                            Uuid::from_bytes(id_bytes);
-                    }
+                let (mask, _) = read_b64_face_bitfield(&mut cursor)?;
+                if mask == 0 {
+                    break;
                 }
+                cursor.read_exact(&mut uuid)?;
+                let id = Uuid::from_bytes(uuid);
+                for_each_face(mask, |f| faces.entry(f).or_default().material_id = id);
             }
         }
 
-        // inherit missing fields to faces
         for face in faces.values_mut() {
             face.inherit_missing(&texture);
         }
-        println!("faces: {:?}", faces);
-
         Ok(texture)
     }
 

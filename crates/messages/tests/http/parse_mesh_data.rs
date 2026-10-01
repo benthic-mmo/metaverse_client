@@ -10,6 +10,4 @@ fn handle_mesh_data() {
 
     let mesh = Mesh::from_bytes(&buffer).unwrap();
     assert!(mesh.skin.is_some());
-
-    println!("{:?}", mesh);
 }
