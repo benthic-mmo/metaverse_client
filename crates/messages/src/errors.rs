@@ -15,6 +15,8 @@ pub enum ParseError {
         /// Frequency of the invalid data
         frequency: PacketFrequency,
     },
+    #[error("{0}")]
+    SceneObjectParse(#[from] SceneObjectParseError),
 
     #[error("Parse Error: {0}")]
     /// An error with a generic message
@@ -87,6 +89,32 @@ pub enum ParseError {
     #[error("UTF8 error: {0}")]
     /// wrapper for FromUTF8 errors
     UTF8Error(#[from] FromUtf8Error),
+}
+
+#[derive(Debug, Error)]
+#[error(
+    "SceneObject parse failed at line {line}: {operation} failed for value `{value}`: {message}"
+)]
+pub struct SceneObjectParseError {
+    pub operation: &'static str,
+    pub value: String,
+    pub line: u32,
+    pub message: String,
+}
+impl SceneObjectParseError {
+    #[track_caller]
+    pub fn new(
+        operation: &'static str,
+        value: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            operation,
+            value: value.into(),
+            line: std::panic::Location::caller().line(),
+            message: message.into(),
+        }
+    }
 }
 
 impl From<LLSDValue> for ParseError {

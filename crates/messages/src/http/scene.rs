@@ -1,3 +1,4 @@
+use crate::errors::SceneObjectParseError;
 use crate::{
     errors::ParseError,
     utils::{
@@ -87,6 +88,7 @@ impl SceneGroup {
         }
         // set the root object to the first child.
         children.insert(0, root_object);
+
         Ok(SceneGroup { parts: children })
     }
 }
@@ -379,298 +381,676 @@ impl SceneObject {
     ) -> Result<(), ParseError> {
         let text = e.as_ref();
         let val = unescape(text)?.into_owned();
+        macro_rules! parse_value {
+            ($value:expr, $ty:ty) => {{
+                let value = &$value;
+
+                value.parse::<$ty>().map_err(|e| {
+                    ParseError::SceneObjectParse(SceneObjectParseError::new(
+                        stringify!($ty),
+                        value,
+                        e.to_string(),
+                    ))
+                })
+            }};
+        }
+
+        macro_rules! parse_uuid {
+            ($value:expr) => {{
+                let value = &$value;
+
+                Uuid::parse_str(&$value).map_err(|e| {
+                    ParseError::SceneObjectParse(SceneObjectParseError::new(
+                        "UUID",
+                        value,
+                        e.to_string(),
+                    ))
+                })
+            }};
+        }
+        macro_rules! parse_texture_entry {
+            ($value:expr) => {{
+                let value = &$value;
+
+                TextureEntry::from_b64(value.as_bytes()).map_err(|e| {
+                    ParseError::SceneObjectParse(SceneObjectParseError::new(
+                        "TextureEntry",
+                        value,
+                        e.to_string(),
+                    ))
+                })?
+            }};
+        }
+
         match &path_str[offset..] {
             ["CreatorID", "UUID"] => {
-                scene_object.creator_id = Uuid::parse_str(&val)?;
+                scene_object.creator_id = parse_uuid!(val)?;
             }
+
             ["FolderId", "UUID"] => {
-                scene_object.folder_id = Uuid::parse_str(&val)?;
+                scene_object.folder_id = parse_uuid!(val)?;
             }
+
             ["InventorySerial"] => {
-                scene_object.inventory_serial = val.parse::<i32>()?;
+                scene_object.inventory_serial = parse_value!(val, i32)?;
             }
+
             ["UUID", "UUID"] => {
-                scene_object.metadata.id = Uuid::parse_str(&val)?;
+                scene_object.metadata.id = parse_uuid!(val)?;
             }
+
             ["LocalId"] => {
-                scene_object.legacy_local_id = val.parse()?;
+                scene_object.legacy_local_id = parse_value!(val, u32)?;
             }
+
             ["Name"] => {
                 scene_object.metadata.name = val;
             }
+
             ["Material"] => {
-                scene_object.material = MaterialType::from_bytes(&val.parse::<u8>()?);
+                scene_object.material = MaterialType::from_bytes(&parse_value!(val, u8)?);
             }
+
             ["PassTouches"] => {
-                scene_object.pass_touches = val.parse::<bool>()?;
+                scene_object.pass_touches = parse_value!(val, bool)?;
             }
+
             ["PassCollisions"] => {
-                scene_object.pass_collisions = val.parse::<bool>()?;
+                scene_object.pass_collisions = parse_value!(val, bool)?;
             }
+
             ["RegionHandle"] => {
-                let region_handle = val.parse::<u64>()?;
+                let region_handle = parse_value!(val, u64)?;
+
                 scene_object.legacy_region_x = (region_handle >> 32) as u32;
                 scene_object.legacy_region_y = (region_handle & 0xFFFF_FFFF) as u32;
             }
+
             ["ScriptAccessPin"] => {
-                scene_object.legacy_script_access_pin = val.parse::<u64>()?;
+                scene_object.legacy_script_access_pin = parse_value!(val, u64)?;
             }
 
             ["GroupPosition", rest @ ..] => match rest {
-                ["X"] => scene_object.group_position[0] = val.parse()?,
-                ["Y"] => scene_object.group_position[1] = val.parse()?,
-                ["Z"] => scene_object.group_position[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.group_position[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.group_position[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.group_position[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["OffsetPosition", rest @ ..] => match rest {
-                ["X"] => scene_object.offset_position[0] = val.parse()?,
-                ["Y"] => scene_object.offset_position[1] = val.parse()?,
-                ["Z"] => scene_object.offset_position[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.offset_position[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.offset_position[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.offset_position[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["RotationOffset", rest @ ..] => match rest {
-                ["X"] => scene_object.rotation_offset.x = val.parse()?,
-                ["Y"] => scene_object.rotation_offset.y = val.parse()?,
-                ["Z"] => scene_object.rotation_offset.z = val.parse()?,
-                ["W"] => scene_object.rotation_offset.w = val.parse()?,
+                ["X"] => {
+                    scene_object.rotation_offset.x = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.rotation_offset.y = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.rotation_offset.z = parse_value!(val, f32)?;
+                }
+                ["W"] => {
+                    scene_object.rotation_offset.w = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["Velocity", rest @ ..] => match rest {
-                ["X"] => scene_object.motion_data.velocity[0] = val.parse()?,
-                ["Y"] => scene_object.motion_data.velocity[1] = val.parse()?,
-                ["Z"] => scene_object.motion_data.velocity[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.motion_data.velocity[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.motion_data.velocity[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.motion_data.velocity[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["AngularVelocity", rest @ ..] => match rest {
-                ["X"] => scene_object.motion_data.angular_velocity[0] = val.parse()?,
-                ["Y"] => scene_object.motion_data.angular_velocity[1] = val.parse()?,
-                ["Z"] => scene_object.motion_data.angular_velocity[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.motion_data.angular_velocity[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.motion_data.angular_velocity[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.motion_data.angular_velocity[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["Acceleration", rest @ ..] => match rest {
-                ["X"] => scene_object.motion_data.acceleration[0] = val.parse()?,
-                ["Y"] => scene_object.motion_data.acceleration[1] = val.parse()?,
-                ["Z"] => scene_object.motion_data.acceleration[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.motion_data.acceleration[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.motion_data.acceleration[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.motion_data.acceleration[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["Description"] => {
                 scene_object.metadata.description = val;
             }
+
             ["Color", rest @ ..] => match rest {
                 ["R"] => {
-                    scene_object.color.r = val.parse::<i32>()?;
+                    scene_object.color.r = parse_value!(val, i32)?;
                 }
                 ["G"] => {
-                    scene_object.color.g = val.parse::<i32>()?;
+                    scene_object.color.g = parse_value!(val, i32)?;
                 }
                 ["B"] => {
-                    scene_object.color.b = val.parse::<i32>()?;
+                    scene_object.color.b = parse_value!(val, i32)?;
                 }
                 ["A"] => {
-                    scene_object.color.a = val.parse::<i32>()?;
+                    scene_object.color.a = parse_value!(val, i32)?;
                 }
                 _ => {}
             },
+
             ["Text"] => {
                 scene_object.text = val;
             }
+
             ["SitName"] => {
                 scene_object.sit_data.sit_name = val;
             }
+
             ["TouchName"] => {
                 scene_object.touch_name = val;
             }
+
             ["LinkNum"] => {
-                scene_object.link_num = val.parse::<i32>()?;
+                scene_object.link_num = parse_value!(val, i32)?;
             }
+
             ["ClickAction"] => {
-                scene_object.click_action = val.parse()?;
+                scene_object.click_action = parse_value!(val, u8)?;
             }
+
             ["Shape", rest @ ..] => match rest {
-                ["ProfileCurve"] => scene_object.shape.path.profile_curve = val.parse::<u8>()?,
+                ["ProfileCurve"] => {
+                    scene_object.shape.path.profile_curve = parse_value!(val, u8)?;
+                }
+
                 ["TextureEntry"] => {
-                    scene_object.shape.texture = TextureEntry::from_b64(val.as_bytes())?
+                    scene_object.shape.texture = parse_texture_entry!(val);
                 }
-                ["ExtraParams"] => scene_object.shape.extra_params = val.as_bytes().to_vec(),
-                ["PathBegin"] => scene_object.shape.path.begin = val.parse::<u16>()?,
-                ["PathCurve"] => scene_object.shape.path.curve = val.parse::<u8>()?,
-                ["PathEnd"] => scene_object.shape.path.end = val.parse::<u16>()?,
+
+                ["ExtraParams"] => {
+                    scene_object.shape.extra_params = val.as_bytes().to_vec();
+                }
+
+                ["PathBegin"] => {
+                    scene_object.shape.path.begin = parse_value!(val, u16)?;
+                }
+
+                ["PathCurve"] => {
+                    scene_object.shape.path.curve = parse_value!(val, u8)?;
+                }
+
+                ["PathEnd"] => {
+                    scene_object.shape.path.end = parse_value!(val, u16)?;
+                }
+
                 ["PathRadiusOffset"] => {
-                    scene_object.shape.path.radius_offset = val.parse::<i8>()?
+                    scene_object.shape.path.radius_offset = parse_value!(val, i8)?;
                 }
-                ["PathRevolutions"] => scene_object.shape.path.revolutions = val.parse::<u8>()?,
-                ["PathScaleX"] => scene_object.shape.path.scale_x = val.parse::<u8>()?,
-                ["PathScaleY"] => scene_object.shape.path.scale_y = val.parse::<u8>()?,
-                ["PathShearX"] => scene_object.shape.path.shear_x = val.parse::<u8>()?,
-                ["PathShearY"] => scene_object.shape.path.shear_y = val.parse::<u8>()?,
-                ["PathSkew"] => scene_object.shape.path.skew = val.parse::<i8>()?,
-                ["PathTaperX"] => scene_object.shape.path.taper_x = val.parse::<i8>()?,
-                ["PathTaperY"] => scene_object.shape.path.taper_y = val.parse::<i8>()?,
-                ["PathTwist"] => scene_object.shape.path.twist_end = val.parse::<i8>()?,
-                ["PathTwistBegin"] => scene_object.shape.path.twist_begin = val.parse::<i8>()?,
+
+                ["PathRevolutions"] => {
+                    scene_object.shape.path.revolutions = parse_value!(val, u8)?;
+                }
+
+                ["PathScaleX"] => {
+                    scene_object.shape.path.scale_x = parse_value!(val, u8)?;
+                }
+
+                ["PathScaleY"] => {
+                    scene_object.shape.path.scale_y = parse_value!(val, u8)?;
+                }
+
+                ["PathShearX"] => {
+                    scene_object.shape.path.shear_x = parse_value!(val, u8)?;
+                }
+
+                ["PathShearY"] => {
+                    scene_object.shape.path.shear_y = parse_value!(val, u8)?;
+                }
+
+                ["PathSkew"] => {
+                    scene_object.shape.path.skew = parse_value!(val, i8)?;
+                }
+
+                ["PathTaperX"] => {
+                    scene_object.shape.path.taper_x = parse_value!(val, i8)?;
+                }
+
+                ["PathTaperY"] => {
+                    scene_object.shape.path.taper_y = parse_value!(val, i8)?;
+                }
+
+                ["PathTwist"] => {
+                    scene_object.shape.path.twist_end = parse_value!(val, i8)?;
+                }
+
+                ["PathTwistBegin"] => {
+                    scene_object.shape.path.twist_begin = parse_value!(val, i8)?;
+                }
+
                 ["PCode"] => {
-                    scene_object.shape.pcode = ObjectType::from_bytes(&val.parse::<u8>()?);
+                    scene_object.shape.pcode = ObjectType::from_bytes(&parse_value!(val, u8)?);
                 }
-                ["ProfileBegin"] => scene_object.shape.path.profile_begin = val.parse::<u16>()?,
-                ["ProfileEnd"] => scene_object.shape.path.profile_end = val.parse::<u16>()?,
-                ["ProfileHollow"] => scene_object.shape.path.profile_hollow = val.parse::<f32>()?,
-                ["ProfileShape"] => scene_object.shape.path.profile_shape = Some(val),
-                ["HollowShape"] => scene_object.shape.path.hollow_shape = Some(val),
 
-                ["State"] => scene_object.shape.state = val.parse::<i32>()?,
-                ["LastAttachPoint"] => scene_object.shape.last_attach_point = val.parse::<i32>()?,
-                ["SculptTexture", "UUID"] => scene_object.sculpt.texture = Uuid::parse_str(&val)?,
+                ["ProfileBegin"] => {
+                    scene_object.shape.path.profile_begin = parse_value!(val, u16)?;
+                }
+
+                ["ProfileEnd"] => {
+                    scene_object.shape.path.profile_end = parse_value!(val, u16)?;
+                }
+
+                ["ProfileHollow"] => {
+                    scene_object.shape.path.profile_hollow = parse_value!(val, f32)?;
+                }
+
+                ["ProfileShape"] => {
+                    scene_object.shape.path.profile_shape = Some(val);
+                }
+
+                ["HollowShape"] => {
+                    scene_object.shape.path.hollow_shape = Some(val);
+                }
+
+                ["State"] => {
+                    scene_object.shape.state = parse_value!(val, i32)?;
+                }
+
+                ["LastAttachPoint"] => {
+                    scene_object.shape.last_attach_point = parse_value!(val, i32)?;
+                }
+
+                ["SculptTexture", "UUID"] => {
+                    scene_object.sculpt.texture = parse_uuid!(val)?;
+                }
+
                 ["SculptType"] => {
-                    scene_object.sculpt.sculpt_type = SculptType::from_i32(val.parse::<i32>()?)
+                    scene_object.sculpt.sculpt_type = SculptType::from_i32(parse_value!(val, i32)?);
                 }
-                ["SculptEntry"] => scene_object.sculpt.entry = val.parse::<bool>()?,
-                ["FlexiSoftness"] => scene_object.shape.flex.softness = val.parse::<i32>()?,
-                ["FlexiTension"] => scene_object.shape.flex.tension = val.parse::<i32>()?,
-                ["FlexiDrag"] => scene_object.shape.flex.drag = val.parse::<i32>()?,
-                ["FlexiGravity"] => scene_object.shape.flex.gravity = val.parse::<i32>()?,
-                ["FlexiWind"] => scene_object.shape.flex.wind = val.parse::<i32>()?,
 
-                ["FlexiForceX"] => scene_object.shape.flex.force[0] = val.parse::<f32>()?,
-                ["FlexiForceY"] => scene_object.shape.flex.force[1] = val.parse::<f32>()?,
-                ["FlexiForceZ"] => scene_object.shape.flex.force[2] = val.parse::<f32>()?,
-                ["LightColorR"] => scene_object.shape.light.color.r = val.parse::<i32>()?,
-                ["LightColorG"] => scene_object.shape.light.color.g = val.parse::<i32>()?,
-                ["LightColorB"] => scene_object.shape.light.color.b = val.parse::<i32>()?,
-                ["LightColorA"] => scene_object.shape.light.color.a = val.parse::<i32>()?,
-                ["LightRadius"] => scene_object.shape.light.radius = val.parse::<i32>()?,
-                ["LightCutoff"] => scene_object.shape.light.cutoff = val.parse::<i32>()?,
-                ["LightFalloff"] => scene_object.shape.light.falloff = val.parse::<i32>()?,
-                ["LightIntensity"] => scene_object.shape.light.intensity = val.parse::<i32>()?,
-                ["FlexiEntry"] => scene_object.shape.flex.entry = val.parse::<bool>()?,
-                ["LightEntry"] => scene_object.shape.light.entry = val.parse::<bool>()?,
+                ["SculptEntry"] => {
+                    scene_object.sculpt.entry = parse_value!(val, bool)?;
+                }
+
+                ["FlexiSoftness"] => {
+                    scene_object.shape.flex.softness = parse_value!(val, i32)?;
+                }
+
+                ["FlexiTension"] => {
+                    scene_object.shape.flex.tension = parse_value!(val, i32)?;
+                }
+
+                ["FlexiDrag"] => {
+                    scene_object.shape.flex.drag = parse_value!(val, i32)?;
+                }
+
+                ["FlexiGravity"] => {
+                    scene_object.shape.flex.gravity = parse_value!(val, i32)?;
+                }
+
+                ["FlexiWind"] => {
+                    scene_object.shape.flex.wind = parse_value!(val, i32)?;
+                }
+
+                ["FlexiForceX"] => {
+                    scene_object.shape.flex.force[0] = parse_value!(val, f32)?;
+                }
+
+                ["FlexiForceY"] => {
+                    scene_object.shape.flex.force[1] = parse_value!(val, f32)?;
+                }
+
+                ["FlexiForceZ"] => {
+                    scene_object.shape.flex.force[2] = parse_value!(val, f32)?;
+                }
+
+                ["LightColorR"] => {
+                    scene_object.shape.light.color.r = parse_value!(val, i32)?;
+                }
+
+                ["LightColorG"] => {
+                    scene_object.shape.light.color.g = parse_value!(val, i32)?;
+                }
+
+                ["LightColorB"] => {
+                    scene_object.shape.light.color.b = parse_value!(val, i32)?;
+                }
+
+                ["LightColorA"] => {
+                    scene_object.shape.light.color.a = parse_value!(val, i32)?;
+                }
+
+                ["LightRadius"] => {
+                    scene_object.shape.light.radius = parse_value!(val, i32)?;
+                }
+
+                ["LightCutoff"] => {
+                    scene_object.shape.light.cutoff = parse_value!(val, i32)?;
+                }
+
+                ["LightFalloff"] => {
+                    scene_object.shape.light.falloff = parse_value!(val, f32)?;
+                }
+
+                ["LightIntensity"] => {
+                    scene_object.shape.light.intensity = parse_value!(val, i32)?;
+                }
+
+                ["FlexiEntry"] => {
+                    scene_object.shape.flex.entry = parse_value!(val, bool)?;
+                }
+
+                ["LightEntry"] => {
+                    scene_object.shape.light.entry = parse_value!(val, bool)?;
+                }
+
                 _ => {}
             },
 
             ["Scale", rest @ ..] => match rest {
-                ["X"] => scene_object.scale[0] = val.parse()?,
-                ["Y"] => scene_object.scale[1] = val.parse()?,
-                ["Z"] => scene_object.scale[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.scale[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.scale[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.scale[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["SitTargetOrientation", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.orientation[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.orientation[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.orientation[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.sit_data.orientation[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.sit_data.orientation[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.sit_data.orientation[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["SitTargetOrientationLL", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.legacy_orientation_ll[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.legacy_orientation_ll[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.legacy_orientation_ll[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.sit_data.legacy_orientation_ll[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.sit_data.legacy_orientation_ll[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.sit_data.legacy_orientation_ll[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["SitTargetPosition", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.position[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.position[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.position[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.sit_data.position[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.sit_data.position[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.sit_data.position[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["SitTargetPositionLL", rest @ ..] => match rest {
-                ["X"] => scene_object.sit_data.legacy_position_ll[0] = val.parse()?,
-                ["Y"] => scene_object.sit_data.legacy_position_ll[1] = val.parse()?,
-                ["Z"] => scene_object.sit_data.legacy_position_ll[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.sit_data.legacy_position_ll[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.sit_data.legacy_position_ll[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.sit_data.legacy_position_ll[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["ParentID"] => {
-                scene_object.legacy_parent_id = if val == "0" { 0 } else { u32::from_str(&val)? };
+                scene_object.legacy_parent_id = if val == "0" {
+                    0
+                } else {
+                    parse_value!(val, u32)?
+                };
             }
+
             ["CreationDate"] => {
-                scene_object.metadata.created_at =
-                    SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(val.parse::<u64>()?)
+                scene_object.metadata.created_at = SystemTime::UNIX_EPOCH
+                    + std::time::Duration::from_secs(parse_value!(val, u64)?);
             }
-            ["Category"] => scene_object.legacy_category = val,
-            ["SalePrice"] => scene_object.metadata.sale_info.price = val.parse::<i32>()?,
+
+            ["Category"] => {
+                scene_object.legacy_category = val;
+            }
+
+            ["SalePrice"] => {
+                scene_object.metadata.sale_info.price = parse_value!(val, i32)?;
+            }
+
             ["ObjectSaleType"] => {
-                scene_object.metadata.sale_info.sale_type = SaleType::from_string(&val)
+                scene_object.metadata.sale_info.sale_type = SaleType::from_string(&val);
             }
 
             ["OwnershipCost"] => {
-                scene_object.metadata.sale_info.ownership_cost = Some(val.parse::<i32>()?)
+                scene_object.metadata.sale_info.ownership_cost = Some(parse_value!(val, i32)?);
             }
+
             ["GroupID", "UUID"] => {
-                scene_object.metadata.permissions.group_id = Uuid::from_str(&val)?
+                scene_object.metadata.permissions.group_id = parse_uuid!(val)?;
             }
+
             ["OwnerID", "UUID"] => {
-                scene_object.metadata.permissions.owner_id = Uuid::from_str(&val)?
+                scene_object.metadata.permissions.owner_id = parse_uuid!(val)?;
             }
+
             ["LastOwnerID", "UUID"] => {
-                scene_object.metadata.permissions.last_owner_id = Some(Uuid::from_str(&val)?)
+                scene_object.metadata.permissions.last_owner_id = Some(parse_uuid!(val)?);
             }
-            ["RezzerID", "UUID"] => scene_object.rezzer_id = Uuid::from_str(&val)?,
-            ["BaseMask"] => scene_object.metadata.permissions.base_mask = val.parse::<i32>()?,
-            ["OwnerMask"] => scene_object.metadata.permissions.owner_mask = val.parse::<i32>()?,
-            ["Groupmask"] => scene_object.metadata.permissions.group_mask = val.parse::<i32>()?,
+
+            ["RezzerID", "UUID"] => {
+                scene_object.rezzer_id = parse_uuid!(val)?;
+            }
+
+            ["BaseMask"] => {
+                scene_object.metadata.permissions.base_mask = parse_value!(val, i32)?;
+            }
+
+            ["OwnerMask"] => {
+                scene_object.metadata.permissions.owner_mask = parse_value!(val, i32)?;
+            }
+
+            ["Groupmask"] => {
+                scene_object.metadata.permissions.group_mask = parse_value!(val, i32)?;
+            }
+
             ["EveryoneMask"] => {
-                scene_object.metadata.permissions.everyone_mask = val.parse::<i32>()?
+                scene_object.metadata.permissions.everyone_mask = parse_value!(val, i32)?;
             }
+
             ["NextOwnerMask"] => {
-                scene_object.metadata.permissions.next_owner_mask = val.parse::<i32>()?
+                scene_object.metadata.permissions.next_owner_mask = parse_value!(val, i32)?;
             }
+
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.metadata.flags = 0
+                    scene_object.metadata.flags = 0;
                 } else {
-                    scene_object.metadata.flags = val.parse::<i32>()?
+                    scene_object.metadata.flags = parse_value!(val, i32)?;
                 }
             }
+
             ["CollisionSound", "UUID"] => {
-                scene_object.sound.collision_sound = Uuid::from_str(&val)?
+                scene_object.sound.collision_sound = parse_uuid!(val)?;
             }
+
             ["CollisionSoundVolume"] => {
-                scene_object.sound.collision_sound_volume = val.parse::<i32>()?
+                scene_object.sound.collision_sound_volume = parse_value!(val, i32)?;
             }
+
             ["AttachedPos", rest @ ..] => match rest {
-                ["X"] => scene_object.attached_pos[0] = val.parse()?,
-                ["Y"] => scene_object.attached_pos[1] = val.parse()?,
-                ["Z"] => scene_object.attached_pos[2] = val.parse()?,
+                ["X"] => {
+                    scene_object.attached_pos[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.attached_pos[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.attached_pos[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
-            ["Textureanimation"] => scene_object.shape.texture_animation = val.into_bytes(),
-            ["ParticleSystem"] => scene_object.shape.particle_system = val.into_bytes(),
-            ["PayPrice0"] => scene_object.pay_price[0] = val.parse::<i32>()?,
-            ["PayPrice1"] => scene_object.pay_price[1] = val.parse::<i32>()?,
-            ["PayPrice2"] => scene_object.pay_price[2] = val.parse::<i32>()?,
-            ["PayPrice3"] => scene_object.pay_price[3] = val.parse::<i32>()?,
-            ["PayPrice4"] => scene_object.pay_price[4] = val.parse::<i32>()?,
-            ["Buoyancy"] => scene_object.motion_data.buoyancy = val.parse::<i32>()?,
-            ["Force", rest @ ..] => match rest {
-                ["X"] => scene_object.motion_data.force[0] = val.parse()?,
-                ["Y"] => scene_object.motion_data.force[1] = val.parse()?,
-                ["Z"] => scene_object.motion_data.force[2] = val.parse()?,
-                _ => {}
-            },
-            ["Torque", rest @ ..] => match rest {
-                ["x"] => scene_object.motion_data.torque[0] = val.parse()?,
-                ["y"] => scene_object.motion_data.torque[1] = val.parse()?,
-                ["z"] => scene_object.motion_data.torque[2] = val.parse()?,
-                _ => {}
-            },
-            ["VolumeDetectActive"] => scene_object.volume_detect_active = val.parse::<bool>()?,
-            ["PhysicsShapetype"] => {
-                scene_object.physics_shape_type = PhysicsShapeType::from_bytes(val.parse::<i32>()?)
+
+            ["Textureanimation"] => {
+                scene_object.shape.texture_animation = val.into_bytes();
             }
+
+            ["ParticleSystem"] => {
+                scene_object.shape.particle_system = val.into_bytes();
+            }
+
+            ["PayPrice0"] => {
+                scene_object.pay_price[0] = parse_value!(val, i32)?;
+            }
+
+            ["PayPrice1"] => {
+                scene_object.pay_price[1] = parse_value!(val, i32)?;
+            }
+
+            ["PayPrice2"] => {
+                scene_object.pay_price[2] = parse_value!(val, i32)?;
+            }
+
+            ["PayPrice3"] => {
+                scene_object.pay_price[3] = parse_value!(val, i32)?;
+            }
+
+            ["PayPrice4"] => {
+                scene_object.pay_price[4] = parse_value!(val, i32)?;
+            }
+
+            ["Buoyancy"] => {
+                scene_object.motion_data.buoyancy = parse_value!(val, i32)?;
+            }
+
+            ["Force", rest @ ..] => match rest {
+                ["X"] => {
+                    scene_object.motion_data.force[0] = parse_value!(val, f32)?;
+                }
+                ["Y"] => {
+                    scene_object.motion_data.force[1] = parse_value!(val, f32)?;
+                }
+                ["Z"] => {
+                    scene_object.motion_data.force[2] = parse_value!(val, f32)?;
+                }
+                _ => {}
+            },
+
+            ["Torque", rest @ ..] => match rest {
+                ["x"] => {
+                    scene_object.motion_data.torque[0] = parse_value!(val, f32)?;
+                }
+                ["y"] => {
+                    scene_object.motion_data.torque[1] = parse_value!(val, f32)?;
+                }
+                ["z"] => {
+                    scene_object.motion_data.torque[2] = parse_value!(val, f32)?;
+                }
+                _ => {}
+            },
+
+            ["VolumeDetectActive"] => {
+                scene_object.volume_detect_active = parse_value!(val, bool)?;
+            }
+
+            ["PhysicsShapetype"] => {
+                scene_object.physics_shape_type =
+                    PhysicsShapeType::from_bytes(parse_value!(val, i32)?);
+            }
+
             ["CameraEyeOffset", rest @ ..] => match rest {
-                ["x"] => scene_object.camera_eye_offset[0] = val.parse()?,
-                ["y"] => scene_object.camera_eye_offset[1] = val.parse()?,
-                ["z"] => scene_object.camera_eye_offset[2] = val.parse()?,
+                ["x"] => {
+                    scene_object.camera_eye_offset[0] = parse_value!(val, f32)?;
+                }
+                ["y"] => {
+                    scene_object.camera_eye_offset[1] = parse_value!(val, f32)?;
+                }
+                ["z"] => {
+                    scene_object.camera_eye_offset[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
+
             ["CameraAtOffset", rest @ ..] => match rest {
-                ["x"] => scene_object.camera_at_offset[0] = val.parse()?,
-                ["y"] => scene_object.camera_at_offset[1] = val.parse()?,
-                ["z"] => scene_object.camera_at_offset[2] = val.parse()?,
+                ["x"] => {
+                    scene_object.camera_at_offset[0] = parse_value!(val, f32)?;
+                }
+                ["y"] => {
+                    scene_object.camera_at_offset[1] = parse_value!(val, f32)?;
+                }
+                ["z"] => {
+                    scene_object.camera_at_offset[2] = parse_value!(val, f32)?;
+                }
                 _ => {}
             },
-            ["SoundID", "UUID"] => scene_object.sound.attached.sound_id = Uuid::from_str(&val)?,
-            ["SoundGain"] => scene_object.sound.attached.gain = val.parse::<f32>()?,
-            ["SoundFlags"] => scene_object.sound.attached.flags = val.parse::<u8>()?,
-            ["SoundRadius"] => scene_object.sound.attached.radius = val.parse::<f32>()?,
-            ["SoundQueueing"] => scene_object.sound.sound_queueing = val.parse::<bool>()?,
+
+            ["SoundID", "UUID"] => {
+                scene_object.sound.attached.sound_id = parse_uuid!(val)?;
+            }
+
+            ["SoundGain"] => {
+                scene_object.sound.attached.gain = parse_value!(val, f32)?;
+            }
+
+            ["SoundFlags"] => {
+                scene_object.sound.attached.flags = parse_value!(val, u8)?;
+            }
+
+            ["SoundRadius"] => {
+                scene_object.sound.attached.radius = parse_value!(val, f32)?;
+            }
+
+            ["SoundQueueing"] => {
+                scene_object.sound.sound_queueing = parse_value!(val, bool)?;
+            }
+
             _ => {}
         }
 
@@ -730,7 +1110,7 @@ pub struct Light {
     /// Brightness of the light
     pub intensity: i32,
     /// How quickly the light intensity decreases with distance
-    pub falloff: i32,
+    pub falloff: f32,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

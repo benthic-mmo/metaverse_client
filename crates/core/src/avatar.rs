@@ -82,7 +82,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                         });
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("DownloadAgentAsset error: {:?}", e)
                     }
                 };
             }
@@ -124,7 +124,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
             }
             Ok(_) => {}
             Err(e) => {
-                error!("{:?}", e);
+                error!("AddObjectToAvatar error {:?}", e);
             }
         };
     }
@@ -181,7 +181,7 @@ impl Handler<HandleNewAvatar> for Mailbox {
                                     match cache.avatar.current_outfit(agent_id, inventory).await {
                                         Ok(result) => result,
                                         Err(e) => {
-                                            error!("{:?}", e);
+                                            error!("HandleNewAvatar error: {:?}", e);
                                             return;
                                         }
                                     }
@@ -189,7 +189,7 @@ impl Handler<HandleNewAvatar> for Mailbox {
                                     match inventory.get_current_outfit().await {
                                         Ok(outfit_items) => (None, outfit_items),
                                         Err(e) => {
-                                            error!("{:?}", e);
+                                            error!("HandleNewAvatarError {:?}", e);
                                             return;
                                         }
                                     }
@@ -262,7 +262,7 @@ impl Handler<HandleNewAvatar> for Mailbox {
                     });
                 }
                 e => {
-                    error!("{:?}", e)
+                    error!("HandleNewAvatar error: {:?}", e)
                 }
             },
         };
@@ -328,7 +328,7 @@ impl Handler<FinalizeAvatar> for Mailbox {
                         if cache_enabled()
                             && let Err(e) = cache.avatar.update(avatar).await
                         {
-                            error!("{:?}", e);
+                            error!("FinalizeAvatar error: {:?}", e);
                         }
                         addr.do_send(RenderAvatar {
                             message: MeshUpdate {
