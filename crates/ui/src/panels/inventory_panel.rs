@@ -71,6 +71,7 @@ fn inventory_panel(
                 .show(ui, |ui| {
                     for folder in &inventory.folders {
                         egui::CollapsingHeader::new(&folder.name)
+                            .id_salt(("folder", folder.id))
                             .default_open(false)
                             .show(ui, |ui| {
                                 let item_width = 64.0;

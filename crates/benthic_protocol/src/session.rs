@@ -220,11 +220,9 @@ pub fn write_json<T: Serialize>(
 
     let path = dir.join(format!("{filename}.json"));
 
-    let json =
-        serde_json::to_string(data).map_err(|error| SessionError::JsonWriteError { error })?;
+    let json = serde_json::to_vec(data).map_err(|error| SessionError::JsonWriteError { error })?;
 
-    let mut file = File::create(&path)?;
-    file.write_all(json.as_bytes())?;
+    File::create(&path)?.write_all(&json)?;
 
     Ok(path)
 }

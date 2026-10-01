@@ -659,12 +659,113 @@ static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::
 
     m
 });
+
+static JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+
+    // Root
+    m.insert("PELVIS", JointName::Pelvis);
+    m.insert("mPelvis", JointName::Pelvis);
+    m.insert("BUTT", JointName::Butt);
+
+    // Spine
+    m.insert("mSpine1", JointName::Spine1);
+    m.insert("mSpine2", JointName::Spine2);
+    m.insert("mSpine3", JointName::Spine3);
+    m.insert("mSpine4", JointName::Spine4);
+    m.insert("LOWER_BACK", JointName::LowerBack);
+    m.insert("BELLY", JointName::Belly);
+    m.insert("UPPER_BACK", JointName::UpperBack);
+    m.insert("CHEST", JointName::Chest);
+    m.insert("mChest", JointName::Chest);
+    m.insert("mTorso", JointName::Torso);
+    m.insert("mGroin", JointName::Groin);
+
+    // Neck & head
+    m.insert("NECK", JointName::Neck);
+    m.insert("mNeck", JointName::Neck);
+    m.insert("HEAD", JointName::Head);
+    m.insert("mHead", JointName::Head);
+    m.insert("mSkull", JointName::Skull);
+
+    // Shoulders
+    m.insert("L_CLAVICLE", JointName::ClavicleLeft);
+    m.insert("R_CLAVICLE", JointName::ClavicleRight);
+    m.insert("SHOULDER_LEFT", JointName::ShoulderLeft);
+    m.insert("SHOULDER_RIGHT", JointName::ShoulderRight);
+    m.insert("mShoulderLeft", JointName::ShoulderLeft);
+    m.insert("mShoulderRight", JointName::ShoulderRight);
+    m.insert("mCollarLeft", JointName::CollarLeft);
+    m.insert("mCollarRight", JointName::CollarRight);
+
+    // Arms
+    m.insert("LEFT_PEC", JointName::PecLeft);
+    m.insert("RIGHT_PEC", JointName::PecRight);
+    m.insert("L_UPPER_ARM", JointName::UpperArmLeft);
+    m.insert("L_LOWER_ARM", JointName::LowerArmLeft);
+    m.insert("R_UPPER_ARM", JointName::UpperArmRight);
+    m.insert("R_LOWER_ARM", JointName::LowerArmRight);
+    m.insert("mArmLeft", JointName::ArmLeft);
+    m.insert("mArmRight", JointName::ArmRight);
+    m.insert("mElbowLeft", JointName::ElbowLeft);
+    m.insert("mElbowRight", JointName::ElbowRight);
+    m.insert("mForearmLeft", JointName::ForearmLeft);
+    m.insert("mForearmRight", JointName::ForearmRight);
+    m.insert("mWristLeft", JointName::WristLeft);
+    m.insert("mWristRight", JointName::WristRight);
+
+    // Hands
+    m.insert("L_HAND", JointName::HandLeft);
+    m.insert("R_HAND", JointName::HandRight);
+    m.insert("mHandLeft", JointName::HandLeft);
+    m.insert("mHandRight", JointName::HandRight);
+
+    // Legs
+    m.insert("L_UPPER_LEG", JointName::UpperLegLeft);
+    m.insert("L_LOWER_LEG", JointName::LowerLegLeft);
+    m.insert("R_UPPER_LEG", JointName::UpperLegRight);
+    m.insert("R_LOWER_LEG", JointName::LowerLegRight);
+    m.insert("HIP_LEFT", JointName::HipLeft);
+    m.insert("HIP_RIGHT", JointName::HipRight);
+    m.insert("mHipLeft", JointName::HipLeft);
+    m.insert("mHipRight", JointName::HipRight);
+    m.insert("mThighLeft", JointName::ThighLeft);
+    m.insert("mThighRight", JointName::ThighRight);
+    m.insert("mKneeLeft", JointName::KneeLeft);
+    m.insert("mKneeRight", JointName::KneeRight);
+    m.insert("mShinLeft", JointName::ShinLeft);
+    m.insert("mShinRight", JointName::ShinRight);
+    m.insert("KNEE_LEFT", JointName::UpperKneeLeft);
+    m.insert("KNEE_RIGHT", JointName::UpperKneeRight);
+
+    // Feet
+    m.insert("ANKLE_LEFT", JointName::AnkleLeft);
+    m.insert("ANKLE_RIGHT", JointName::AnkleRight);
+    m.insert("mAnkleLeft", JointName::AnkleLeft);
+    m.insert("mAnkleRight", JointName::AnkleRight);
+    m.insert("L_FOOT", JointName::FootLeft);
+    m.insert("R_FOOT", JointName::FootRight);
+    m.insert("FOOT_LEFT", JointName::FootLeft);
+    m.insert("FOOT_RIGHT", JointName::FootRight);
+    m.insert("mFootLeft", JointName::FootLeft);
+    m.insert("mFootRight", JointName::FootRight);
+    m.insert("mHeelLeft", JointName::HeelLeft);
+    m.insert("mHeelRight", JointName::HeelRight);
+    m.insert("mToeLeft", JointName::ToeLeft);
+    m.insert("mToeRight", JointName::ToeRight);
+
+    m
+});
 impl JointName {
     pub fn resolve_joint_name(s: &str) -> Option<JointName> {
         QUATERNIUS_JOINT_ALIASES
             .get(s)
-            .or_else(|| UNITY_JOINT_ALIASES.get(s))
-            .or_else(|| BVH_JOINT_ALIASES.get(s))
+            .copied()
+            .or_else(|| JointName::from_str(s).ok())
+    }
+    pub fn resolve_default_joint_name(s: &str) -> Option<JointName> {
+        JOINT_ALIASES
+            .get(s)
             .copied()
             .or_else(|| JointName::from_str(s).ok())
     }

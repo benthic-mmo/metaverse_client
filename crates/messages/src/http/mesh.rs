@@ -244,7 +244,8 @@ impl MeshGeometry {
 
         let mut positions = Vec::with_capacity(position_bytes.len() / 6);
 
-        for chunk in position_bytes.chunks_exact(6) {
+        let (chunks, _) = position_bytes.as_chunks::<6>();
+        for chunk in chunks {
             let x = u16::from_le_bytes([chunk[0], chunk[1]]);
             let y = u16::from_le_bytes([chunk[2], chunk[3]]);
             let z = u16::from_le_bytes([chunk[4], chunk[5]]);
@@ -272,7 +273,8 @@ impl MeshGeometry {
 
         let mut triangle_indices = Vec::with_capacity(triangle_bytes.len() / 2);
 
-        for chunk in triangle_bytes.chunks_exact(2) {
+        let (chunks, _) = triangle_bytes.as_chunks::<2>();
+        for chunk in chunks {
             triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]));
         }
 
@@ -281,8 +283,8 @@ impl MeshGeometry {
 
         let weights = map
             .get("Weights")
-            .and_then(|weights_llsd| skin.as_ref().map(|skin| (weights_llsd, skin)))
-            .map(|(weights_llsd, skin)| handle_skin(weights_llsd, skin.joint_names.as_ref()))
+            .zip(skin.as_ref())
+            .map(|(weights_llsd, skin)| handle_skin(weights_llsd, &skin.joint_names))
             .transpose()?;
 
         let data = parse_binary(map, "TexCoord0")?;
@@ -293,8 +295,9 @@ impl MeshGeometry {
             ));
         }
 
-        let texture_coordinate = data
-            .chunks_exact(4)
+        let (chunks, _) = data.as_chunks::<4>();
+        let texture_coordinate = chunks
+            .iter()
             .map(|chunk| {
                 let u = u16::from_le_bytes([chunk[0], chunk[1]]);
                 let v = u16::from_le_bytes([chunk[2], chunk[3]]);
@@ -501,8 +504,8 @@ impl Skin {
                 v.as_string()
                     .ok_or_else(|| ParseError::InvalidField("joint name (not a string)".into()))
                     .and_then(|s| {
-                        JointName::from_str(s).map_err(|e| {
-                            ParseError::InvalidField(format!("Unknown joint name: {}, {}", s, e))
+                        JointName::resolve_default_joint_name(s).ok_or_else(|| {
+                            ParseError::InvalidField(format!("Unknown joint name: {s}"))
                         })
                     })
             })
@@ -597,9 +600,12 @@ fn parse_f32(value: &LLSDValue) -> Option<f32> {
 }
 
 /// helper function for parsing binary data
-fn parse_binary(map: &HashMap<String, LLSDValue>, key: &str) -> Result<Vec<u8>, ParseError> {
+fn parse_binary<'a>(
+    map: &'a HashMap<String, LLSDValue>,
+    key: &str,
+) -> Result<&'a [u8], ParseError> {
     match map.get(key) {
-        Some(LLSDValue::Binary(data)) => Ok(data.clone()),
+        Some(LLSDValue::Binary(data)) => Ok(data),
         _ => Err(ParseError::InvalidField(format!(
             "Missing or invalid binary data for key: {}",
             key

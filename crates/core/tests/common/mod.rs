@@ -134,7 +134,7 @@ fn mock_from_xml(
 
     let json_path = generated_agent_dir.join(json_name);
 
-    let json = serde_json::to_string(&render_objects)?;
+    let json = serde_json::to_vec(&render_objects)?;
     fs::write(&json_path, json)?;
 
     let state = add_object_to_avatar(session, AGENT_ID, OutfitObject::MeshObject(json_path))?;

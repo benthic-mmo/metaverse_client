@@ -52,7 +52,7 @@ bevy.workspace = true
 bevy_world_serialization.workspace = true 
 bevy_panorbit_camera.workspace = true 
 lazy_static.workspace = true
-
+criterion = { version = "0.8", features = ["html_reports"] }
 
 # allow for compiling a barebones viewer
 [features]
@@ -66,3 +66,6 @@ avatar = ["dep:metaverse_avatar"]
 inventory = ["dep:metaverse_store"]
 
 
+[[bench]]
+name = "benthic_benchmark"
+harness = false
