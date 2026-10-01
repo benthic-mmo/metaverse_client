@@ -133,13 +133,10 @@ pub fn create_render_object(
             // Normalize U and V from 0..65535 to 0..1
             let u_norm = tc.u as f32 / 65535.0;
             let v_norm = tc.v as f32 / 65535.0;
-
-            // Flip V axis
-            let v_flipped = 1.0 - v_norm;
-
             [
                 domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
-                domain.min[1] + v_flipped * (domain.max[1] - domain.min[1]),
+                // we need to flip this to make these render correctly in GLTF.
+                1.0 - (domain.min[1] + v_norm * (domain.max[1] - domain.min[1])),
             ]
         })
         .collect();

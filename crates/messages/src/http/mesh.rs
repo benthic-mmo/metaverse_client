@@ -171,7 +171,6 @@ pub struct MeshGeometry {
     /// positions of vertices in 3d space.
     /// This should only be used for small meshes that don't have a lot of vertices. Storing these
     /// triangles duplicates vertices, which is inefficient.
-    /// Currently used by land generation to prevent having to generate an index.
     pub triangles: Option<Vec<Vec3>>,
     /// full list of vertices
     pub vertices: Vec<Vec3>,
@@ -187,10 +186,19 @@ impl MeshGeometry {
             .as_array()
             .ok_or_else(|| ParseError::MissingField("Expected top level array".into()))?;
 
+        // this length is always one.
         let map = array
             .first()
             .and_then(LLSDValue::as_map)
             .ok_or_else(|| ParseError::MissingField("Expected map inside array".into()))?;
+
+        // Some faces have no geometry.
+        if matches!(map.get("NoGeometry"), Some(LLSDValue::Boolean(true))) {
+            return Ok(Self {
+                no_geometry: true,
+                ..Default::default()
+            });
+        }
 
         let position_domain = map
             .get("PositionDomain")
@@ -220,18 +228,21 @@ impl MeshGeometry {
             parse_f32(&max[0])
                 .ok_or_else(|| ParseError::InvalidField("position domain max x".into()))?,
             parse_f32(&max[1])
-                .ok_or_else(|| ParseError::InvalidField("Invalid position domain max y".into()))?,
+                .ok_or_else(|| ParseError::InvalidField("position domain max y".into()))?,
             parse_f32(&max[2])
-                .ok_or_else(|| ParseError::InvalidField("Invalid position domain max z".into()))?,
+                .ok_or_else(|| ParseError::InvalidField("position domain max z".into()))?,
         );
 
+        // Decode positions.
         let position_bytes = parse_binary(map, "Position")?;
-        let mut positions = Vec::new();
+
         if position_bytes.len() % 6 != 0 {
             return Err(ParseError::MeshError(
                 "Position data length is not a multiple of 6".into(),
             ));
         }
+
+        let mut positions = Vec::with_capacity(position_bytes.len() / 6);
 
         for chunk in position_bytes.chunks_exact(6) {
             let x = u16::from_le_bytes([chunk[0], chunk[1]]);
@@ -240,26 +251,34 @@ impl MeshGeometry {
 
             let xf = position_domain_min.x
                 + (x as f32 / 65535.0) * (position_domain_max.x - position_domain_min.x);
+
             let yf = position_domain_min.y
                 + (y as f32 / 65535.0) * (position_domain_max.y - position_domain_min.y);
+
             let zf = position_domain_min.z
                 + (z as f32 / 65535.0) * (position_domain_max.z - position_domain_min.z);
 
             positions.push(Vec3::new(xf, yf, zf));
         }
 
-        // Parse triangle indices
+        // Parse triangle indices.
         let triangle_bytes = parse_binary(map, "TriangleList")?;
+
         if triangle_bytes.len() % 2 != 0 {
             return Err(ParseError::MeshError(
                 "TriangleList data has odd length (should be even)".into(),
             ));
         }
 
-        let mut triangle_indices = Vec::new();
+        let mut triangle_indices = Vec::with_capacity(triangle_bytes.len() / 2);
+
         for chunk in triangle_bytes.chunks_exact(2) {
             triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]));
         }
+
+        // Viewer drops trailing indices that don't form a complete triangle.
+        triangle_indices.truncate(triangle_indices.len() / 3 * 3);
+
         let weights = map
             .get("Weights")
             .and_then(|weights_llsd| skin.as_ref().map(|skin| (weights_llsd, skin)))
@@ -267,6 +286,7 @@ impl MeshGeometry {
             .transpose()?;
 
         let data = parse_binary(map, "TexCoord0")?;
+
         if data.len() % 4 != 0 {
             return Err(ParseError::InvalidField(
                 "TexCoord0 is not a multiple of 4".into(),
@@ -278,11 +298,11 @@ impl MeshGeometry {
             .map(|chunk| {
                 let u = u16::from_le_bytes([chunk[0], chunk[1]]);
                 let v = u16::from_le_bytes([chunk[2], chunk[3]]);
+
                 TextureCoordinate { u, v }
             })
             .collect::<Vec<_>>();
 
-        // Parse TexCoord0Domain map
         let domain_value = map
             .get("TexCoord0Domain")
             .ok_or_else(|| ParseError::MissingField("TexCoord0Domain".into()))?;
@@ -296,39 +316,44 @@ impl MeshGeometry {
             }
         };
 
-        // parse "Min" array
         let min = match domain_map.get("Min") {
             Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
-                let x = match &arr[1] {
-                    LLSDValue::Real(f) => *f as f32,
-                    _ => return Err(ParseError::InvalidField("Invalid Min value".into())),
-                };
-                let y = match &arr[0] {
-                    LLSDValue::Real(f) => *f as f32,
-                    _ => return Err(ParseError::InvalidField("Invalid Min value".into())),
-                };
-                [x, y]
+                let u = parse_f32(&arr[0]).ok_or_else(|| {
+                    ParseError::InvalidField("Invalid TexCoord0Domain Min U".into())
+                })?;
+
+                let v = parse_f32(&arr[1]).ok_or_else(|| {
+                    ParseError::InvalidField("Invalid TexCoord0Domain Min V".into())
+                })?;
+
+                [u, v]
             }
-            _ => return Err(ParseError::InvalidField("Min is missing or invalid".into())),
+
+            _ => {
+                return Err(ParseError::InvalidField("Min is missing or invalid".into()));
+            }
         };
 
-        // parse "Max" array (same as Min)
         let max = match domain_map.get("Max") {
             Some(LLSDValue::Array(arr)) if arr.len() == 2 => {
-                let x = match &arr[0] {
-                    LLSDValue::Real(f) => *f as f32,
-                    _ => return Err(ParseError::InvalidField("Invalid Max value".into())),
-                };
-                let y = match &arr[1] {
-                    LLSDValue::Real(f) => *f as f32,
-                    _ => return Err(ParseError::InvalidField("Invalid Max value".into())),
-                };
-                [x, y]
+                let u = parse_f32(&arr[0]).ok_or_else(|| {
+                    ParseError::InvalidField("Invalid TexCoord0Domain Max U".into())
+                })?;
+
+                let v = parse_f32(&arr[1]).ok_or_else(|| {
+                    ParseError::InvalidField("Invalid TexCoord0Domain Max V".into())
+                })?;
+
+                [u, v]
             }
-            _ => return Err(ParseError::InvalidField("Max is missing or invalid".into())),
+
+            _ => {
+                return Err(ParseError::InvalidField("Max is missing or invalid".into()));
+            }
         };
 
         let texture_coordinate_domain = TextureCoordinateDomain { min, max };
+
         Ok(MeshGeometry {
             no_geometry: false,
             position_domain: Some(PositionDomain {
@@ -344,7 +369,6 @@ impl MeshGeometry {
         })
     }
 }
-
 fn handle_skin(data: &LLSDValue, joints: &[JointName]) -> Result<Vec<JointWeight>, ParseError> {
     let map = match data {
         LLSDValue::Binary(map) => map,
