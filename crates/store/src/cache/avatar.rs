@@ -16,7 +16,7 @@ impl AvatarCache {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        let data = serde_json::to_string(&avatar)?;
+        let data = serde_json::to_vec(&avatar)?;
         sqlx::query(
             r#"
         UPDATE agents

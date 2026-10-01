@@ -18,7 +18,7 @@ use quick_xml::{
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
-use std::{str::FromStr, time::SystemTime};
+use std::time::SystemTime;
 use uuid::Uuid;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
