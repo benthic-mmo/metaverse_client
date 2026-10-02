@@ -35,8 +35,14 @@ pub enum DownloadError {
     #[error("Parse Error: {0}")]
     ParseError(#[from] ParseError),
 
-    #[error("Unwknown Pixel Format")]
+    #[error("Unknown Pixel Format")]
     UnknownPixelFormatError {},
+
+    #[error("Jpeg2k error:")]
+    Jpeg2kError(#[from] jpeg2k::error::Error),
+
+    #[error("ImageError:")]
+    ImageError(#[from] image::ImageError),
 }
 
 #[derive(Debug, thiserror::Error)]

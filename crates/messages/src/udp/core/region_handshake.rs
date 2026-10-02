@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
     utils::agent_access::AgentAccess,
 };
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -118,55 +119,65 @@ impl PacketData for RegionHandshake {
     /// Convert bytes to a region handshake object
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let region_flags = cursor.read_u32::<LittleEndian>()?;
-        let sim_access_byte = cursor.read_u8()?;
+
+        let region_flags = parse!(cursor.read_u32::<LittleEndian>())?;
+
+        let sim_access_byte = parse!(cursor.read_u8())?;
         let sim_access = AgentAccess::from_bytes(&sim_access_byte);
 
-        let sim_name_length = cursor.read_u8()?;
+        let sim_name_length = parse!(cursor.read_u8())?;
         let mut sim_name_bytes = vec![0u8; sim_name_length as usize];
-        cursor.read_exact(&mut sim_name_bytes)?;
-        let sim_name = String::from_utf8(sim_name_bytes)?;
+        parse!(cursor.read_exact(&mut sim_name_bytes))?;
+
+        let sim_name = parse!(String::from_utf8(sim_name_bytes))?;
 
         let mut uuid_bytes = [0u8; 16];
-        cursor.read_exact(&mut uuid_bytes)?;
-        let sim_owner = Uuid::from_slice(&uuid_bytes)?;
 
-        let is_estate_manager = cursor.read_u8()?;
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let sim_owner = parse!(Uuid::from_slice(&uuid_bytes))?;
 
-        let water_height = cursor.read_f32::<LittleEndian>()?;
+        let is_estate_manager = parse!(cursor.read_u8())?;
 
-        let billable_factor = cursor.read_f32::<LittleEndian>()?;
+        let water_height = parse!(cursor.read_f32::<LittleEndian>())?;
 
-        cursor.read_exact(&mut uuid_bytes)?;
-        let cache_id = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_0 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_1 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_2 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_base_3 = Uuid::from_slice(&uuid_bytes)?;
+        let billable_factor = parse!(cursor.read_f32::<LittleEndian>())?;
 
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_0 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_1 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_2 = Uuid::from_slice(&uuid_bytes)?;
-        cursor.read_exact(&mut uuid_bytes)?;
-        let terrain_detail_3 = Uuid::from_slice(&uuid_bytes)?;
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let cache_id = parse!(Uuid::from_slice(&uuid_bytes))?;
 
-        let terrain_start_height_0 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_start_height_1 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_start_height_2 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_start_height_3 = cursor.read_f32::<LittleEndian>()?;
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_base_0 = parse!(Uuid::from_slice(&uuid_bytes))?;
 
-        let terrain_height_range_0 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_height_range_1 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_height_range_2 = cursor.read_f32::<LittleEndian>()?;
-        let terrain_height_range_3 = cursor.read_f32::<LittleEndian>()?;
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_base_1 = parse!(Uuid::from_slice(&uuid_bytes))?;
 
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_base_2 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_base_3 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_detail_0 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_detail_1 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_detail_2 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        parse!(cursor.read_exact(&mut uuid_bytes))?;
+        let terrain_detail_3 = parse!(Uuid::from_slice(&uuid_bytes))?;
+
+        let terrain_start_height_0 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_start_height_1 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_start_height_2 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_start_height_3 = parse!(cursor.read_f32::<LittleEndian>())?;
+
+        let terrain_height_range_0 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_height_range_1 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_height_range_2 = parse!(cursor.read_f32::<LittleEndian>())?;
+        let terrain_height_range_3 = parse!(cursor.read_f32::<LittleEndian>())?;
         Ok(Self {
             region_flags,
             sim_access,

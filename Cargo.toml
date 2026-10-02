@@ -23,8 +23,7 @@ metaverse_avatar = { version = "0.3.3", path = "./crates/avatar/"}
 metaverse_environment = { version = "0.3.3", path = "./crates/environment/"} 
 benthic_protocol = { version = "0.3.3", path = "./crates/benthic_protocol" }
 benthic_default_asset_converter ={ version = "0.3.3", path = "./crates/default_asset_converter" }
-
-serde-llsd-benthic = "0.3.3"
+serde-llsd-benthic = {version = "0.3.3", path = "../benthic-serde-llsd/"}
 
 uuid = "1.26.1"
 glam = "0.32.1"

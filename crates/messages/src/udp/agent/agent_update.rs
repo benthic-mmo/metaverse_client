@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use benthic_protocol::messages::utils::agent_update_types::{
     ControlFlags, Flags, QuatBytes, State,
 };
@@ -78,38 +79,44 @@ impl Default for AgentUpdate {
 
 impl PacketData for AgentUpdate {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        // THIS DOES NOT WORK AT ALL
-        // THIS WILL CRASH AND BREAK YOUR SHIT
-        let agent_id = Uuid::from_slice(&bytes[0..16])?;
-        let session_id = Uuid::from_slice(&bytes[16..32])?;
-        let body_rotation = QuatBytes::from_bytes(&bytes[32..48])?;
-        let head_rotation = QuatBytes::from_bytes(&bytes[48..64])?;
+        let agent_id = parse!(Uuid::from_slice(&bytes[0..16]))?;
+        let session_id = parse!(Uuid::from_slice(&bytes[16..32]))?;
+        let body_rotation = parse!(QuatBytes::from_bytes(&bytes[32..48]))?;
+        let head_rotation = parse!(QuatBytes::from_bytes(&bytes[48..64]))?;
 
         let state = State::from_bytes(bytes[64]);
+
         let camera_center = Vec3 {
-            x: f32::from_le_bytes(bytes[65..69].try_into()?),
-            y: f32::from_le_bytes(bytes[69..73].try_into()?),
-            z: f32::from_le_bytes(bytes[73..77].try_into()?),
+            x: f32::from_le_bytes(parse!(bytes[65..69].try_into())?),
+            y: f32::from_le_bytes(parse!(bytes[69..73].try_into())?),
+            z: f32::from_le_bytes(parse!(bytes[73..77].try_into())?),
         };
+
         let camera_at_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[77..81].try_into()?),
-            y: f32::from_le_bytes(bytes[81..85].try_into()?),
-            z: f32::from_le_bytes(bytes[85..89].try_into()?),
+            x: f32::from_le_bytes(parse!(bytes[77..81].try_into())?),
+            y: f32::from_le_bytes(parse!(bytes[81..85].try_into())?),
+            z: f32::from_le_bytes(parse!(bytes[85..89].try_into())?),
         };
+
         let camera_left_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[89..93].try_into()?),
-            y: f32::from_le_bytes(bytes[93..97].try_into()?),
-            z: f32::from_le_bytes(bytes[97..101].try_into()?),
+            x: f32::from_le_bytes(parse!(bytes[89..93].try_into())?),
+            y: f32::from_le_bytes(parse!(bytes[93..97].try_into())?),
+            z: f32::from_le_bytes(parse!(bytes[97..101].try_into())?),
         };
+
         let camera_up_axis = Vec3 {
-            x: f32::from_le_bytes(bytes[101..105].try_into()?),
-            y: f32::from_le_bytes(bytes[105..109].try_into()?),
-            z: f32::from_le_bytes(bytes[109..113].try_into()?),
+            x: f32::from_le_bytes(parse!(bytes[101..105].try_into())?),
+            y: f32::from_le_bytes(parse!(bytes[105..109].try_into())?),
+            z: f32::from_le_bytes(parse!(bytes[109..113].try_into())?),
         };
-        let far = f32::from_le_bytes(bytes[113..117].try_into()?);
+
+        let far = f32::from_le_bytes(parse!(bytes[113..117].try_into())?);
+
         let control_flags =
-            ControlFlags::from_bytes(u32::from_le_bytes(bytes[117..121].try_into()?));
+            ControlFlags::from_bytes(u32::from_le_bytes(parse!(bytes[117..121].try_into())?));
+
         let flags = Flags::from_bytes(bytes[121]);
+
         Ok(Self {
             agent_id,
             session_id,

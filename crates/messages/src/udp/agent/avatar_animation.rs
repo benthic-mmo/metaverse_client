@@ -7,6 +7,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use std::io::{Cursor, Read};
 
 impl Packet {
@@ -50,29 +51,29 @@ impl PacketData for AvatarAnimation {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
         let mut buf = [0u8; 16];
-        cursor.read_exact(&mut buf)?;
+        parse!(cursor.read_exact(&mut buf))?;
         let sender_id = Uuid::from_bytes(buf);
 
-        let anim_count = cursor.read_u8()? as usize;
+        let anim_count = parse!(cursor.read_u8())? as usize;
         let mut animations = Vec::with_capacity(anim_count);
 
         for _ in 0..anim_count {
             let mut buf = [0u8; 16];
-            cursor.read_exact(&mut buf)?;
+            parse!(cursor.read_exact(&mut buf))?;
             let anim_id = Uuid::from_bytes(buf);
-            let sequence_id = cursor.read_i32::<LittleEndian>()?;
+            let sequence_id = parse!(cursor.read_i32::<LittleEndian>())?;
             animations.push(AnimationEntry {
                 anim_id,
                 sequence_id,
             });
         }
 
-        let source_count = cursor.read_u8()? as usize;
+        let source_count = parse!(cursor.read_u8())? as usize;
         let mut sources = Vec::with_capacity(source_count);
 
         for _ in 0..source_count {
             let mut buf = [0u8; 16];
-            cursor.read_exact(&mut buf)?;
+            parse!(cursor.read_exact(&mut buf))?;
             sources.push(Uuid::from_bytes(buf));
         }
 

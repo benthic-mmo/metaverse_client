@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 
 impl Packet {
@@ -37,7 +38,7 @@ pub struct StartPingCheck {
 impl PacketData for StartPingCheck {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let ping_id = bytes[0];
-        let oldest_unacked = u32::from_le_bytes(bytes[1..5].try_into()?);
+        let oldest_unacked = u32::from_le_bytes(parse!(bytes[1..5].try_into())?);
 
         Ok(StartPingCheck {
             ping_id,

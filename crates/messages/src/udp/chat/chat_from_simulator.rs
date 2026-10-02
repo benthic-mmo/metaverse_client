@@ -5,13 +5,14 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 use benthic_protocol::messages::utils::chat_types::{Audible, ChatType, SourceType};
 use byteorder::ReadBytesExt;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 use std::io::Read;
-use std::io::{self, Cursor};
 use uuid::Uuid;
 
 impl Packet {
@@ -56,63 +57,59 @@ impl PacketData for ChatFromSimulator {
         let mut cursor = Cursor::new(bytes);
 
         // FromName: Variable 1 (u8 length prefix)
-        let name_len = cursor.read_u8()?;
+        let name_len = parse!(cursor.read_u8())?;
         let mut from_name_bytes = vec![0u8; name_len as usize];
-        cursor.read_exact(&mut from_name_bytes)?;
+        parse!(cursor.read_exact(&mut from_name_bytes))?;
 
         // Trim null terminator if present
         if let Some(&0) = from_name_bytes.last() {
             from_name_bytes.pop();
         }
 
-        let from_name = String::from_utf8(from_name_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let from_name = parse!(String::from_utf8(from_name_bytes))?;
 
         // SourceID
-        let source_id = Uuid::from_slice(
+        let source_id = parse!(Uuid::from_slice(
             &cursor.get_ref()[cursor.position() as usize..cursor.position() as usize + 16],
-        )
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        ))?;
         cursor.set_position(cursor.position() + 16);
 
         // OwnerID
-        let owner_id = Uuid::from_slice(
+        let owner_id = parse!(Uuid::from_slice(
             &cursor.get_ref()[cursor.position() as usize..cursor.position() as usize + 16],
-        )
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        ))?;
         cursor.set_position(cursor.position() + 16);
 
         // SourceType
-        let source_type_byte = cursor.read_u8()?;
+        let source_type_byte = parse!(cursor.read_u8())?;
         let source_type = SourceType::from_bytes(source_type_byte);
 
         // ChatType
-        let chat_type_byte = cursor.read_u8()?;
+        let chat_type_byte = parse!(cursor.read_u8())?;
         let chat_type = ChatType::from_bytes(chat_type_byte);
 
         // Audible
-        let audible_byte = cursor.read_u8()?;
+        let audible_byte = parse!(cursor.read_u8())?;
         let audible = Audible::from_bytes(audible_byte);
 
         // Position (LLVector3)
         let position = Vec3 {
-            x: cursor.read_f32::<byteorder::LittleEndian>()?,
-            y: cursor.read_f32::<byteorder::LittleEndian>()?,
-            z: cursor.read_f32::<byteorder::LittleEndian>()?,
+            x: parse!(cursor.read_f32::<byteorder::LittleEndian>())?,
+            y: parse!(cursor.read_f32::<byteorder::LittleEndian>())?,
+            z: parse!(cursor.read_f32::<byteorder::LittleEndian>())?,
         };
 
         // Message: Variable 2 (u16 length prefix)
-        let message_len = cursor.read_u16::<byteorder::LittleEndian>()?;
+        let message_len = parse!(cursor.read_u16::<byteorder::LittleEndian>())?;
         let mut message_bytes = vec![0u8; message_len as usize];
-        cursor.read_exact(&mut message_bytes)?;
+        parse!(cursor.read_exact(&mut message_bytes))?;
 
         // Trim null terminator if present
         if let Some(&0) = message_bytes.last() {
             message_bytes.pop();
         }
-        let message = String::from_utf8(message_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
+        let message = parse!(String::from_utf8(message_bytes))?;
         Ok(Self {
             from_name,
             source_id,

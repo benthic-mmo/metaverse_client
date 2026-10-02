@@ -12,6 +12,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
     udp::object::util::ObjectFlag,
     utils::{
         material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound,
@@ -103,27 +104,27 @@ impl PacketData for ObjectUpdate {
         let mut cursor = Cursor::new(bytes);
 
         // read the regionhandle as two u32s instead of one u64
-        let region_handle = cursor.read_u64::<LittleEndian>()?;
-        let time_dilation = cursor.read_u16::<LittleEndian>()? as f32 / 65535.0;
+        let region_handle = parse!(cursor.read_u64::<LittleEndian>())?;
+        let time_dilation = parse!(cursor.read_u16::<LittleEndian>())? as f32 / 65535.0;
 
         // unsure what this is, but this sets the correct packet alignment
-        let _offset = cursor.read_u8()?;
-        let id = cursor.read_u32::<LittleEndian>()?;
-        let state = cursor.read_u8()?;
+        let _offset = parse!(cursor.read_u8())?;
+        let id = parse!(cursor.read_u32::<LittleEndian>())?;
+        let state = parse!(cursor.read_u8())?;
 
         let mut full_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut full_id_bytes)?;
+        parse!(cursor.read_exact(&mut full_id_bytes))?;
         let full_id = Uuid::from_bytes(full_id_bytes);
 
-        let crc = cursor.read_u32::<LittleEndian>()?;
+        let crc = parse!(cursor.read_u32::<LittleEndian>())?;
 
-        let pcode = ObjectType::from_bytes(&cursor.read_u8()?);
-        let material = MaterialType::from_bytes(&cursor.read_u8()?);
-        let click_action = cursor.read_u8()?;
+        let pcode = ObjectType::from_bytes(&parse!(cursor.read_u8())?);
+        let material = MaterialType::from_bytes(&parse!(cursor.read_u8())?);
+        let click_action = parse!(cursor.read_u8())?;
 
-        let scale_x = cursor.read_f32::<LittleEndian>()?;
-        let scale_y = cursor.read_f32::<LittleEndian>()?;
-        let scale_z = cursor.read_f32::<LittleEndian>()?;
+        let scale_x = parse!(cursor.read_f32::<LittleEndian>())?;
+        let scale_y = parse!(cursor.read_f32::<LittleEndian>())?;
+        let scale_z = parse!(cursor.read_f32::<LittleEndian>())?;
         let scale = Vec3 {
             x: scale_x,
             y: scale_y,
@@ -131,96 +132,95 @@ impl PacketData for ObjectUpdate {
         };
 
         // for Patch objects, this is always 60.
-        let motion_data_length = cursor.read_u8()?;
+        let motion_data_length = parse!(cursor.read_u8())?;
         let mut motion_data = vec![0u8; motion_data_length as usize];
-        cursor.read_exact(&mut motion_data)?;
+        parse!(cursor.read_exact(&mut motion_data))?;
         let motion_data = MotionData::from_bytes(&motion_data)?;
 
-        let parent_id = cursor.read_u32::<LittleEndian>()?;
-        let update_flags = ObjectFlag::from_bytes(cursor.read_u32::<LittleEndian>()?);
+        let parent_id = parse!(cursor.read_u32::<LittleEndian>())?;
+        let update_flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
 
         // this section is always 23 bytes
         let mut geometry_bytes = [0u8; 23];
-        cursor.read_exact(&mut geometry_bytes)?;
-        let primitive_geometry = Path::from_bytes(&geometry_bytes)?;
+        parse!(cursor.read_exact(&mut geometry_bytes))?;
+        let primitive_geometry = parse!(Path::from_bytes(&geometry_bytes))?;
 
-        let texture_entry_length = cursor.read_u16::<LittleEndian>()?;
+        let texture_entry_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
-        cursor.read_exact(&mut texture_entry_bytes)?;
+        parse!(cursor.read_exact(&mut texture_entry_bytes))?;
         let texture_entry = TextureEntry::from_bytes(&texture_entry_bytes)?;
 
-        let texture_anim_length = cursor.read_u8()?;
+        let texture_anim_length = parse!(cursor.read_u8())?;
         let mut texture_anim = vec![0u8; texture_anim_length as usize];
-        cursor.read_exact(&mut texture_anim)?;
+        parse!(cursor.read_exact(&mut texture_anim))?;
 
-        let name_value_length = cursor.read_u16::<LittleEndian>()?;
+        let name_value_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut name_value = vec![0u8; name_value_length as usize];
-        cursor.read_exact(&mut name_value)?;
+        parse!(cursor.read_exact(&mut name_value))?;
         let name_value = String::from_utf8_lossy(&name_value).to_string();
 
-        let data_length = cursor.read_u16::<LittleEndian>()?;
+        let data_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut data = vec![0u8; data_length as usize];
-        cursor.read_exact(&mut data)?;
+        parse!(cursor.read_exact(&mut data))?;
 
-        let text_length = cursor.read_u16::<LittleEndian>()?;
-        // only read the text color if there is text
-        let (text, text_color) = if text_length != 0 {
-            let mut text = vec![0u8; text_length as usize];
-            cursor.read_exact(&mut text)?;
+        let text_length = parse!(cursor.read_u8())?;
+        let mut text = vec![0u8; text_length as usize];
+        parse!(cursor.read_exact(&mut text))?;
+        let text = String::from_utf8_lossy(&text).to_string();
 
-            let text = String::from_utf8_lossy(&text).to_string();
-            let text_color_r = cursor.read_u8()?;
-            let text_color_g = cursor.read_u8()?;
-            let text_color_b = cursor.read_u8()?;
-            let text_color_a = cursor.read_u8()?;
-            let text_color = Rgba {
-                r: text_color_r,
-                g: text_color_g,
-                b: text_color_b,
-                a: text_color_a,
-            };
-            (text, text_color)
-        } else {
-            // the protocol pads this to 5 bytes if there is no data
-            cursor.read_exact(&mut [0u8; 3])?;
-            ("".to_string(), Rgba::new(0, 0, 0, 0))
-        };
+        // TextColor is Fixed 4
+        let r = parse!(cursor.read_u8())?;
+        let g = parse!(cursor.read_u8())?;
+        let b = parse!(cursor.read_u8())?;
+        let a = parse!(cursor.read_u8())?;
+        let text_color = Rgba {
+            r,
+            g,
+            b,
+            a: 255 - a,
+        }; // alpha is inverted on the wire. why.
 
-        let media_url_length = cursor.read_u8()?;
+        let media_url_length = parse!(cursor.read_u8())?;
         let mut media_url = vec![0u8; media_url_length as usize];
-        cursor.read_exact(&mut media_url)?;
+        parse!(cursor.read_exact(&mut media_url))?;
         let media_url = String::from_utf8_lossy(&media_url).to_string();
 
-        let particle_system_block_length = cursor.read_u8()?;
+        let particle_system_block_length = parse!(cursor.read_u8())?;
         let mut particle_system_block = vec![0u8; particle_system_block_length as usize];
-        cursor.read_exact(&mut particle_system_block)?;
+        parse!(cursor.read_exact(&mut particle_system_block))?;
 
-        let extra_params_length = cursor.read_u8()?;
+        let extra_params_length = parse!(cursor.read_u8())?;
         let extra_params = if extra_params_length > 0 {
             let mut extra_params_bytes = vec![0u8; extra_params_length as usize];
-            cursor.read_exact(&mut extra_params_bytes)?;
-            let (extra_params, _read_count) = ExtraParams::from_bytes(&extra_params_bytes)?;
+            parse!(cursor.read_exact(&mut extra_params_bytes))?;
+
+            let (extra_params, _read_count) = parse!(ExtraParams::from_bytes(&extra_params_bytes))?;
+
             Some(extra_params)
         } else {
             None
         };
-        let mut sound_bytes = [0u8; 41];
-        cursor.read_exact(&mut sound_bytes)?;
-        let sound = AttachedSound::from_bytes(&sound_bytes)?;
 
-        let joint_type = cursor.read_u8()?;
-        let joint_pivot_x = cursor.read_f32::<LittleEndian>()?;
-        let joint_pivot_y = cursor.read_f32::<LittleEndian>()?;
-        let joint_pivot_z = cursor.read_f32::<LittleEndian>()?;
+        let mut sound_bytes = [0u8; 41];
+        parse!(cursor.read_exact(&mut sound_bytes))?;
+        let sound = parse!(AttachedSound::from_bytes(&sound_bytes))?;
+
+        let joint_type = parse!(cursor.read_u8())?;
+
+        let joint_pivot_x = parse!(cursor.read_f32::<LittleEndian>())?;
+        let joint_pivot_y = parse!(cursor.read_f32::<LittleEndian>())?;
+        let joint_pivot_z = parse!(cursor.read_f32::<LittleEndian>())?;
+
         let joint_pivot = Vec3 {
             x: joint_pivot_x,
             y: joint_pivot_y,
             z: joint_pivot_z,
         };
 
-        let joint_axis_or_anchor_x = cursor.read_f32::<LittleEndian>()?;
-        let joint_axis_or_anchor_y = cursor.read_f32::<LittleEndian>()?;
-        let joint_axis_or_anchor_z = cursor.read_f32::<LittleEndian>()?;
+        let joint_axis_or_anchor_x = parse!(cursor.read_f32::<LittleEndian>())?;
+        let joint_axis_or_anchor_y = parse!(cursor.read_f32::<LittleEndian>())?;
+        let joint_axis_or_anchor_z = parse!(cursor.read_f32::<LittleEndian>())?;
+
         let joint_axis_or_anchor = Vec3 {
             x: joint_axis_or_anchor_x,
             y: joint_axis_or_anchor_y,
@@ -230,7 +230,6 @@ impl PacketData for ObjectUpdate {
         let update = ObjectUpdate {
             region_handle,
             time_dilation,
-
             id,
             state,
             full_id,
@@ -257,6 +256,7 @@ impl PacketData for ObjectUpdate {
             joint_pivot,
             joint_axis_or_anchor,
         };
+
         Ok(update)
     }
 
@@ -264,7 +264,6 @@ impl PacketData for ObjectUpdate {
         Vec::new()
     }
 }
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 /// Stores ObjectUpdate update fields
 /// This contains information about the position, velocity, acceleration and etc of the object.
@@ -284,86 +283,88 @@ pub struct MotionData {
     pub angular_velocity: Vec3,
 }
 impl MotionData {
-    /// Matches the length of the data to the correct parsing function
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         match bytes.len() {
-            76 => Ok(Self::from_bytes_foot_collision_high(bytes)?),
-            60 => Ok(Self::from_bytes_high(bytes)?),
-            48 => Ok(Self::from_bytes_foot_collision_medium(bytes)?),
-            32 => Ok(Self::from_bytes_medium(bytes)?),
-            16 => Ok(Self::from_bytes_low(bytes)?),
-            _ => Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Incorrect MotionData size",
-            )),
+            76 => Self::from_bytes_foot_collision_high(bytes),
+            60 => Self::from_bytes_high(bytes),
+            48 => Self::from_bytes_foot_collision_medium(bytes),
+            32 => Self::from_bytes_medium(bytes),
+            16 => Self::from_bytes_low(bytes),
+            _ => Err(ParseError::message("Incorrect MotionData size")),
         }
     }
-    fn from_bytes_foot_collision_high(bytes: &[u8]) -> io::Result<Self> {
+
+    fn from_bytes_foot_collision_high(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let collision_plane = Vec4::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
         let mut update_bytes = [0u8; 60];
-        cursor.read_exact(&mut update_bytes)?;
+        parse!(cursor.read_exact(&mut update_bytes))?;
+
         let mut update = Self::from_bytes_high(&update_bytes)?;
         update.foot_collision_plane = Some(collision_plane);
+
         Ok(update)
     }
 
-    fn from_bytes_foot_collision_medium(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes_foot_collision_medium(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let collision_plane = Vec4::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
         let mut update_bytes = [0u8; 32];
-        cursor.read_exact(&mut update_bytes)?;
+        parse!(cursor.read_exact(&mut update_bytes))?;
+
         let mut update = Self::from_bytes_medium(&update_bytes)?;
         update.foot_collision_plane = Some(collision_plane);
+
         Ok(update)
     }
 
-    fn from_bytes_high(bytes: &[u8]) -> io::Result<Self> {
+    fn from_bytes_high(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let position = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
         let velocity = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
         let acceleration = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
-        let x = cursor.read_f32::<LittleEndian>()?;
-        let y = cursor.read_f32::<LittleEndian>()?;
-        let z = cursor.read_f32::<LittleEndian>()?;
+        let x = parse!(cursor.read_f32::<LittleEndian>())?;
+        let y = parse!(cursor.read_f32::<LittleEndian>())?;
+        let z = parse!(cursor.read_f32::<LittleEndian>())?;
 
-        // Compute w assuming unit quaternion
         let w_sq = 1.0 - x * x - y * y - z * z;
         let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
-
         let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
-            cursor.read_f32::<LittleEndian>()?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
         Ok(Self {
@@ -375,38 +376,42 @@ impl MotionData {
             angular_velocity,
         })
     }
-    fn from_bytes_medium(bytes: &[u8]) -> io::Result<Self> {
+
+    fn from_bytes_medium(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let position = Vec3::new(
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
         );
 
         let velocity = Vec3::new(
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
         );
 
         let acceleration = Vec3::new(
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
         );
 
-        let x = cursor.read_u16::<LittleEndian>()? as f32;
-        let y = cursor.read_u16::<LittleEndian>()? as f32;
-        let z = cursor.read_u16::<LittleEndian>()? as f32;
+        let x = parse!(cursor.read_u16::<LittleEndian>())? as f32;
+        let y = parse!(cursor.read_u16::<LittleEndian>())? as f32;
+        let z = parse!(cursor.read_u16::<LittleEndian>())? as f32;
+
         let w_sq = 1.0 - x * x - y * y - z * z;
         let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
         let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
-            cursor.read_u16::<LittleEndian>()? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
+            parse!(cursor.read_u16::<LittleEndian>())? as f32,
         );
+
         Ok(Self {
             foot_collision_plane: None,
             position,
@@ -416,38 +421,42 @@ impl MotionData {
             angular_velocity,
         })
     }
-    fn from_bytes_low(bytes: &[u8]) -> io::Result<Self> {
+
+    fn from_bytes_low(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let position = Vec3::new(
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
         );
 
         let velocity = Vec3::new(
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
         );
 
         let acceleration = Vec3::new(
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
         );
 
-        let x = cursor.read_u8()? as f32;
-        let y = cursor.read_u8()? as f32;
-        let z = cursor.read_u8()? as f32;
+        let x = parse!(cursor.read_u8())? as f32;
+        let y = parse!(cursor.read_u8())? as f32;
+        let z = parse!(cursor.read_u8())? as f32;
+
         let w_sq = 1.0 - x * x - y * y - z * z;
         let w = if w_sq > 0.0 { w_sq.sqrt() } else { 0.0 };
         let rotation = Quat::from_xyzw(x, y, z, w);
 
         let angular_velocity = Vec3::new(
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
-            cursor.read_u8()? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
+            parse!(cursor.read_u8())? as f32,
         );
+
         Ok(Self {
             foot_collision_plane: None,
             position,
@@ -458,7 +467,6 @@ impl MotionData {
         })
     }
 }
-
 /// Type enum for extra parmeters included in object updates, used for decoding from a byte to a
 /// usable enum
 #[derive(Debug)]
@@ -734,19 +742,19 @@ impl AttachItem {
     pub fn parse_attach_item(data: &String) -> Result<Self, ParseError> {
         let parts: Vec<&str> = data.split_whitespace().collect();
         if parts.len() != 5 {
-            return Err(ParseError::Message(format!(
+            return Err(ParseError::message(format!(
                 "AttachItem has incorrect length: {:?}",
                 data,
             )));
         }
         let id_str = parts[4].trim_end_matches('\0');
-        let id = Uuid::parse_str(id_str)?;
+        let id = parse!(Uuid::parse_str(id_str))?;
         let access = match parts[2] {
             "RW" => Access::ReadWrite,
             "R" => Access::ReadOnly,
             "W" => Access::WriteOnly,
             _ => {
-                return Err(ParseError::Message(format!(
+                return Err(ParseError::message(format!(
                     "AttachItem has incorrect access value: {:?}, {:?}",
                     parts[3], data
                 )));
@@ -756,7 +764,7 @@ impl AttachItem {
         let scope = match parts[3] {
             "SV" => Scope::Global,
             _ => {
-                return Err(ParseError::Message(format!(
+                return Err(ParseError::message(format!(
                     "AttachItem has incorrect scope value: {:?}, {:?}",
                     parts[2], data
                 )));

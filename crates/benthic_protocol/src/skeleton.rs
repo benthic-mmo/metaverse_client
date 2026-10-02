@@ -54,6 +54,94 @@ pub struct Transform {
     pub rank: usize,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Copy)]
+pub enum SkinJoint {
+    #[default]
+    None,
+    Collision(CollisionName),
+    Joint(JointName),
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, EnumString, Copy)]
+/// This is used to separate out the collision entities from the skeleton.
+/// These get passed in as joints, despite not being joints in the default skeleton.
+pub enum CollisionName {
+    #[strum(serialize = "BUTT")]
+    Butt,
+    // Root
+    #[default]
+    #[strum(serialize = "PELVIS")]
+    Pelvis,
+    #[strum(serialize = "LOWER_BACK")]
+    LowerBack,
+    #[strum(serialize = "BELLY")]
+    Belly,
+    #[strum(serialize = "UPPER_BACK")]
+    UpperBack,
+    #[strum(serialize = "LEFT_HANDLE")]
+    HandleLeft,
+    #[strum(serialize = "RIGHT_HANDLE")]
+    HandleRight,
+    #[strum(serialize = "CHEST")]
+    Chest,
+    #[strum(serialize = "NECK")]
+    Neck,
+    #[strum(serialize = "HEAD")]
+    Head,
+    #[strum(serialize = "L_CLAVICLE")]
+    ClavicleLeft,
+    #[strum(serialize = "R_CLAVICLE")]
+    ClavicleRight,
+    #[strum(serialize = "SHOULDER_LEFT")]
+    ShoulderLeft,
+    #[strum(serialize = "SHOULDER_RIGHT")]
+    ShoulderRight,
+    #[strum(serialize = "LEFT_PEC")]
+    PecLeft,
+    #[strum(serialize = "RIGHT_PEC")]
+    PecRight,
+    #[strum(serialize = "L_UPPER_ARM")]
+    UpperArmLeft,
+    #[strum(serialize = "L_LOWER_ARM")]
+    LowerArmLeft,
+    #[strum(serialize = "R_UPPER_ARM")]
+    UpperArmRight,
+    #[strum(serialize = "R_LOWER_ARM")]
+    LowerArmRight,
+    #[strum(serialize = "L_HAND")]
+    HandLeft,
+    #[strum(serialize = "R_HAND")]
+    HandRight,
+    #[strum(serialize = "L_UPPER_LEG")]
+    UpperLegLeft,
+    #[strum(serialize = "L_LOWER_LEG")]
+    LowerLegLeft,
+    #[strum(serialize = "R_UPPER_LEG")]
+    UpperLegRight,
+    #[strum(serialize = "R_LOWER_LEG")]
+    LowerLegRight,
+    #[strum(serialize = "HIP_LEFT")]
+    HipLeft,
+    #[strum(serialize = "HIP_RIGHT")]
+    HipRight,
+    #[strum(serialize = "L_FOOT")]
+    FootLeft,
+    #[strum(serialize = "R_FOOT")]
+    FootRight,
+    #[strum(serialize = "FOOT_LEFT")]
+    FootLeft2,
+    #[strum(serialize = "FOOT_RIGHT")]
+    FootRight2,
+    #[strum(serialize = "KNEE_LEFT")]
+    UpperKneeLeft,
+    #[strum(serialize = "KNEE_RIGHT")]
+    UpperKneeRight,
+    #[strum(serialize = "ANKLE_LEFT")]
+    AnkleLeft,
+    #[strum(serialize = "ANKLE_RIGHT")]
+    AnkleRight,
+}
+
 #[allow(missing_docs)]
 #[repr(u16)]
 #[derive(
@@ -75,15 +163,10 @@ pub struct Transform {
 /// easier usage, potentially renaming joints on export, and avoid checking string equality
 /// the strum values are for the actual names of the Bento skeleton.
 pub enum JointName {
-    // Root
-    #[strum(serialize = "BUTT")]
-    Butt,
-    #[strum(serialize = "PELVIS")]
-    PelvisLegacy,
     #[default]
     #[strum(serialize = "mPelvis")]
     Pelvis,
-    // Spine
+
     #[strum(serialize = "mSpine1")]
     Spine1,
     #[strum(serialize = "mSpine2")]
@@ -92,14 +175,7 @@ pub enum JointName {
     Spine3,
     #[strum(serialize = "mSpine4")]
     Spine4,
-    #[strum(serialize = "LOWER_BACK")]
-    LowerBack,
-    #[strum(serialize = "BELLY")]
-    Belly,
-    #[strum(serialize = "UPPER_BACK")]
-    UpperBack,
-    #[strum(serialize = "CHEST")]
-    ChestLegacy,
+
     #[strum(serialize = "mChest")]
     Chest,
     #[strum(serialize = "mTorso")]
@@ -107,15 +183,6 @@ pub enum JointName {
     #[strum(serialize = "mGroin")]
     Groin,
 
-    #[strum(serialize = "LEFT_HANDLE")]
-    HandleLeft,
-    #[strum(serialize = "RIGHT_HANDLE")]
-    HandleRight,
-    // Neck & Head
-    #[strum(serialize = "NECK")]
-    NeckLegacy,
-    #[strum(serialize = "HEAD")]
-    HeadLegacy,
     #[strum(serialize = "mNeck")]
     Neck,
     #[strum(serialize = "mHead")]
@@ -223,15 +290,6 @@ pub enum JointName {
     #[strum(serialize = "mEyeRight")]
     EyeRight,
 
-    // Shoulders
-    #[strum(serialize = "L_CLAVICLE")]
-    ClavicleLeft,
-    #[strum(serialize = "R_CLAVICLE")]
-    ClavicleRight,
-    #[strum(serialize = "SHOULDER_LEFT")]
-    ShoulderLeftLegacy,
-    #[strum(serialize = "SHOULDER_RIGHT")]
-    ShoulderRightLegacy,
     #[strum(serialize = "mShoulderLeft")]
     ShoulderLeft,
     #[strum(serialize = "mShoulderRight")]
@@ -241,19 +299,6 @@ pub enum JointName {
     #[strum(serialize = "mCollarRight")]
     CollarRight,
 
-    // Arms
-    #[strum(serialize = "LEFT_PEC")]
-    PecLeft,
-    #[strum(serialize = "RIGHT_PEC")]
-    PecRight,
-    #[strum(serialize = "L_UPPER_ARM")]
-    UpperArmLeft,
-    #[strum(serialize = "L_LOWER_ARM")]
-    LowerArmLeft,
-    #[strum(serialize = "R_UPPER_ARM")]
-    UpperArmRight,
-    #[strum(serialize = "R_LOWER_ARM")]
-    LowerArmRight,
     #[strum(serialize = "mArmLeft")]
     ArmLeft,
     #[strum(serialize = "mArmRight")]
@@ -295,11 +340,6 @@ pub enum JointName {
     #[strum(serialize = "mWing4FanRight")]
     Wing4FanRight,
 
-    // Hands and fingers
-    #[strum(serialize = "L_HAND")]
-    HandLeftLegacy,
-    #[strum(serialize = "R_HAND")]
-    HandRightLegacy,
     #[strum(serialize = "mHandLeft")]
     HandLeft,
     #[strum(serialize = "mHandRight")]
@@ -408,19 +448,6 @@ pub enum JointName {
     #[strum(serialize = "mHindLimb4Right")]
     HindLimb4Right,
 
-    // Legs
-    #[strum(serialize = "L_UPPER_LEG")]
-    UpperLegLeft,
-    #[strum(serialize = "L_LOWER_LEG")]
-    LowerLegLeft,
-    #[strum(serialize = "R_UPPER_LEG")]
-    UpperLegRight,
-    #[strum(serialize = "R_LOWER_LEG")]
-    LowerLegRight,
-    #[strum(serialize = "HIP_LEFT")]
-    HipLeftLegacy,
-    #[strum(serialize = "HIP_RIGHT")]
-    HipRightLegacy,
     #[strum(serialize = "mHipLeft")]
     HipLeft,
     #[strum(serialize = "mHipRight")]
@@ -437,28 +464,12 @@ pub enum JointName {
     ShinLeft,
     #[strum(serialize = "mShinRight")]
     ShinRight,
-    #[strum(serialize = "KNEE_LEFT")]
-    UpperKneeLeft,
-    #[strum(serialize = "KNEE_RIGHT")]
-    UpperKneeRight,
 
-    // Feet
-    #[strum(serialize = "ANKLE_LEFT")]
-    AnkleLeftLegacy,
-    #[strum(serialize = "ANKLE_RIGHT")]
-    AnkleRightLegacy,
     #[strum(serialize = "mAnkleLeft")]
     AnkleLeft,
     #[strum(serialize = "mAnkleRight")]
     AnkleRight,
-    #[strum(serialize = "L_FOOT")]
-    FootLeftLegacy,
-    #[strum(serialize = "R_FOOT")]
-    FootRightLegacy2,
-    #[strum(serialize = "FOOT_LEFT")]
-    FootLeftLegacy2,
-    #[strum(serialize = "FOOT_RIGHT")]
-    FootRightLegacy,
+
     #[strum(serialize = "mFootLeft")]
     FootLeft,
     #[strum(serialize = "mFootRight")]
@@ -507,76 +518,6 @@ static BVH_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| 
     m.insert("rThigh", JointName::HipRight);
     m.insert("rShin", JointName::KneeRight);
     m.insert("rFoot", JointName::FootRight);
-
-    m
-});
-
-static UNITY_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-
-    // Root
-    m.insert("Hips", JointName::PelvisLegacy);
-    m.insert("hip", JointName::PelvisLegacy);
-
-    // Spine
-    m.insert("Spine", JointName::LowerBack);
-    m.insert("Spine1", JointName::Spine1);
-    m.insert("Spine2", JointName::Spine2);
-    m.insert("Spine3", JointName::Spine3);
-    m.insert("Chest", JointName::Chest);
-    m.insert("UpperChest", JointName::UpperBack);
-    m.insert("Abdomen", JointName::LowerBack);
-    m.insert("Pelvis", JointName::Pelvis);
-
-    // Neck & Head
-    m.insert("Neck", JointName::Neck);
-    m.insert("Head", JointName::Head);
-
-    // Left Arm
-    m.insert("LeftShoulder", JointName::ShoulderLeft);
-    m.insert("LeftUpperArm", JointName::UpperArmLeft);
-    m.insert("LeftLowerArm", JointName::LowerArmLeft);
-    m.insert("LeftHand", JointName::HandLeft);
-    m.insert("LeftForeArm", JointName::ForearmLeft);
-    m.insert("lCollar", JointName::CollarLeft);
-    m.insert("lShldr", JointName::ShoulderLeft);
-    m.insert("lForeArm", JointName::ForearmLeft);
-    m.insert("lHand", JointName::HandLeft);
-
-    // Right Arm
-    m.insert("RightShoulder", JointName::ShoulderRight);
-    m.insert("RightUpperArm", JointName::UpperArmRight);
-    m.insert("RightLowerArm", JointName::LowerArmRight);
-    m.insert("RightHand", JointName::HandRight);
-    m.insert("rCollar", JointName::CollarRight);
-    m.insert("rShldr", JointName::ShoulderRight);
-    m.insert("rForeArm", JointName::ForearmRight);
-    m.insert("rHand", JointName::HandRight);
-
-    // Left Leg
-    m.insert("LeftUpperLeg", JointName::ThighLeft);
-    m.insert("LeftLowerLeg", JointName::ShinLeft);
-    m.insert("LeftFoot", JointName::FootLeft);
-    m.insert("lThigh", JointName::ThighLeft);
-    m.insert("lShin", JointName::ShinLeft);
-    m.insert("lFoot", JointName::FootLeft);
-
-    // Right Leg
-    m.insert("RightUpperLeg", JointName::ThighRight);
-    m.insert("RightLowerLeg", JointName::ShinRight);
-    m.insert("RightFoot", JointName::FootRight);
-    m.insert("rThigh", JointName::ThighRight);
-    m.insert("rShin", JointName::ShinRight);
-    m.insert("rFoot", JointName::FootRight);
-
-    // Fingers (optional example)
-    m.insert("LeftHandThumb1", JointName::HandThumb1Left);
-    m.insert("LeftHandThumb2", JointName::HandThumb2Left);
-    m.insert("LeftHandThumb3", JointName::HandThumb3Left);
-
-    m.insert("RightHandThumb1", JointName::HandThumb1Right);
-    m.insert("RightHandThumb2", JointName::HandThumb2Right);
-    m.insert("RightHandThumb3", JointName::HandThumb3Right);
 
     m
 });
@@ -660,102 +601,6 @@ static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::
     m
 });
 
-static JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-
-    // Root
-    m.insert("PELVIS", JointName::Pelvis);
-    m.insert("mPelvis", JointName::Pelvis);
-    m.insert("BUTT", JointName::Butt);
-
-    // Spine
-    m.insert("mSpine1", JointName::Spine1);
-    m.insert("mSpine2", JointName::Spine2);
-    m.insert("mSpine3", JointName::Spine3);
-    m.insert("mSpine4", JointName::Spine4);
-    m.insert("LOWER_BACK", JointName::LowerBack);
-    m.insert("BELLY", JointName::Belly);
-    m.insert("UPPER_BACK", JointName::UpperBack);
-    m.insert("CHEST", JointName::Chest);
-    m.insert("mChest", JointName::Chest);
-    m.insert("mTorso", JointName::Torso);
-    m.insert("mGroin", JointName::Groin);
-
-    // Neck & head
-    m.insert("NECK", JointName::Neck);
-    m.insert("mNeck", JointName::Neck);
-    m.insert("HEAD", JointName::Head);
-    m.insert("mHead", JointName::Head);
-    m.insert("mSkull", JointName::Skull);
-
-    // Shoulders
-    m.insert("L_CLAVICLE", JointName::ClavicleLeft);
-    m.insert("R_CLAVICLE", JointName::ClavicleRight);
-    m.insert("SHOULDER_LEFT", JointName::ShoulderLeft);
-    m.insert("SHOULDER_RIGHT", JointName::ShoulderRight);
-    m.insert("mShoulderLeft", JointName::ShoulderLeft);
-    m.insert("mShoulderRight", JointName::ShoulderRight);
-    m.insert("mCollarLeft", JointName::CollarLeft);
-    m.insert("mCollarRight", JointName::CollarRight);
-
-    // Arms
-    m.insert("LEFT_PEC", JointName::PecLeft);
-    m.insert("RIGHT_PEC", JointName::PecRight);
-    m.insert("L_UPPER_ARM", JointName::UpperArmLeft);
-    m.insert("L_LOWER_ARM", JointName::LowerArmLeft);
-    m.insert("R_UPPER_ARM", JointName::UpperArmRight);
-    m.insert("R_LOWER_ARM", JointName::LowerArmRight);
-    m.insert("mArmLeft", JointName::ArmLeft);
-    m.insert("mArmRight", JointName::ArmRight);
-    m.insert("mElbowLeft", JointName::ElbowLeft);
-    m.insert("mElbowRight", JointName::ElbowRight);
-    m.insert("mForearmLeft", JointName::ForearmLeft);
-    m.insert("mForearmRight", JointName::ForearmRight);
-    m.insert("mWristLeft", JointName::WristLeft);
-    m.insert("mWristRight", JointName::WristRight);
-
-    // Hands
-    m.insert("L_HAND", JointName::HandLeft);
-    m.insert("R_HAND", JointName::HandRight);
-    m.insert("mHandLeft", JointName::HandLeft);
-    m.insert("mHandRight", JointName::HandRight);
-
-    // Legs
-    m.insert("L_UPPER_LEG", JointName::UpperLegLeft);
-    m.insert("L_LOWER_LEG", JointName::LowerLegLeft);
-    m.insert("R_UPPER_LEG", JointName::UpperLegRight);
-    m.insert("R_LOWER_LEG", JointName::LowerLegRight);
-    m.insert("HIP_LEFT", JointName::HipLeft);
-    m.insert("HIP_RIGHT", JointName::HipRight);
-    m.insert("mHipLeft", JointName::HipLeft);
-    m.insert("mHipRight", JointName::HipRight);
-    m.insert("mThighLeft", JointName::ThighLeft);
-    m.insert("mThighRight", JointName::ThighRight);
-    m.insert("mKneeLeft", JointName::KneeLeft);
-    m.insert("mKneeRight", JointName::KneeRight);
-    m.insert("mShinLeft", JointName::ShinLeft);
-    m.insert("mShinRight", JointName::ShinRight);
-    m.insert("KNEE_LEFT", JointName::UpperKneeLeft);
-    m.insert("KNEE_RIGHT", JointName::UpperKneeRight);
-
-    // Feet
-    m.insert("ANKLE_LEFT", JointName::AnkleLeft);
-    m.insert("ANKLE_RIGHT", JointName::AnkleRight);
-    m.insert("mAnkleLeft", JointName::AnkleLeft);
-    m.insert("mAnkleRight", JointName::AnkleRight);
-    m.insert("L_FOOT", JointName::FootLeft);
-    m.insert("R_FOOT", JointName::FootRight);
-    m.insert("FOOT_LEFT", JointName::FootLeft);
-    m.insert("FOOT_RIGHT", JointName::FootRight);
-    m.insert("mFootLeft", JointName::FootLeft);
-    m.insert("mFootRight", JointName::FootRight);
-    m.insert("mHeelLeft", JointName::HeelLeft);
-    m.insert("mHeelRight", JointName::HeelRight);
-    m.insert("mToeLeft", JointName::ToeLeft);
-    m.insert("mToeRight", JointName::ToeRight);
-
-    m
-});
 impl JointName {
     pub fn resolve_joint_name(s: &str) -> Option<JointName> {
         QUATERNIUS_JOINT_ALIASES
@@ -763,20 +608,17 @@ impl JointName {
             .copied()
             .or_else(|| JointName::from_str(s).ok())
     }
-    pub fn resolve_default_joint_name(s: &str) -> Option<JointName> {
-        JOINT_ALIASES
-            .get(s)
-            .copied()
-            .or_else(|| JointName::from_str(s).ok())
+
+    pub fn resolve_joint_and_collision(s: &str) -> Option<SkinJoint> {
+        JointName::from_str(s)
+            .ok()
+            .map(SkinJoint::Joint)
+            .or_else(|| CollisionName::from_str(s).ok().map(SkinJoint::Collision))
     }
+
     pub fn from_str_non_bento(s: &str) -> Option<JointName> {
         // Check BVH aliases
         if let Some(j) = BVH_JOINT_ALIASES.get(s) {
-            return Some(*j);
-        }
-
-        // Check Unity aliases
-        if let Some(j) = UNITY_JOINT_ALIASES.get(s) {
             return Some(*j);
         }
 

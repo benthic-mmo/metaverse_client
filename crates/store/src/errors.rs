@@ -32,6 +32,9 @@ pub enum OutfitError {
 
 #[derive(Error, Debug)]
 pub enum InventoryError {
+    #[error("LLSD Error: {0}")]
+    LLSDError(#[from] serde_llsd_benthic::errors::ParseError),
+
     #[error("Parse Error: {0}")]
     ParseError(#[from] uuid::Error),
 

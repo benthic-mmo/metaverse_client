@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 use byteorder::WriteBytesExt;
@@ -150,15 +151,20 @@ impl Default for ThrottleData {
 impl PacketData for AgentThrottle {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let mut agent_id_bytes = [0u8; 16];
         let mut session_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut agent_id_bytes)?;
-        cursor.read_exact(&mut session_id_bytes)?;
+
+        parse!(cursor.read_exact(&mut agent_id_bytes))?;
+        parse!(cursor.read_exact(&mut session_id_bytes))?;
+
         let agent_id = Uuid::from_bytes(agent_id_bytes);
         let session_id = Uuid::from_bytes(session_id_bytes);
-        let circuit_code = cursor.read_u32::<LittleEndian>()?;
-        let gen_counter = cursor.read_u32::<LittleEndian>()?;
-        let throttles = ThrottleData::from_bytes(&mut cursor)?;
+
+        let circuit_code = parse!(cursor.read_u32::<LittleEndian>())?;
+        let gen_counter = parse!(cursor.read_u32::<LittleEndian>())?;
+        let throttles = parse!(ThrottleData::from_bytes(&mut cursor))?;
+
         Ok(Self {
             agent_id,
             session_id,

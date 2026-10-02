@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
@@ -96,23 +97,23 @@ impl LayerType {
 impl PacketData for LayerData {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let layer_type_bytes = cursor.read_u8()?;
+        let layer_type_bytes = parse!(cursor.read_u8())?;
         let layer_type = LayerType::from_bytes(layer_type_bytes);
 
         //These bytes tell the parser how long the Data block is
         //was used to construct the size of the Data array
         //These are currently unused
-        let _data_size = cursor.read_u16::<LittleEndian>()?;
+        let _data_size = parse!(cursor.read_u16::<LittleEndian>())?;
 
-        let stride = cursor.read_u16::<LittleEndian>()?;
-        let patch_size = cursor.read_u8()?;
+        let stride = parse!(cursor.read_u16::<LittleEndian>())?;
+        let patch_size = parse!(cursor.read_u8())?;
 
         // redundant layer type
         // could be used for validation
         let _layer_type = cursor.read_u8();
 
         let mut layer_content = Vec::new();
-        cursor.read_to_end(&mut layer_content)?;
+        parse!(cursor.read_to_end(&mut layer_content))?;
 
         let data = LayerData {
             stride,

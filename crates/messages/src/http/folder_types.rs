@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     errors::ParseError,
+    parse,
     utils::{item_metadata::ItemMetadata, object_types::ObjectType},
 };
 
@@ -24,30 +25,28 @@ impl Category {
     pub fn from_llsd(category: &LLSDValue) -> Result<Category, ParseError> {
         let category_info = category
             .as_map()
-            .ok_or_else(|| ParseError::Message("Expected category to be a map".into()))?;
+            .ok_or_else(|| ParseError::message("Expected category to be a map"))?;
 
         let name = match category_info.get("name") {
             Some(LLSDValue::String(name)) => name.clone(),
-            Some(_) => return Err(ParseError::Message("Field 'name' is not a string".into()))?,
-            None => return Err(ParseError::Message("Missing field 'name'".into()))?,
+            Some(_) => return Err(ParseError::message("Field 'name' is not a string"))?,
+            None => return Err(ParseError::message("Missing field 'name'"))?,
         };
 
         let category_id = match category_info.get("category_id") {
             Some(LLSDValue::UUID(id)) => *id,
             Some(_) => {
-                return Err(ParseError::Message(
-                    "Field 'category_id' is not a UUID".into(),
-                ))?;
+                return Err(ParseError::message("Field 'category_id' is not a UUID"))?;
             }
-            None => return Err(ParseError::Message("Missing field 'category_id'".into()))?,
+            None => return Err(ParseError::message("Missing field 'category_id'"))?,
         };
 
         let type_default = match category_info.get("type_default") {
             Some(LLSDValue::Integer(i)) if *i >= 0 => ObjectType::from_bytes(&(*i as u8)),
             Some(LLSDValue::Integer(_)) => ObjectType::Unknown,
             Some(_) => {
-                return Err(ParseError::Message(
-                    "Field 'type_default' is not an integer".into(),
+                return Err(ParseError::message(
+                    "Field 'type_default' is not an integer",
                 ))?;
             }
             None => ObjectType::Unknown,
@@ -56,9 +55,7 @@ impl Category {
         let version = match category_info.get("version") {
             Some(LLSDValue::Integer(v)) => *v,
             Some(_) => {
-                return Err(ParseError::Message(
-                    "Field 'version' is not an integer".into(),
-                ))?;
+                return Err(ParseError::message("Field 'version' is not an integer"))?;
             }
             None => 0,
         };
@@ -115,44 +112,38 @@ impl Folder {
 
         let data = parsed_data
             .into_map()
-            .map_err(|_| ParseError::Message("Expected top-level map".into()))?;
+            .map_err(|_| ParseError::message("Expected top-level map"))?;
 
         let folders = data
             .get("folders")
             .and_then(|v| v.as_array())
-            .ok_or(ParseError::Message(
-                "Missing or invalid 'folders' array".into(),
-            ))?;
+            .ok_or(ParseError::message("Missing or invalid 'folders' array"))?;
 
         for folder in folders {
             let folder_data = folder
                 .as_map()
-                .ok_or(ParseError::Message("Folder entry is not a map".into()))?;
+                .ok_or(ParseError::message("Folder entry is not a map"))?;
 
             let folder_id = match folder_data.get("folder_id") {
                 Some(LLSDValue::UUID(id)) => *id,
                 Some(_) => {
-                    return Err(ParseError::Message(
-                        "Field 'folder_id' is not a UUID".into(),
-                    ));
+                    return Err(ParseError::message("Field 'folder_id' is not a UUID"));
                 }
-                None => return Err(ParseError::Message("Missing field 'folder_id'".into())),
+                None => return Err(ParseError::message("Missing field 'folder_id'")),
             };
 
             let owner_id = match folder_data.get("owner_id") {
                 Some(LLSDValue::UUID(id)) => *id,
                 Some(_) => {
-                    return Err(ParseError::Message("Field 'owner_id' is not a UUID".into()));
+                    return Err(ParseError::message("Field 'owner_id' is not a UUID"));
                 }
-                None => return Err(ParseError::Message("Missing field 'owner_id'".into())),
+                None => return Err(ParseError::message("Missing field 'owner_id'")),
             };
 
             let descendent_count = match folder_data.get("descendents") {
                 Some(LLSDValue::Integer(int)) => *int,
                 Some(_) => {
-                    return Err(ParseError::Message(
-                        "Field 'descendents' is not an integer".into(),
-                    ));
+                    return Err(ParseError::message("Field 'descendents' is not an integer"));
                 }
                 None => 0,
             };
@@ -160,9 +151,7 @@ impl Folder {
             let version = match folder_data.get("version") {
                 Some(LLSDValue::Integer(int)) => *int,
                 Some(_) => {
-                    return Err(ParseError::Message(
-                        "Field 'version' is not an integer".into(),
-                    ));
+                    return Err(ParseError::message("Field 'version' is not an integer"));
                 }
                 None => 0,
             };
@@ -170,16 +159,16 @@ impl Folder {
             let agent_id = match folder_data.get("agent_id") {
                 Some(LLSDValue::UUID(id)) => *id,
                 Some(_) => {
-                    return Err(ParseError::Message("Field 'agent_id' is not a UUID".into()));
+                    return Err(ParseError::message("Field 'agent_id' is not a UUID"));
                 }
-                None => return Err(ParseError::Message("Missing field 'agent_id'".into())),
+                None => return Err(ParseError::message("Missing field 'agent_id'")),
             };
 
             // Parse items
             let mut items_vec = Vec::new();
             if let Some(items) = folder_data.get("items").and_then(|v| v.as_array()) {
                 for item in items {
-                    let item = ItemMetadata::from_llsd(item)?;
+                    let item = parse!(ItemMetadata::from_llsd(item))?;
                     items_vec.push(item);
                 }
             }

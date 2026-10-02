@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::errors::ParseError;
+use crate::{errors::ParseError, parse};
 use serde_llsd_benthic::{LLSDValue, ser::xml};
 use uuid::Uuid;
 
@@ -43,7 +43,7 @@ impl FolderRequest {
         let mut outer_map = HashMap::new();
         outer_map.insert("folders".to_string(), folders_array);
         let put_xml = LLSDValue::Map(outer_map);
-        let xml = xml::to_string(&put_xml, false)?;
+        let xml = parse!(xml::to_string(&put_xml, false))?;
         Ok(xml)
     }
 }

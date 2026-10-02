@@ -1,6 +1,6 @@
-use crate::errors::ParseError;
+use crate::{errors::ParseError, parse};
 use core::fmt;
-use serde_llsd_benthic::{LLSDValue, from_str, ser::xml};
+use serde_llsd_benthic::{from_str, ser::xml, LLSDValue};
 use std::{collections::HashMap, fmt::Display};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
@@ -56,28 +56,34 @@ impl CapabilityRequest {
     /// response), and will return the requested endpoint URLs.
     pub fn new_capability_request(capabilities: Vec<Capability>) -> Result<Self, ParseError> {
         let mut capability_vec = Vec::new();
+
         for capability in capabilities {
             capability_vec.push(LLSDValue::String(capability.to_string()));
         }
-        let caps = xml::to_string(&LLSDValue::Array(capability_vec), false)?;
+
+        let caps = parse!(xml::to_string(&LLSDValue::Array(capability_vec), false))?;
 
         Ok(CapabilityRequest { capabilities: caps })
     }
+
     /// Generate the HashMap from the response bytes. This should be stored and used by the session
     /// to retrieve information from the requested endpoints.
     pub fn response_from_llsd(xml_bytes: &[u8]) -> Result<HashMap<Capability, String>, ParseError> {
         let mut result = HashMap::new();
         let xml = String::from_utf8_lossy(xml_bytes).to_string();
-        let parsed = from_str(&xml)?;
+
+        let parsed = parse!(from_str(&xml))?;
 
         if let Some(parsed_map) = parsed.as_map() {
             for (key, val) in parsed_map {
                 let capability = Capability::from_string(key);
+
                 if let LLSDValue::String(value) = val {
                     result.insert(capability, value.clone());
                 }
             }
         }
+
         Ok(result)
     }
 }

@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use glam::Vec3;
 use std::io::{Cursor, Read};
@@ -45,29 +46,27 @@ impl PacketData for TeleportRequest {
         let mut cursor = Cursor::new(bytes);
 
         let mut agent_bytes = [0u8; 16];
-        cursor.read_exact(&mut agent_bytes)?;
+        parse!(cursor.read_exact(&mut agent_bytes))?;
         let agent_id = Uuid::from_bytes(agent_bytes);
 
         let mut session_bytes = [0u8; 16];
-        cursor.read_exact(&mut session_bytes)?;
+        parse!(cursor.read_exact(&mut session_bytes))?;
         let session_id = Uuid::from_bytes(session_bytes);
 
         let mut region_bytes = [0u8; 16];
-        cursor.read_exact(&mut region_bytes)?;
+        parse!(cursor.read_exact(&mut region_bytes))?;
         let region_id = Uuid::from_bytes(region_bytes);
 
-        let x = cursor.read_f32::<LittleEndian>()?;
-        let y = cursor.read_f32::<LittleEndian>()?;
-        let z = cursor.read_f32::<LittleEndian>()?;
-        let position = Vec3 { x, y, z };
+        let position = Vec3 {
+            x: parse!(cursor.read_f32::<LittleEndian>())?,
+            y: parse!(cursor.read_f32::<LittleEndian>())?,
+            z: parse!(cursor.read_f32::<LittleEndian>())?,
+        };
 
-        let lx = cursor.read_f32::<LittleEndian>()?;
-        let ly = cursor.read_f32::<LittleEndian>()?;
-        let lz = cursor.read_f32::<LittleEndian>()?;
         let look_at = Vec3 {
-            x: lx,
-            y: ly,
-            z: lz,
+            x: parse!(cursor.read_f32::<LittleEndian>())?,
+            y: parse!(cursor.read_f32::<LittleEndian>())?,
+            z: parse!(cursor.read_f32::<LittleEndian>())?,
         };
 
         Ok(TeleportRequest {

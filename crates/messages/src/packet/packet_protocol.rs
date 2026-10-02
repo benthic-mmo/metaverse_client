@@ -1,6 +1,7 @@
 use super::header::Header;
 use super::packet_types::PacketType;
 use crate::errors::ParseError;
+use crate::parse;
 use byteorder::ReadBytesExt;
 use std::any::Any;
 use std::io::Cursor;
@@ -32,7 +33,7 @@ impl Packet {
     /// First parse the packet's header, and then parse the packet's body based on the ID parsed
     /// from the header.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let header = Header::try_from_bytes(bytes)?;
+        let header = parse!(Header::try_from_bytes(bytes))?;
         // if the packet has a body, add the body to the packet
         let body = if header.size.unwrap_or(0) < bytes.len() {
             &bytes[header.size.unwrap_or(0)..]
@@ -45,7 +46,11 @@ impl Packet {
             body.to_vec() // Convert slice to Vec<u8>
         };
 
-        let body = PacketType::from_id(header.id, header.frequency, body_bytes.as_slice())?;
+        let body = parse!(PacketType::from_id(
+            header.id,
+            header.frequency,
+            body_bytes.as_slice()
+        ))?;
 
         Ok(Self { header, body })
     }

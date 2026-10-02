@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read};
 
@@ -38,13 +39,13 @@ pub struct EnableSimulator {
 impl PacketData for EnableSimulator {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let handle = cursor.read_u64::<LittleEndian>()?;
+        let handle = parse!(cursor.read_u64::<LittleEndian>())?;
 
         let mut ip_bytes = [0u8; 4];
-        cursor.read_exact(&mut ip_bytes)?;
+        parse!(cursor.read_exact(&mut ip_bytes))?;
         let ip = String::from_utf8_lossy(&ip_bytes).into_owned();
 
-        let port = cursor.read_u16::<LittleEndian>()?;
+        let port = parse!(cursor.read_u16::<LittleEndian>())?;
 
         Ok(EnableSimulator { handle, ip, port })
     }

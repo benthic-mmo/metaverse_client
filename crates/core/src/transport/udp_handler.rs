@@ -26,6 +26,8 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(e) => {
+                            // let mut file = File::create("foo.txt").unwrap();
+                            // file.write_all(&buf).unwrap();
                             warn!("failed to parse: {:?}", e);
                             continue;
                         }
@@ -128,6 +130,9 @@ impl Mailbox {
                         }
                         PacketType::ObjectUpdateCompressed(data) => {
                             for object in data.object_data.clone() {
+                                let Some(texture_entry) = object.texture_entry else {
+                                    continue;
+                                };
                                 if let Err(e) = mailbox_address
                                     .send(HandleObjectUpdate(MinimalObjectUpdate {
                                         object_type: object.pcode,
@@ -140,7 +145,7 @@ impl Mailbox {
                                         rotation: object.rotation,
                                         scale: object.scale,
                                         parent: object.parent_id,
-                                        texture: object.texture_entry,
+                                        texture: texture_entry,
                                         crc: object.crc,
                                         region_id: "".to_string(),
                                     }))

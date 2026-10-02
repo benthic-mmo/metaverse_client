@@ -11,3 +11,13 @@ fn handle_mesh_data() {
     let mesh = Mesh::from_bytes(&buffer).unwrap();
     assert!(mesh.skin.is_some());
 }
+
+#[test]
+fn handle_mesh_with_collision() {
+    let mut file = File::open("tests/data/mesh_with_collision.bin").unwrap();
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+
+    let mesh = Mesh::from_bytes(&buffer).unwrap();
+    assert!(mesh.skin.is_some());
+}

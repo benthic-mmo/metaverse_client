@@ -5,8 +5,11 @@ use thiserror::Error;
 use crate::messages::ui::login_error::{LoginError, Reason};
 
 #[derive(Debug, Error)]
-/// Error handling for parsing throughout the messages crate
+/// Error handling for parsing throughout the protocol crate
 pub enum ParseError {
+    #[error("LLSD parse error: {0}")]
+    Llsd(#[from] serde_llsd_benthic::errors::ParseError),
+
     #[error("Parse Error: {0}")]
     /// An error with a generic message
     Message(String),

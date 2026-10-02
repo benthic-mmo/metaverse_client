@@ -8,6 +8,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 
 impl Packet {
@@ -40,11 +41,11 @@ impl PacketData for LogoutRequest {
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];
-        cursor.read_exact(&mut id_bytes)?;
+        parse!(cursor.read_exact(&mut id_bytes))?;
         let agent_id = Uuid::from_bytes(id_bytes);
 
         let mut session_bytes = [0u8; 16];
-        cursor.read_exact(&mut session_bytes)?;
+        parse!(cursor.read_exact(&mut session_bytes))?;
         let session_id = Uuid::from_bytes(session_bytes);
         Ok(LogoutRequest {
             agent_id,

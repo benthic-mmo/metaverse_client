@@ -8,6 +8,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 
 impl Packet {
     /// create a new request multiple objects packet
@@ -69,20 +70,23 @@ impl PacketData for RequestMultipleObjects {
         let mut cursor = Cursor::new(bytes);
 
         let mut agent_bytes = [0u8; 16];
-        cursor.read_exact(&mut agent_bytes)?;
+        parse!(cursor.read_exact(&mut agent_bytes))?;
         let agent_id = Uuid::from_bytes(agent_bytes);
 
         let mut session_bytes = [0u8; 16];
-        cursor.read_exact(&mut session_bytes)?;
+        parse!(cursor.read_exact(&mut session_bytes))?;
         let session_id = Uuid::from_bytes(session_bytes);
 
-        let request_len = cursor.read_u8()?;
+        let request_len = parse!(cursor.read_u8())?;
 
         let mut requests = Vec::new();
+
         for _ in 0..request_len {
-            let cache_miss_type_raw = cursor.read_u8()?;
+            let cache_miss_type_raw = parse!(cursor.read_u8())?;
             let cache_miss_type = CacheMissType::from(cache_miss_type_raw);
-            let id = cursor.read_u32::<LittleEndian>()?;
+
+            let id = parse!(cursor.read_u32::<LittleEndian>())?;
+
             requests.push((cache_miss_type, id));
         }
 
