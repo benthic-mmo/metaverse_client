@@ -128,7 +128,7 @@ impl Handler<DownloadObject> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("DownloadObject error: {:?}", e)
+                        error!("DownloadObject error: {}", e)
                     }
                 };
             }

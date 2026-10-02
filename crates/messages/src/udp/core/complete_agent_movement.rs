@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 use uuid::Uuid;
 
@@ -39,9 +40,9 @@ pub struct CompleteAgentMovementData {
 
 impl PacketData for CompleteAgentMovementData {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let circuit_code = u32::from_le_bytes(bytes[0..4].try_into()?);
-        let session_id = Uuid::from_slice(&bytes[4..20])?;
-        let agent_id = Uuid::from_slice(&bytes[20..36])?;
+        let circuit_code = u32::from_le_bytes(parse!(bytes[0..4].try_into())?);
+        let session_id = parse!(Uuid::from_slice(&bytes[4..20]))?;
+        let agent_id = parse!(Uuid::from_slice(&bytes[20..36]))?;
 
         Ok(CompleteAgentMovementData {
             agent_id,

@@ -84,8 +84,8 @@ pub async fn download_texture(
     path: &PathBuf,
 ) -> Result<(), DownloadError> {
     let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
-    let img = Image::from_bytes(tex).unwrap();
-    let pixels = img.get_pixels(None).unwrap();
+    let img = Image::from_bytes(tex)?;
+    let pixels = img.get_pixels(None)?;
 
     // Determine output format
     let output = match pixels.data {
@@ -111,7 +111,7 @@ pub async fn download_texture(
         }
         _ => return Err(DownloadError::UnknownPixelFormatError {}),
     };
-    output.save(path).unwrap();
+    output.save(path)?;
     Ok(())
 }
 fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {

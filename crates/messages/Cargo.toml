@@ -8,6 +8,11 @@ repository = "https://github.com/benthic-mmo/metaverse_client/tree/main/crates/m
 license = "AGPL-3.0-or-later"
 edition = "2024"
 
+[features]
+default = ["debug-parse-errors"]
+debug-parse-errors = []
+
+
 [dependencies]
 benthic_protocol.workspace = true 
 serde-llsd-benthic.workspace = true 

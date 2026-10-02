@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use std::io::{Cursor, Read};
@@ -62,49 +63,56 @@ pub struct TerseObjectData {
 }
 
 impl TerseObjectData {
-    /// convert ImprovedTerseObjectData from bytes to a struct
-    pub fn from_bytes(data: &[u8]) -> Self {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(data);
-        let local_id = cursor.read_u32::<LittleEndian>().unwrap();
-        let state = cursor.read_u8().unwrap();
-        let avatar = cursor.read_u8().unwrap() != 0;
+
+        let local_id = parse!(cursor.read_u32::<LittleEndian>())?;
+        let state = parse!(cursor.read_u8())?;
+        let avatar = parse!(cursor.read_u8())? != 0;
+
         let collision_plane = if avatar {
-            let x = cursor.read_f32::<LittleEndian>().unwrap();
-            let y = cursor.read_f32::<LittleEndian>().unwrap();
-            let z = cursor.read_f32::<LittleEndian>().unwrap();
-            let w = cursor.read_f32::<LittleEndian>().unwrap();
+            let x = parse!(cursor.read_f32::<LittleEndian>())?;
+            let y = parse!(cursor.read_f32::<LittleEndian>())?;
+            let z = parse!(cursor.read_f32::<LittleEndian>())?;
+            let w = parse!(cursor.read_f32::<LittleEndian>())?;
+
             Some(Vec4::new(x, y, z, w))
         } else {
             None
         };
+
         let position = Vec3::new(
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
-        );
-        let velocity = Vec3::new(
-            u16_to_float_cursor(&mut cursor, -128.0, 128.0),
-            u16_to_float_cursor(&mut cursor, -128.0, 128.0),
-            u16_to_float_cursor(&mut cursor, -128.0, 128.0),
-        );
-        let acceleration = Vec3::new(
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
-        );
-        let rotation = Quat::from_xyzw(
-            u16_to_float_cursor(&mut cursor, -1.0, 1.0),
-            u16_to_float_cursor(&mut cursor, -1.0, 1.0),
-            u16_to_float_cursor(&mut cursor, -1.0, 1.0),
-            u16_to_float_cursor(&mut cursor, -1.0, 1.0),
-        );
-        let angular_velocity = Vec3::new(
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
-            u16_to_float_cursor(&mut cursor, -64.0, 64.0),
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
 
-        Self {
+        let velocity = Vec3::new(
+            parse!(u16_to_float_cursor(&mut cursor, -128.0, 128.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -128.0, 128.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -128.0, 128.0))?,
+        );
+
+        let acceleration = Vec3::new(
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+        );
+
+        let rotation = Quat::from_xyzw(
+            parse!(u16_to_float_cursor(&mut cursor, -1.0, 1.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -1.0, 1.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -1.0, 1.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -1.0, 1.0))?,
+        );
+
+        let angular_velocity = Vec3::new(
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+            parse!(u16_to_float_cursor(&mut cursor, -64.0, 64.0))?,
+        );
+
+        Ok(Self {
             local_id,
             state,
             avatar,
@@ -114,42 +122,47 @@ impl TerseObjectData {
             acceleration,
             rotation,
             angular_velocity,
-        }
+        })
     }
 }
 
-fn u16_to_float_cursor(cursor: &mut Cursor<&[u8]>, min: f32, max: f32) -> f32 {
-    let raw = cursor.read_u16::<LittleEndian>().unwrap();
-    min + (raw as f32) * ((max - min) / 65535.0)
+fn u16_to_float_cursor(cursor: &mut Cursor<&[u8]>, min: f32, max: f32) -> Result<f32, ParseError> {
+    let raw = parse!(cursor.read_u16::<LittleEndian>())?;
+    Ok(min + (raw as f32) * ((max - min) / 65535.0))
 }
 
 impl PacketData for ImprovedTerseObjectUpdate {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let region_handle = cursor.read_u64::<LittleEndian>()?;
-        let time_dilation = cursor.read_u16::<LittleEndian>()?;
 
-        let object_count = cursor.read_u8()?;
+        let region_handle = parse!(cursor.read_u64::<LittleEndian>())?;
+        let time_dilation = parse!(cursor.read_u16::<LittleEndian>())?;
+
+        let object_count = parse!(cursor.read_u8())?;
         let mut objects = Vec::with_capacity(object_count as usize);
 
         for _ in 0..object_count {
-            let data_len = cursor.read_u8()?;
+            let data_len = parse!(cursor.read_u8())?;
+
             let mut data_buf = vec![0; data_len as usize];
-            cursor.read_exact(&mut data_buf)?;
-            let data = TerseObjectData::from_bytes(&data_buf);
+            parse!(cursor.read_exact(&mut data_buf))?;
+
+            let data = parse!(TerseObjectData::from_bytes(&data_buf))?;
             objects.push(data);
 
-            let tex_len = cursor.read_u16::<LittleEndian>()?;
+            let tex_len = parse!(cursor.read_u16::<LittleEndian>())?;
+
             let mut tex_buf = vec![0; tex_len as usize];
-            cursor.read_exact(&mut tex_buf)?;
+            parse!(cursor.read_exact(&mut tex_buf))?;
         }
 
-        Ok(ImprovedTerseObjectUpdate {
+        Ok(Self {
             region_handle,
             time_dilation,
             objects,
         })
     }
+
     fn to_bytes(&self) -> Vec<u8> {
         Vec::new()
     }

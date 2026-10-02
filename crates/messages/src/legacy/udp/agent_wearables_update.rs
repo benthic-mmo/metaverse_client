@@ -9,6 +9,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
     utils::object_types::WearableType,
 };
 
@@ -60,28 +61,28 @@ impl PacketData for AgentWearablesUpdate {
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];
-        cursor.read_exact(&mut id_bytes)?;
+        parse!(cursor.read_exact(&mut id_bytes))?;
         let agent_id = Uuid::from_bytes(id_bytes);
 
         let mut session_bytes = [0u8; 16];
-        cursor.read_exact(&mut session_bytes)?;
+        parse!(cursor.read_exact(&mut session_bytes))?;
         let session_id = Uuid::from_bytes(session_bytes);
 
-        let serial_number = cursor.read_u32::<LittleEndian>()?;
+        let serial_number = parse!(cursor.read_u32::<LittleEndian>())?;
 
-        let wearable_count = cursor.read_u8()?;
+        let wearable_count = parse!(cursor.read_u8())?;
         let mut wearables = Vec::new();
 
         for _ in (0..wearable_count).collect::<std::vec::Vec<u8>>() {
             let mut item_id_bytes = [0u8; 16];
-            cursor.read_exact(&mut item_id_bytes)?;
+            parse!(cursor.read_exact(&mut item_id_bytes))?;
             let item_id = Uuid::from_bytes(item_id_bytes);
 
             let mut asset_id_bytes = [0u8; 16];
-            cursor.read_exact(&mut asset_id_bytes)?;
+            parse!(cursor.read_exact(&mut asset_id_bytes))?;
             let asset_id = Uuid::from_bytes(asset_id_bytes);
 
-            let wearable_type = WearableType::from_bytes(cursor.read_u8()?);
+            let wearable_type = WearableType::from_bytes(parse!(cursor.read_u8())?);
 
             wearables.push(Wearable {
                 item_id,

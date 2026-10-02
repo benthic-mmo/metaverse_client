@@ -1,6 +1,6 @@
 use crate::{avatar::Avatar, errors::AvatarError};
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
-use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
+use benthic_protocol::skeleton::{Joint, JointName, Skeleton, SkinJoint, Transform};
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
 use metaverse_messages::http::mesh::Skin;
@@ -39,12 +39,18 @@ pub fn create_skeleton(
 
     let mut joints = IndexMap::new();
     // for every joint in the skin
-    for (i, name) in skin.joint_names.iter().enumerate() {
+    for (i, skin_joint) in skin.joints.iter().enumerate() {
         // apply the rotations from the default skeleton to the object
         // the default skeleton's transforms are stored in [0]
         // these rotations need to be applied, because the IBMs from the server are mostly
         // the identity matrix, and only contain translation information. The default
         // skeleton contains the rotations.
+
+        // only process Joints. Don't add Collision joints to the skeleton.
+        let SkinJoint::Joint(name) = skin_joint else {
+            continue;
+        };
+
         let default_joints = default_skeleton
             .joints
             .get(name)

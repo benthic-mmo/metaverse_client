@@ -9,6 +9,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 
 impl Packet {
@@ -67,19 +68,20 @@ pub struct CoarseLocationUpdate {
 impl PacketData for CoarseLocationUpdate {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let location_count = cursor.read_u8()? as usize;
+        let location_count = parse!(cursor.read_u8())? as usize;
         let mut locations = Vec::with_capacity(location_count);
 
         for _ in 0..location_count {
-            let x = cursor.read_u8()?;
-            let y = cursor.read_u8()?;
-            let z = cursor.read_u8()?;
+            let x = parse!(cursor.read_u8())?;
+            let y = parse!(cursor.read_u8())?;
+            let z = parse!(cursor.read_u8())?;
+
             locations.push(MinimapEntities { x, y, z });
         }
 
         // Deserialize IndexBlock
-        let you = cursor.read_i16::<LittleEndian>()?;
-        let prey = cursor.read_i16::<LittleEndian>()?;
+        let you = parse!(cursor.read_i16::<LittleEndian>())?;
+        let prey = parse!(cursor.read_i16::<LittleEndian>())?;
 
         Ok(CoarseLocationUpdate {
             locations,

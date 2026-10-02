@@ -1,8 +1,8 @@
-use crate::errors::ParseError;
+use crate::{errors::ParseError, parse};
 use glam::{Quat, Vec2, Vec3};
 use rgb::Rgb;
 use serde::{Deserialize, Serialize};
-use serde_llsd_benthic::{de::xml, LLSDValue};
+use serde_llsd_benthic::{LLSDValue, de::xml};
 use std::{collections::HashMap, str::FromStr};
 use uuid::Uuid;
 
@@ -10,10 +10,10 @@ macro_rules! llsd_get {
     ($map:expr, $key:expr, $method:ident) => {{
         let v = $map
             .get($key)
-            .ok_or_else(|| ParseError::MissingField($key.into()))?;
+            .ok_or_else(|| ParseError::missing_field($key))?;
 
         v.$method().ok_or_else(|| {
-            ParseError::InvalidField(format!(
+            ParseError::invalid_field(format!(
                 "Invalid field {}: {:?}, cannot convert using: {}",
                 $key,
                 v,
@@ -26,22 +26,20 @@ macro_rules! llsd_get {
 macro_rules! llsd_rgb {
     ($map:expr, $key:expr) => {{
         let arr = llsd_get!($map, $key, as_array)?;
-
         let mut iter = arr.iter();
 
         let r =
             *iter.next().and_then(|v| v.as_real()).ok_or_else(|| {
-                ParseError::InvalidField(format!("Incorrect Red Value in {}", $key))
+                ParseError::invalid_field(format!("Incorrect Red Value in {}", $key))
             })? as f32;
 
-        let g =
-            *iter.next().and_then(|v| v.as_real()).ok_or_else(|| {
-                ParseError::InvalidField(format!("Incorrect Green Value in {}", $key))
-            })? as f32;
+        let g = *iter.next().and_then(|v| v.as_real()).ok_or_else(|| {
+            ParseError::invalid_field(format!("Incorrect Green Value in {}", $key))
+        })? as f32;
 
         let b =
             *iter.next().and_then(|v| v.as_real()).ok_or_else(|| {
-                ParseError::InvalidField(format!("Incorrect Blue Value in {}", $key))
+                ParseError::invalid_field(format!("Incorrect Blue Value in {}", $key))
             })? as f32;
 
         Rgb { r, g, b }
@@ -56,17 +54,17 @@ macro_rules! llsd_vec3 {
         let x = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad x".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad x"))? as f32;
 
         let y = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad y".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad y"))? as f32;
 
         let z = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad z".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad z"))? as f32;
 
         glam::Vec3::new(x, y, z)
     }};
@@ -80,12 +78,12 @@ macro_rules! llsd_vec2 {
         let x = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad x".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad x"))? as f32;
 
         let y = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad y".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad y"))? as f32;
 
         glam::Vec2::new(x, y)
     }};
@@ -99,27 +97,26 @@ macro_rules! llsd_quat {
         let x = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad quat x".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad quat x"))? as f32;
 
         let y = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad quat y".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad quat y"))? as f32;
 
         let z = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad quat z".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad quat z"))? as f32;
 
         let w = *iter
             .next()
             .and_then(|v| v.as_real())
-            .ok_or_else(|| ParseError::InvalidField("bad quat w".into()))? as f32;
+            .ok_or_else(|| ParseError::invalid_field("bad quat w"))? as f32;
 
         glam::Quat::from_xyzw(x, y, z, w)
     }};
 }
-
 /// A DayCycle as defined by the Environmental Enhancement Project.
 /// this contains information about the length of a day, and the keyframes the sky will go through
 /// as the day progresses. This creates things like sunsets, and celestial events.
@@ -160,7 +157,7 @@ impl FromStr for FrameType {
         match s {
             "water" => Ok(FrameType::Water),
             "sky" => Ok(FrameType::Sky),
-            other => Err(ParseError::InvalidField(format!(
+            other => Err(ParseError::invalid_field(format!(
                 "Unknown frame type: {}",
                 other
             ))),
@@ -433,7 +430,7 @@ impl SkyFrame {
         let mut absorption_configs = Vec::new();
         for config in absorption_config_array {
             let config_map = config.as_map().ok_or_else(|| {
-                ParseError::InvalidField(format!("AbsorptionConfig is not a map: {:?}", config))
+                ParseError::invalid_field(format!("AbsorptionConfig is not a map: {:?}", config))
             })?;
             absorption_configs.push(AbsorptionConfig::from_llsd(config_map)?);
         }
@@ -471,7 +468,7 @@ impl SkyFrame {
         let mut mie_configs = Vec::new();
         for config in mie_config_array {
             let config_map = config.as_map().ok_or_else(|| {
-                ParseError::InvalidField(format!("MieConfig is not a map: {:?}", config))
+                ParseError::invalid_field(format!("MieConfig is not a map: {:?}", config))
             })?;
             mie_configs.push(MieConfig::from_llsd(config_map)?);
         }
@@ -480,7 +477,7 @@ impl SkyFrame {
         let mut rayleigh_configs = Vec::new();
         for config in rayleigh_config_array {
             let config_map = config.as_map().ok_or_else(|| {
-                ParseError::InvalidField(format!("RayleighConfig is not a map: {:?}", config))
+                ParseError::invalid_field(format!("RayleighConfig is not a map: {:?}", config))
             })?;
             rayleigh_configs.push(RayleighConfig::from_llsd(config_map)?);
         }
@@ -514,28 +511,31 @@ impl SkyFrame {
 impl DayCycle {
     /// convert environment data from bytes retreived from the endpoint
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let data = xml::from_str(&String::from_utf8_lossy(bytes))?;
+        let data = parse!(xml::from_str(&String::from_utf8_lossy(bytes)))?;
         Self::from_llsd(data)
     }
+
     /// convert environment data from LLSD values
     pub fn from_llsd(data: LLSDValue) -> Result<Self, ParseError> {
         let map = data
             .as_map()
-            .ok_or_else(|| ParseError::MissingField("Expected top level map".into()))?;
-        let environment = llsd_get!(map, "environment", as_map)?;
+            .ok_or_else(|| ParseError::missing_field("Expected top level map"))?;
 
-        // handle day cycle map
+        let environment = llsd_get!(map, "environment", as_map)?;
         let day_cycle = llsd_get!(environment, "day_cycle", as_map)?;
         let frames_map = llsd_get!(day_cycle, "frames", as_map)?;
+
         let mut sky_frames = HashMap::new();
         let mut water_frames = HashMap::new();
+
         for (frame_id, frame_value) in frames_map.iter() {
             let frame_map = frame_value.as_map().ok_or_else(|| {
-                ParseError::InvalidField(format!(
+                ParseError::invalid_field(format!(
                     "Frame {} is not a map: {:?}",
                     frame_id, frame_value
                 ))
             })?;
+
             let frame_type = FrameType::from_str(llsd_get!(frame_map, "type", as_string)?)?;
             match frame_type {
                 FrameType::Water => {

@@ -7,6 +7,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use std::io::Cursor;
 
 impl Packet {
@@ -48,20 +49,25 @@ pub struct SimulatorViewerTimeMessage {
 impl PacketData for SimulatorViewerTimeMessage {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let seconds_since_start = cursor.read_u64::<LittleEndian>().unwrap();
-        let seconds_per_day = cursor.read_u32::<LittleEndian>().unwrap();
-        let seconds_per_year = cursor.read_u32::<LittleEndian>().unwrap();
+
+        let seconds_since_start = parse!(cursor.read_u64::<LittleEndian>())?;
+        let seconds_per_day = parse!(cursor.read_u32::<LittleEndian>())?;
+        let seconds_per_year = parse!(cursor.read_u32::<LittleEndian>())?;
+
         let sun_direction = Vec3::new(
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
-        let sun_phase = cursor.read_f32::<LittleEndian>().unwrap();
+
+        let sun_phase = parse!(cursor.read_f32::<LittleEndian>())?;
+
         let sun_angle_velocity = Vec3::new(
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
-            cursor.read_f32::<LittleEndian>().unwrap(),
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
+            parse!(cursor.read_f32::<LittleEndian>())?,
         );
+
         Ok(SimulatorViewerTimeMessage {
             seconds_since_start,
             seconds_per_day,

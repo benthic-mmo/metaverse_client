@@ -3,7 +3,7 @@ use benthic_protocol::{
     objects::GeneratorObject,
     render_data::{RenderObject, SkinData},
     session::{CacheDir, create_sub_object_dir, write_json},
-    skeleton::Skeleton,
+    skeleton::{Skeleton, SkinJoint},
 };
 use glam::{Vec3, Vec4};
 use log::{info, warn};
@@ -165,7 +165,15 @@ pub fn create_render_object(
                 .weights
                 .clone()
                 .unwrap_or_default(),
-            joint_names: skin.joint_names.clone(),
+            joint_names: skin
+                .joints
+                .iter()
+                .filter_map(|joint| match joint {
+                    SkinJoint::Joint(name) => Some(*name),
+                    SkinJoint::Collision(_) => None,
+                    _ => None,
+                })
+                .collect(),
             inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
         };
 

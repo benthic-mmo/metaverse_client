@@ -4,6 +4,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
@@ -218,7 +219,7 @@ impl From<TeleportBitFlags> for Vec<TeleportFlag> {
 impl PacketData for TeleportStart {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let bitmask = cursor.read_u32::<LittleEndian>()?;
+        let bitmask = parse!(cursor.read_u32::<LittleEndian>())?;
         Ok(TeleportStart {
             flags: TeleportBitFlags::from_bits_truncate(bitmask).into(),
         })

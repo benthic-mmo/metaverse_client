@@ -9,6 +9,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 
 impl Packet {
@@ -51,23 +52,24 @@ impl PacketData for AvatarAppearance {
         let mut cursor = Cursor::new(bytes);
 
         let mut id_bytes = [0u8; 16];
-        cursor.read_exact(&mut id_bytes)?;
+        parse!(cursor.read_exact(&mut id_bytes))?;
         let id = Uuid::from_bytes(id_bytes);
 
-        let is_trial = cursor.read_u8()? != 0;
-        let length = cursor.read_u16::<LittleEndian>()?;
+        let is_trial = parse!(cursor.read_u8())? != 0;
+        let length = parse!(cursor.read_u16::<LittleEndian>())?;
 
         let end = cursor.position() + length as u64;
         let texture_data = cursor.get_ref()[cursor.position() as usize..end as usize].to_vec();
         cursor.set_position(end);
 
-        let length = cursor.read_u8()?;
+        let length = parse!(cursor.read_u8())?;
+
         let end = cursor.position() + length as u64;
         let visual_param_data = cursor.get_ref()[cursor.position() as usize..end as usize].to_vec();
         cursor.set_position(end);
 
         let mut remaining_data = Vec::new();
-        cursor.read_to_end(&mut remaining_data)?;
+        parse!(cursor.read_to_end(&mut remaining_data))?;
 
         Ok(AvatarAppearance {
             id,

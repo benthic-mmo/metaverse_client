@@ -4,7 +4,7 @@ use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::skeleton::{JointName, Skeleton};
+use crate::skeleton::{JointName, Skeleton, SkinJoint};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// Information about the weights of each joint.
@@ -15,7 +15,7 @@ pub struct JointWeight {
     /// How strongly the joint influences the vertex
     pub weights: [f32; 4],
     /// The name of the joint that the weight corresponds to.
-    pub joint_name: [JointName; 4],
+    pub joint_name: [SkinJoint; 4],
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

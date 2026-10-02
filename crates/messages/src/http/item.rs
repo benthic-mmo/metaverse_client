@@ -1,5 +1,5 @@
 use super::mesh::Mesh;
-use crate::{errors::ParseError, utils::item_metadata::ItemMetadata};
+use crate::{errors::ParseError, parse, utils::item_metadata::ItemMetadata};
 use serde_llsd_benthic::{auto_from_str, converter::get};
 use std::{
     collections::HashMap,
@@ -25,8 +25,8 @@ impl Item {
     /// ItemData::from_bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(Item {
-            metadata: ItemMetadata::from_bytes(bytes)?,
-            data: Some(ItemData::from_bytes(bytes)?),
+            metadata: parse!(ItemMetadata::from_bytes(bytes))?,
+            data: Some(parse!(ItemData::from_bytes(bytes))?),
         })
     }
 }
@@ -83,10 +83,10 @@ impl ItemData {
     /// 3 6522e74d-1660-4e7f-b601-6f48c1659a77
     /// ```
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        let data = from_utf8(bytes)?;
-        let llsd = auto_from_str(data).map_err(|e| ParseError::Message(e.to_string()))?;
+        let data = parse!(from_utf8(bytes))?;
+        let llsd = auto_from_str(data).map_err(|e| ParseError::message(e.to_string()))?;
 
-        let map = llsd.as_map().ok_or(ParseError::LLSDError())?;
+        let map = llsd.as_map().ok_or(ParseError::llsd_error())?;
         Ok(ItemData {
             version: get("version", map),
             parameters: get("parameters", map),

@@ -1,106 +1,201 @@
 use crate::packet::header::PacketFrequency;
 use benthic_protocol::messages::errors::ParseError as ProtocolParseError;
 use serde_llsd_benthic::LLSDValue;
-use std::{array::TryFromSliceError, str::Utf8Error, string::FromUtf8Error};
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ParseLocation {
+    pub file: &'static str,
+    pub line: u32,
+    pub column: u32,
+}
+
+impl ParseLocation {
+    #[track_caller]
+    pub fn caller() -> Self {
+        let location = std::panic::Location::caller();
+
+        Self {
+            file: location.file(),
+            line: location.line(),
+            column: location.column(),
+        }
+    }
+}
+
+impl std::fmt::Display for ParseLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}:{}", self.file, self.line, self.column)
+    }
+}
+
+#[macro_export]
+macro_rules! parse {
+    ($expr:expr) => {{
+        $expr.map_err(|e| $crate::errors::ParseError::Parse {
+            location: $crate::errors::parse_error_location(),
+            source: anyhow::Error::from(e),
+        })
+    }};
+}
+
+/// Return the caller's source location when debug parse errors are enabled.
+#[track_caller]
+pub fn parse_error_location() -> Option<ParseLocation> {
+    #[cfg(feature = "debug-parse-errors")]
+    {
+        Some(ParseLocation::caller())
+    }
+
+    #[cfg(not(feature = "debug-parse-errors"))]
+    {
+        None
+    }
+}
+fn format_parse_source(source: &anyhow::Error) -> String {
+    source.to_string()
+}
+/// Format an optional source location.
+pub fn format_parse_error_location(location: Option<ParseLocation>) -> String {
+    match location {
+        Some(location) => format!(" at {location}"),
+        None => String::new(),
+    }
+}
+
+/// Error handling for parsing throughout the messages crate.
 #[derive(Debug, Error)]
-/// Error handling for parsing throughout the messages crate
 pub enum ParseError {
-    #[error("Unknown Packet ID: {id}, frequency: {frequency}")]
-    /// Error type for handling unknown packets
-    UnknownPacket {
-        /// Packet ID of the invalid date
-        id: u16,
-        /// Frequency of the invalid data
-        frequency: PacketFrequency,
+    #[error(
+    "Parse error{location}: {message}",
+    location = format_parse_error_location(*location),
+    message = format_parse_source(source)
+    )]
+    Parse {
+        location: Option<ParseLocation>,
+
+        #[source]
+        source: anyhow::Error,
     },
+
+    #[error("Unknown Packet ID: {id}, frequency: {frequency}")]
+    UnknownPacket { id: u16, frequency: PacketFrequency },
+
     #[error("{0}")]
     SceneObjectParse(#[from] SceneObjectParseError),
 
-    #[error("Parse Error: {0}")]
-    /// An error with a generic message
-    Message(String),
+    #[error(
+        "Parse error{location}: {message}",
+        location = format_parse_error_location(*location)
+    )]
+    Message {
+        message: String,
+        location: Option<ParseLocation>,
+    },
 
-    #[error("Parse Error")]
-    /// A parse error coming from the protocol crate
-    ProtocolParseError(),
+    #[error(
+        "Protocol parse error{location}",
+        location = format_parse_error_location(*location)
+    )]
+    ProtocolParseError { location: Option<ParseLocation> },
 
-    #[error("Missing field: {0}")]
-    /// An error for when fields are not present in the parsed data
-    MissingField(String),
+    #[error(
+        "Missing field{location}: {field}",
+        location = format_parse_error_location(*location)
+    )]
+    MissingField {
+        field: String,
+        location: Option<ParseLocation>,
+    },
 
-    #[error("Invalid field:: {0}")]
-    /// An error for when fields are invalid in the parsed data
-    InvalidField(String),
+    #[error(
+        "Invalid field{location}: {field}",
+        location = format_parse_error_location(*location)
+    )]
+    InvalidField {
+        field: String,
+        location: Option<ParseLocation>,
+    },
 
-    #[error("Failed to generate mesh: {0}")]
-    /// An error thrown when meshes fail to parse
-    MeshError(String),
+    #[error(
+        "Failed to generate mesh{location}: {message}",
+        location = format_parse_error_location(*location)
+    )]
+    MeshError {
+        message: String,
+        location: Option<ParseLocation>,
+    },
 
-    #[error("Failed to deserialize Serde-LLSD map")]
-    /// An error thrown when serde-llsd fails to deserialize
-    LLSDError(),
+    #[error(
+        "Failed to deserialize Serde-LLSD map{location}",
+        location = format_parse_error_location(*location)
+    )]
+    LLSDError { location: Option<ParseLocation> },
 
-    #[error("Serde deserialze failed")]
-    /// wrapper for serde errors
-    SerdeError(#[from] serde_json::Error),
+    #[error(
+        "UTF8 error{location}: {source}",
+        location = format_parse_error_location(*location)
+    )]
+    UTF8Error {
+        source: FromUtf8Error,
+        location: Option<ParseLocation>,
+    },
+}
 
-    #[error("Failed to decode slice")]
-    /// wrapper for TryFromSlice errors
-    SliceError(#[from] TryFromSliceError),
+impl ParseError {
+    #[track_caller]
+    pub fn message(message: impl Into<String>) -> Self {
+        Self::Message {
+            message: message.into(),
+            location: parse_error_location(),
+        }
+    }
 
-    #[error("Parse Error: {0}")]
-    /// wrapper for std::io errors
-    IOError(#[from] std::io::Error),
+    #[track_caller]
+    pub fn missing_field(field: impl Into<String>) -> Self {
+        Self::MissingField {
+            field: field.into(),
+            location: parse_error_location(),
+        }
+    }
 
-    #[error("Utf8Error: {0}")]
-    /// wrapper for utf8 errors
-    Utf8Error(#[from] Utf8Error),
+    #[track_caller]
+    pub fn invalid_field(field: impl Into<String>) -> Self {
+        Self::InvalidField {
+            field: field.into(),
+            location: parse_error_location(),
+        }
+    }
 
-    #[error("Anyhow Error: {0}")]
-    /// wrapper for anyhow errors (used by serde-llsd)
-    Anyhow(#[from] anyhow::Error),
+    #[track_caller]
+    pub fn llsd_error() -> Self {
+        Self::LLSDError {
+            location: parse_error_location(),
+        }
+    }
 
-    #[error("QuickXML error: {0}")]
-    /// wrapper for QuickXML errors
-    QuickXml(#[from] quick_xml::Error),
-
-    #[error("UUID parse error: {0}")]
-    /// wrapper for uuid errors
-    UuidError(#[from] uuid::Error),
-
-    #[error("ParseInt error: {0}")]
-    /// wrapper for parse int errors
-    ParseInt(#[from] std::num::ParseIntError),
-
-    #[error("Failed to parse bool: {0}")]
-    /// wrapper for parse bool errors
-    ParseBool(#[from] std::str::ParseBoolError),
-
-    #[error("XML unescape error: {0}")]
-    /// wrapper for escape errors
-    UnescapeError(#[from] quick_xml::escape::EscapeError),
-
-    #[error("Failed to parse float: {0}")]
-    /// wrapper forparse float errors
-    ParseFloat(#[from] std::num::ParseFloatError),
-
-    #[error("UTF8 error: {0}")]
-    /// wrapper for FromUTF8 errors
-    UTF8Error(#[from] FromUtf8Error),
+    #[track_caller]
+    pub fn mesh_error(message: impl Into<String>) -> Self {
+        Self::MeshError {
+            message: message.into(),
+            location: parse_error_location(),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
 #[error(
-    "SceneObject parse failed at line {line}: {operation} failed for value `{value}`: {message}"
+    "SceneObject parse failed{location}: {operation} failed for value `{value}`: {message}",
+    location = format_parse_error_location(*location)
 )]
 pub struct SceneObjectParseError {
     pub operation: &'static str,
     pub value: String,
-    pub line: u32,
+    pub location: Option<ParseLocation>,
     pub message: String,
 }
+
 impl SceneObjectParseError {
     #[track_caller]
     pub fn new(
@@ -111,19 +206,26 @@ impl SceneObjectParseError {
         Self {
             operation,
             value: value.into(),
-            line: std::panic::Location::caller().line(),
+            location: parse_error_location(),
             message: message.into(),
         }
     }
 }
 
 impl From<LLSDValue> for ParseError {
+    #[track_caller]
     fn from(_: LLSDValue) -> Self {
-        ParseError::LLSDError()
+        Self::LLSDError {
+            location: parse_error_location(),
+        }
     }
 }
+
 impl From<ProtocolParseError> for ParseError {
+    #[track_caller]
     fn from(_: ProtocolParseError) -> Self {
-        ParseError::ProtocolParseError()
+        Self::ProtocolParseError {
+            location: parse_error_location(),
+        }
     }
 }

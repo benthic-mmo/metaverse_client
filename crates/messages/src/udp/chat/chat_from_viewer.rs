@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 use benthic_protocol::messages::utils::chat_types::ChatType;
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -51,29 +52,29 @@ impl PacketData for ChatFromViewer {
 
         // Deserialize AgentData
         let mut agent_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut agent_id_bytes)?;
+        parse!(cursor.read_exact(&mut agent_id_bytes))?;
         let agent_id = Uuid::from_bytes(agent_id_bytes);
 
         let mut session_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut session_id_bytes)?;
+        parse!(cursor.read_exact(&mut session_id_bytes))?;
         let session_id = Uuid::from_bytes(session_id_bytes);
 
-        let message_length = cursor.read_u16::<LittleEndian>()? as usize;
+        let message_length = parse!(cursor.read_u16::<LittleEndian>())? as usize;
 
         let mut message_bytes = vec![0u8; message_length];
-        cursor.read_exact(&mut message_bytes)?;
+        parse!(cursor.read_exact(&mut message_bytes))?;
 
         // Trim null terminator if present
         if let Some(&0) = message_bytes.last() {
             message_bytes.pop();
         }
 
-        let message = String::from_utf8(message_bytes)?;
+        let message = parse!(String::from_utf8(message_bytes))?;
 
-        let message_type_byte = cursor.read_u8()?;
+        let message_type_byte = parse!(cursor.read_u8())?;
         let message_type = ChatType::from_bytes(message_type_byte);
 
-        let channel = cursor.read_i32::<LittleEndian>()?;
+        let channel = parse!(cursor.read_i32::<LittleEndian>())?;
 
         Ok(ChatFromViewer {
             agent_id,

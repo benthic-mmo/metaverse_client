@@ -6,6 +6,7 @@ use crate::packet::{
     packet_protocol::{Packet, PacketData},
     packet_types::PacketType,
 };
+use crate::parse;
 use crate::udp::object::util::ObjectFlag;
 use std::io::Cursor;
 
@@ -52,17 +53,21 @@ pub struct CachedObjectData {
 impl PacketData for ObjectUpdateCached {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
-        let region_handle = cursor.read_u64::<LittleEndian>()?;
-        let time_dilation = cursor.read_u16::<LittleEndian>()?;
-        let data_len = cursor.read_u8()?;
+
+        let region_handle = parse!(cursor.read_u64::<LittleEndian>())?;
+        let time_dilation = parse!(cursor.read_u16::<LittleEndian>())?;
+        let data_len = parse!(cursor.read_u8())?;
 
         let mut objects = Vec::new();
+
         for _ in 0..data_len {
-            let id = cursor.read_u32::<LittleEndian>()?;
-            let crc = cursor.read_u32::<LittleEndian>()?;
-            let flags = ObjectFlag::from_bytes(cursor.read_u32::<LittleEndian>()?);
+            let id = parse!(cursor.read_u32::<LittleEndian>())?;
+            let crc = parse!(cursor.read_u32::<LittleEndian>())?;
+            let flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
+
             objects.push(CachedObjectData { id, crc, flags });
         }
+
         Ok(ObjectUpdateCached {
             region_handle,
             time_dilation,

@@ -1,4 +1,5 @@
 use crate::errors::SceneObjectParseError;
+use crate::parse;
 use crate::{
     errors::ParseError,
     utils::{
@@ -51,7 +52,7 @@ impl SceneGroup {
         let mut buf = Vec::new();
         let mut path: Vec<String> = Vec::new();
         loop {
-            match reader.read_event_into(&mut buf)? {
+            match parse!(reader.read_event_into(&mut buf))? {
                 Event::Start(ref e) => {
                     path.push(e.name().as_ref().to_owned());
                     // If we are at the part of the XML describing the other parts, create a new
@@ -330,7 +331,7 @@ impl SceneObject {
         let mut path = path_prefix;
 
         loop {
-            match reader.read_event_into(&mut buf)? {
+            match parse!(reader.read_event_into(&mut buf))? {
                 Event::Start(ref e) => {
                     path.push(e.name().as_ref().to_owned());
                 }
@@ -380,7 +381,7 @@ impl SceneObject {
         offset: usize,
     ) -> Result<(), ParseError> {
         let text = e.as_ref();
-        let val = unescape(text)?.into_owned();
+        let val = parse!(unescape(text))?.into_owned();
         macro_rules! parse_value {
             ($value:expr, $ty:ty) => {{
                 let value = &$value;

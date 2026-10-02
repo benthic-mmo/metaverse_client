@@ -5,6 +5,7 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
@@ -36,11 +37,11 @@ impl PacketData for PacketAck {
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 
-        let count = cursor.read_u8()? as usize;
+        let count = parse!(cursor.read_u8())? as usize;
         let mut packet_ids = Vec::with_capacity(count);
 
         for _ in 0..count {
-            let id = cursor.read_u32::<LittleEndian>()?;
+            let id = parse!(cursor.read_u32::<LittleEndian>())?;
             packet_ids.push(id);
         }
 

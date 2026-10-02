@@ -101,10 +101,6 @@ pub async fn object_update_cached(
                 }
             }
             Err(e) => {
-                info!(
-                    "Cache did not contain {}, {} from {}, {:?}",
-                    object.id, object.crc, region_id, e
-                );
                 cache_results.push(ObjectUpdateAction::HandleCacheMiss((
                     CacheMissType::Normal,
                     object.id,

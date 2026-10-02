@@ -5,8 +5,9 @@ use crate::{
         packet_protocol::{Packet, PacketData},
         packet_types::PacketType,
     },
+    parse,
 };
-use std::io::{self, Cursor, Read};
+use std::io::{Cursor, Read};
 use uuid::Uuid;
 
 impl Packet {
@@ -41,21 +42,17 @@ impl PacketData for RegionHandshakeReply {
         let mut cursor = Cursor::new(bytes);
 
         let mut agent_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut agent_id_bytes)?;
-        let agent_id = Uuid::from_slice(&agent_id_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        parse!(cursor.read_exact(&mut agent_id_bytes))?;
+        let agent_id = parse!(Uuid::from_slice(&agent_id_bytes))?;
         let mut session_id_bytes = [0u8; 16];
 
-        cursor.read_exact(&mut session_id_bytes)?;
-        let session_id = Uuid::from_slice(&session_id_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        parse!(cursor.read_exact(&mut session_id_bytes))?;
+        let session_id = parse!(Uuid::from_slice(&session_id_bytes))?;
 
         let mut region_info_bytes = [0u8; 4]; // 4 bytes for flags
-        cursor.read_exact(&mut region_info_bytes)?;
+        parse!(cursor.read_exact(&mut region_info_bytes))?;
 
-        let flags = u32::from_le_bytes(bytes.try_into().map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "Failed to convert bytes to u32")
-        })?);
+        let flags = u32::from_le_bytes(parse!(bytes.try_into())?);
 
         Ok(RegionHandshakeReply {
             agent_id,
