@@ -166,7 +166,9 @@ impl PacketData for ObjectUpdateCompressed {
         let mut cursor = Cursor::new(bytes);
 
         let region_handle = parse!(cursor.read_u64::<LittleEndian>())?;
+
         let time_dilation = parse!(cursor.read_u16::<LittleEndian>())?;
+
         let object_data_length = parse!(cursor.read_u8())?;
 
         let mut object_data = Vec::new();
@@ -174,7 +176,9 @@ impl PacketData for ObjectUpdateCompressed {
         for _ in 0..object_data_length {
             let update_flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
 
-            let _data_size = parse!(cursor.read_u16::<LittleEndian>())? as usize;
+            let data_size = parse!(cursor.read_u16::<LittleEndian>())? as usize;
+
+            let start = cursor.position() as usize;
 
             let mut full_id_bytes = [0u8; 16];
             parse!(cursor.read_exact(&mut full_id_bytes))?;
@@ -183,9 +187,13 @@ impl PacketData for ObjectUpdateCompressed {
             let local_id = parse!(cursor.read_u32::<LittleEndian>())?;
 
             let pcode = ObjectType::from_bytes(&parse!(cursor.read_u8())?);
+
             let state = parse!(cursor.read_u8())?;
+
             let crc = parse!(cursor.read_u32::<LittleEndian>())?;
+
             let material = MaterialType::from_bytes(&parse!(cursor.read_u8())?);
+
             let click_action = parse!(cursor.read_u8())?;
 
             let scale = Vec3 {
@@ -201,7 +209,9 @@ impl PacketData for ObjectUpdateCompressed {
             };
 
             let x = parse!(cursor.read_f32::<LittleEndian>())?;
+
             let y = parse!(cursor.read_f32::<LittleEndian>())?;
+
             let z = parse!(cursor.read_f32::<LittleEndian>())?;
 
             let w_sq = 1.0 - x * x - y * y - z * z;
@@ -217,39 +227,51 @@ impl PacketData for ObjectUpdateCompressed {
 
             let angular_velocity = if compressed_flags.contains(&CompressedFlag::HasAngularVelocity)
             {
-                Some(Vec3 {
+                let angular_velocity = Vec3 {
                     x: parse!(cursor.read_f32::<LittleEndian>())?,
                     y: parse!(cursor.read_f32::<LittleEndian>())?,
                     z: parse!(cursor.read_f32::<LittleEndian>())?,
-                })
+                };
+                Some(angular_velocity)
             } else {
                 None
             };
 
             let parent_id = if compressed_flags.contains(&CompressedFlag::HasParent) {
-                Some(parse!(cursor.read_u32::<LittleEndian>())?)
+                let parent_id = parse!(cursor.read_u32::<LittleEndian>())?;
+                Some(parent_id)
             } else {
                 None
             };
 
-            let _data = if compressed_flags.contains(&CompressedFlag::Tree /* 0x2 */) {
-                Some(vec![parse!(cursor.read_u8())?])
-            } else if compressed_flags.contains(&CompressedFlag::ScratchPad /* 0x1 */) {
+            let _data = if compressed_flags.contains(&CompressedFlag::Tree) {
+                let data = parse!(cursor.read_u8())?;
+                Some(vec![data])
+            } else if compressed_flags.contains(&CompressedFlag::ScratchPad) {
                 let size = parse!(cursor.read_u32::<LittleEndian>())?;
+
                 let mut buf = vec![0u8; size as usize];
                 parse!(cursor.read_exact(&mut buf))?;
+
                 Some(buf)
             } else {
                 None
             };
 
             let (text, text_color) = if compressed_flags.contains(&CompressedFlag::HasText) {
-                let text_length = parse!(cursor.read_u16::<LittleEndian>())?;
+                let mut text_bytes = Vec::new();
 
-                let mut text = vec![0u8; text_length as usize];
-                parse!(cursor.read_exact(&mut text))?;
+                loop {
+                    let byte = parse!(cursor.read_u8())?;
 
-                let text = String::from_utf8_lossy(&text).to_string();
+                    if byte == 0 {
+                        break;
+                    }
+
+                    text_bytes.push(byte);
+                }
+
+                let text = String::from_utf8_lossy(&text_bytes).to_string();
 
                 let text_color = Rgba {
                     r: parse!(cursor.read_u8())?,
@@ -268,8 +290,9 @@ impl PacketData for ObjectUpdateCompressed {
 
                 let mut media_url = vec![0u8; media_url_length as usize];
                 parse!(cursor.read_exact(&mut media_url))?;
+                let media_url = String::from_utf8_lossy(&media_url).to_string();
 
-                Some(String::from_utf8_lossy(&media_url).to_string())
+                Some(media_url)
             } else {
                 None
             };
@@ -285,12 +308,17 @@ impl PacketData for ObjectUpdateCompressed {
 
             let extra_params_count = parse!(cursor.read_u8())?;
 
+            if extra_params_count != 0 {
+                cursor.set_position(cursor.position() - 1);
+            }
+
             let extra_params = if extra_params_count == 0 {
                 None
             } else {
                 let (extra_params, position) = parse!(ExtraParams::from_bytes(
                     &cursor.get_ref()[cursor.position() as usize..]
                 ))?;
+
                 cursor.set_position(cursor.position() + position);
                 Some(extra_params)
             };
@@ -300,8 +328,11 @@ impl PacketData for ObjectUpdateCompressed {
                 parse!(cursor.read_exact(&mut sound_id_bytes))?;
 
                 let sound_id = Uuid::from_bytes(sound_id_bytes);
+
                 let gain = parse!(cursor.read_f32::<LittleEndian>())?;
+
                 let flags = parse!(cursor.read_u8())?;
+
                 let radius = parse!(cursor.read_f32::<LittleEndian>())?;
 
                 Some(AttachedSound {
@@ -321,53 +352,62 @@ impl PacketData for ObjectUpdateCompressed {
                 let mut name_value = vec![0u8; name_value_length as usize];
                 parse!(cursor.read_exact(&mut name_value))?;
 
-                Some(String::from_utf8_lossy(&name_value).to_string())
+                let name_value = String::from_utf8_lossy(&name_value).to_string();
+
+                Some(name_value)
             } else {
                 None
             };
 
-            let (sculpt_path, texture_entry, texture_animation, particle_system) =
-                if pcode == ObjectType::Prim {
-                    let mut geometry_bytes = [0u8; 23];
-                    parse!(cursor.read_exact(&mut geometry_bytes))?;
-                    let sculpt_path = parse!(Path::from_bytes(&geometry_bytes))?;
+            let (sculpt_path, texture_entry, texture_animation, particle_system) = if pcode
+                == ObjectType::Prim
+            {
+                let mut geometry_bytes = [0u8; 23];
+                parse!(cursor.read_exact(&mut geometry_bytes))?;
 
-                    let te_len = parse!(cursor.read_u16::<LittleEndian>())?;
-                    let mut te_bytes = vec![0u8; te_len as usize];
-                    parse!(cursor.read_exact(&mut te_bytes))?;
-                    let texture_entry = parse!(TextureEntry::from_bytes(&te_bytes))?;
+                let sculpt_path = parse!(Path::from_bytes(&geometry_bytes))?;
 
-                    let texture_animation =
-                        if compressed_flags.contains(&CompressedFlag::TextureAnimation) {
-                            let len = parse!(cursor.read_u8())?;
-                            let mut buf = vec![0u8; len as usize];
-                            parse!(cursor.read_exact(&mut buf))?;
-                            Some(buf)
-                        } else {
-                            None
-                        };
+                let te_len = parse!(cursor.read_u16::<LittleEndian>())?;
 
-                    let particle_system =
-                        if compressed_flags.contains(&CompressedFlag::HasParticles /* 0x400 */) {
-                            // new format: s32 syssize + system block, then s32 partsize + part block
-                            let sys_size = parse!(cursor.read_i32::<LittleEndian>())? as usize;
-                            let mut buf = vec![0u8; 4 + sys_size];
-                            buf[..4].copy_from_slice(&(sys_size as i32).to_le_bytes());
-                            parse!(cursor.read_exact(&mut buf[4..]))?;
-                            Some(buf)
-                        } else {
-                            None
-                        };
+                let mut te_bytes = vec![0u8; te_len as usize];
+                parse!(cursor.read_exact(&mut te_bytes))?;
 
-                    (
-                        Some(sculpt_path),
-                        Some(texture_entry),
-                        texture_animation,
-                        particle_system,
-                    )
+                let texture_entry = parse!(TextureEntry::from_bytes(&te_bytes))?;
+
+                let texture_animation =
+                    if compressed_flags.contains(&CompressedFlag::TextureAnimation) {
+                        let len = parse!(cursor.read_u8())?;
+
+                        let mut buf = vec![0u8; len as usize];
+                        parse!(cursor.read_exact(&mut buf))?;
+
+                        Some(buf)
+                    } else {
+                        None
+                    };
+
+                let particle_system = if compressed_flags.contains(&CompressedFlag::HasParticles) {
+                    let sys_size = parse!(cursor.read_i32::<LittleEndian>())?;
+
+                    let mut buf = vec![0u8; 4 + sys_size as usize];
+                    buf[..4].copy_from_slice(&sys_size.to_le_bytes());
+
+                    parse!(cursor.read_exact(&mut buf[4..]))?;
+
+                    Some(buf)
                 } else {
-                    (None, None, None, None)
+                    None
                 };
+
+                (
+                    Some(sculpt_path),
+                    Some(texture_entry),
+                    texture_animation,
+                    particle_system,
+                )
+            } else {
+                (None, None, None, None)
+            };
 
             object_data.push(ObjectDataCompressed {
                 update_flags,
@@ -396,6 +436,8 @@ impl PacketData for ObjectUpdateCompressed {
                 texture_animation,
                 particle_system,
             });
+
+            cursor.set_position(start as u64 + data_size as u64);
         }
 
         Ok(ObjectUpdateCompressed {

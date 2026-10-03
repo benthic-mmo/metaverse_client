@@ -152,9 +152,6 @@ pub fn test_object_update() {
 }
 
 #[test]
-// this test WILL FAIL. this is a known bug. This test is for debugging it.
-// the issue is related to the NameValue being read as 4099 bytes long. this is of course not the
-// right size.
 pub fn test_failing_object() {
     let object_update = Packet::from_bytes(&PACKET_3).unwrap();
     match object_update.body {

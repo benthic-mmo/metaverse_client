@@ -1,6 +1,7 @@
 use benthic_protocol::render_data::RenderObject;
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
+use log::info;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::utils::object_types::ObjectType;
@@ -128,13 +129,18 @@ pub async fn download_scene_group(
 ) -> Result<Vec<RenderObject>, DownloadError> {
     let mut render_objects = Vec::new();
     for scene in &scene_group.parts {
-        let mesh = download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
-        render_objects.push(create_render_object(
-            mesh,
-            scene.metadata.name.clone(),
-            texture_path,
-            scene.sculpt.texture,
-        )?);
+        if scene.shape.pcode == ObjectType::Mesh {
+            let mesh =
+                download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
+            render_objects.push(create_render_object(
+                mesh,
+                scene.metadata.name.clone(),
+                texture_path,
+                scene.sculpt.texture,
+            )?)
+        } else {
+            info!("Non-mesh scene group")
+        };
     }
     Ok(render_objects)
 }

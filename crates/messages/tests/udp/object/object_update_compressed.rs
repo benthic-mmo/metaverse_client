@@ -1,5 +1,7 @@
+use std::{fs::File, io::Read};
+
 use metaverse_messages::{
-    packet::packet_protocol::PacketData,
+    packet::packet_protocol::{Packet, PacketData},
     udp::object::object_update_compressed::ObjectUpdateCompressed,
 };
 
@@ -103,4 +105,30 @@ const PACKET_BYTES_2: [u8; 839] = [
 #[test]
 fn test_object_update_compressed() {
     ObjectUpdateCompressed::from_bytes(&PACKET_BYTES_2).unwrap();
+}
+
+#[test]
+fn test_object_update_compressed_2() {
+    let mut file = File::open("tests/data/object_update_compressed.bin").unwrap();
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+    let packet = match Packet::from_bytes(&buffer) {
+        Ok(p) => p,
+        Err(e) => {
+            panic!("Failed to create packet: {}", e)
+        }
+    };
+}
+
+#[test]
+fn test_object_update_compressed_3() {
+    let mut file = File::open("tests/data/object_update_compressed_2.bin").unwrap();
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).unwrap();
+    let packet = match Packet::from_bytes(&buffer) {
+        Ok(p) => p,
+        Err(e) => {
+            panic!("Failed to create packet: {}", e)
+        }
+    };
 }
