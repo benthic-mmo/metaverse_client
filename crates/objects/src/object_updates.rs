@@ -7,6 +7,7 @@ use benthic_protocol::{
 use log::{info, warn};
 use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
+    http::scene::SculptType,
     udp::object::{
         object_update::{AttachItem, ExtraParams},
         object_update_cached::CachedObjectData,
@@ -145,14 +146,21 @@ async fn handle_prim(
     if let Some(extra_params) = &object.extra_params {
         for param in extra_params {
             match param {
-                ExtraParams::Sculpt(sculpt) => {
-                    actions.push(ObjectUpdateAction::Download(DownloadObjectData {
-                        asset_id: sculpt.texture_id,
-                        texture_id: object.texture.texture_id,
-                        object: object.clone(),
-                        retry_count: 0,
-                    }))
-                }
+                ExtraParams::Sculpt(sculpt) => match sculpt.sculpt_type {
+                    SculptType::Mesh => {
+                        actions.push(ObjectUpdateAction::Download(DownloadObjectData {
+                            asset_id: sculpt.texture_id,
+                            texture_id: object.texture.texture_id,
+                            object: object.clone(),
+                            retry_count: 0,
+                        }))
+                    }
+                    _ => {
+                        Err(ObjectUpdateError::Unimplemented {
+                            feature: "Non-Mesh sculpt type".to_string(),
+                        })?;
+                    }
+                },
                 _ => Err(ObjectUpdateError::Unimplemented {
                     feature: "Non-Sculpt object update".to_string(),
                 })?,

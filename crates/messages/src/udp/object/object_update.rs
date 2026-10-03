@@ -19,7 +19,7 @@ use crate::{
         texture_entry::TextureEntry,
     },
 };
-use std::io::{self, Cursor, Read};
+use std::io::{Cursor, Read};
 
 impl Packet {
     /// create a new object update packet
@@ -491,7 +491,7 @@ pub enum ParamTypeTag {
 
 impl ParamTypeTag {
     /// convert from u8 byte to a parameter enum
-    pub fn from_bytes(byte: &u8) -> Self {
+    pub fn from_bytes(byte: &u16) -> Self {
         match byte {
             16 => ParamTypeTag::Flexi,
             32 => ParamTypeTag::Light,
@@ -537,13 +537,13 @@ pub struct SculptData {
 }
 impl SculptData {
     /// converts bytes to a SculptData object
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
         let mut texture_id_bytes = [0u8; 16];
-        cursor.read_exact(&mut texture_id_bytes)?;
+        parse!(cursor.read_exact(&mut texture_id_bytes))?;
         let texture_id = Uuid::from_bytes(texture_id_bytes);
 
-        let sculpt_type = SculptType::from_bytes(&cursor.read_u8()?);
+        let sculpt_type = SculptType::from_bytes(&parse!(cursor.read_u8())?);
         Ok(SculptData {
             texture_id,
             sculpt_type,
@@ -558,14 +558,13 @@ pub struct FlexiData {
 }
 impl FlexiData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(FlexiData {
             bytes: bytes.to_vec(),
         })
     }
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-
 ///TODO: UNIMPLEMENTED
 pub struct LightData {
     ///TODO: UNIMPLEMENTED
@@ -573,7 +572,7 @@ pub struct LightData {
 }
 impl LightData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(LightData {
             bytes: bytes.to_vec(),
         })
@@ -587,7 +586,7 @@ pub struct ProjectionData {
 }
 impl ProjectionData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(ProjectionData {
             bytes: bytes.to_vec(),
         })
@@ -601,7 +600,7 @@ pub struct MeshFlagsData {
 }
 impl MeshFlagsData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(MeshFlagsData {
             bytes: bytes.to_vec(),
         })
@@ -615,7 +614,7 @@ pub struct MaterialsData {
 }
 impl MaterialsData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(MaterialsData {
             bytes: bytes.to_vec(),
         })
@@ -629,7 +628,7 @@ pub struct ReflectionProbeData {
 }
 impl ReflectionProbeData {
     ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(ReflectionProbeData {
             bytes: bytes.to_vec(),
         })
@@ -644,7 +643,7 @@ pub struct UnknownData {
 }
 impl UnknownData {
     /// directly store the bytes
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         Ok(UnknownData {
             bytes: bytes.to_vec(),
         })
@@ -657,30 +656,19 @@ impl Default for ExtraParams {
 }
 
 impl ExtraParams {
-    /// this has to return a usize, because of the weird way comprssed object update packets store
-    /// their extraparams field
-    pub fn from_bytes(bytes: &[u8]) -> io::Result<(Vec<Self>, u64)> {
+    /// This has to return a usize, because of the weird way compressed object
+    /// update packets store their extra_params field.
+    pub fn from_bytes(bytes: &[u8]) -> Result<(Vec<Self>, u64), ParseError> {
         let mut cursor = Cursor::new(bytes);
         let start = cursor.position();
-        let extra_params_count = match cursor.read_u8() {
-            Ok(v) => v,
-            Err(_) => return Ok((vec![ExtraParams::default()], 1)),
-        };
+        let extra_params_count = parse!(cursor.read_u8())?;
         let mut extra_params = Vec::new();
-        for _ in 0..extra_params_count {
-            let param_type_tag = ParamTypeTag::from_bytes(&cursor.read_u8()?);
-
-            // padding byte
-            cursor.read_u8()?;
-
-            let param_length = cursor.read_u8()?;
-
-            // three padding bytes
-            cursor.read_u8()?;
-            cursor.read_u8()?;
-            cursor.read_u8()?;
+        for i in 0..extra_params_count {
+            let param_type = parse!(cursor.read_u16::<LittleEndian>())?;
+            let param_type_tag = ParamTypeTag::from_bytes(&param_type);
+            let param_length = parse!(cursor.read_u32::<LittleEndian>())?;
             let mut param_data = vec![0u8; param_length as usize];
-            cursor.read_exact(&mut param_data)?;
+            parse!(cursor.read_exact(&mut param_data))?;
 
             let param = match param_type_tag {
                 ParamTypeTag::Flexi => ExtraParams::Flexi(FlexiData::from_bytes(&param_data)?),
@@ -702,9 +690,11 @@ impl ExtraParams {
                     ExtraParams::Unknown(UnknownData::from_bytes(&param_data)?)
                 }
             };
+
             extra_params.push(param);
         }
-        Ok((extra_params, (cursor.position() - start)))
+
+        Ok((extra_params, cursor.position() - start))
     }
 }
 

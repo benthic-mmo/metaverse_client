@@ -62,7 +62,7 @@ pub fn add_object_to_avatar<C, L, U, I, X>(
             let file = fs::File::open(path)?;
             let parts: Vec<RenderObject> = serde_json::from_reader(file)?;
 
-            if let Some(skin) = &parts[0].skin {
+            if let Some(skin) = parts.first().and_then(|part| part.skin.as_ref()) {
                 update_global_avatar_skeleton(avatar, &skin.skeleton);
             }
         }
