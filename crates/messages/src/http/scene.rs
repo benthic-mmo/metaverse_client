@@ -110,7 +110,7 @@ pub struct SceneMetadata {
     /// the time the scene was created
     pub created_at: std::time::SystemTime,
     /// TODO: unknown
-    pub flags: i32,
+    pub flags: PrimFlags,
 }
 impl Default for SceneMetadata {
     fn default() -> Self {
@@ -912,9 +912,9 @@ impl SceneObject {
 
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.metadata.flags = 0;
+                    scene_object.metadata.flags = PrimFlags::None;
                 } else {
-                    scene_object.metadata.flags = parse_value!(val, i32)?;
+                    scene_object.metadata.flags = PrimFlags::from_string(&val);
                 }
             }
 
@@ -1056,6 +1056,95 @@ impl SceneObject {
         }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum PrimFlags {
+    #[default]
+    None,
+    Phantom,
+    Physics,
+    TemporaryOnRez,
+    Scripted,
+    Touch,
+    Money,
+    AllowInventoryDrop,
+    InventoryEmpty,
+    ObjectYouOwner,
+    ObjectYouOfficer,
+    ObjectOwnerModify,
+    ObjectGroupOwned,
+    ObjectAnyOwner,
+    ObjectTransfer,
+    ObjectCopy,
+    ObjectModify,
+    ObjectMove,
+    CameraDecoupled,
+    AnimSource,
+    DieAtEdge,
+    ReturnAtEdge,
+    Sandbox,
+    CreateSelected,
+}
+impl PrimFlags {
+    pub fn from_bytes(bytes: &u32) -> Self {
+        match bytes {
+            0x00000000 => PrimFlags::None,
+            0x00000010 => PrimFlags::Phantom,
+            0x00000020 => PrimFlags::Physics,
+            0x00000040 => PrimFlags::TemporaryOnRez,
+            0x00000008 => PrimFlags::Scripted,
+            0x00000100 => PrimFlags::Touch,
+            0x00000200 => PrimFlags::Money,
+            0x00000400 => PrimFlags::AllowInventoryDrop,
+            0x00000800 => PrimFlags::InventoryEmpty,
+            0x00001000 => PrimFlags::ObjectYouOwner,
+            0x00002000 => PrimFlags::ObjectYouOfficer,
+            0x00004000 => PrimFlags::ObjectOwnerModify,
+            0x00008000 => PrimFlags::ObjectGroupOwned,
+            0x00020000 => PrimFlags::ObjectAnyOwner,
+            0x00040000 => PrimFlags::ObjectTransfer,
+            0x00080000 => PrimFlags::ObjectCopy,
+            0x00100000 => PrimFlags::ObjectModify,
+            0x00200000 => PrimFlags::ObjectMove,
+            0x00400000 => PrimFlags::CameraDecoupled,
+            0x00800000 => PrimFlags::AnimSource,
+            0x01000000 => PrimFlags::DieAtEdge,
+            0x02000000 => PrimFlags::ReturnAtEdge,
+            0x04000000 => PrimFlags::Sandbox,
+            0x08000000 => PrimFlags::CreateSelected,
+            _ => PrimFlags::None,
+        }
+    }
+    pub fn from_string(value: &str) -> Self {
+        match value {
+            "None" => PrimFlags::None,
+            "Phantom" => PrimFlags::Phantom,
+            "Physics" => PrimFlags::Physics,
+            "TemporaryOnRez" => PrimFlags::TemporaryOnRez,
+            "Scripted" => PrimFlags::Scripted,
+            "Touch" => PrimFlags::Touch,
+            "Money" => PrimFlags::Money,
+            "AllowInventoryDrop" => PrimFlags::AllowInventoryDrop,
+            "InventoryEmpty" => PrimFlags::InventoryEmpty,
+            "ObjectYouOwner" => PrimFlags::ObjectYouOwner,
+            "ObjectYouOfficer" => PrimFlags::ObjectYouOfficer,
+            "ObjectOwnerModify" => PrimFlags::ObjectOwnerModify,
+            "ObjectGroupOwned" => PrimFlags::ObjectGroupOwned,
+            "ObjectAnyOwner" => PrimFlags::ObjectAnyOwner,
+            "ObjectTransfer" => PrimFlags::ObjectTransfer,
+            "ObjectCopy" => PrimFlags::ObjectCopy,
+            "ObjectModify" => PrimFlags::ObjectModify,
+            "ObjectMove" => PrimFlags::ObjectMove,
+            "CameraDecoupled" => PrimFlags::CameraDecoupled,
+            "AnimSource" => PrimFlags::AnimSource,
+            "DieAtEdge" => PrimFlags::DieAtEdge,
+            "ReturnAtEdge" => PrimFlags::ReturnAtEdge,
+            "Sandbox" => PrimFlags::Sandbox,
+            "CreateSelected" => PrimFlags::CreateSelected,
+            _ => PrimFlags::None,
+        }
     }
 }
 
