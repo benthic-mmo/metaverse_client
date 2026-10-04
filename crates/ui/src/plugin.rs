@@ -1,4 +1,5 @@
 use crate::animation::{BenthicAnimationPlugin, scene_instance_ready};
+use crate::click_handler::ClickHandlerPlugin;
 use crate::core_plugin::{CorePlugin, DisableSimulatorEvent, LoginResponseEvent};
 use crate::environment::LandPlugin;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
@@ -108,6 +109,7 @@ impl Plugin for MetaversePlugin {
             .add_plugins(InventoryPanelPlugin)
             //.add_plugins(SkyPlugin)
             .add_plugins(LandPlugin)
+            .add_plugins(ClickHandlerPlugin)
             .add_plugins(BenthicMeshPlugin)
             .add_plugins(BenthicAnimationPlugin)
             .insert_resource(login_data)

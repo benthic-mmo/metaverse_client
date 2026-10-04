@@ -1,3 +1,4 @@
+use awc::error::PayloadError;
 use benthic_protocol::errors::SessionError;
 use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
@@ -43,6 +44,44 @@ pub enum DownloadError {
 
     #[error("ImageError:")]
     ImageError(#[from] image::ImageError),
+
+    #[error("PayloadError:")]
+    PayloadError(#[from] PayloadError),
+
+    #[error("Retryable Error: {error}")]
+    Retryable {
+        #[source]
+        error: Box<DownloadError>,
+    },
+
+    #[error("Unrecoverable Download Error: {error}")]
+    Unrecoverable {
+        #[source]
+        error: awc::error::SendRequestError,
+    },
+
+    #[error("Object download failed: {error}")]
+    ObjectError {
+        #[source]
+        error: awc::error::SendRequestError,
+    },
+
+    #[error("Texture download failed: {error}")]
+    TextureError {
+        #[source]
+        error: Box<DownloadError>,
+    },
+}
+impl From<awc::error::SendRequestError> for DownloadError {
+    fn from(error: awc::error::SendRequestError) -> Self {
+        match &error {
+            awc::error::SendRequestError::Connect(_) => DownloadError::Retryable {
+                error: Box::new(DownloadError::ObjectError { error }),
+            },
+
+            _ => DownloadError::Unrecoverable { error },
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

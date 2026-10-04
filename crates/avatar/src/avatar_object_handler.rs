@@ -32,9 +32,9 @@ pub fn init_avatar<C, L, U, I, X>(
     avatar: &Avatar,
 ) -> Result<AvatarType, AvatarError> {
     if session.agent_id == avatar.agent_id {
-        // if the session has initialized its inventory
+        // if the session has initialized its current outfit
         // insert the avatar and return the camera position
-        if session.inventory_data.inventory_init {
+        if session.inventory_data.current_outfit_init {
             session.avatars.insert(avatar.agent_id, avatar.clone());
             Ok(AvatarType::User)
         } else {
@@ -72,6 +72,7 @@ pub fn add_object_to_avatar<C, L, U, I, X>(
         }
     }
     avatar.items.push(object);
+
     if avatar.items.len() == avatar.outfit_size {
         Ok(FullyLoaded)
     } else {

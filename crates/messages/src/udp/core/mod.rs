@@ -241,6 +241,8 @@ pub mod enable_simulator;
 /// TODO: UNIMPLEMENTED
 pub mod agent_movement_complete;
 /// TODO: UNIMPLEMENTED
+pub mod generic_streaming_message;
+/// TODO: UNIMPLEMENTED
 pub mod parcel_overlay;
 /// TODO: UNIMPLEMENTED
 pub mod sim_stats;

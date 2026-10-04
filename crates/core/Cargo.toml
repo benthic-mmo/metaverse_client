@@ -39,6 +39,7 @@ bincode = {workspace=true, features = ["serde"] }
 portpicker.workspace = true 
 jpeg2k.workspace = true 
 image.workspace = true 
+rand = "0.10.3"
 [dependencies.uuid]
 workspace=true
 features = [

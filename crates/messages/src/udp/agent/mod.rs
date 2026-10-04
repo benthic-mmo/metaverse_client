@@ -77,3 +77,5 @@ pub mod avatar_animation;
 /// | v_param_len  | 1 byte   | [u8]               | length of visual param block |
 /// | visual_param_data | variable byes |          | Bytes containing the visual param data |
 pub mod avatar_appearance;
+
+pub mod agent_data_update;

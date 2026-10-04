@@ -109,6 +109,9 @@ pub struct InventoryData {
     pub inventory_lib_owner: Uuid,
     /// boolean to signify the inventory has successfully loaded and is ready for use.
     pub inventory_init: bool,
+
+    pub current_outfit_root: Uuid,
+    pub current_outfit_init: bool,
 }
 
 /// Contains the patch queue and patch cache.

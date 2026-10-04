@@ -98,7 +98,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
 /// if the avatar's outfit is finished loading in.
 ///
 /// # Cause
-/// - [`AddObjectToAvatar`]
+/// - [`DownloadAgentAsset`]
 ///
 /// # Effects
 /// - Dispatches a [`FinalizeAvatar`] message if the avatar's outfit has all items

@@ -77,6 +77,8 @@ async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inv
             inventory_root: Uuid::nil(),
             inventory_lib_owner: Uuid::nil(),
             inventory_init: true,
+            current_outfit_root: Uuid::nil(),
+            current_outfit_init: true,
         },
 
         socket: None,

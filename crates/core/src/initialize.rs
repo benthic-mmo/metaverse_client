@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::Notify;
+use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 /// This starts the mailbox, and blocks forever.
@@ -44,6 +45,7 @@ pub async fn initialize(
             ping_latency: Duration::new(0, 0),
             last_ping: time::Instant::now(),
         },
+        max_concurrent_downloads: Arc::new(Semaphore::new(3)),
     }
     .start();
     // wait until the mailbox starts

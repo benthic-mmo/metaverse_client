@@ -111,6 +111,22 @@ impl Inventory {
         let mut visited = HashSet::new();
         refresh_recursive(&self.db, folder_request, &server_endpoint, &mut visited).await
     }
+
+    pub async fn predownload_current_outfit(
+        &self,
+        current_outfit_id: Uuid,
+        owner_id: Uuid,
+        server_endpoint: String,
+    ) -> Result<(), InventoryError> {
+        let folder_request = FolderRequest {
+            folder_id: current_outfit_id,
+            owner_id,
+            fetch_items: true,
+            fetch_folders: true,
+            sort_order: 0,
+        };
+        self.refresh(folder_request, server_endpoint).await
+    }
 }
 
 async fn check_folder_version(
@@ -275,7 +291,7 @@ async fn insert_items(
     Ok(())
 }
 
-async fn _get_object_type_by_id(
+async fn get_object_type_by_id(
     pool: &SqlitePool,
     item_id: &Uuid,
 ) -> Result<Option<(ObjectType, Uuid, String)>, InventoryError> {

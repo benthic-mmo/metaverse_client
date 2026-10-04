@@ -302,8 +302,10 @@ impl TextureEntry {
         }
 
         let mut uuid = [0u8; 16];
-
+        // this needs to be here. There's two padding bytes for the texture entries.
+        let _pad = parse!(cursor.read_u16::<LittleEndian>())?;
         parse!(cursor.read_exact(&mut uuid))?;
+
         texture.texture_id = Uuid::from_bytes(uuid);
 
         // Texture IDs per face
@@ -323,6 +325,7 @@ impl TextureEntry {
             }
 
             parse!(cursor.read_exact(&mut uuid))?;
+
             let id = Uuid::from_bytes(uuid);
 
             for_each_face(mask, |f| {
@@ -379,7 +382,6 @@ impl TextureEntry {
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let mask = parse!(read_face_bitfield(&mut cursor))?;
 
                 if mask == 0 {
@@ -389,7 +391,6 @@ impl TextureEntry {
                 if remaining(&cursor) < 4 {
                     break;
                 }
-
                 let v = parse!(cursor.read_f32::<LittleEndian>())?;
 
                 for_each_face(mask, |f| {
@@ -406,7 +407,6 @@ impl TextureEntry {
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let mask = parse!(read_face_bitfield(&mut cursor))?;
 
                 if mask == 0 {
@@ -416,7 +416,6 @@ impl TextureEntry {
                 if remaining(&cursor) < 4 {
                     break;
                 }
-
                 let v = parse!(cursor.read_f32::<LittleEndian>())?;
 
                 for_each_face(mask, |f| {
@@ -427,7 +426,8 @@ impl TextureEntry {
 
         // offset_u
         if remaining(&cursor) >= 2 {
-            texture.offset_u = parse!(cursor.read_i16::<LittleEndian>())? as f32 / 32767.0;
+            let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+            texture.offset_u = raw as f32 / 32767.0;
 
             loop {
                 if remaining(&cursor) < 1 {
@@ -444,7 +444,8 @@ impl TextureEntry {
                     break;
                 }
 
-                let v = parse!(cursor.read_i16::<LittleEndian>())? as f32 / 32767.0;
+                let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+                let v = raw as f32 / 32767.0;
 
                 for_each_face(mask, |f| {
                     faces.entry(f).or_default().offset_u = v;
@@ -454,7 +455,8 @@ impl TextureEntry {
 
         // offset_v
         if remaining(&cursor) >= 2 {
-            texture.offset_v = parse!(cursor.read_i16::<LittleEndian>())? as f32 / 32767.0;
+            let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+            texture.offset_v = raw as f32 / 32767.0;
 
             loop {
                 if remaining(&cursor) < 1 {
@@ -471,7 +473,8 @@ impl TextureEntry {
                     break;
                 }
 
-                let v = parse!(cursor.read_i16::<LittleEndian>())? as f32 / 32767.0;
+                let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+                let v = raw as f32 / 32767.0;
 
                 for_each_face(mask, |f| {
                     faces.entry(f).or_default().offset_v = v;
@@ -481,7 +484,8 @@ impl TextureEntry {
 
         // rotation
         if remaining(&cursor) >= 2 {
-            texture.rotation = parse!(cursor.read_i16::<LittleEndian>())? as f32 * PI / 32767.0;
+            let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+            texture.rotation = raw as f32 * PI / 32767.0;
 
             loop {
                 if remaining(&cursor) < 1 {
@@ -498,7 +502,8 @@ impl TextureEntry {
                     break;
                 }
 
-                let r = parse!(cursor.read_i16::<LittleEndian>())? as f32 * PI / 32767.0;
+                let raw = parse!(cursor.read_i16::<LittleEndian>())?;
+                let r = raw as f32 * PI / 32767.0;
 
                 for_each_face(mask, |f| {
                     faces.entry(f).or_default().rotation = r;
@@ -562,7 +567,8 @@ impl TextureEntry {
 
         // glow
         if remaining(&cursor) >= 1 {
-            texture.glow = parse!(cursor.read_u8())? as f32 / 255.0;
+            let raw = parse!(cursor.read_u8())?;
+            texture.glow = raw as f32 / 255.0;
 
             loop {
                 if remaining(&cursor) < 1 {
@@ -579,7 +585,8 @@ impl TextureEntry {
                     break;
                 }
 
-                let g = parse!(cursor.read_u8())? as f32 / 255.0;
+                let raw = parse!(cursor.read_u8())?;
+                let g = raw as f32 / 255.0;
 
                 for_each_face(mask, |f| {
                     faces.entry(f).or_default().glow = g;
@@ -590,6 +597,7 @@ impl TextureEntry {
         // material_id
         if remaining(&cursor) >= 16 {
             parse!(cursor.read_exact(&mut uuid))?;
+
             texture.material_id = Uuid::from_bytes(uuid);
 
             loop {
@@ -608,6 +616,7 @@ impl TextureEntry {
                 }
 
                 parse!(cursor.read_exact(&mut uuid))?;
+
                 let id = Uuid::from_bytes(uuid);
 
                 for_each_face(mask, |f| {
@@ -669,38 +678,24 @@ fn for_each_face(mask: u32, mut f: impl FnMut(u32)) {
     }
 }
 
-fn read_face_bitfield<R: Read>(r: &mut R) -> std::io::Result<u32> {
-    let first = r.read_u8()?;
-    if first == 0 {
-        return Ok(0);
-    }
-    if first & 0x80 == 0 {
-        return Ok(first as u32);
-    }
-    let second = r.read_u8()?;
-    let mut value = ((first as u32 & 0x7F) << 7) | (second as u32 & 0x7F);
-    if second & 0x80 == 0 {
-        return Ok(value);
-    }
-    let third = r.read_u8()?;
-    let fourth = r.read_u8()?;
-    value |= (third as u32) << 14;
-    value |= (fourth as u32) << 22;
-    Ok(value)
+fn read_face_bitfield<R: Read>(r: &mut R) -> Result<u32, ParseError> {
+    Ok(read_b64_face_bitfield(r)?.0)
 }
 
-fn read_b64_face_bitfield(cursor: &mut Cursor<&[u8]>) -> std::io::Result<(u32, u32)> {
+fn read_b64_face_bitfield<R: Read>(r: &mut R) -> Result<(u32, u32), ParseError> {
     let mut face_bits = 0u32;
     let mut bitfield_size = 0u32;
+
     loop {
-        let mut b = [0u8];
-        cursor.read_exact(&mut b)?;
-        let b = b[0];
+        let b = parse!(r.read_u8())?;
+
         face_bits = (face_bits << 7) | (b & 0x7F) as u32;
         bitfield_size += 7;
+
         if b & 0x80 == 0 {
             break;
         }
     }
+
     Ok((face_bits, bitfield_size))
 }

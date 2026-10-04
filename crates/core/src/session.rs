@@ -1,4 +1,5 @@
 use crate::environment::FetchEnvironmentEvent;
+use crate::inventory::FetchCurrentOutfit;
 use crate::{
     capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
     transport::http_handler::login_to_simulator,
@@ -26,6 +27,7 @@ use glam::Vec2;
 use log::{error, info, warn};
 use metaverse_avatar::avatar::Avatar;
 use metaverse_environment::land::Land;
+use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::{
     http::capabilities::{Capability, CapabilityRequest},
     packet::packet_protocol::Packet,
@@ -45,6 +47,7 @@ use metaverse_messages::{
     },
 };
 use metaverse_store::initialize_sqlite::{Cache, Inventory, init_sqlite};
+use rand::RngExt;
 use rgb::Rgba;
 use std::any::type_name;
 use std::path::Path;
@@ -55,9 +58,11 @@ use std::{
     sync::{Arc, Mutex},
     thread::sleep,
 };
+use tokio::sync::Semaphore;
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
+use uuid::Uuid;
 
-static DEFAULT_MAX_RETRIES: u32 = 6;
+static DEFAULT_MAX_RETRIES: u32 = 20;
 static DEFAULT_LONG_TIMEOUT_RETRIES: u32 = 20;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
@@ -83,6 +88,8 @@ pub struct Mailbox {
     pub sent_packet_count: u16,
     /// the global ping information
     pub ping_info: PingInfo,
+
+    pub max_concurrent_downloads: Arc<Semaphore>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -419,7 +426,7 @@ impl Handler<HandleUIResponse> for Mailbox {
             let db_location = self.inventory_db_location.clone();
             actix::spawn(async move {
                 if let Err(e) = handle_login(login_data, &ctx_addr, &db_location).await {
-                    error!("{:?}", e);
+                    error!("Login Error:{:?}", e);
                 };
             });
         }
@@ -528,6 +535,18 @@ async fn handle_login(
         }
     };
 
+    // get the current outfit root from the login response's inventory skeleton
+    let current_outfit_root = login_response
+        .inventory_skeleton
+        .as_ref()
+        .and_then(|folders| {
+            folders
+                .iter()
+                .find(|folder| folder.type_default == ObjectType::CurrentOutfit)
+                .map(|folder| folder.folder_id)
+        })
+        .unwrap_or(Uuid::nil());
+
     let connection = init_sqlite(db_path.to_path_buf())
         .await
         .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
@@ -570,6 +589,8 @@ async fn handle_login(
                         )
                     })?,
                     inventory_init: false,
+                    current_outfit_root,
+                    current_outfit_init: false,
                 },
                 socket: None,
                 share_dir_root: initialize_share_dir()?,
@@ -658,8 +679,18 @@ async fn handle_login(
 
     #[cfg(feature = "inventory")]
     if let Err(e) = mailbox_addr
+        .send(FetchCurrentOutfit { retry_count: 0 })
+        .await
+    {
+        Err(CapabilityError {
+            message: e.to_string(),
+        })?
+    }
+    #[cfg(feature = "inventory")]
+    if let Err(e) = mailbox_addr
         .send(RefreshInventoryEvent {
             agent_id: login_response.agent_id,
+            retry_count: 0,
         })
         .await
     {
@@ -732,15 +763,19 @@ where
 }
 
 fn backoff_ms(retry: u32) -> u64 {
-    let base = 50;
-    let cap = 2000;
+    let base_ms = 1_000;
+    let max_ms = 300_000;
 
-    (base * 2u64.pow(retry.min(6))).min(cap)
+    let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
+
+    rand::rng().random_range(0..=max)
 }
 
 fn long_backoff_ms(retry: u32) -> u64 {
-    let base = 1000;
-    let cap = 7000;
+    let base_ms = 10_000;
+    let max_ms = 300_000;
 
-    (base * 2u64.pow(retry.min(6))).min(cap)
+    let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
+
+    rand::rng().random_range(0..=max)
 }

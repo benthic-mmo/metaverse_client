@@ -139,8 +139,10 @@ async fn sqlite_get_avatar(pool: &SqlitePool, agent_id: Uuid) -> Result<Avatar, 
     .bind(agent_id.to_string())
     .fetch_one(pool)
     .await?;
-    let data: String = agent_row.get("data");
-    let avatar: Avatar = serde_json::from_str(&data)?;
+
+    let data: Vec<u8> = agent_row.get("data");
+    let avatar: Avatar = serde_json::from_slice(&data)?;
+
     Ok(avatar)
 }
 

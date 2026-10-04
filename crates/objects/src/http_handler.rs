@@ -3,6 +3,7 @@ use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
 use log::info;
 use metaverse_messages::http::mesh::Mesh;
+use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::utils::object_types::ObjectType;
 use std::io::Error;
@@ -25,16 +26,9 @@ pub async fn download_asset(
 ) -> Result<bytes::Bytes, DownloadError> {
     let client = awc::Client::default();
     let url = format!("{}/?{}_id={}", server_endpoint, item_type, asset_id);
-    let mut response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| io_error("Failed to send HTTP GET request", e))?;
+    let mut response = client.get(&url).send().await?;
 
-    let body_bytes = response
-        .body()
-        .await
-        .map_err(|e| io_error("Failed to read response body", e))?;
+    let body_bytes = response.body().await?;
     if body_bytes.is_empty() {
         return Err(DownloadError::EmptyBody {});
     }
@@ -84,7 +78,13 @@ pub async fn download_texture(
     server_endpoint: &str,
     path: &PathBuf,
 ) -> Result<(), DownloadError> {
-    let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
+    let tex = &download_asset(item_type, asset_id, server_endpoint)
+        .await
+        .map_err(|error| DownloadError::Retryable {
+            error: Box::new(DownloadError::TextureError {
+                error: Box::new(error),
+            }),
+        })?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 
@@ -115,9 +115,6 @@ pub async fn download_texture(
     output.save(path)?;
     Ok(())
 }
-fn io_error(msg: &str, err: impl std::fmt::Debug) -> std::io::Error {
-    Error::other(format!("{}: {:?}", msg, err))
-}
 
 /// Download a scenegroup object. This is done by retrieving all of the meshes in the scenegroup and
 /// calling download_renderable_mesh on them one by one, and then building a vector of created
@@ -129,7 +126,7 @@ pub async fn download_scene_group(
 ) -> Result<Vec<RenderObject>, DownloadError> {
     let mut render_objects = Vec::new();
     for scene in &scene_group.parts {
-        if scene.shape.pcode == ObjectType::Mesh {
+        if scene.sculpt.sculpt_type == SculptType::Mesh {
             let mesh =
                 download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
             render_objects.push(create_render_object(

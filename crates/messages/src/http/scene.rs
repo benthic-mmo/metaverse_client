@@ -1232,7 +1232,7 @@ impl PhysicsShapeType {
 
 /// Used for legacy compatability with SculptTextures.
 /// describes the different basic shapes the sculpttexture can deform.
-#[derive(Debug, Copy, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SculptType {
     /// The sculpt texture deforms a sphere
     Sphere,
