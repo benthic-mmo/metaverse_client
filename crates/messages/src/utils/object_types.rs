@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Result};
 
 use serde::{Deserialize, Serialize};
+use serde_llsd_benthic::{LLSDValue, converter::FromLLSDValue};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 /// The types of all objects in the simulator. Also contains types for folders.
@@ -216,6 +217,15 @@ impl ObjectType {
             143 => ObjectType::ParticleSystem,
             255 => ObjectType::Tree,
             _ => ObjectType::Unknown,
+        }
+    }
+}
+impl FromLLSDValue for ObjectType {
+    fn from_llsd(value: &LLSDValue) -> Option<Self> {
+        if let LLSDValue::Integer(i) = value {
+            Some(ObjectType::from_bytes(&(*i as u8)))
+        } else {
+            None
         }
     }
 }

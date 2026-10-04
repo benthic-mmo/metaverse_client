@@ -1,4 +1,5 @@
 use crate::utils::agent_access::AgentAccess;
+use crate::utils::object_types::ObjectType;
 use benthic_protocol::messages::errors::ParseError;
 use benthic_protocol::messages::ui::login_error::LoginError;
 use glam::{Vec2, Vec3};
@@ -451,7 +452,7 @@ pub struct InventorySkeletonValues {
     /// The name of the folder
     pub name: String,
     /// the default type of the object
-    pub type_default: InventoryType,
+    pub type_default: ObjectType,
     /// the version of the object
     pub version: i32,
 }
@@ -471,75 +472,6 @@ impl FromLLSDValue for InventorySkeletonValues {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-/// Inventory item types
-pub enum InventoryType {
-    /// Unknown object
-    #[default]
-    Unknown,
-    /// Texture object
-    Texture,
-    /// Sound Object
-    Sound,
-    /// Calling cards are an object that allows you to see someone's profile, and view their
-    /// online/offline status. Friend automatically receive each others calling cards.
-    CallingCard,
-    /// Landmark for teleporting to
-    Landmark,
-    /// 3d object
-    Object,
-    /// Notecard containing text
-    Notecard,
-    /// undocumented
-    Category,
-    /// A folder to contain inventory items within
-    Folder,
-    /// unknown
-    RootCategory,
-    /// integer. Unknown what this is used for.
-    LSL,
-    /// Screenshot
-    Snapshot,
-    /// An object that can be attached to a specific location, such as hand or head.
-    Attachment,
-    /// a wearable object
-    Wearable,
-    /// an animation
-    Animation,
-    /// an item that can trigger an animation, sound and emit text chat.
-    Gesture,
-    /// a 3d model, usually rigged that can be used as an avatar.
-    Mesh,
-}
-
-impl FromLLSDValue for InventoryType {
-    fn from_llsd(value: &LLSDValue) -> Option<Self> {
-        if let LLSDValue::Integer(i) = value {
-            match *i {
-                -1 => Some(InventoryType::Unknown),
-                0 => Some(InventoryType::Texture),
-                2 => Some(InventoryType::Sound),
-                3 => Some(InventoryType::CallingCard),
-                4 => Some(InventoryType::Landmark),
-                6 => Some(InventoryType::Object),
-                7 => Some(InventoryType::Notecard),
-                8 => Some(InventoryType::Category),
-                9 => Some(InventoryType::Folder),
-                10 => Some(InventoryType::RootCategory),
-                11 => Some(InventoryType::LSL),
-                15 => Some(InventoryType::Snapshot),
-                17 => Some(InventoryType::Attachment),
-                18 => Some(InventoryType::Wearable),
-                19 => Some(InventoryType::Animation),
-                20 => Some(InventoryType::Gesture),
-                22 => Some(InventoryType::Mesh),
-                _ => None, // unknown integer
-            }
-        } else {
-            None
-        }
-    }
-}
 /// The home location of the user. In the format
 /// This is in the format `"{'region_handle':[r<x-grid-coord>,r<y-grid-coord>]`,
 ///     'position':`[r<x-region-coord>,r<y-region-coord>,r<z-region-coord>]`,
