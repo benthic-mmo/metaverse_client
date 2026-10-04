@@ -11,10 +11,10 @@ impl Packet {
     pub fn new_sim_stats(sim_stats: SimStats) -> Self {
         Packet {
             header: Header {
-                id: 140,
+                id: 13,
                 reliable: true,
                 zerocoded: false,
-                frequency: PacketFrequency::Low,
+                frequency: PacketFrequency::Medium,
                 ..Default::default()
             },
             body: PacketType::SimStats(Box::new(sim_stats)),

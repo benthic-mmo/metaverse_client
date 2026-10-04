@@ -52,9 +52,7 @@ impl UIMessage {
 }
 
 fn yup_to_zup_rotation(q: Quat) -> Quat {
-    let q_convert = Quat::from_axis_angle(Vec3::X, -std::f32::consts::FRAC_PI_2);
-
-    q_convert * q * q_convert.inverse()
+    Quat::from_xyzw(q.x, q.z, q.y, -q.w)
 }
 fn yup_to_zup_vec3(s: Vec3) -> Vec3 {
     Vec3::new(s.x, s.z, s.y)

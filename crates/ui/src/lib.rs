@@ -1,4 +1,5 @@
 pub mod animation;
+pub mod click_handler;
 pub mod core_plugin;
 pub mod environment;
 pub mod errors;

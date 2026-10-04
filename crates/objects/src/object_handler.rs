@@ -24,33 +24,22 @@ pub async fn handle_texture(
     base_dir: PathBuf,
     texture_id: Uuid,
     server_endpoint: String,
-) -> PathBuf {
+) -> Result<PathBuf, DownloadError> {
     let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-    match download_texture(
+    download_texture(
         ObjectType::Texture.to_string(),
         texture_id,
         &server_endpoint,
         &texture_path,
     )
-    .await
-    {
-        Ok(_) => texture_path,
-        Err(e) => {
-            warn!(
-                "Failed to download prim texture: {:?}, {:?}. Using default texture {:}",
-                e,
-                texture_id,
-                default_texture_path().to_string_lossy()
-            );
-            default_texture_path()
-        }
-    }
+    .await?;
+    Ok(texture_path)
 }
 
 pub async fn download_object(
     cache: Cache,
     server_endpoint: String,
-    data: DownloadObjectData,
+    data: &DownloadObjectData,
     out_dir: PathBuf,
 ) -> Result<ObjectUpdateAction, DownloadError> {
     let base_dir = create_sub_object_dir(&out_dir, &data.asset_id.to_string())?;
@@ -62,7 +51,7 @@ pub async fn download_object(
     )
     .await?;
 
-    let texture_path = handle_texture(base_dir.clone(), data.texture_id, server_endpoint).await;
+    let texture_path = handle_texture(base_dir.clone(), data.texture_id, server_endpoint).await?;
 
     let render_object =
         create_render_object(mesh, "name".to_string(), &texture_path, data.asset_id)?;

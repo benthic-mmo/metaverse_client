@@ -19,6 +19,7 @@ use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntry;
+use metaverse_objects::errors::DownloadError;
 use metaverse_objects::object_handler::download_object;
 use metaverse_objects::object_handler::mesh_from_json;
 use metaverse_objects::object_updates::DownloadObjectData;
@@ -27,6 +28,7 @@ use metaverse_objects::object_updates::ObjectUpdateAction;
 use metaverse_objects::object_updates::RenderObjectData;
 use metaverse_objects::object_updates::object_update;
 use metaverse_objects::object_updates::object_update_cached;
+use rand::RngExt;
 
 /// Handles received ObjectUpdate packets.
 ///
@@ -119,16 +121,37 @@ impl Handler<DownloadObject> for Mailbox {
         let addr = ctx.address();
         let cache = session.cache.clone();
         let out_dir = session.share_dir_root.clone();
+        let semaphore = self.max_concurrent_downloads.clone();
         ctx.spawn(
             async move {
-                match download_object(cache, server_endpoint, msg.0, out_dir).await {
+                // ensure there aren't more than the permitted amount of downloads happening
+                // concurrently.
+                // TODO: THIS NEEDS TO BE WORKSHOPPED. THIS IS NOT EXACTLY A GOOD WAY TO DO IT
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    rand::rng().random_range(0..=50000),
+                ))
+                .await;
+                let _permit = semaphore.acquire_owned().await.unwrap();
+
+                match download_object(cache, server_endpoint, &msg.0, out_dir).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::GenerateFromJSON(action) = action {
                             addr.do_send(GenerateMeshMessage(action));
                         }
                     }
                     Err(e) => {
-                        error!("DownloadObject error: {:?}", e)
+                        if matches!(e, DownloadError::Retryable { .. }) {
+                            msg.0.retry_count += 1;
+                            addr.do_send(RetryMessage {
+                                retries: msg.0.retry_count,
+                                message: msg,
+                                long_backoff: true,
+                                info_message: format!(
+                                    "Download error {}. Retrying object download...",
+                                    e
+                                ),
+                            });
+                        }
                     }
                 };
             }
@@ -313,7 +336,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                                 scene_id: Some(msg.object.local_id),
                                 path: msg.mesh_path,
                                 mesh_type: MeshType::Object,
-                                id: None,
+                                id: Some(msg.asset_id),
                             }),
                         });
                         return;
@@ -337,7 +360,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                                 scene_id: Some(msg.object.local_id),
                                 path: msg.mesh_path,
                                 mesh_type: MeshType::Object,
-                                id: None,
+                                id: Some(msg.asset_id),
                             }),
                         });
                     }

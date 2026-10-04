@@ -69,6 +69,13 @@ pub struct AgentID {
 }
 
 #[derive(Component)]
+pub struct ObjectData {
+    pub id: Uuid,
+    pub scale: Vec3,
+    pub position: Vec3,
+}
+
+#[derive(Component)]
 pub struct MainCamera;
 
 pub fn handle_camera_update(
@@ -105,6 +112,7 @@ pub fn handle_mesh_update(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
     mut agent_id_map: ResMut<AgentIDMap>,
+    mut scene_id_map: ResMut<SceneIDMap>,
 ) {
     for renderable in ev_mesh_update.read() {
         let transform = Transform {
@@ -121,14 +129,35 @@ pub fn handle_mesh_update(
             transform,
             Visibility::Visible,
             Name::new("SceneRoot"),
+            Pickable::default(),
+            ObjectData {
+                id: renderable.value.id.unwrap_or(Uuid::nil()),
+                scale: renderable.value.scale,
+                position: renderable.value.position,
+            },
         ));
+
+        let entity = entity_commands.id();
+
+        if let Some(scene_id) = renderable.value.scene_id {
+            scene_id_map.entities.insert(scene_id, entity);
+
+            // Parent to the object referenced by parent_id.
+            if let Some(parent_id) = renderable.value.parent {
+                if let Some(&parent_entity) = scene_id_map.entities.get(&parent_id) {
+                    entity_commands.insert(ChildOf(parent_entity));
+                }
+                info!(
+                    "Parented scene object {:?} to {}",
+                    renderable.value.scene_id, parent_id
+                );
+            }
+        }
 
         if renderable.value.mesh_type == MeshType::Avatar {
             let agent_id = renderable.value.id.unwrap();
 
             entity_commands.insert(AgentID { id: agent_id });
-
-            let entity = entity_commands.id();
 
             agent_id_map.entities.insert(
                 agent_id,

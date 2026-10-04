@@ -3,11 +3,13 @@ use crate::errors::ParseError;
 use crate::legacy::udp::agent_wearables_request::AgentWearablesRequest;
 use crate::legacy::udp::agent_wearables_update::AgentWearablesUpdate;
 use crate::packet::packet_protocol::PacketData;
+use crate::udp::agent::agent_data_update::AgentDataUpdate;
 use crate::udp::agent::avatar_animation::AvatarAnimation;
 use crate::udp::agent::avatar_appearance::AvatarAppearance;
 use crate::udp::core::agent_movement_complete::AgentMovementComplete;
 use crate::udp::core::agent_throttle::AgentThrottle;
 use crate::udp::core::enable_simulator::EnableSimulator;
+use crate::udp::core::generic_streaming_message::GenericStreamingMessage;
 use crate::udp::core::logout_request::LogoutRequest;
 use crate::udp::core::parcel_overlay::ParcelOverlay;
 use crate::udp::core::sim_stats::SimStats;
@@ -81,8 +83,9 @@ define_packets! {
     13 [High] => ObjectUpdateCompressed,
     14 [High] => ObjectUpdateCached,
     15 [High] => ImprovedTerseObjectUpdate,
-    20 [High] => AvatarAnimation,
     16 [High] => KillObject,
+    20 [High] => AvatarAnimation,
+    29 [High] => GenericStreamingMessage,
 
     2 [Medium] => MultipleObjectUpdate,
     3 [Medium] => RequestMultipleObjects,
@@ -111,5 +114,7 @@ define_packets! {
     251 [Fixed] => PacketAck,
     // Legacy packets
     382 [Low] => AgentWearablesUpdate,
-    381 [Low] => AgentWearablesRequest
+    381 [Low] => AgentWearablesRequest,
+
+    387 [Low] => AgentDataUpdate
 }
