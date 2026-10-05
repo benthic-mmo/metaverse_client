@@ -26,10 +26,10 @@ impl Mailbox {
                     let packet = match Packet::from_bytes(&buf[..size]) {
                         Ok(packet) => packet,
                         Err(e) => {
-                            use std::fs::File;
-                            use std::io::Write;
-                            let mut file = File::create("foo.txt").unwrap();
-                            file.write_all(&buf[..size]).unwrap();
+                            //use std::fs::File;
+                            //use std::io::Write;
+                            //let mut file = File::create("foo.txt").unwrap();
+                            //file.write_all(&buf[..size]).unwrap();
                             warn!("failed to parse: {:?}", e);
                             continue;
                         }

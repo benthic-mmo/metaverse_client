@@ -10,6 +10,7 @@ use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::MinimalObjectUpdate;
+use glam::Quat;
 use log::{error, warn};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
@@ -324,14 +325,18 @@ impl Handler<RenderObjectMessage> for Mailbox {
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
+
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
                         // no parent, render directly
+                        let rotation = Quat::from_rotation_z(std::f32::consts::PI)
+                            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)
+                            * msg.object.rotation;
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.object.position,
                                 scale: msg.object.scale,
-                                rotation: msg.object.rotation,
+                                rotation,
                                 parent: msg.object.parent_id,
                                 scene_id: Some(msg.object.local_id),
                                 path: msg.mesh_path,
@@ -345,12 +350,10 @@ impl Handler<RenderObjectMessage> for Mailbox {
                 };
 
                 match cache.object.get_scale_rotation_position(parent_id).await {
-                    Ok((_parent_scale, parent_rotation, parent_position)) => {
+                    Ok((parent_scale, parent_rotation, parent_position)) => {
                         let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
-
-                        msg.object.position = parent_position + rotated_offset;
-                        msg.object.rotation = parent_rotation * msg.object.rotation;
-
+                        msg.object.scale = msg.object.scale / parent_scale;
+                        msg.object.position = msg.object.position / parent_scale;
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.object.position,

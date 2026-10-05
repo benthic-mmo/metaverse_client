@@ -44,15 +44,17 @@ impl UIMessage {
     /// creates a new MeshUpdate message
     /// converts from y-up to z-up for ease of rendering.
     pub fn new_mesh_update(mut data: MeshUpdate) -> Self {
-        data.rotation = yup_to_zup_rotation(data.rotation);
+        //data.rotation = yup_to_zup_rotation(data.rotation);
         data.position = yup_to_zup_vec3(data.position);
-        data.scale = yup_to_zup_vec3(data.scale);
+        //data.scale = yup_to_zup_vec3(data.scale);
         UIMessage::MeshUpdate(data)
     }
 }
 
 fn yup_to_zup_rotation(q: Quat) -> Quat {
-    Quat::from_xyzw(q.x, q.z, q.y, -q.w)
+    Quat::from_rotation_z(std::f32::consts::PI)
+        * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)
+        * q
 }
 fn yup_to_zup_vec3(s: Vec3) -> Vec3 {
     Vec3::new(s.x, s.z, s.y)
