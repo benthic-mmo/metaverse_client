@@ -29,8 +29,13 @@ fn handle_clicks(
         loop {
             if let Ok(object) = objects.get(entity) {
                 println!(
-                    "Clicked object: {}, {}, {}",
-                    object.id, object.scale, object.position
+                    "Clicked object: id: {},  scene_id:{:?},\n scale:{}  \nposition:{},  \nrotation:{}, \nparent: {:?}",
+                    object.id,
+                    object.scene_id,
+                    object.scale,
+                    object.position,
+                    object.rotation,
+                    object.parent
                 );
                 break;
             }

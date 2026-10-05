@@ -71,8 +71,11 @@ pub struct AgentID {
 #[derive(Component)]
 pub struct ObjectData {
     pub id: Uuid,
+    pub scene_id: Option<u32>,
     pub scale: Vec3,
     pub position: Vec3,
+    pub rotation: Quat,
+    pub parent: Option<u32>,
 }
 
 #[derive(Component)]
@@ -132,8 +135,11 @@ pub fn handle_mesh_update(
             Pickable::default(),
             ObjectData {
                 id: renderable.value.id.unwrap_or(Uuid::nil()),
+                scene_id: renderable.value.scene_id,
                 scale: renderable.value.scale,
                 position: renderable.value.position,
+                rotation: renderable.value.rotation,
+                parent: renderable.value.parent,
             },
         ));
 
@@ -143,7 +149,9 @@ pub fn handle_mesh_update(
             scene_id_map.entities.insert(scene_id, entity);
 
             // Parent to the object referenced by parent_id.
-            if let Some(parent_id) = renderable.value.parent {
+            if let Some(parent_id) = renderable.value.parent
+                && parent_id != 0
+            {
                 if let Some(&parent_entity) = scene_id_map.entities.get(&parent_id) {
                     entity_commands.insert(ChildOf(parent_entity));
                 }
