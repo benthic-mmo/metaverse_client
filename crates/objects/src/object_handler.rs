@@ -99,11 +99,12 @@ pub async fn mesh_from_json(
         .update_glb_path(data.object.full_id, &glb_path.to_string_lossy())
         .await?;
     Ok(ObjectUpdateAction::Render(RenderObjectData {
-        mesh_path: glb_path,
+        mesh_path: Some(glb_path),
         base_dir: data.base_dir,
         asset_id: data.asset_id,
         object: data.object,
         retry_count: 0,
+        download: None,
     }))
 }
 

@@ -12,7 +12,7 @@ use benthic_protocol::messages::ui::errors::MailboxSessionError;
 use benthic_protocol::session::EnvironmentCache;
 #[cfg(feature = "inventory")]
 use benthic_protocol::session::InventoryData;
-use benthic_protocol::session::{RegionData, initialize_share_dir};
+use benthic_protocol::session::{DownloadState, RegionData, initialize_share_dir};
 use benthic_protocol::{
     messages::ui::{
         errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError},
@@ -58,7 +58,8 @@ use std::{
     sync::{Arc, Mutex},
     thread::sleep,
 };
-use tokio::sync::Semaphore;
+use tokio::sync::watch::{Receiver, Sender};
+use tokio::sync::{Mutex as tokioMutex, Semaphore};
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
 use uuid::Uuid;
 
@@ -594,7 +595,9 @@ async fn handle_login(
                 },
                 socket: None,
                 share_dir_root: initialize_share_dir()?,
-
+                downloads: Arc::new(tokioMutex::new(
+                    HashMap::<Uuid, Sender<DownloadState>>::new(),
+                )),
                 #[cfg(feature = "avatar")]
                 avatars: HashMap::new(),
             },
@@ -764,7 +767,7 @@ where
 
 fn backoff_ms(retry: u32) -> u64 {
     let base_ms = 1_000;
-    let max_ms = 300_000;
+    let max_ms = 30_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
@@ -772,8 +775,8 @@ fn backoff_ms(retry: u32) -> u64 {
 }
 
 fn long_backoff_ms(retry: u32) -> u64 {
-    let base_ms = 10_000;
-    let max_ms = 300_000;
+    let base_ms = 5_000;
+    let max_ms = 120_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
