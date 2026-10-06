@@ -80,11 +80,7 @@ pub async fn download_texture(
 ) -> Result<(), DownloadError> {
     let tex = &download_asset(item_type, asset_id, server_endpoint)
         .await
-        .map_err(|error| DownloadError::Retryable {
-            error: Box::new(DownloadError::TextureError {
-                error: Box::new(error),
-            }),
-        })?;
+        .map_err(DownloadError::from)?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 

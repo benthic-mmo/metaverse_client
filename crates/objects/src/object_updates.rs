@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use benthic_protocol::{
     objects::{GeneratorObject, MinimalObjectUpdate},
-    session::{create_sub_agent_dir, create_sub_object_dir},
+    session::{DownloadState, create_sub_agent_dir, create_sub_object_dir},
 };
-use log::{info, warn};
+use log::warn;
 use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
     http::scene::SculptType,
@@ -16,17 +16,22 @@ use metaverse_messages::{
     utils::{object_types::ObjectType, texture_entry::TextureEntry},
 };
 use metaverse_store::initialize_sqlite::Cache;
+use tokio::sync::{
+    Mutex,
+    watch::{self, Receiver, Sender},
+};
 use uuid::Uuid;
 
 use crate::errors::ObjectUpdateError;
 
 #[derive(Debug)]
 pub struct RenderObjectData {
-    pub mesh_path: PathBuf,
+    pub mesh_path: Option<PathBuf>,
     pub base_dir: PathBuf,
     pub asset_id: Uuid,
     pub object: GeneratorObject,
     pub retry_count: u32,
+    pub download: Option<watch::Receiver<DownloadState>>,
 }
 
 #[derive(Debug)]
@@ -82,11 +87,12 @@ pub async fn object_update_cached(
                 let base_dir = create_sub_object_dir(&out_dir, &asset_id.to_string())?;
                 if let Some(mesh_path) = glb {
                     cache_results.push(ObjectUpdateAction::Render(RenderObjectData {
-                        mesh_path,
+                        mesh_path: Some(mesh_path),
                         base_dir,
                         asset_id,
                         object: generator_object,
                         retry_count: 0,
+                        download: None,
                     }));
                 } else {
                     warn!(
@@ -116,10 +122,11 @@ pub async fn object_update(
     cache: Cache,
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
     out_dir: PathBuf,
+    downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     cache.object.update(object.clone()).await?;
     let actions = match object.object_type {
-        ObjectType::Prim => handle_prim(object, cache).await?,
+        ObjectType::Prim => handle_prim(object, cache, out_dir, downloads).await?,
         ObjectType::Tree => handle_tree(object)?,
         ObjectType::Grass => handle_grass(object)?,
         ObjectType::Unknown => handle_unknown(object)?,
@@ -136,6 +143,8 @@ pub async fn object_update(
 async fn handle_prim(
     object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
     cache: Cache,
+    out_dir: PathBuf,
+    downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     if let Some(name) = object.name_value.as_ref()
         && let Ok(attachment) = AttachItem::parse_attach_item(name)
@@ -148,12 +157,73 @@ async fn handle_prim(
             match param {
                 ExtraParams::Sculpt(sculpt) => match sculpt.sculpt_type {
                     SculptType::Mesh => {
-                        actions.push(ObjectUpdateAction::Download(DownloadObjectData {
-                            asset_id: sculpt.texture_id,
-                            texture_id: object.texture.texture_id,
-                            object: object.clone(),
-                            retry_count: 0,
-                        }))
+                        // check the cache. If it has a glb path, senda renderobjectdata message instead.
+                        match cache
+                            .object
+                            .check_cache_by_asset_id(sculpt.texture_id, object.full_id)
+                            .await
+                        {
+                            // If we have the glb path already, render it right away.
+                            Ok((glb_path, generator)) => {
+                                let base_dir =
+                                    create_sub_object_dir(&out_dir, &object.full_id.to_string())?;
+
+    println!(
+        "CACHE HIT!!!!!!!!!!!!!!!: pushing RenderObject for object {} asset {} path {:?}",
+        object.full_id,
+        sculpt.texture_id,
+        glb_path
+    );
+                                actions.push(ObjectUpdateAction::Render(RenderObjectData {
+                                    mesh_path: Some(glb_path),
+                                    base_dir,
+                                    asset_id: object.full_id,
+                                    object: generator,
+                                    retry_count: 0,
+                                    download: None,
+                                }));
+                            }
+
+                            Err(e) => {
+                                // check to see if the download is in progress
+                                let mut downloads = downloads.lock().await;
+                                if let Some(tx) = downloads.get(&sculpt.texture_id) {
+                                    // there is a download in progress.
+                                    // Create a RenderObject with a subscriber.
+                                    actions.push(ObjectUpdateAction::Render(RenderObjectData {
+                                        mesh_path: None,
+                                        base_dir: out_dir.clone(),
+                                        asset_id: object.full_id,
+                                        object: GeneratorObject {
+                                            full_id: object.full_id,
+                                            local_id: object.local_id,
+                                            parent_id: object.parent_id,
+                                            position: object.position,
+                                            scale: object.scale,
+                                            rotation: object.rotation,
+                                        },
+                                        retry_count: 0,
+                                        download: Some(tx.subscribe()),
+                                    }));
+                                } else {
+                                    // This is the first request for the asset.
+                                    // create a DownloadObject with a sender.
+                                    let (tx, rx) =
+                                        tokio::sync::watch::channel(DownloadState::Downloading);
+                                    downloads.insert(sculpt.texture_id, tx);
+                                    drop(downloads);
+
+                                    actions.push(ObjectUpdateAction::Download(
+                                        DownloadObjectData {
+                                            asset_id: sculpt.texture_id,
+                                            texture_id: object.texture.texture_id,
+                                            object: object.clone(),
+                                            retry_count: 0,
+                                        },
+                                    ));
+                                }
+                            }
+                        };
                     }
                     _ => {
                         Err(ObjectUpdateError::Unimplemented {

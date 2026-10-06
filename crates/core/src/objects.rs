@@ -10,6 +10,7 @@ use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::MinimalObjectUpdate;
+use benthic_protocol::session::DownloadState;
 use glam::Quat;
 use log::{error, warn};
 use metaverse_messages::http::capabilities::Capability;
@@ -53,13 +54,13 @@ impl Handler<HandleObjectUpdate> for Mailbox {
             return;
         };
         msg.0.region_id = session.region_data.region_id.clone();
-
         let cache = session.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+        let downloads = session.downloads.clone();
         ctx.spawn(
             async move {
-                match object_update(cache, msg.0, out_dir).await {
+                match object_update(cache, msg.0, out_dir, downloads).await {
                     Ok(actions) => {
                         for action in actions {
                             match action {
@@ -105,6 +106,7 @@ impl Handler<DownloadObject> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+
         let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
             Some(endpoint) => endpoint.to_string(),
             None => {
@@ -123,15 +125,11 @@ impl Handler<DownloadObject> for Mailbox {
         let cache = session.cache.clone();
         let out_dir = session.share_dir_root.clone();
         let semaphore = self.max_concurrent_downloads.clone();
+        let downloads = session.downloads.clone();
         ctx.spawn(
             async move {
                 // ensure there aren't more than the permitted amount of downloads happening
                 // concurrently.
-                // TODO: THIS NEEDS TO BE WORKSHOPPED. THIS IS NOT EXACTLY A GOOD WAY TO DO IT
-                tokio::time::sleep(std::time::Duration::from_millis(
-                    rand::rng().random_range(0..=50000),
-                ))
-                .await;
                 let _permit = semaphore.acquire_owned().await.unwrap();
 
                 match download_object(cache, server_endpoint, &msg.0, out_dir).await {
@@ -152,6 +150,11 @@ impl Handler<DownloadObject> for Mailbox {
                                     e
                                 ),
                             });
+                        } else {
+                            let mut downloads = downloads.lock().await;
+                            if let Some(tx) = downloads.remove(&msg.0.asset_id) {
+                                let _ = tx.send(DownloadState::Failed);
+                            }
                         }
                     }
                 };
@@ -214,7 +217,6 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
         let session_id = session.session_id;
         let agent_id = session.agent_id;
         let out_dir = session.share_dir_root.clone();
-
         ctx.spawn(
             async move {
                 match object_update_cached(
@@ -283,13 +285,27 @@ impl Handler<GenerateMeshMessage> for Mailbox {
 
         let cache = session.cache.clone();
         let addr = ctx.address();
+        let downloads = session.downloads.clone();
         ctx.spawn(
             async move {
                 match mesh_from_json(cache, msg.0).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::Render(action) = action {
-                            addr.do_send(RenderObjectMessage(action));
+                            let Some(mesh_path) = action.mesh_path else {
+                                error!("Generated mesh has no mesh path");
+                                return;
+                            };
+
+                            let mut downloads = downloads.lock().await;
+
+                            if let Some(tx) = downloads.remove(&action.asset_id) {
+                                let _ = tx.send(DownloadState::Complete(mesh_path));
+                            }
                         }
+
+                        //if let ObjectUpdateAction::Render(action) = action {
+                        //    addr.do_send(RenderObjectMessage(action));
+                        //}
                     }
                     Err(e) => {
                         error!("GenerateMeshMessage error: {:?}", e)
@@ -319,19 +335,45 @@ impl Handler<RenderObjectMessage> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-
         let addr = ctx.address();
         let cache = session.cache.clone();
+
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
 
+                if let Some(mut download) = msg.download.take() {
+                    if download.changed().await.is_err() {
+                        return;
+                    }
+
+                    match download.borrow().clone() {
+                        DownloadState::Complete(path) => {
+                            msg.mesh_path = Some(path);
+                        }
+                        DownloadState::Failed => {
+                            error!("Download failed for object {}", msg.object.full_id);
+                            return;
+                        }
+                        DownloadState::Downloading => {
+                            // Shouldn't normally happen unless the sender changes
+                            // the state to Downloading again.
+                            return;
+                        }
+                    }
+                }
+
+                let Some(ref mesh_path) = msg.mesh_path else {
+                    error!("No mesh path available for object {}", msg.object.full_id);
+                    return;
+                };
+
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
-                        // no parent, render directly
                         let rotation = Quat::from_rotation_z(std::f32::consts::PI)
                             * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)
                             * msg.object.rotation;
+
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.object.position,
@@ -339,21 +381,25 @@ impl Handler<RenderObjectMessage> for Mailbox {
                                 rotation,
                                 parent: msg.object.parent_id,
                                 scene_id: Some(msg.object.local_id),
-                                path: msg.mesh_path,
+                                path: mesh_path.clone(),
                                 mesh_type: MeshType::Object,
                                 id: Some(msg.asset_id),
                             }),
                         });
+
                         return;
                     }
+
                     Some(id) => id,
                 };
 
                 match cache.object.get_scale_rotation_position(parent_id).await {
                     Ok((parent_scale, parent_rotation, parent_position)) => {
                         let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
+
                         msg.object.scale = msg.object.scale / parent_scale;
                         msg.object.position = msg.object.position / parent_scale;
+
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.object.position,
@@ -361,7 +407,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                                 rotation: msg.object.rotation,
                                 parent: msg.object.parent_id,
                                 scene_id: Some(msg.object.local_id),
-                                path: msg.mesh_path,
+                                path: mesh_path.clone(),
                                 mesh_type: MeshType::Object,
                                 id: Some(msg.asset_id),
                             }),
@@ -373,8 +419,10 @@ impl Handler<RenderObjectMessage> for Mailbox {
                             "Parent {} not ready, requeuing object {}: {}",
                             parent_id, msg.object.full_id, inventory_error
                         );
+
                         msg.retry_count += 1;
                         let retries = msg.retry_count;
+
                         addr.do_send(RetryMessage {
                             message: RenderObjectMessage(msg),
                             long_backoff: false,

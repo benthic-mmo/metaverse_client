@@ -104,6 +104,7 @@ impl ObjectCache {
 
         Ok(())
     }
+
     pub async fn check_cache(
         &self,
         id: u32,
@@ -134,6 +135,72 @@ impl ObjectCache {
         .await?
         .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
 
+        self.build_cache_result(row).await
+    }
+    pub async fn check_cache_by_asset_id(
+        &self,
+        asset_id: Uuid,
+        full_id: Uuid,
+    ) -> Result<(PathBuf, GeneratorObject), InventoryError> {
+        let glb_row = sqlx::query(
+            r#"
+        SELECT glb
+        FROM object_updates
+        WHERE asset_id = ?
+          AND glb IS NOT NULL
+        "#,
+        )
+        .bind(asset_id)
+        .fetch_optional(&self.db)
+        .await?
+        .ok_or_else(|| InventoryError::CacheMiss("GLB not found in cache".to_string()))?;
+
+        let glb: String = glb_row.try_get("glb")?;
+        let glb_path = PathBuf::from(glb);
+
+        if !glb_path.exists() {
+            return Err(InventoryError::CacheMiss(
+                "GLB file not found on disk".to_string(),
+            ));
+        }
+
+        let object_row = sqlx::query(
+            r#"
+        SELECT
+            full_id,
+            id,
+            parent,
+            scale_x, scale_y, scale_z,
+            rot_x, rot_y, rot_z, rot_w,
+            pos_x, pos_y, pos_z
+        FROM object_updates
+        WHERE full_id = ?
+        "#,
+        )
+        .bind(full_id)
+        .fetch_optional(&self.db)
+        .await?
+        .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+
+        let generator = GeneratorObject {
+            full_id: {
+                let id: String = object_row.try_get("full_id")?;
+                Uuid::parse_str(&id)?
+            },
+            local_id: object_row.try_get("id")?,
+            parent_id: object_row.try_get("parent")?,
+            position: vec3_from_row(&object_row, "pos_x", "pos_y", "pos_z")?,
+            scale: vec3_from_row(&object_row, "scale_x", "scale_y", "scale_z")?,
+            rotation: quat_from_row(&object_row, "rot_x", "rot_y", "rot_z", "rot_w")?,
+        };
+
+        Ok((glb_path, generator))
+    }
+
+    async fn build_cache_result(
+        &self,
+        row: sqlx::sqlite::SqliteRow,
+    ) -> Result<(Uuid, PathBuf, Option<PathBuf>, GeneratorObject), InventoryError> {
         let asset_id: String = row.try_get("asset_id")?;
         let asset_id = Uuid::parse_str(&asset_id)?;
 
