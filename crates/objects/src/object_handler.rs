@@ -175,6 +175,7 @@ pub fn create_render_object(
             skin: Some(skin_data),
             texture: Some(texture_path.to_path_buf()),
             uv: Some(uvs),
+            normals: mesh.high_level_of_detail.normals,
         }
     } else {
         let vertices: Vec<Vec3> = mesh.high_level_of_detail.vertices;
@@ -190,6 +191,7 @@ pub fn create_render_object(
             skin: None,
             texture: Some(texture_path.to_path_buf()),
             uv: Some(uvs),
+            normals: mesh.high_level_of_detail.normals,
         }
     };
     Ok(object)

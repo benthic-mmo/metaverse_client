@@ -170,6 +170,7 @@ pub struct MeshGeometry {
     /// Bone weights for skinning
     pub weights: Option<Vec<JointWeight>>,
     /// Stores UVs per vertex, used for texturing.
+    /// TODO: this should be optional
     pub texture_coordinate: Vec<TextureCoordinate>,
     /// Used to decode compressed UVs
     pub texture_coordinate_domain: TextureCoordinateDomain,
@@ -183,6 +184,10 @@ pub struct MeshGeometry {
     /// This contains information on where in the triangle each of your vertices are. This saves
     /// space by not duplicating vertices and allows the renderer to handle building the triangles.
     pub indices: Vec<u16>,
+
+    /// These normals are used by textures to determine which side is facing out, and which is
+    /// facing in.
+    pub normals: Option<Vec<Vec3>>,
 }
 
 impl MeshGeometry {
@@ -350,6 +355,38 @@ impl MeshGeometry {
 
         let texture_coordinate_domain = TextureCoordinateDomain { min, max };
 
+        let normals = map
+            .get("Normal")
+            .map(|_| {
+                let normal_bytes = parse_binary(map, "Normal")?;
+
+                if normal_bytes.len() % 6 != 0 {
+                    return Err(ParseError::mesh_error(
+                        "Normal data length is not a multiple of 6",
+                    ));
+                }
+
+                let (chunks, _) = normal_bytes.as_chunks::<6>();
+
+                let normals = chunks
+                    .iter()
+                    .map(|chunk| {
+                        let x = u16::from_le_bytes([chunk[0], chunk[1]]);
+                        let y = u16::from_le_bytes([chunk[2], chunk[3]]);
+                        let z = u16::from_le_bytes([chunk[4], chunk[5]]);
+
+                        Vec3::new(
+                            x as f32 / 65535.0 * 2.0 - 1.0,
+                            y as f32 / 65535.0 * 2.0 - 1.0,
+                            z as f32 / 65535.0 * 2.0 - 1.0,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                Ok(normals)
+            })
+            .transpose()?;
+
         Ok(MeshGeometry {
             no_geometry: false,
             position_domain: Some(PositionDomain {
@@ -362,6 +399,7 @@ impl MeshGeometry {
             triangles: None,
             vertices: positions,
             indices: triangle_indices,
+            normals,
         })
     }
 }

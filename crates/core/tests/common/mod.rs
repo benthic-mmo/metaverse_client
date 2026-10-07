@@ -17,6 +17,7 @@ use std::{
     fs,
     net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use uuid::{Uuid, uuid};
 
@@ -86,6 +87,8 @@ async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inv
 
         #[cfg(feature = "avatar")]
         avatars: HashMap::new(),
+
+        downloads: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     }
 }
 

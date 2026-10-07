@@ -118,18 +118,17 @@ pub fn handle_mesh_update(
     mut scene_id_map: ResMut<SceneIDMap>,
 ) {
     for renderable in ev_mesh_update.read() {
-        let transform = Transform {
-            translation: renderable.value.position,
-            rotation: renderable.value.rotation,
-            scale: renderable.value.scale,
-        };
-
         let scene =
             asset_server.load(GltfAssetLabel::Scene(0).from_asset(renderable.value.path.clone()));
 
+        // This entity participates in the OpenSim parent hierarchy.
+        // Keep its scale at 1.0 so Bevy does not propagate scale to children.
         let mut entity_commands = commands.spawn((
-            WorldAssetRoot(scene),
-            transform,
+            Transform {
+                translation: renderable.value.position,
+                rotation: renderable.value.rotation,
+                scale: Vec3::ONE,
+            },
             Visibility::Visible,
             Name::new("SceneRoot"),
             Pickable::default(),
@@ -145,16 +144,24 @@ pub fn handle_mesh_update(
 
         let entity = entity_commands.id();
 
+        // The actual mesh gets the OpenSim scale.
+        entity_commands.with_child((
+            WorldAssetRoot(scene),
+            Transform::from_scale(renderable.value.scale),
+            Visibility::Visible,
+            Name::new("Mesh"),
+        ));
+
         if let Some(scene_id) = renderable.value.scene_id {
             scene_id_map.entities.insert(scene_id, entity);
 
-            // Parent to the object referenced by parent_id.
             if let Some(parent_id) = renderable.value.parent
                 && parent_id != 0
             {
                 if let Some(&parent_entity) = scene_id_map.entities.get(&parent_id) {
                     entity_commands.insert(ChildOf(parent_entity));
                 }
+
                 info!(
                     "Parented scene object {:?} to {}",
                     renderable.value.scene_id, parent_id
