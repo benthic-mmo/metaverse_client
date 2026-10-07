@@ -37,6 +37,8 @@ pub struct RenderObject {
     pub texture: Option<PathBuf>,
     /// UV values for applying textures
     pub uv: Option<Vec<[f32; 2]>>,
+    /// Normal values
+    pub normals: Option<Vec<Vec3>>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

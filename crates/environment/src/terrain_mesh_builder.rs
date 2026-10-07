@@ -233,5 +233,6 @@ pub fn build_terrain(
         skin: None,
         texture: None,
         uv: None,
+        normals: None,
     }
 }

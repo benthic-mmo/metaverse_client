@@ -397,8 +397,8 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     Ok((parent_scale, parent_rotation, parent_position)) => {
                         let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
 
-                        msg.object.scale = msg.object.scale / parent_scale;
-                        msg.object.position = msg.object.position / parent_scale;
+                        //msg.object.scale = msg.object.scale / parent_scale;
+                        //msg.object.position = msg.object.position / parent_scale;
 
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
