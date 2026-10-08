@@ -1,18 +1,31 @@
 use super::session::Mailbox;
+use crate::avatar::AddObjectToAvatar;
+use crate::avatar::DownloadAgentAsset;
 use crate::avatar::HandleNewAvatar;
+use crate::avatar::LoadFromCache;
+use crate::avatar::SetOutfitSize;
 use crate::session::OutgoingPacket;
 use crate::session::RetryMessage;
 use crate::session::SendUIMessage;
 use actix::AsyncContext;
 use actix::WrapFuture;
 use actix::{Handler, Message};
+use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::objects::MinimalObjectUpdate;
+use benthic_protocol::objects::AttachmentObjectData;
+use benthic_protocol::objects::MeshObjectData;
+use benthic_protocol::objects::ParametricPrimData;
 use benthic_protocol::session::DownloadState;
+use benthic_protocol::session::cache_enabled;
 use glam::Quat;
+use glam::Vec3;
 use log::{error, warn};
+use metaverse_avatar::avatar::Avatar;
+use metaverse_avatar::avatar::OutfitObject;
+use metaverse_avatar::avatar_object_handler::AvatarType;
+use metaverse_avatar::errors::AvatarError;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -22,56 +35,159 @@ use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleOb
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntry;
 use metaverse_objects::errors::DownloadError;
-use metaverse_objects::object_handler::download_object;
+use metaverse_objects::object_handler::download_mesh_object;
 use metaverse_objects::object_handler::mesh_from_json;
-use metaverse_objects::object_updates::DownloadObjectData;
+use metaverse_objects::object_updates::DownloadMeshObjectData;
 use metaverse_objects::object_updates::GenerateMeshData;
 use metaverse_objects::object_updates::ObjectUpdateAction;
+use metaverse_objects::object_updates::ObjectUpdateAction::DownloadMesh;
 use metaverse_objects::object_updates::RenderObjectData;
-use metaverse_objects::object_updates::object_update;
+use metaverse_objects::object_updates::mesh_update;
 use metaverse_objects::object_updates::object_update_cached;
 use rand::RngExt;
+use uuid::Uuid;
 
-/// Handles received ObjectUpdate packets.
-///
-/// This message contains a minimal version of the ObjectUpdate packet, and combines the
-/// data for [`ObjectUpdate`] and [`ObjectUpdateCompressed`] packets into a single struct.
-///
-/// # Cause
-/// - ObjectUpdate packet received from UDP socket from server  
-///
-/// # Effects
-/// - Dispatches a [`Avatar`] message if the object is an avatar
-/// - Dispatches a [`HandleAttachment`] message if the object is an attachment object
-/// - Dispatches a [`HandlePrim`] message if the object is a prim
-#[derive(Debug, Message, Clone)]
+#[derive(Message, Clone)]
 #[rtype(result = "()")]
-pub struct HandleObjectUpdate(pub MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>);
-impl Handler<HandleObjectUpdate> for Mailbox {
+pub struct AvatarObjectUpdate {
+    pub id: Uuid,
+    pub position: Vec3,
+    pub retry_count: u32,
+}
+impl Handler<AvatarObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: HandleObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        msg.0.region_id = session.region_data.region_id.clone();
+        if !session.inventory_data.current_outfit_init {
+            let info_message =
+                format!("Current outfit not initialized. Requeueing avatar download...");
+            msg.retry_count += 1;
+            ctx.address().do_send(RetryMessage {
+                retries: msg.retry_count,
+                message: msg,
+                info_message,
+                long_backoff: true,
+            });
+            return;
+        }
+        let avatar = Avatar::new(msg.id, msg.position);
+        let addr = ctx.address();
+        let position = Vec3::new(msg.position.x, msg.position.z, msg.position.y);
+        if msg.id == session.agent_id {
+            addr.do_send(SendUIMessage {
+                // handle the z-y flip
+                // TODO: THIS IS NOT THE RIGHT WAY TO DO THIS
+                // YOU NEED TO MULTIPLY BY THE CORRECTION
+                // SHIT IS FUCKED
+                // DO NOT LEAVE THIS
+                ui_message: UIMessage::new_camera_position(CameraPosition { position }),
+            });
+            let agent_id = session.agent_id;
+            let cache = session.cache.clone();
+            let inventory = session.inventory.clone();
+            ctx.spawn(
+                async move {
+                    let (avatar, outfit_items) = if cache_enabled() {
+                        match cache.avatar.current_outfit(agent_id, inventory).await {
+                            Ok(result) => result,
+                            Err(e) => {
+                                error!("HandleNewAvatar error: {:?}", e);
+                                return;
+                            }
+                        }
+                    } else {
+                        match inventory.get_current_outfit().await {
+                            Ok(outfit_items) => (None, outfit_items),
+                            Err(e) => {
+                                error!("HandleNewAvatarError {:?}", e);
+                                return;
+                            }
+                        }
+                    };
+
+                    if addr
+                        .send(SetOutfitSize {
+                            agent_id,
+                            outfit_size: outfit_items.len(),
+                        })
+                        .await
+                        .is_err()
+                    {
+                        error!("Failed to set outfit size for {:?}", agent_id);
+                        return;
+                    }
+
+                    if let Some(avatar) = avatar {
+                        addr.do_send(LoadFromCache { avatar });
+                        return;
+                    }
+
+                    for item in outfit_items {
+                        match item.item_type {
+                            ObjectType::Object => {
+                                addr.do_send(DownloadAgentAsset {
+                                    asset_id: item.asset_id,
+                                    item_type: item.item_type,
+                                    agent_id,
+                                });
+                            }
+                            ObjectType::Bodypart => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Bodypart,
+                                    agent_id,
+                                });
+                            }
+                            ObjectType::Clothing => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Clothing,
+                                    agent_id,
+                                });
+                            }
+                            _ => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Other,
+                                    agent_id,
+                                });
+                            }
+                        }
+                    }
+                }
+                .into_actor(self),
+            );
+        } else {
+            // TODO: HANDLE NON USER UPDATES
+        }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct MeshObjectUpdate(pub MeshObjectData<TextureEntry, ObjectType>);
+impl Handler<MeshObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: MeshObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+
+        let cache = session.cache.clone();
         let cache = session.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
         let downloads = session.downloads.clone();
         ctx.spawn(
             async move {
-                match object_update(cache, msg.0, out_dir, downloads).await {
+                match mesh_update(cache, msg.0, out_dir, downloads).await {
                     Ok(actions) => {
                         for action in actions {
                             match action {
-                                ObjectUpdateAction::Download(data) => {
-                                    addr.do_send(DownloadObject(data));
+                                ObjectUpdateAction::DownloadMesh(data) => {
+                                    addr.do_send(DownloadMeshObject(data));
                                 }
                                 ObjectUpdateAction::Render(data) => {
                                     addr.do_send(RenderObjectMessage(data));
-                                }
-                                ObjectUpdateAction::NewAvatar(data) => {
-                                    addr.do_send(HandleNewAvatar(data));
                                 }
                                 _ => {}
                             }
@@ -87,6 +203,34 @@ impl Handler<HandleObjectUpdate> for Mailbox {
     }
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct ParametricPrimObjectUpdate(pub ParametricPrimData);
+impl Handler<ParametricPrimObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(
+        &mut self,
+        mut msg: ParametricPrimObjectUpdate,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct AttachmentObjectUpdate(pub AttachmentObjectData);
+impl Handler<AttachmentObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: AttachmentObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+    }
+}
+
 /// Message for downloading object update from its capability endpoint
 ///
 /// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh
@@ -99,10 +243,10 @@ impl Handler<HandleObjectUpdate> for Mailbox {
 /// - Dispatches a [`MeshUpdate`] to inform the UI of a new object
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct DownloadObject(DownloadObjectData);
-impl Handler<DownloadObject> for Mailbox {
+pub struct DownloadMeshObject(DownloadMeshObjectData);
+impl Handler<DownloadMeshObject> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: DownloadObject, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, mut msg: DownloadMeshObject, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -132,7 +276,7 @@ impl Handler<DownloadObject> for Mailbox {
                 // concurrently.
                 let _permit = semaphore.acquire_owned().await.unwrap();
 
-                match download_object(cache, server_endpoint, &msg.0, out_dir).await {
+                match download_mesh_object(cache, server_endpoint, &msg.0, out_dir).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::GenerateFromJSON(action) = action {
                             addr.do_send(GenerateMeshMessage(action));
@@ -152,7 +296,7 @@ impl Handler<DownloadObject> for Mailbox {
                             });
                         } else {
                             let mut downloads = downloads.lock().await;
-                            if let Some(tx) = downloads.remove(&msg.0.asset_id) {
+                            if let Some(tx) = downloads.remove(&msg.0.object.sculpt_id) {
                                 let _ = tx.send(DownloadState::Failed);
                             }
                         }
@@ -370,13 +514,14 @@ impl Handler<RenderObjectMessage> for Mailbox {
 
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
-                        let rotation = Quat::from_rotation_z(std::f32::consts::PI)
-                            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)
-                            * msg.object.rotation;
+                        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
+                            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
 
+                        let position = conversion.mul_vec3(msg.object.position);
+                        let rotation = conversion * msg.object.rotation;
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                                position: msg.object.position,
+                                position,
                                 scale: msg.object.scale,
                                 rotation,
                                 parent: msg.object.parent_id,

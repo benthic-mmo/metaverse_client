@@ -52,10 +52,17 @@ fn handle_land_update(
             ..default()
         });
 
+        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
+            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+
         commands.spawn((
             Mesh3d(mesh_handle),
             MeshMaterial3d(material),
-            Transform::from_translation(land_data.position),
+            Transform {
+                translation: conversion.mul_vec3(land_data.position),
+                rotation: conversion,
+                ..default()
+            },
         ));
     }
 }

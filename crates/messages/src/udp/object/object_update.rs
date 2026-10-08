@@ -45,7 +45,7 @@ pub struct ObjectUpdate {
     pub region_handle: u64,
     /// The current lag from the server. Used by physics simulations to keep up with real time.
     pub time_dilation: f32,
-    /// The region local ID of the tasks. UsedSerializeSerialize for most operations in lieu of the task's full UUID
+    /// The region local ID of the tasks. Used for most operations in lieu of the task's full UUID
     pub id: u32,
     /// unused except by grass. Used to determine species of grass.
     pub state: u8,
@@ -65,18 +65,18 @@ pub struct ObjectUpdate {
     pub motion_data: MotionData,
     /// The local ID of any object this oobject is a child of. Used for creation of object and
     /// attachments. 0 if not present.  
-    pub parent_id: u32,
+    pub parent_id: Option<u32>,
     /// various pieces of information about object. Stores things like empty inventory, scripted,
     /// etc
     pub update_flags: Vec<ObjectFlag>,
     /// Strores imformation about primitive geometry
     pub primitive_geometry: Path,
     /// Full property list for each object's face, including textures and colors.
-    pub texture_entry: TextureEntry,
+    pub texture_entry: Option<TextureEntry>,
     /// Properties to set up texture animations for each face
     pub texture_anim: Vec<u8>,
     /// Any name values specific to the object. Mostly used for avatar names.
-    pub name_value: String,
+    pub name_value: Option<String>,
     /// Generic appended data
     pub data: Vec<u8>,
     /// Text that hovers over the object
@@ -97,6 +97,55 @@ pub struct ObjectUpdate {
     pub joint_pivot: Vec3,
     /// Offset or axies used by certain joint types. Should be unused.
     pub joint_axis_or_anchor: Vec3,
+}
+pub trait ObjectUpdateData {
+    fn object_type(&self) -> ObjectType;
+    fn full_id(&self) -> Uuid;
+    fn parent_id(&self) -> Option<u32>;
+    fn local_id(&self) -> u32;
+    fn name_value(&self) -> &Option<String>;
+    fn position(&self) -> Vec3;
+    fn rotation(&self) -> Quat;
+    fn scale(&self) -> Vec3;
+    fn texture(&self) -> &Option<TextureEntry>;
+    fn crc(&self) -> u32;
+    fn extra_params(&self) -> Option<&[ExtraParams]>;
+}
+
+impl ObjectUpdateData for ObjectUpdate {
+    fn object_type(&self) -> ObjectType {
+        self.pcode
+    }
+    fn full_id(&self) -> Uuid {
+        self.full_id
+    }
+    fn parent_id(&self) -> Option<u32> {
+        self.parent_id
+    }
+    fn local_id(&self) -> u32 {
+        self.id
+    }
+    fn name_value(&self) -> &Option<String> {
+        &self.name_value
+    }
+    fn position(&self) -> Vec3 {
+        self.motion_data.position
+    }
+    fn rotation(&self) -> Quat {
+        self.motion_data.rotation
+    }
+    fn scale(&self) -> Vec3 {
+        self.scale
+    }
+    fn texture(&self) -> &Option<TextureEntry> {
+        &self.texture_entry
+    }
+    fn crc(&self) -> u32 {
+        self.crc
+    }
+    fn extra_params(&self) -> Option<&[ExtraParams]> {
+        self.extra_params.as_deref()
+    }
 }
 
 impl PacketData for ObjectUpdate {
@@ -138,6 +187,7 @@ impl PacketData for ObjectUpdate {
         let motion_data = MotionData::from_bytes(&motion_data)?;
 
         let parent_id = parse!(cursor.read_u32::<LittleEndian>())?;
+        let parent_id = (parent_id != 0).then_some(parent_id);
         let update_flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
 
         // this section is always 23 bytes
@@ -148,7 +198,7 @@ impl PacketData for ObjectUpdate {
         let texture_entry_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
         parse!(cursor.read_exact(&mut texture_entry_bytes))?;
-        let texture_entry = TextureEntry::from_bytes(&texture_entry_bytes)?;
+        let texture_entry = Some(TextureEntry::from_bytes(&texture_entry_bytes)?);
 
         let texture_anim_length = parse!(cursor.read_u8())?;
         let mut texture_anim = vec![0u8; texture_anim_length as usize];
@@ -158,6 +208,11 @@ impl PacketData for ObjectUpdate {
         let mut name_value = vec![0u8; name_value_length as usize];
         parse!(cursor.read_exact(&mut name_value))?;
         let name_value = String::from_utf8_lossy(&name_value).to_string();
+        let name_value = if name_value.is_empty() {
+            None
+        } else {
+            Some(name_value)
+        };
 
         let data_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut data = vec![0u8; data_length as usize];
@@ -663,7 +718,7 @@ impl ExtraParams {
         let start = cursor.position();
         let extra_params_count = parse!(cursor.read_u8())?;
         let mut extra_params = Vec::new();
-        for i in 0..extra_params_count {
+        for _ in 0..extra_params_count {
             let param_type = parse!(cursor.read_u16::<LittleEndian>())?;
             let param_type_tag = ParamTypeTag::from_bytes(&param_type);
             let param_length = parse!(cursor.read_u32::<LittleEndian>())?;

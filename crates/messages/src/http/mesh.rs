@@ -75,7 +75,9 @@ impl Mesh {
         let sentinel_location = bytes
             .windows(2)
             .position(|w| w == [ZLIB_MAGIC_NUMBER, ZLIB_DECODING_TYPE])
-            .expect("Zlib header not found");
+            .ok_or(ParseError::invalid_field(
+                "Zlib magic number not found. Is this a mesh?",
+            ))?;
         let compressed_data = &bytes[sentinel_location..];
 
         let map_data = data.into_map()?;
@@ -99,30 +101,53 @@ impl Mesh {
         let (skin_offset, skin_size) = get_offset_size("skin")?.unwrap_or((0, 0));
 
         let high_level_of_detail =
-            decompress_slice(&compressed_data[high_lod_offset..high_lod_offset + high_lod_size])?;
+            decompress_slice(get_slice(compressed_data, high_lod_offset, high_lod_size)?)?;
 
         let medium_level_of_detail = if medium_lod_size > 0 {
-            Some(decompress_slice(
-                &compressed_data[medium_lod_offset..medium_lod_offset + medium_lod_size],
-            )?)
+            Some(decompress_slice(get_slice(
+                compressed_data,
+                medium_lod_offset,
+                medium_lod_size,
+            )?)?)
         } else {
             None
         };
 
         let low_level_of_detail = if low_lod_size > 0 {
-            Some(decompress_slice(
-                &compressed_data[low_lod_offset..low_lod_offset + low_lod_size],
-            )?)
+            Some(decompress_slice(get_slice(
+                compressed_data,
+                low_lod_offset,
+                low_lod_size,
+            )?)?)
         } else {
             None
         };
+
         let lowest_level_of_detail = if lowest_lod_size > 0 {
-            Some(decompress_slice(
-                &compressed_data[lowest_lod_offset..lowest_lod_offset + lowest_lod_size],
-            )?)
+            Some(decompress_slice(get_slice(
+                compressed_data,
+                lowest_lod_offset,
+                lowest_lod_size,
+            )?)?)
         } else {
             None
         };
+
+        if physics_convex_size > 0 {
+            let physics_convex = decompress_slice(get_slice(
+                compressed_data,
+                physics_convex_offset,
+                physics_convex_size,
+            )?)?;
+
+            mesh.physics_convex = Some(physics_convex);
+        }
+
+        if skin_size > 0 {
+            let skin = decompress_slice(get_slice(compressed_data, skin_offset, skin_size)?)?;
+
+            mesh.skin = Some(parse!(Skin::from_llsd(parse!(binary::from_bytes(&skin))?))?);
+        }
 
         if physics_convex_size > 0 {
             let physics_convex = decompress_slice(
@@ -143,15 +168,15 @@ impl Mesh {
         ))?;
         mesh.medium_level_of_detail = medium_level_of_detail
             .as_ref()
-            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
+            .map(|bytes| MeshGeometry::from_llsd(parse!(binary::from_bytes(bytes))?, &mesh.skin))
             .transpose()?;
         mesh.low_level_of_detail = low_level_of_detail
             .as_ref()
-            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
+            .map(|bytes| MeshGeometry::from_llsd(parse!(binary::from_bytes(bytes))?, &mesh.skin))
             .transpose()?;
         mesh.lowest_level_of_detail = lowest_level_of_detail
             .as_ref()
-            .map(|bytes| MeshGeometry::from_llsd(binary::from_bytes(bytes).unwrap(), &mesh.skin))
+            .map(|bytes| MeshGeometry::from_llsd(parse!(binary::from_bytes(bytes))?, &mesh.skin))
             .transpose()?;
         Ok(mesh)
     }
@@ -640,4 +665,13 @@ fn parse_binary<'a>(
             key
         ))),
     }
+}
+
+fn get_slice<'a>(data: &'a [u8], offset: usize, size: usize) -> Result<&'a [u8], ParseError> {
+    let end = offset
+        .checked_add(size)
+        .ok_or(ParseError::invalid_field("slice range overflow"))?;
+
+    data.get(offset..end)
+        .ok_or(ParseError::invalid_field("slice range exceeds data"))
 }

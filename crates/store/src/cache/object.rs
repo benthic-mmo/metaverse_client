@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use crate::{errors::InventoryError, initialize_sqlite::ObjectCache};
-use benthic_protocol::objects::{GeneratorObject, MinimalObjectUpdate};
+use benthic_protocol::objects::{GeneratorObject, MeshObjectData};
 use glam::{Quat, Vec3};
 use metaverse_messages::{
     udp::object::object_update::ExtraParams,
@@ -238,9 +238,9 @@ impl ObjectCache {
 
     pub async fn update(
         &self,
-        object: MinimalObjectUpdate<ExtraParams, TextureEntry, ObjectType>,
+        object: MeshObjectData<TextureEntry, ObjectType>,
     ) -> Result<(), InventoryError> {
-        let parent_id = object.parent_id.unwrap_or(0);
+        let parent_id = object.parent.unwrap_or(0);
         let rotation = object.rotation.normalize();
         sqlx::query(
             r#"

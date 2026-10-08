@@ -9,15 +9,21 @@ use glam::{Vec3, Vec4};
 use log::{info, warn};
 use metaverse_avatar::skeleton::create_skeleton;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::{http::mesh::Mesh, utils::object_types::ObjectType};
+use metaverse_messages::{
+    http::mesh::Mesh,
+    udp::object,
+    utils::{object_types::ObjectType, texture_entry},
+};
 use metaverse_store::initialize_sqlite::Cache;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::{
     errors::{DownloadError, MeshBuildError},
-    http_handler::{download_mesh, download_texture},
-    object_updates::{DownloadObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData},
+    http_handler::{download_asset, download_mesh, download_texture},
+    object_updates::{
+        DownloadMeshObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData,
+    },
 };
 
 pub async fn handle_texture(
@@ -36,30 +42,40 @@ pub async fn handle_texture(
     Ok(texture_path)
 }
 
-pub async fn download_object(
+pub async fn download_mesh_object(
     cache: Cache,
     server_endpoint: String,
-    data: &DownloadObjectData,
+    data: &DownloadMeshObjectData,
     out_dir: PathBuf,
 ) -> Result<ObjectUpdateAction, DownloadError> {
-    let base_dir = create_sub_object_dir(&out_dir, &data.asset_id.to_string())?;
+    let base_dir = create_sub_object_dir(&out_dir, &data.object.sculpt_id.to_string())?;
 
-    let mesh = download_mesh(
-        ObjectType::Mesh.to_string(),
-        data.asset_id,
-        &server_endpoint,
-    )
-    .await?;
+    let mesh = Mesh::from_bytes(
+        &download_asset(
+            ObjectType::Mesh.to_string(),
+            data.object.sculpt_id,
+            &server_endpoint,
+        )
+        .await?,
+    )?;
 
-    let texture_path = handle_texture(base_dir.clone(), data.texture_id, server_endpoint).await?;
+    let texture_path = if let Some(ref texture) = data.object.texture {
+        handle_texture(base_dir.clone(), texture.texture_id, server_endpoint).await?
+    } else {
+        default_texture_path()
+    };
 
-    let render_object =
-        create_render_object(mesh, "name".to_string(), &texture_path, data.asset_id)?;
+    let render_object = create_render_object(
+        mesh,
+        "name".to_string(),
+        &texture_path,
+        data.object.sculpt_id,
+    )?;
 
     let json_path = write_json(
         &render_object,
-        &data.asset_id.to_string(),
-        CacheDir::Object(data.asset_id),
+        &data.object.sculpt_id.to_string(),
+        CacheDir::Object(data.object.sculpt_id),
         &out_dir,
     )?;
 
@@ -67,7 +83,7 @@ pub async fn download_object(
         .object
         .update_json_path(
             data.object.full_id,
-            data.asset_id,
+            data.object.sculpt_id,
             &json_path.to_string_lossy(),
         )
         .await?;
@@ -76,12 +92,12 @@ pub async fn download_object(
         object: GeneratorObject {
             full_id: data.object.full_id,
             local_id: data.object.local_id,
-            parent_id: data.object.parent_id,
+            parent_id: data.object.parent,
             rotation: data.object.rotation,
             scale: data.object.scale,
             position: data.object.position,
         },
-        asset_id: data.asset_id,
+        asset_id: data.object.sculpt_id,
         base_dir,
         json_path,
     }))
@@ -133,15 +149,12 @@ pub fn create_render_object(
 
     let object = if let Some(skin) = &mesh.skin {
         // Apply bind shape matrix
-        let vertices: Vec<Vec3> = mesh
+        let vertices = mesh
             .high_level_of_detail
             .vertices
             .iter()
-            .map(|v| {
-                let v4 = skin.bind_shape_matrix * Vec4::new(v.x, v.y, v.z, 1.0);
-                Vec3::new(v4.x, v4.y, v4.z)
-            })
-            .collect();
+            .map(|v| skin.bind_shape_matrix.transform_point3(*v))
+            .collect::<Vec<_>>();
 
         let skeleton = create_skeleton(name.clone(), asset_id, skin).unwrap_or_else(|e| {
             warn!("Failed to create skeleton: {:?}", e);
@@ -179,10 +192,6 @@ pub fn create_render_object(
         }
     } else {
         let vertices: Vec<Vec3> = mesh.high_level_of_detail.vertices;
-        //.iter()
-        //.map(|v| apply_scale_rotation(*v, scale, rotation))
-        //.collect();
-
         RenderObject {
             name,
             id: asset_id,
