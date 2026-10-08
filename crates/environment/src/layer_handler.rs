@@ -16,7 +16,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{U16Vec2, Vec3, u16, u32, usize};
+use glam::{Quat, U16Vec2, Vec3, u16, u32, usize};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -72,6 +72,7 @@ pub fn handle_layer<C, A, U, I, X>(
                         layer_meshes.push(mesh);
                     }
                 }
+
                 for (mesh, coordinate) in layer_meshes {
                     let scale = land.terrain_header.patch_size as f32;
                     let json_path = write_json(
@@ -80,8 +81,8 @@ pub fn handle_layer<C, A, U, I, X>(
                             indices: mesh.indices,
                             position: Vec3 {
                                 x: (coordinate.x as f32) * scale,
-                                y: 0.0,
-                                z: (coordinate.y as f32) * scale,
+                                y: (coordinate.y as f32) * scale,
+                                z: 0.0,
                             },
                         },
                         &land.terrain_header.filename,

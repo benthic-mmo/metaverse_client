@@ -42,18 +42,7 @@ pub enum MeshType {
 
 impl UIMessage {
     /// creates a new MeshUpdate message
-    /// converts from y-up to z-up for ease of rendering.
-    pub fn new_mesh_update(mut data: MeshUpdate) -> Self {
-        data.position = yup_to_zup_vec3(data.position);
-        println!(
-            "POSITION OF OBJECT: {:?}, PARENT OBJECT: {:?}",
-            data.position, data.parent
-        );
-
+    pub fn new_mesh_update(data: MeshUpdate) -> Self {
         UIMessage::MeshUpdate(data)
     }
-}
-
-fn yup_to_zup_vec3(v: Vec3) -> Vec3 {
-    Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2).mul_vec3(v)
 }

@@ -10,7 +10,7 @@ use crate::packet::{
     packet_types::PacketType,
 };
 use crate::parse;
-use crate::udp::object::object_update::ExtraParams;
+use crate::udp::object::object_update::{ExtraParams, ObjectUpdateData};
 use crate::udp::object::util::ObjectFlag;
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
@@ -159,6 +159,41 @@ pub struct ObjectDataCompressed {
     pub texture_animation: Option<Vec<u8>>,
     /// particle system information
     pub particle_system: Option<Vec<u8>>,
+}
+impl ObjectUpdateData for ObjectDataCompressed {
+    fn object_type(&self) -> ObjectType {
+        self.pcode
+    }
+    fn full_id(&self) -> Uuid {
+        self.full_id
+    }
+    fn parent_id(&self) -> Option<u32> {
+        self.parent_id
+    }
+    fn local_id(&self) -> u32 {
+        self.local_id
+    }
+    fn name_value(&self) -> &Option<String> {
+        &self.name_values
+    }
+    fn position(&self) -> Vec3 {
+        self.position
+    }
+    fn extra_params(&self) -> Option<&[ExtraParams]> {
+        self.extra_params.as_deref()
+    }
+    fn rotation(&self) -> Quat {
+        self.rotation
+    }
+    fn scale(&self) -> Vec3 {
+        self.scale
+    }
+    fn texture(&self) -> &Option<TextureEntry> {
+        &self.texture_entry
+    }
+    fn crc(&self) -> u32 {
+        self.crc
+    }
 }
 
 impl PacketData for ObjectUpdateCompressed {

@@ -1,17 +1,25 @@
 use crate::avatar::{HandleNewAvatarAnimation, HandleNewAvatarAppearance};
 use crate::environment::{HandleLayerData, HandleSimulatorViewerTimeMessage};
 use crate::objects::{
-    HandleImprovedTerseObjectUpdate, HandleObjectUpdate, HandleObjectUpdateCached,
+    AttachmentObjectUpdate, AvatarObjectUpdate, HandleImprovedTerseObjectUpdate,
+    HandleObjectUpdateCached, MeshObjectUpdate, ParametricPrimObjectUpdate,
 };
 use crate::session::{
     AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
 };
-use actix::Addr;
+use actix::{Addr, Message};
+use benthic_protocol::errors::SessionError;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::objects::MinimalObjectUpdate;
+use benthic_protocol::objects::{AttachmentObjectData, MeshObjectData, ParametricPrimData};
 use log::{error, warn};
+use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
+use metaverse_messages::udp::object::object_update::ExtraParams::{self, Flexi};
+use metaverse_messages::udp::object::object_update::{AttachItem, ObjectUpdateData};
+use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
+use metaverse_messages::utils::object_types::ObjectType;
+use metaverse_objects::errors::ObjectUpdateError;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 
@@ -89,26 +97,11 @@ impl Mailbox {
                             break;
                         }
                         PacketType::ObjectUpdate(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleObjectUpdate(MinimalObjectUpdate {
-                                    object_type: data.pcode,
-                                    full_id: data.full_id,
-                                    parent_id: Some(data.parent_id),
-                                    local_id: data.id,
-                                    name_value: Some(data.name_value.clone()),
-                                    position: data.motion_data.position,
-                                    extra_params: data.extra_params.clone(),
-                                    rotation: data.motion_data.rotation,
-                                    scale: data.scale,
-                                    parent: Some(data.parent_id),
-                                    texture: data.texture_entry.clone(),
-                                    crc: data.crc,
-                                    region_id: "".to_string(),
-                                }))
-                                .await
+                            if let Err(e) =
+                                classify_object_update(*data.clone(), mailbox_address.clone()).await
                             {
-                                error!("Failed to handle ObjectUpdate {:?}", e)
-                            };
+                                error!("Failed to handle object update: {:?}", e);
+                            }
                         }
                         PacketType::ObjectUpdateCached(data) => {
                             if let Err(e) = mailbox_address
@@ -132,29 +125,11 @@ impl Mailbox {
                         }
                         PacketType::ObjectUpdateCompressed(data) => {
                             for object in data.object_data.clone() {
-                                let Some(texture_entry) = object.texture_entry else {
-                                    continue;
-                                };
-                                if let Err(e) = mailbox_address
-                                    .send(HandleObjectUpdate(MinimalObjectUpdate {
-                                        object_type: object.pcode,
-                                        full_id: object.full_id,
-                                        parent_id: object.parent_id,
-                                        local_id: object.local_id,
-                                        name_value: object.name_values,
-                                        position: object.position,
-                                        extra_params: object.extra_params,
-                                        rotation: object.rotation,
-                                        scale: object.scale,
-                                        parent: object.parent_id,
-                                        texture: texture_entry,
-                                        crc: object.crc,
-                                        region_id: "".to_string(),
-                                    }))
-                                    .await
+                                if let Err(e) =
+                                    classify_object_update(object, mailbox_address.clone()).await
                                 {
-                                    error!("Failed to handle ObjectUpdateCompressed {:?}", e)
-                                };
+                                    error!("Failed to handle object update compressed: {:?}", e);
+                                }
                             }
                         }
                         #[cfg(feature = "environment")]
@@ -237,4 +212,59 @@ impl Mailbox {
             }
         }
     }
+}
+
+async fn classify_object_update(
+    object: impl ObjectUpdateData,
+    addr: Addr<Mailbox>,
+) -> Result<(), ObjectUpdateError> {
+    let action = match object.object_type() {
+        ObjectType::Prim => {
+            if let Some(name) = object.name_value().as_ref()
+                && let Ok(attachment) = AttachItem::parse_attach_item(name)
+            {
+                addr.do_send(AttachmentObjectUpdate(AttachmentObjectData {
+                    parent_id: object.parent_id(),
+                }));
+            }
+            if let Some(params) = object.extra_params() {
+                for param in params {
+                    match param {
+                        ExtraParams::Sculpt(sculpt) => match sculpt.sculpt_type {
+                            SculptType::Mesh {} => addr.do_send(MeshObjectUpdate(MeshObjectData {
+                                object_type: object.object_type(),
+                                full_id: object.full_id(),
+                                parent: object.parent_id(),
+                                local_id: object.local_id(),
+                                name_value: object.name_value().clone(),
+                                position: object.position(),
+                                sculpt_id: sculpt.texture_id,
+                                rotation: object.rotation(),
+                                scale: object.scale(),
+                                texture: object.texture().clone(),
+                                crc: object.crc(),
+                                region_id: "".to_string(),
+                            })),
+                            SculptType::Plane => {
+                                addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {}))
+                            }
+                            _ => Err(ObjectUpdateError::Unimplemented {
+                                feature: "Unimplemented Sculpt Type".to_string(),
+                            })?,
+                        },
+                        _ => Err(ObjectUpdateError::Unimplemented {
+                            feature: "Unimplented Parameter Type".to_string(),
+                        })?,
+                    }
+                }
+            };
+        }
+        ObjectType::Avatar => addr.do_send(AvatarObjectUpdate {
+            id: object.full_id(),
+            position: object.position(),
+            retry_count: 0,
+        }),
+        _ => {}
+    };
+    Ok(())
 }

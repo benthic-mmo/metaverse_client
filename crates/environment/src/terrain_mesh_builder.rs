@@ -75,21 +75,27 @@ impl<'a> MeshBuilder<'a> {
         let bottom_left = (row + 1) * gs + col;
         let bottom_right = bottom_left + 1;
 
-        let v0 = Vec3::new(col as f32, self.layer.heightmap[top_left], row as f32);
+        // X = column
+        // Y = row
+        // Z = height
+        let v0 = Vec3::new(col as f32, row as f32, self.layer.heightmap[top_left]);
+
         let v1 = Vec3::new(
             (col + 1) as f32,
-            self.layer.heightmap[top_right],
             row as f32,
+            self.layer.heightmap[top_right],
         );
+
         let v2 = Vec3::new(
             col as f32,
-            self.layer.heightmap[bottom_left],
             (row + 1) as f32,
+            self.layer.heightmap[bottom_left],
         );
+
         let v3 = Vec3::new(
             (col + 1) as f32,
-            self.layer.heightmap[bottom_right],
             (row + 1) as f32,
+            self.layer.heightmap[bottom_right],
         );
 
         let i0 = self.add_vertex(v0);
@@ -97,8 +103,9 @@ impl<'a> MeshBuilder<'a> {
         let i2 = self.add_vertex(v2);
         let i3 = self.add_vertex(v3);
 
-        self.indices.extend_from_slice(&[i0, i2, i1]);
-        self.indices.extend_from_slice(&[i1, i2, i3]);
+        // Flipped winding
+        self.indices.extend_from_slice(&[i0, i1, i2]);
+        self.indices.extend_from_slice(&[i1, i3, i2]);
     }
 
     fn stitch(&mut self, row: usize, col: usize) {
@@ -111,20 +118,20 @@ impl<'a> MeshBuilder<'a> {
 
         let v0 = Vec3::new(
             col as f32,
-            self.layer.heightmap[top_left] * scale,
             row as f32,
+            self.layer.heightmap[top_left] * scale,
         );
 
         let v1 = Vec3::new(
             (col + 1) as f32,
-            self.layer.heightmap[top_right] * scale,
             row as f32,
+            self.layer.heightmap[top_right] * scale,
         );
 
         let v3 = Vec3::new(
             (col + 1) as f32,
-            self.layer.heightmap[bottom_right] * scale,
             (row + 1) as f32,
+            self.layer.heightmap[bottom_right] * scale,
         );
 
         // NORTH EDGE
@@ -134,14 +141,14 @@ impl<'a> MeshBuilder<'a> {
 
             let n0 = Vec3::new(
                 col as f32,
-                self.north_layer.heightmap[north_top_left] * scale,
                 row as f32 - 1.0,
+                self.north_layer.heightmap[north_top_left] * scale,
             );
 
             let n1 = Vec3::new(
                 (col + 1) as f32,
-                self.north_layer.heightmap[north_top_right] * scale,
                 row as f32 - 1.0,
+                self.north_layer.heightmap[north_top_right] * scale,
             );
 
             let i_n0 = self.add_vertex(n0);
@@ -149,8 +156,9 @@ impl<'a> MeshBuilder<'a> {
             let i_v0 = self.add_vertex(v0);
             let i_v1 = self.add_vertex(v1);
 
-            self.indices.extend_from_slice(&[i_n0, i_v0, i_n1]);
-            self.indices.extend_from_slice(&[i_n1, i_v0, i_v1]);
+            // Flipped winding
+            self.indices.extend_from_slice(&[i_n0, i_n1, i_v0]);
+            self.indices.extend_from_slice(&[i_n1, i_v1, i_v0]);
         }
 
         // EAST EDGE
@@ -160,14 +168,14 @@ impl<'a> MeshBuilder<'a> {
 
             let e0 = Vec3::new(
                 (col as f32 + 2.0) * scale,
-                self.east_layer.heightmap[east_top] * scale,
                 row as f32,
+                self.east_layer.heightmap[east_top] * scale,
             );
 
             let e1 = Vec3::new(
                 (col as f32 + 2.0) * scale,
-                self.east_layer.heightmap[east_bottom] * scale,
                 (row + 1) as f32,
+                self.east_layer.heightmap[east_bottom] * scale,
             );
 
             let i_v1 = self.add_vertex(v1);
@@ -175,8 +183,9 @@ impl<'a> MeshBuilder<'a> {
             let i_e0 = self.add_vertex(e0);
             let i_e1 = self.add_vertex(e1);
 
-            self.indices.extend_from_slice(&[i_v1, i_v3, i_e0]);
-            self.indices.extend_from_slice(&[i_e0, i_v3, i_e1]);
+            // Flipped winding
+            self.indices.extend_from_slice(&[i_v1, i_e0, i_v3]);
+            self.indices.extend_from_slice(&[i_e0, i_e1, i_v3]);
         }
 
         // CORNER EDGE
@@ -187,20 +196,20 @@ impl<'a> MeshBuilder<'a> {
 
             let n1 = Vec3::new(
                 (col + 1) as f32,
-                self.north_layer.heightmap[north_top_right] * scale,
                 -1.0,
+                self.north_layer.heightmap[north_top_right] * scale,
             );
 
             let c0 = Vec3::new(
                 (col as f32 + 2.0) * scale,
-                self.top_corner.heightmap[corner_index] * scale,
                 -1.0,
+                self.top_corner.heightmap[corner_index] * scale,
             );
 
             let e0 = Vec3::new(
                 (col as f32 + 2.0) * scale,
-                self.east_layer.heightmap[0] * scale,
                 0.0,
+                self.east_layer.heightmap[0] * scale,
             );
 
             let i_n1 = self.add_vertex(n1);
@@ -208,8 +217,9 @@ impl<'a> MeshBuilder<'a> {
             let i_e0 = self.add_vertex(e0);
             let i_c0 = self.add_vertex(c0);
 
-            self.indices.extend_from_slice(&[i_n1, i_v1, i_c0]);
-            self.indices.extend_from_slice(&[i_c0, i_v1, i_e0]);
+            // Flipped winding
+            self.indices.extend_from_slice(&[i_n1, i_c0, i_v1]);
+            self.indices.extend_from_slice(&[i_c0, i_e0, i_v1]);
         }
     }
 }

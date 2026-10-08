@@ -164,6 +164,10 @@ impl Handler<HandleNewAvatar> for Mailbox {
                     AvatarType::User => {
                         addr.do_send(SendUIMessage {
                             // handle the z-y flip
+                            // TODO: THIS IS NOT THE RIGHT WAY TO DO THIS
+                            // YOU NEED TO MULTIPLY BY THE CORRECTION
+                            // SHIT IS FUCKED
+                            // DO NOT LEAVE THIS
                             ui_message: UIMessage::new_camera_position(CameraPosition {
                                 position: Vec3::new(
                                     msg.0.avatar.position.x,
@@ -303,7 +307,9 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let skeleton = avatar.skeleton.clone();
         let used_joints = avatar.used_joints.clone();
         let items = avatar.items.clone();
-        let position = avatar.position;
+        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
+            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+        let position = conversion.mul_vec3(avatar.position);
         let cache = session.cache.clone();
         let base_dir = session.share_dir_root.clone();
         let mut avatar = avatar.clone();
@@ -357,8 +363,8 @@ impl Handler<FinalizeAvatar> for Mailbox {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-struct LoadFromCache {
-    avatar: Avatar,
+pub struct LoadFromCache {
+    pub avatar: Avatar,
 }
 impl Handler<LoadFromCache> for Mailbox {
     type Result = ();
@@ -370,11 +376,13 @@ impl Handler<LoadFromCache> for Mailbox {
         session
             .avatars
             .insert(msg.avatar.agent_id, msg.avatar.clone());
-
+        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
+            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+        let position = conversion.mul_vec3(msg.avatar.position);
         // render the cached avatar
         ctx.address().do_send(RenderAvatar {
             message: MeshUpdate {
-                position: msg.avatar.position,
+                position,
                 scale: Vec3::ONE,
                 rotation: Quat::IDENTITY,
                 parent: None,
