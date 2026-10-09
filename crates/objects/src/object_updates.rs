@@ -4,6 +4,7 @@ use benthic_protocol::{
     objects::{AttachmentObjectData, GeneratorObject, MeshObjectData, ParametricPrimData},
     session::{DownloadState, create_sub_agent_dir, create_sub_object_dir},
 };
+use glam::Vec3;
 use log::warn;
 use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
@@ -13,7 +14,7 @@ use metaverse_messages::{
         object_update_cached::CachedObjectData,
         request_multiple_objects::CacheMissType,
     },
-    utils::{object_types::ObjectType, texture_entry::TextureEntry},
+    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntry},
 };
 use metaverse_store::initialize_sqlite::Cache;
 use tokio::sync::{
@@ -58,6 +59,11 @@ pub enum CacheResult {
 pub struct DownloadMeshObjectData {
     pub object: MeshObjectData<TextureEntry, ObjectType>,
     pub retry_count: u32,
+}
+
+pub struct ParametricPrimRenderData {
+    pub vertices: Vec<Vec3>,
+    pub indices: Vec<u32>,
 }
 
 pub enum ObjectUpdateAction {
@@ -180,16 +186,6 @@ pub async fn mesh_update(
         }
     };
     Ok(actions)
-}
-
-pub async fn handle_plane(
-    cache: &Cache,
-    actions: &mut Vec<ObjectUpdateAction>,
-    out_dir: &PathBuf,
-    object: &ParametricPrimData,
-    sculpt: &SculptData,
-) -> Result<(), ObjectUpdateError> {
-    Ok(())
 }
 
 pub async fn handle_attachment(

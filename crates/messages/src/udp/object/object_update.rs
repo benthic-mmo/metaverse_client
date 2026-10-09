@@ -13,9 +13,9 @@ use crate::{
         packet_types::PacketType,
     },
     parse,
-    udp::object::util::ObjectFlag,
+    udp::object::util::{ObjectFlag, ObjectUpdateData},
     utils::{
-        material::MaterialType, object_types::ObjectType, path::Path, sound::AttachedSound,
+        material::MaterialType, object_types::ObjectType, path::PrimPath, sound::AttachedSound,
         texture_entry::TextureEntry,
     },
 };
@@ -70,7 +70,7 @@ pub struct ObjectUpdate {
     /// etc
     pub update_flags: Vec<ObjectFlag>,
     /// Strores imformation about primitive geometry
-    pub primitive_geometry: Path,
+    pub primitive_geometry: PrimPath,
     /// Full property list for each object's face, including textures and colors.
     pub texture_entry: Option<TextureEntry>,
     /// Properties to set up texture animations for each face
@@ -97,19 +97,6 @@ pub struct ObjectUpdate {
     pub joint_pivot: Vec3,
     /// Offset or axies used by certain joint types. Should be unused.
     pub joint_axis_or_anchor: Vec3,
-}
-pub trait ObjectUpdateData {
-    fn object_type(&self) -> ObjectType;
-    fn full_id(&self) -> Uuid;
-    fn parent_id(&self) -> Option<u32>;
-    fn local_id(&self) -> u32;
-    fn name_value(&self) -> &Option<String>;
-    fn position(&self) -> Vec3;
-    fn rotation(&self) -> Quat;
-    fn scale(&self) -> Vec3;
-    fn texture(&self) -> &Option<TextureEntry>;
-    fn crc(&self) -> u32;
-    fn extra_params(&self) -> Option<&[ExtraParams]>;
 }
 
 impl ObjectUpdateData for ObjectUpdate {
@@ -145,6 +132,9 @@ impl ObjectUpdateData for ObjectUpdate {
     }
     fn extra_params(&self) -> Option<&[ExtraParams]> {
         self.extra_params.as_deref()
+    }
+    fn sculpt_path(&self) -> Option<PrimPath> {
+        Some(self.primitive_geometry.clone())
     }
 }
 
@@ -193,7 +183,7 @@ impl PacketData for ObjectUpdate {
         // this section is always 23 bytes
         let mut geometry_bytes = [0u8; 23];
         parse!(cursor.read_exact(&mut geometry_bytes))?;
-        let primitive_geometry = parse!(Path::from_bytes(&geometry_bytes))?;
+        let primitive_geometry = parse!(PrimPath::from_bytes(&geometry_bytes))?;
 
         let texture_entry_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];

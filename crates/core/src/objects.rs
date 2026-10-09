@@ -1,7 +1,6 @@
 use super::session::Mailbox;
 use crate::avatar::AddObjectToAvatar;
 use crate::avatar::DownloadAgentAsset;
-use crate::avatar::HandleNewAvatar;
 use crate::avatar::LoadFromCache;
 use crate::avatar::SetOutfitSize;
 use crate::session::OutgoingPacket;
@@ -27,12 +26,14 @@ use metaverse_avatar::avatar::OutfitObject;
 use metaverse_avatar::avatar_object_handler::AvatarType;
 use metaverse_avatar::errors::AvatarError;
 use metaverse_messages::http::capabilities::Capability;
+use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::ExtraParams;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::utils::object_types::ObjectType;
+use metaverse_messages::utils::path::PrimPath;
 use metaverse_messages::utils::texture_entry::TextureEntry;
 use metaverse_objects::errors::DownloadError;
 use metaverse_objects::object_handler::download_mesh_object;
@@ -44,6 +45,7 @@ use metaverse_objects::object_updates::ObjectUpdateAction::DownloadMesh;
 use metaverse_objects::object_updates::RenderObjectData;
 use metaverse_objects::object_updates::mesh_update;
 use metaverse_objects::object_updates::object_update_cached;
+use metaverse_objects::parametric_prims::handle_parametric_prim;
 use rand::RngExt;
 use uuid::Uuid;
 
@@ -60,6 +62,11 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+
+        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
+            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+        let position = conversion.mul_vec3(msg.position);
+
         if !session.inventory_data.current_outfit_init {
             let info_message =
                 format!("Current outfit not initialized. Requeueing avatar download...");
@@ -72,16 +79,12 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
             });
             return;
         }
-        let avatar = Avatar::new(msg.id, msg.position);
+        let avatar = Avatar::new(msg.id, position);
+        session.avatars.insert(msg.id, avatar.clone());
         let addr = ctx.address();
-        let position = Vec3::new(msg.position.x, msg.position.z, msg.position.y);
+
         if msg.id == session.agent_id {
             addr.do_send(SendUIMessage {
-                // handle the z-y flip
-                // TODO: THIS IS NOT THE RIGHT WAY TO DO THIS
-                // YOU NEED TO MULTIPLY BY THE CORRECTION
-                // SHIT IS FUCKED
-                // DO NOT LEAVE THIS
                 ui_message: UIMessage::new_camera_position(CameraPosition { position }),
             });
             let agent_id = session.agent_id;
@@ -173,7 +176,6 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         };
 
         let cache = session.cache.clone();
-        let cache = session.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
         let downloads = session.downloads.clone();
@@ -205,7 +207,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct ParametricPrimObjectUpdate(pub ParametricPrimData);
+pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntry, PrimPath>);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(
@@ -216,6 +218,29 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+        let cache = session.cache.clone();
+        let addr = ctx.address();
+        let out_dir = session.share_dir_root.clone();
+        ctx.spawn(
+            async move {
+                match handle_parametric_prim(&cache, &out_dir, &msg.0).await {
+                    Ok(actions) => {
+                        for action in actions {
+                            match action {
+                                ObjectUpdateAction::Render(data) => {
+                                    addr.do_send(RenderObjectMessage(data));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("HandleObjectUpdate error: {:?}", e)
+                    }
+                }
+            }
+            .into_actor(self),
+        );
     }
 }
 
@@ -512,6 +537,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     return;
                 };
 
+                // if it's the root, just render it.
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
                         let conversion = Quat::from_rotation_z(std::f32::consts::PI)

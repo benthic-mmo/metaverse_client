@@ -46,7 +46,7 @@ impl CreationArtifacts {
 
 pub const AGENT_ID: Uuid = uuid!("96ce3a85-273b-4a1a-b300-78bce703c325");
 
-async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inventory, Cache> {
+pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inventory, Cache> {
     let inventory_db_connection = sqlx::SqlitePool::connect(":memory:").await.unwrap();
 
     let inventory = Inventory::new(inventory_db_connection.clone());

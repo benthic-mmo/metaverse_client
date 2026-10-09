@@ -1,3 +1,5 @@
+use std::boxed;
+
 use awc::error::PayloadError;
 use benthic_protocol::errors::SessionError;
 use metaverse_mesh::errors::MetaverseMeshError;
@@ -97,4 +99,16 @@ pub enum ObjectUpdateError {
 
     #[error("{feature} is not yet implemented")]
     Unimplemented { feature: String },
+
+    #[error("Serde error: {0}")]
+    SerdeError(#[from] serde_json::Error),
+
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
+
+    #[error("Mesh error: {0}")]
+    MeshError(#[from] Box<dyn std::error::Error>),
+
+    #[error("Metaverse Mesh error: {0}")]
+    MetaverseMeshError(#[from] metaverse_mesh::errors::MetaverseMeshError),
 }

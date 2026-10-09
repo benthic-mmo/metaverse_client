@@ -1,4 +1,26 @@
+use glam::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{
+    udp::object::object_update::ExtraParams,
+    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntry},
+};
+/// this trait unifies the ObjectUpdate packets to allow using them as a single object.
+pub trait ObjectUpdateData {
+    fn object_type(&self) -> ObjectType;
+    fn full_id(&self) -> Uuid;
+    fn parent_id(&self) -> Option<u32>;
+    fn local_id(&self) -> u32;
+    fn name_value(&self) -> &Option<String>;
+    fn position(&self) -> Vec3;
+    fn rotation(&self) -> Quat;
+    fn scale(&self) -> Vec3;
+    fn texture(&self) -> &Option<TextureEntry>;
+    fn crc(&self) -> u32;
+    fn extra_params(&self) -> Option<&[ExtraParams]>;
+    fn sculpt_path(&self) -> Option<PrimPath>;
+}
 
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -1,12 +1,13 @@
 use crate::errors::SceneObjectParseError;
 use crate::parse;
+use crate::utils::path::{HollowShape, PathCurve, ProfileShape};
 use crate::{
     errors::ParseError,
     utils::{
         item_metadata::{Permissions, SaleInfo, SaleType},
         material::MaterialType,
         object_types::ObjectType,
-        path::Path,
+        path::PrimPath,
         sound::AttachedSound,
         texture_entry::TextureEntry,
     },
@@ -131,7 +132,7 @@ impl Default for SceneMetadata {
 /// texture objects, light and physics.
 pub struct Shape {
     /// Path information, used for drawing paths
-    pub path: Path,
+    pub path: PrimPath,
     /// TODO: Unknown
     pub extra_params: Vec<u8>,
     /// The type of the object
@@ -593,10 +594,6 @@ impl SceneObject {
             }
 
             ["Shape", rest @ ..] => match rest {
-                ["ProfileCurve"] => {
-                    scene_object.shape.path.profile_curve = parse_value!(val, u8)?;
-                }
-
                 ["TextureEntry"] => {
                     scene_object.shape.texture = parse_texture_entry!(val);
                 }
@@ -606,59 +603,60 @@ impl SceneObject {
                 }
 
                 ["PathBegin"] => {
-                    scene_object.shape.path.begin = parse_value!(val, u16)?;
+                    scene_object.shape.path.begin = parse_value!(val, f32)?;
                 }
 
                 ["PathCurve"] => {
-                    scene_object.shape.path.curve = parse_value!(val, u8)?;
+                    if let Some(shape) = PathCurve::from_string(val.as_str()) {
+                        scene_object.shape.path.curve = shape;
+                    }
                 }
-
                 ["PathEnd"] => {
-                    scene_object.shape.path.end = parse_value!(val, u16)?;
+                    scene_object.shape.path.end = parse_value!(val, f32)?;
                 }
 
                 ["PathRadiusOffset"] => {
-                    scene_object.shape.path.radius_offset = parse_value!(val, i8)?;
+                    scene_object.shape.path.radius_offset = parse_value!(val, f32)?;
                 }
 
                 ["PathRevolutions"] => {
-                    scene_object.shape.path.revolutions = parse_value!(val, u8)?;
+                    scene_object.shape.path.revolutions = parse_value!(val, f32)?;
                 }
 
                 ["PathScaleX"] => {
-                    scene_object.shape.path.scale_x = parse_value!(val, u8)?;
+                    scene_object.shape.path.scale_x = parse_value!(val, f32)?;
                 }
 
                 ["PathScaleY"] => {
-                    scene_object.shape.path.scale_y = parse_value!(val, u8)?;
+                    scene_object.shape.path.scale_y = parse_value!(val, f32)?;
                 }
 
                 ["PathShearX"] => {
-                    scene_object.shape.path.shear_x = parse_value!(val, u8)?;
+                    scene_object.shape.path.shear_x = parse_value!(val, f32)?;
                 }
 
                 ["PathShearY"] => {
-                    scene_object.shape.path.shear_y = parse_value!(val, u8)?;
+                    scene_object.shape.path.shear_y = parse_value!(val, f32)?;
                 }
 
                 ["PathSkew"] => {
-                    scene_object.shape.path.skew = parse_value!(val, i8)?;
+                    scene_object.shape.path.skew = parse_value!(val, f32)?;
                 }
 
                 ["PathTaperX"] => {
-                    scene_object.shape.path.taper_x = parse_value!(val, i8)?;
+                    scene_object.shape.path.taper_x = parse_value!(val, f32)?;
                 }
 
                 ["PathTaperY"] => {
-                    scene_object.shape.path.taper_y = parse_value!(val, i8)?;
+                    scene_object.shape.path.taper_y = parse_value!(val, f32)?;
                 }
 
                 ["PathTwist"] => {
-                    scene_object.shape.path.twist_end = parse_value!(val, i8)?;
+                    scene_object.shape.path.twist_end = parse_value!(val, f32)?;
                 }
 
                 ["PathTwistBegin"] => {
-                    scene_object.shape.path.twist_begin = parse_value!(val, i8)?;
+                    scene_object.shape.path.twist_begin = parse_value!(val, f32)?;
                 }
 
                 ["PCode"] => {
@@ -666,25 +664,27 @@ impl SceneObject {
                 }
 
                 ["ProfileBegin"] => {
-                    scene_object.shape.path.profile_begin = parse_value!(val, u16)?;
+                    scene_object.shape.path.profile_begin = parse_value!(val, f32)?;
                 }
 
                 ["ProfileEnd"] => {
-                    scene_object.shape.path.profile_end = parse_value!(val, u16)?;
+                    scene_object.shape.path.profile_end = parse_value!(val, f32)?;
                 }
 
                 ["ProfileHollow"] => {
                     scene_object.shape.path.profile_hollow = parse_value!(val, f32)?;
                 }
-
                 ["ProfileShape"] => {
-                    scene_object.shape.path.profile_shape = Some(val);
+                    if let Some(shape) = ProfileShape::from_string(val.as_str()) {
+                        scene_object.shape.path.profile_shape = shape;
+                    }
                 }
 
                 ["HollowShape"] => {
-                    scene_object.shape.path.hollow_shape = Some(val);
+                    if let Some(shape) = HollowShape::from_string(val.as_str()) {
+                        scene_object.shape.path.hollow_shape = shape;
+                    }
                 }
-
                 ["State"] => {
                     scene_object.shape.state = parse_value!(val, i32)?;
                 }
