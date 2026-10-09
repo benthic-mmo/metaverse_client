@@ -29,10 +29,6 @@ pub struct MeshObjectData<TextureEntry, ObjectType> {
     pub scale: Vec3,
     /// The local ID of the obeject's parent.
     pub parent: Option<u32>,
-    /// The name value of the object.
-    ///
-    /// This can encode extra data like attachment objects, or the avatar's name
-    pub name_value: Option<String>,
 
     /// Object's texture data
     pub texture: Option<TextureEntry>,
@@ -59,4 +55,14 @@ pub struct AttachmentObjectData {
     pub parent_id: Option<u32>,
 }
 
-pub struct ParametricPrimData {}
+#[derive(Clone, Debug)]
+pub struct ParametricPrimData<TextureEntry, PrimPath> {
+    pub full_id: Uuid,
+    pub local_id: u32,
+    pub scale: Vec3,
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub parent: Option<u32>,
+    pub texture: Option<TextureEntry>,
+    pub path_data: PrimPath,
+}

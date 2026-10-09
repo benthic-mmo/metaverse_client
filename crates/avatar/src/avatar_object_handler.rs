@@ -27,27 +27,6 @@ pub enum AvatarType {
     NonUser,
 }
 
-pub fn init_avatar<C, L, U, I, X>(
-    session: &mut Session<C, Avatar, L, U, I, X>,
-    avatar: &Avatar,
-) -> Result<AvatarType, AvatarError> {
-    if session.agent_id == avatar.agent_id {
-        // if the session has initialized its current outfit
-        // insert the avatar and return the camera position
-        if session.inventory_data.current_outfit_init {
-            session.avatars.insert(avatar.agent_id, avatar.clone());
-            Ok(AvatarType::User)
-        } else {
-            // if not, return an InventoryUninitialized error
-            Err(AvatarError::InventoryUninitialized {})
-        }
-    } else {
-        Err(AvatarError::Unimplemented {
-            feature: "Non-Agent avatars".to_string(),
-        })
-    }
-}
-
 pub fn add_object_to_avatar<C, L, U, I, X>(
     session: &mut Session<C, Avatar, L, U, I, X>,
     agent_id: Uuid,

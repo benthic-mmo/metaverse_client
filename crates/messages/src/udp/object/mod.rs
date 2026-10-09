@@ -405,4 +405,4 @@ pub mod request_multiple_objects;
 /// TODO:UNIMPLEMENTED
 pub mod object_update;
 
-mod util;
+pub mod util;

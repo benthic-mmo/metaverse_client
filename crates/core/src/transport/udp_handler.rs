@@ -15,9 +15,10 @@ use benthic_protocol::objects::{AttachmentObjectData, MeshObjectData, Parametric
 use log::{error, warn};
 use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
+use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams::{self, Flexi};
-use metaverse_messages::udp::object::object_update::{AttachItem, ObjectUpdateData};
 use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
+use metaverse_messages::udp::object::util::ObjectUpdateData;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::errors::ObjectUpdateError;
 use std::sync::Arc;
@@ -236,7 +237,6 @@ async fn classify_object_update(
                                 full_id: object.full_id(),
                                 parent: object.parent_id(),
                                 local_id: object.local_id(),
-                                name_value: object.name_value().clone(),
                                 position: object.position(),
                                 sculpt_id: sculpt.texture_id,
                                 rotation: object.rotation(),
@@ -245,8 +245,24 @@ async fn classify_object_update(
                                 crc: object.crc(),
                                 region_id: "".to_string(),
                             })),
-                            SculptType::Plane => {
-                                addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {}))
+                            SculptType::Plane
+                            | SculptType::Sphere
+                            | SculptType::Torus
+                            | SculptType::Cylinder => {
+                                if let Some(path) = object.sculpt_path() {
+                                    addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {
+                                        full_id: object.full_id(),
+                                        local_id: object.local_id(),
+                                        scale: object.scale(),
+                                        position: object.position(),
+                                        rotation: object.rotation(),
+                                        parent: object.parent_id(),
+                                        texture: object.texture().clone(),
+                                        path_data: path,
+                                    }))
+                                } else {
+                                    error!("No sculpt path found in a parametric prim.")
+                                }
                             }
                             _ => Err(ObjectUpdateError::Unimplemented {
                                 feature: "Unimplemented Sculpt Type".to_string(),

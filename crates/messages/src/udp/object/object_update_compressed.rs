@@ -10,11 +10,11 @@ use crate::packet::{
     packet_types::PacketType,
 };
 use crate::parse;
-use crate::udp::object::object_update::{ExtraParams, ObjectUpdateData};
-use crate::udp::object::util::ObjectFlag;
+use crate::udp::object::object_update::ExtraParams;
+use crate::udp::object::util::{ObjectFlag, ObjectUpdateData};
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
-use crate::utils::path::Path;
+use crate::utils::path::PrimPath;
 use crate::utils::sound::AttachedSound;
 use crate::utils::texture_entry::TextureEntry;
 
@@ -152,7 +152,7 @@ pub struct ObjectDataCompressed {
     /// name value. Used for avatar names, and storing attachment information
     pub name_values: Option<String>,
     /// path data for the object's sculpt
-    pub sculpt_path: Option<Path>,
+    pub sculpt_path: Option<PrimPath>,
     /// texture data for the object
     pub texture_entry: Option<TextureEntry>,
     /// texture animation data for the object
@@ -193,6 +193,9 @@ impl ObjectUpdateData for ObjectDataCompressed {
     }
     fn crc(&self) -> u32 {
         self.crc
+    }
+    fn sculpt_path(&self) -> Option<PrimPath> {
+        self.sculpt_path.clone()
     }
 }
 
@@ -400,7 +403,7 @@ impl PacketData for ObjectUpdateCompressed {
                 let mut geometry_bytes = [0u8; 23];
                 parse!(cursor.read_exact(&mut geometry_bytes))?;
 
-                let sculpt_path = parse!(Path::from_bytes(&geometry_bytes))?;
+                let sculpt_path = parse!(PrimPath::from_bytes_compressed(&geometry_bytes))?;
 
                 let te_len = parse!(cursor.read_u16::<LittleEndian>())?;
 

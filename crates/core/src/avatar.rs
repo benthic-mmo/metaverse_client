@@ -1,7 +1,6 @@
 use super::session::Mailbox;
 use crate::session::{RetryMessage, SendUIMessage};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
-use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
@@ -13,16 +12,12 @@ use metaverse_avatar::animation::build_animation;
 use metaverse_avatar::avatar::Avatar;
 use metaverse_avatar::avatar::OutfitObject;
 use metaverse_avatar::avatar_object_handler::AvatarState::FullyLoaded;
-use metaverse_avatar::avatar_object_handler::{
-    AvatarType, add_object_to_avatar, finalize_avatar, init_avatar,
-};
-use metaverse_avatar::errors::AvatarError::{self};
+use metaverse_avatar::avatar_object_handler::{add_object_to_avatar, finalize_avatar};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::avatar_asset::download_asset_objects;
-use metaverse_objects::object_updates::NewAvatarData;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -126,149 +121,6 @@ impl Handler<AddObjectToAvatar> for Mailbox {
             Err(e) => {
                 error!("AddObjectToAvatar error {:?}", e);
             }
-        };
-    }
-}
-
-/// Message to spawn a new avatar
-///
-/// Avatars are added to the scene via ObjectUpdate packet with minimal information aside from the
-/// ID. This adds those IDs to the session and begins downloading their appearances, or loads from
-/// the cache.
-///
-/// # Cause
-/// - [`HandleObjectUpdate`]
-///
-/// # Effect
-/// - Resends a [`HandleNewAvatar`] message if the inventory is not yet loaded
-/// - If the avatar is the current player's avatar
-///    - Dispatches a [`CameraPosition`] message
-///    - If the avatar is in the cache:
-///     - Dispatches a [`LoadFromCache`] message to skip asset downloading.
-///    - else:
-///     - Dispatches a [`DownloadAgentAsset`] message for each object in the outfit
-///     - Dispatches a [`AddObjectToAvatar`] message for each bodypart in the outfit
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleNewAvatar(pub NewAvatarData);
-impl Handler<HandleNewAvatar> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, mut msg: HandleNewAvatar, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
-            return;
-        };
-        let addr = ctx.address();
-        match init_avatar(session, &msg.0.avatar) {
-            Ok(user_type) => {
-                match user_type {
-                    AvatarType::User => {
-                        addr.do_send(SendUIMessage {
-                            // handle the z-y flip
-                            // TODO: THIS IS NOT THE RIGHT WAY TO DO THIS
-                            // YOU NEED TO MULTIPLY BY THE CORRECTION
-                            // SHIT IS FUCKED
-                            // DO NOT LEAVE THIS
-                            ui_message: UIMessage::new_camera_position(CameraPosition {
-                                position: Vec3::new(
-                                    msg.0.avatar.position.x,
-                                    msg.0.avatar.position.z,
-                                    msg.0.avatar.position.y,
-                                ),
-                            }),
-                        });
-                        let agent_id = session.agent_id;
-                        let cache = session.cache.clone();
-                        let inventory = session.inventory.clone();
-                        ctx.spawn(
-                            async move {
-                                let (avatar, outfit_items) = if cache_enabled() {
-                                    match cache.avatar.current_outfit(agent_id, inventory).await {
-                                        Ok(result) => result,
-                                        Err(e) => {
-                                            error!("HandleNewAvatar error: {:?}", e);
-                                            return;
-                                        }
-                                    }
-                                } else {
-                                    match inventory.get_current_outfit().await {
-                                        Ok(outfit_items) => (None, outfit_items),
-                                        Err(e) => {
-                                            error!("HandleNewAvatarError {:?}", e);
-                                            return;
-                                        }
-                                    }
-                                };
-
-                                if addr
-                                    .send(SetOutfitSize {
-                                        agent_id,
-                                        outfit_size: outfit_items.len(),
-                                    })
-                                    .await
-                                    .is_err()
-                                {
-                                    error!("Failed to set outfit size for {:?}", agent_id);
-                                    return;
-                                }
-
-                                if let Some(avatar) = avatar {
-                                    addr.do_send(LoadFromCache { avatar });
-                                    return;
-                                }
-
-                                for item in outfit_items {
-                                    match item.item_type {
-                                        ObjectType::Object => {
-                                            addr.do_send(DownloadAgentAsset {
-                                                asset_id: item.asset_id,
-                                                item_type: item.item_type,
-                                                agent_id,
-                                            });
-                                        }
-                                        ObjectType::Bodypart => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Bodypart,
-                                                agent_id,
-                                            });
-                                        }
-                                        ObjectType::Clothing => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Clothing,
-                                                agent_id,
-                                            });
-                                        }
-                                        _ => {
-                                            addr.do_send(AddObjectToAvatar {
-                                                object: OutfitObject::Other,
-                                                agent_id,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
-                            .into_actor(self),
-                        );
-                    }
-                    AvatarType::NonUser => {
-                        //TODO: handle nonuser updates
-                    }
-                }
-            }
-            Err(e) => match e {
-                AvatarError::InventoryUninitialized { .. } => {
-                    let info_message = format!("{:?}, Requeueing avatar download...", e);
-                    msg.0.retry_count += 1;
-                    ctx.address().do_send(RetryMessage {
-                        retries: msg.0.retry_count,
-                        message: msg,
-                        info_message,
-                        long_backoff: true,
-                    });
-                }
-                e => {
-                    error!("HandleNewAvatar error: {:?}", e)
-                }
-            },
         };
     }
 }

@@ -8,3 +8,5 @@ pub mod http_handler;
 pub mod object_handler;
 /// Functions for handling scene object updates
 pub mod object_updates;
+
+pub mod parametric_prims;
