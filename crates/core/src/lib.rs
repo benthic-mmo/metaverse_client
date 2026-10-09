@@ -35,3 +35,16 @@ pub mod objects;
 pub mod session;
 /// handles packet sending between UI and core, and core and server
 pub mod transport;
+
+use glam::Quat;
+
+#[cfg(feature = "z-up")]
+const COORDINATE_CONVERSION: Quat = Quat::from_xyzw(
+    0.0,
+    std::f32::consts::FRAC_1_SQRT_2,
+    std::f32::consts::FRAC_1_SQRT_2,
+    0.0,
+);
+
+#[cfg(not(feature = "z-up"))]
+const COORDINATE_CONVERSION: Quat = Quat::IDENTITY;

@@ -30,7 +30,7 @@ pub struct RenderObject {
     /// full list of indices
     /// This contains information on where in the triangle each of your vertices are. This saves
     /// space by not duplicating vertices and allows the renderer to handle building the triangles.
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
     /// The skeleton of the object.
     pub skin: Option<SkinData>,
     /// The optional png texture of the object

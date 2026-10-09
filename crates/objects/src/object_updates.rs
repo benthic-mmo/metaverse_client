@@ -1,25 +1,23 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use benthic_protocol::{
-    objects::{AttachmentObjectData, GeneratorObject, MeshObjectData, ParametricPrimData},
-    session::{DownloadState, create_sub_agent_dir, create_sub_object_dir},
+    objects::{AttachmentObjectData, GeneratorObject, MeshObjectData},
+    session::{DownloadState, create_sub_object_dir},
 };
 use glam::Vec3;
 use log::warn;
 use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
-    http::scene::{Sculpt, SculptType},
     udp::object::{
-        object_update::{AttachItem, ExtraParams, SculptData},
-        object_update_cached::CachedObjectData,
+        object_update::AttachItem, object_update_cached::CachedObjectData,
         request_multiple_objects::CacheMissType,
     },
-    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntry},
+    utils::{object_types::ObjectType, texture_entry::TextureEntry},
 };
 use metaverse_store::initialize_sqlite::Cache;
 use tokio::sync::{
     Mutex,
-    watch::{self, Receiver, Sender},
+    watch::{self, Sender},
 };
 use uuid::Uuid;
 
@@ -111,7 +109,7 @@ pub async fn object_update_cached(
                     }));
                 }
             }
-            Err(e) => {
+            Err(_) => {
                 cache_results.push(ObjectUpdateAction::HandleCacheMiss((
                     CacheMissType::Normal,
                     object.id,
@@ -150,7 +148,7 @@ pub async fn mesh_update(
             }));
         }
 
-        Err(e) => {
+        Err(_) => {
             // check to see if the download is in progress
             let mut downloads = downloads.lock().await;
             if let Some(tx) = downloads.get(&object.sculpt_id) {
@@ -174,7 +172,7 @@ pub async fn mesh_update(
             } else {
                 // This is the first request for the asset.
                 // create a DownloadObject with a sender.
-                let (tx, rx) = tokio::sync::watch::channel(DownloadState::Downloading);
+                let (tx, _rx) = tokio::sync::watch::channel(DownloadState::Downloading);
                 downloads.insert(object.sculpt_id, tx);
                 drop(downloads);
 

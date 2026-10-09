@@ -10,3 +10,5 @@ pub mod object_handler;
 pub mod object_updates;
 
 pub mod parametric_prims;
+
+pub mod sculpt_objects;

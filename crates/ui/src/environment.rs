@@ -42,7 +42,7 @@ fn handle_land_update(
         );
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, land_data.vertices);
-        mesh.insert_indices(bevy::mesh::Indices::U16(land_data.indices));
+        mesh.insert_indices(bevy::mesh::Indices::U32(land_data.indices));
         mesh.compute_smooth_normals();
 
         let mesh_handle = meshes.add(mesh);

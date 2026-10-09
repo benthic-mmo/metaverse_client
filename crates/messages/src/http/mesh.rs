@@ -208,7 +208,7 @@ pub struct MeshGeometry {
     /// full list of indices
     /// This contains information on where in the triangle each of your vertices are. This saves
     /// space by not duplicating vertices and allows the renderer to handle building the triangles.
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
 
     /// These normals are used by textures to determine which side is facing out, and which is
     /// facing in.
@@ -304,7 +304,7 @@ impl MeshGeometry {
 
         let (chunks, _) = triangle_bytes.as_chunks::<2>();
         for chunk in chunks {
-            triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]));
+            triangle_indices.push(u16::from_le_bytes([chunk[0], chunk[1]]) as u32);
         }
 
         // Viewer drops trailing indices that don't form a complete triangle.

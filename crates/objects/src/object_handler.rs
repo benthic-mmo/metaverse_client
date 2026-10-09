@@ -5,22 +5,18 @@ use benthic_protocol::{
     session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::{Skeleton, SkinJoint},
 };
-use glam::{Vec3, Vec4};
+use glam::Vec3;
 use log::{info, warn};
 use metaverse_avatar::skeleton::create_skeleton;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::{
-    http::mesh::Mesh,
-    udp::object,
-    utils::{object_types::ObjectType, texture_entry},
-};
+use metaverse_messages::{http::mesh::Mesh, utils::object_types::ObjectType};
 use metaverse_store::initialize_sqlite::Cache;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::{
     errors::{DownloadError, MeshBuildError},
-    http_handler::{download_asset, download_mesh, download_texture},
+    http_handler::{download_asset, download_texture},
     object_updates::{
         DownloadMeshObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData,
     },

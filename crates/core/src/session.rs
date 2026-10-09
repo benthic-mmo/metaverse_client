@@ -1,5 +1,6 @@
 use crate::environment::FetchEnvironmentEvent;
 use crate::inventory::FetchCurrentOutfit;
+use crate::objects::RenderObjectMessage;
 use crate::{
     capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
     transport::http_handler::login_to_simulator,
@@ -58,7 +59,7 @@ use std::{
     sync::{Arc, Mutex},
     thread::sleep,
 };
-use tokio::sync::watch::{Receiver, Sender};
+use tokio::sync::watch::{self};
 use tokio::sync::{Mutex as tokioMutex, Semaphore};
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
 use uuid::Uuid;
@@ -91,6 +92,13 @@ pub struct Mailbox {
     pub ping_info: PingInfo,
 
     pub max_concurrent_downloads: Arc<Semaphore>,
+
+    /// The list of currently downloading objects.
+    /// this contains a UUID of the object downloading, along with a receiver that other
+    /// objectupdats can subscribe to, in order to wake up when the download is complete.
+    pub downloads: Arc<tokioMutex<HashMap<Uuid, watch::Sender<DownloadState>>>>,
+    /// RenderObjectMessages pending their parent to load in. The u32 is the local ID of the parent.
+    pub pending_children: HashMap<u32, Vec<RenderObjectMessage>>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -595,9 +603,7 @@ async fn handle_login(
                 },
                 socket: None,
                 share_dir_root: initialize_share_dir()?,
-                downloads: Arc::new(tokioMutex::new(
-                    HashMap::<Uuid, Sender<DownloadState>>::new(),
-                )),
+
                 #[cfg(feature = "avatar")]
                 avatars: HashMap::new(),
             },

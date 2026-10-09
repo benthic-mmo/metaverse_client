@@ -1,28 +1,29 @@
-use crate::avatar::{HandleNewAvatarAnimation, HandleNewAvatarAppearance};
+use crate::avatar::{AvatarObjectUpdate, HandleNewAvatarAnimation, HandleNewAvatarAppearance};
 use crate::environment::{HandleLayerData, HandleSimulatorViewerTimeMessage};
 use crate::objects::{
-    AttachmentObjectUpdate, AvatarObjectUpdate, HandleImprovedTerseObjectUpdate,
-    HandleObjectUpdateCached, MeshObjectUpdate, ParametricPrimObjectUpdate,
+    AttachmentObjectUpdate, HandleImprovedTerseObjectUpdate, HandleObjectUpdateCached,
+    MeshObjectUpdate, ParametricPrimObjectUpdate, SculptObjectUpdate,
 };
 use crate::session::{
     AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
 };
-use actix::{Addr, Message};
-use benthic_protocol::errors::SessionError;
+use actix::Addr;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::objects::{AttachmentObjectData, MeshObjectData, ParametricPrimData};
+use benthic_protocol::objects::{
+    AttachmentObjectData, MeshObjectData, ParametricPrimData, SculptObjectData,
+};
 use log::{error, warn};
 use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
 use metaverse_messages::udp::object::object_update::AttachItem;
-use metaverse_messages::udp::object::object_update::ExtraParams::{self, Flexi};
-use metaverse_messages::udp::object::object_update_compressed::ObjectUpdateCompressed;
+use metaverse_messages::udp::object::object_update::ExtraParams::{self};
 use metaverse_messages::udp::object::util::ObjectUpdateData;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::errors::ObjectUpdateError;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
+use uuid::Uuid;
 
 impl Mailbox {
     /// Start_udp_read is for reading packets coming from the external server
@@ -219,68 +220,99 @@ async fn classify_object_update(
     object: impl ObjectUpdateData,
     addr: Addr<Mailbox>,
 ) -> Result<(), ObjectUpdateError> {
-    let action = match object.object_type() {
+    match object.object_type() {
         ObjectType::Prim => {
             if let Some(name) = object.name_value().as_ref()
-                && let Ok(attachment) = AttachItem::parse_attach_item(name)
+                && AttachItem::parse_attach_item(name).is_ok()
             {
                 addr.do_send(AttachmentObjectUpdate(AttachmentObjectData {
                     parent_id: object.parent_id(),
                 }));
             }
-            if let Some(params) = object.extra_params() {
-                for param in params {
-                    match param {
-                        ExtraParams::Sculpt(sculpt) => match sculpt.sculpt_type {
-                            SculptType::Mesh {} => addr.do_send(MeshObjectUpdate(MeshObjectData {
-                                object_type: object.object_type(),
-                                full_id: object.full_id(),
-                                parent: object.parent_id(),
-                                local_id: object.local_id(),
-                                position: object.position(),
-                                sculpt_id: sculpt.texture_id,
-                                rotation: object.rotation(),
-                                scale: object.scale(),
-                                texture: object.texture().clone(),
-                                crc: object.crc(),
-                                region_id: "".to_string(),
-                            })),
+
+            let sculpt = object.extra_params().and_then(|params| {
+                params.iter().find_map(|param| match param {
+                    ExtraParams::Sculpt(sculpt) => Some(sculpt),
+                    _ => None,
+                })
+            });
+
+            match sculpt {
+                Some(sculpt)
+                    if sculpt.texture_id != Uuid::nil()
+                        && matches!(sculpt.sculpt_type, SculptType::Mesh {}) =>
+                {
+                    addr.do_send(MeshObjectUpdate(MeshObjectData {
+                        object_type: object.object_type(),
+                        full_id: object.full_id(),
+                        parent: object.parent_id(),
+                        local_id: object.local_id(),
+                        position: object.position(),
+                        sculpt_id: sculpt.texture_id,
+                        rotation: object.rotation(),
+                        scale: object.scale(),
+                        texture: object.texture().clone(),
+                        crc: object.crc(),
+                        region_id: String::new(),
+                    }));
+                }
+
+                Some(sculpt)
+                    if sculpt.texture_id != Uuid::nil()
+                        && matches!(
+                            sculpt.sculpt_type,
                             SculptType::Plane
-                            | SculptType::Sphere
-                            | SculptType::Torus
-                            | SculptType::Cylinder => {
-                                if let Some(path) = object.sculpt_path() {
-                                    addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {
-                                        full_id: object.full_id(),
-                                        local_id: object.local_id(),
-                                        scale: object.scale(),
-                                        position: object.position(),
-                                        rotation: object.rotation(),
-                                        parent: object.parent_id(),
-                                        texture: object.texture().clone(),
-                                        path_data: path,
-                                    }))
-                                } else {
-                                    error!("No sculpt path found in a parametric prim.")
-                                }
-                            }
-                            _ => Err(ObjectUpdateError::Unimplemented {
-                                feature: "Unimplemented Sculpt Type".to_string(),
-                            })?,
-                        },
-                        _ => Err(ObjectUpdateError::Unimplemented {
-                            feature: "Unimplented Parameter Type".to_string(),
-                        })?,
+                                | SculptType::Sphere
+                                | SculptType::Torus
+                                | SculptType::Cylinder
+                        ) =>
+                {
+                    // This is a sculpty: geometry comes from the sculpt texture.
+                    addr.do_send(SculptObjectUpdate(SculptObjectData {
+                        full_id: object.full_id(),
+                        parent: object.parent_id(),
+                        local_id: object.local_id(),
+                        position: object.position(),
+                        data: sculpt.clone(),
+                        rotation: object.rotation(),
+                        scale: object.scale(),
+                        texture: object.texture().clone(),
+                        crc: object.crc(),
+                        region_id: String::new(),
+                        retry_count: 0,
+                    }));
+                }
+
+                _ => {
+                    // No usable sculpt/mesh parameter: generate parametric geometry.
+                    if let Some(path) = object.sculpt_path() {
+                        addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {
+                            full_id: object.full_id(),
+                            local_id: object.local_id(),
+                            scale: object.scale(),
+                            position: object.position(),
+                            rotation: object.rotation(),
+                            parent: object.parent_id(),
+                            texture: object.texture().clone(),
+                            path_data: path,
+                        }));
+                    } else {
+                        error!("No path data found for parametric prim.");
                     }
                 }
-            };
+            }
         }
-        ObjectType::Avatar => addr.do_send(AvatarObjectUpdate {
-            id: object.full_id(),
-            position: object.position(),
-            retry_count: 0,
-        }),
+
+        ObjectType::Avatar => {
+            addr.do_send(AvatarObjectUpdate {
+                id: object.full_id(),
+                position: object.position(),
+                retry_count: 0,
+            });
+        }
+
         _ => {}
-    };
+    }
+
     Ok(())
 }

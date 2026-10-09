@@ -57,7 +57,7 @@ criterion = { version = "0.8", features = ["html_reports"] }
 
 # allow for compiling a barebones viewer
 [features]
-default = ["environment", "avatar", "inventory"]
+default = ["environment", "avatar", "inventory", "z-up"]
 
 # allow for compiling the viewer without any environment rendering
 environment = ["dep:metaverse_environment"]
@@ -65,6 +65,10 @@ environment = ["dep:metaverse_environment"]
 avatar = ["dep:metaverse_avatar"]
 
 inventory = ["dep:metaverse_store"]
+
+#Convert coordinates to z-up. 
+#This is on by default since it allows compatibility with bevy and godot. 
+z-up =[]
 
 
 [[bench]]

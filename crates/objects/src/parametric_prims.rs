@@ -86,7 +86,7 @@ pub async fn handle_parametric_prim(
     Ok(actions)
 }
 
-fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u16>), ObjectUpdateError> {
+fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u32>), ObjectUpdateError> {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
@@ -119,10 +119,10 @@ fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u16>), ObjectU
         for i in 0..layer_size {
             let next_i = (i + 1) % layer_size;
 
-            let a = (current_start + i) as u16;
-            let b = (current_start + next_i) as u16;
-            let c = (next_start + i) as u16;
-            let d = (next_start + next_i) as u16;
+            let a = (current_start + i) as u32;
+            let b = (current_start + next_i) as u32;
+            let c = (next_start + i) as u32;
+            let d = (next_start + next_i) as u32;
 
             // Two triangles forming the quad.
             indices.extend_from_slice(&[a, c, b, b, c, d]);
@@ -131,7 +131,7 @@ fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u16>), ObjectU
 
     Ok((vertices, indices))
 }
-fn generate_normals(vertices: &[Vec3], indices: &[u16]) -> Vec<Vec3> {
+fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
     let mut normals = vec![Vec3::ZERO; vertices.len()];
 
     for triangle in indices.chunks_exact(3) {

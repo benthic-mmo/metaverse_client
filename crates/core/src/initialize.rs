@@ -5,16 +5,21 @@ use actix::Actor;
 use actix_rt::time;
 use benthic_protocol::errors::SessionError;
 use benthic_protocol::messages::ui::errors::MailboxSessionError;
+use benthic_protocol::session::DownloadState;
 use benthic_protocol::session::ServerState;
 use benthic_protocol::session::initialize_share_dir;
 use portpicker::pick_unused_port;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+use tokio::sync::Mutex as tokioMutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
+use tokio::sync::watch::Sender;
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
@@ -46,6 +51,10 @@ pub async fn initialize(
             last_ping: time::Instant::now(),
         },
         max_concurrent_downloads: Arc::new(Semaphore::new(3)),
+        downloads: Arc::new(tokioMutex::new(
+            HashMap::<Uuid, Sender<DownloadState>>::new(),
+        )),
+        pending_children: HashMap::new(),
     }
     .start();
     // wait until the mailbox starts
