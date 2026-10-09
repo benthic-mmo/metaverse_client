@@ -6,6 +6,8 @@ use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
 use metaverse_store::errors::InventoryError;
 
+use crate::errors;
+
 #[derive(Debug, thiserror::Error)]
 pub enum MeshBuildError {
     #[error("Mesh Error: {0}")]
@@ -111,4 +113,13 @@ pub enum ObjectUpdateError {
 
     #[error("Metaverse Mesh error: {0}")]
     MetaverseMeshError(#[from] metaverse_mesh::errors::MetaverseMeshError),
+
+    #[error("Download Error: {0}")]
+    DownloadError(#[from] errors::DownloadError),
+
+    #[error("ImageError: {0}")]
+    ImageError(#[from] image::ImageError),
+
+    #[error("Mesh is too small to create geometry")]
+    MeshTooSmall,
 }

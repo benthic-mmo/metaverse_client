@@ -27,7 +27,7 @@ pub struct LandData {
     /// list of terrain vertices
     pub vertices: Vec<Vec3>,
     /// indices of terrain vertices
-    pub indices: Vec<u16>,
+    pub indices: Vec<u32>,
     /// position in-world where the terrain goes
     pub position: Vec3,
 }

@@ -1,35 +1,27 @@
 use super::session::Mailbox;
-use crate::avatar::AddObjectToAvatar;
-use crate::avatar::DownloadAgentAsset;
-use crate::avatar::LoadFromCache;
-use crate::avatar::SetOutfitSize;
+#[cfg(feature = "z-up")]
+use crate::COORDINATE_CONVERSION;
 use crate::session::OutgoingPacket;
 use crate::session::RetryMessage;
 use crate::session::SendUIMessage;
 use actix::AsyncContext;
 use actix::WrapFuture;
 use actix::{Handler, Message};
-use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::AttachmentObjectData;
 use benthic_protocol::objects::MeshObjectData;
 use benthic_protocol::objects::ParametricPrimData;
+use benthic_protocol::objects::SculptObjectData;
 use benthic_protocol::session::DownloadState;
-use benthic_protocol::session::cache_enabled;
-use glam::Quat;
-use glam::Vec3;
+use benthic_protocol::session::create_sub_object_dir;
 use log::{error, warn};
-use metaverse_avatar::avatar::Avatar;
-use metaverse_avatar::avatar::OutfitObject;
-use metaverse_avatar::avatar_object_handler::AvatarType;
-use metaverse_avatar::errors::AvatarError;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
-use metaverse_messages::udp::object::object_update::ExtraParams;
+use metaverse_messages::udp::object::object_update::SculptData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::utils::object_types::ObjectType;
@@ -37,140 +29,23 @@ use metaverse_messages::utils::path::PrimPath;
 use metaverse_messages::utils::texture_entry::TextureEntry;
 use metaverse_objects::errors::DownloadError;
 use metaverse_objects::object_handler::download_mesh_object;
+use metaverse_objects::object_handler::handle_texture;
 use metaverse_objects::object_handler::mesh_from_json;
 use metaverse_objects::object_updates::DownloadMeshObjectData;
 use metaverse_objects::object_updates::GenerateMeshData;
 use metaverse_objects::object_updates::ObjectUpdateAction;
-use metaverse_objects::object_updates::ObjectUpdateAction::DownloadMesh;
 use metaverse_objects::object_updates::RenderObjectData;
 use metaverse_objects::object_updates::mesh_update;
 use metaverse_objects::object_updates::object_update_cached;
 use metaverse_objects::parametric_prims::handle_parametric_prim;
-use rand::RngExt;
-use uuid::Uuid;
-
-#[derive(Message, Clone)]
-#[rtype(result = "()")]
-pub struct AvatarObjectUpdate {
-    pub id: Uuid,
-    pub position: Vec3,
-    pub retry_count: u32,
-}
-impl Handler<AvatarObjectUpdate> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, mut msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
-            return;
-        };
-
-        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
-            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
-        let position = conversion.mul_vec3(msg.position);
-
-        if !session.inventory_data.current_outfit_init {
-            let info_message =
-                format!("Current outfit not initialized. Requeueing avatar download...");
-            msg.retry_count += 1;
-            ctx.address().do_send(RetryMessage {
-                retries: msg.retry_count,
-                message: msg,
-                info_message,
-                long_backoff: true,
-            });
-            return;
-        }
-        let avatar = Avatar::new(msg.id, position);
-        session.avatars.insert(msg.id, avatar.clone());
-        let addr = ctx.address();
-
-        if msg.id == session.agent_id {
-            addr.do_send(SendUIMessage {
-                ui_message: UIMessage::new_camera_position(CameraPosition { position }),
-            });
-            let agent_id = session.agent_id;
-            let cache = session.cache.clone();
-            let inventory = session.inventory.clone();
-            ctx.spawn(
-                async move {
-                    let (avatar, outfit_items) = if cache_enabled() {
-                        match cache.avatar.current_outfit(agent_id, inventory).await {
-                            Ok(result) => result,
-                            Err(e) => {
-                                error!("HandleNewAvatar error: {:?}", e);
-                                return;
-                            }
-                        }
-                    } else {
-                        match inventory.get_current_outfit().await {
-                            Ok(outfit_items) => (None, outfit_items),
-                            Err(e) => {
-                                error!("HandleNewAvatarError {:?}", e);
-                                return;
-                            }
-                        }
-                    };
-
-                    if addr
-                        .send(SetOutfitSize {
-                            agent_id,
-                            outfit_size: outfit_items.len(),
-                        })
-                        .await
-                        .is_err()
-                    {
-                        error!("Failed to set outfit size for {:?}", agent_id);
-                        return;
-                    }
-
-                    if let Some(avatar) = avatar {
-                        addr.do_send(LoadFromCache { avatar });
-                        return;
-                    }
-
-                    for item in outfit_items {
-                        match item.item_type {
-                            ObjectType::Object => {
-                                addr.do_send(DownloadAgentAsset {
-                                    asset_id: item.asset_id,
-                                    item_type: item.item_type,
-                                    agent_id,
-                                });
-                            }
-                            ObjectType::Bodypart => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Bodypart,
-                                    agent_id,
-                                });
-                            }
-                            ObjectType::Clothing => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Clothing,
-                                    agent_id,
-                                });
-                            }
-                            _ => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Other,
-                                    agent_id,
-                                });
-                            }
-                        }
-                    }
-                }
-                .into_actor(self),
-            );
-        } else {
-            // TODO: HANDLE NON USER UPDATES
-        }
-    }
-}
+use metaverse_objects::sculpt_objects::handle_sculpt_object;
 
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct MeshObjectUpdate(pub MeshObjectData<TextureEntry, ObjectType>);
 impl Handler<MeshObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: MeshObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: MeshObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -178,7 +53,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         let cache = session.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
-        let downloads = session.downloads.clone();
+        let downloads = self.downloads.clone();
         ctx.spawn(
             async move {
                 match mesh_update(cache, msg.0, out_dir, downloads).await {
@@ -210,11 +85,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntry, PrimPath>);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(
-        &mut self,
-        mut msg: ParametricPrimObjectUpdate,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
+    fn handle(&mut self, msg: ParametricPrimObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -256,6 +127,84 @@ impl Handler<AttachmentObjectUpdate> for Mailbox {
     }
 }
 
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntry, SculptData>);
+impl Handler<SculptObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: SculptObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
+            Some(endpoint) => endpoint.to_string(),
+            None => {
+                msg.0.retry_count += 1;
+                ctx.address().do_send(RetryMessage {
+                    retries: msg.0.retry_count,
+                    message: msg,
+                    long_backoff: true,
+                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
+                        .to_string(),
+                });
+                return;
+            }
+        };
+        let out_dir = session.share_dir_root.clone();
+        let sculpt_id = msg.0.data.texture_id;
+
+        let addr = ctx.address();
+        let base_dir = match create_sub_object_dir(&out_dir, &sculpt_id.to_string()) {
+            Ok(path) => path,
+            Err(e) => {
+                error!(
+                    "Failed to create sub-object directory for sculpt {}: {}",
+                    sculpt_id, e
+                );
+                return;
+            }
+        };
+        ctx.spawn(
+            async move {
+                match handle_texture(base_dir, sculpt_id, server_endpoint).await {
+                    Ok(texture_path) => {
+                        match handle_sculpt_object(&out_dir, texture_path, msg.0).await {
+                            Ok(actions) => {
+                                for action in actions {
+                                    match action {
+                                        ObjectUpdateAction::Render(data) => {
+                                            addr.do_send(RenderObjectMessage(data));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("HandleSculptObject error: {:?}", e)
+                            }
+                        };
+                    }
+                    Err(e) => {
+                        if matches!(e, DownloadError::Retryable { .. }) {
+                            msg.0.retry_count += 1;
+                            addr.do_send(RetryMessage {
+                                retries: msg.0.retry_count,
+                                message: msg,
+                                long_backoff: true,
+                                info_message: format!(
+                                    "Download error {}. Retrying object download...",
+                                    e
+                                ),
+                            });
+                        }
+                    }
+                };
+            }
+            .into_actor(self),
+        );
+    }
+}
+
 /// Message for downloading object update from its capability endpoint
 ///
 /// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh
@@ -294,7 +243,7 @@ impl Handler<DownloadMeshObject> for Mailbox {
         let cache = session.cache.clone();
         let out_dir = session.share_dir_root.clone();
         let semaphore = self.max_concurrent_downloads.clone();
-        let downloads = session.downloads.clone();
+        let downloads = self.downloads.clone();
         ctx.spawn(
             async move {
                 // ensure there aren't more than the permitted amount of downloads happening
@@ -454,13 +403,13 @@ impl Handler<GenerateMeshMessage> for Mailbox {
 
         let cache = session.cache.clone();
         let addr = ctx.address();
-        let downloads = session.downloads.clone();
+        let downloads = self.downloads.clone();
         ctx.spawn(
             async move {
                 match mesh_from_json(cache, msg.0).await {
                     Ok(action) => {
                         if let ObjectUpdateAction::Render(action) = action {
-                            let Some(mesh_path) = action.mesh_path else {
+                            let Some(mesh_path) = action.mesh_path.clone() else {
                                 error!("Generated mesh has no mesh path");
                                 return;
                             };
@@ -470,11 +419,9 @@ impl Handler<GenerateMeshMessage> for Mailbox {
                             if let Some(tx) = downloads.remove(&action.asset_id) {
                                 let _ = tx.send(DownloadState::Complete(mesh_path));
                             }
-                        }
 
-                        //if let ObjectUpdateAction::Render(action) = action {
-                        //    addr.do_send(RenderObjectMessage(action));
-                        //}
+                            addr.do_send(RenderObjectMessage(action));
+                        }
                     }
                     Err(e) => {
                         error!("GenerateMeshMessage error: {:?}", e)
@@ -506,7 +453,11 @@ impl Handler<RenderObjectMessage> for Mailbox {
         };
         let addr = ctx.address();
         let cache = session.cache.clone();
-
+        // check to see if there are any children pending this object
+        let children = self
+            .pending_children
+            .remove(&msg.0.object.local_id)
+            .unwrap_or_default();
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
@@ -540,11 +491,8 @@ impl Handler<RenderObjectMessage> for Mailbox {
                 // if it's the root, just render it.
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
-                        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
-                            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
-
-                        let position = conversion.mul_vec3(msg.object.position);
-                        let rotation = conversion * msg.object.rotation;
+                        let position = COORDINATE_CONVERSION.mul_vec3(msg.object.position);
+                        let rotation = COORDINATE_CONVERSION * msg.object.rotation;
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position,
@@ -558,19 +506,19 @@ impl Handler<RenderObjectMessage> for Mailbox {
                             }),
                         });
 
+                        // loop through and send any pending children.
+                        // if there are no children, this is 0 and it doesn't run.
+                        for child in children {
+                            addr.do_send(child);
+                        }
                         return;
                     }
 
                     Some(id) => id,
                 };
 
-                match cache.object.get_scale_rotation_position(parent_id).await {
-                    Ok((parent_scale, parent_rotation, parent_position)) => {
-                        let rotated_offset = parent_rotation.mul_vec3(msg.object.position);
-
-                        //msg.object.scale = msg.object.scale / parent_scale;
-                        //msg.object.position = msg.object.position / parent_scale;
-
+                match cache.object.get_parent(msg.object.local_id).await {
+                    Ok(_parent) => {
                         addr.do_send(SendUIMessage {
                             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                                 position: msg.object.position,
@@ -586,24 +534,36 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     }
 
                     Err(inventory_error) => {
-                        let info_message = format!(
-                            "Parent {} not ready, requeuing object {}: {}",
+                        warn!(
+                            "Parent {} not ready, queuing child {}: {}",
                             parent_id, msg.object.full_id, inventory_error
                         );
 
-                        msg.retry_count += 1;
-                        let retries = msg.retry_count;
-
-                        addr.do_send(RetryMessage {
+                        addr.do_send(WaitForParent {
+                            parent_id,
                             message: RenderObjectMessage(msg),
-                            long_backoff: false,
-                            info_message,
-                            retries,
                         });
                     }
                 }
             }
             .into_actor(self),
         );
+    }
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct WaitForParent {
+    pub parent_id: u32,
+    pub message: RenderObjectMessage,
+}
+impl Handler<WaitForParent> for Mailbox {
+    type Result = ();
+
+    fn handle(&mut self, msg: WaitForParent, _: &mut Self::Context) {
+        self.pending_children
+            .entry(msg.parent_id)
+            .or_default()
+            .push(msg.message);
     }
 }

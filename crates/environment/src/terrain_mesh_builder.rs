@@ -14,8 +14,8 @@ struct MeshBuilder<'a> {
     grid_size: usize,
 
     vertices: Vec<Vec3>,
-    indices: Vec<u16>,
-    vertex_map: HashMap<(i32, i32, i32), u16>,
+    indices: Vec<u32>,
+    vertex_map: HashMap<(i32, i32, i32), u32>,
 }
 
 impl<'a> MeshBuilder<'a> {
@@ -41,7 +41,7 @@ impl<'a> MeshBuilder<'a> {
         }
     }
 
-    fn add_vertex(&mut self, v: Vec3) -> u16 {
+    fn add_vertex(&mut self, v: Vec3) -> u32 {
         let key = (
             (v.x * 1_000.0) as i32,
             (v.y * 1_000.0) as i32,
@@ -51,7 +51,7 @@ impl<'a> MeshBuilder<'a> {
         if let Some(&i) = self.vertex_map.get(&key) {
             i
         } else {
-            let i = self.vertices.len() as u16;
+            let i = self.vertices.len() as u32;
             self.vertices.push(v);
             self.vertex_map.insert(key, i);
             i

@@ -579,19 +579,28 @@ pub struct SculptData {
     pub texture_id: Uuid,
     /// the type of the sculpt. If the sculpt type is 5, the packet contains a mesh.
     pub sculpt_type: SculptType,
+    /// Whether the sculpt geometry is inverted (bit 6).
+    pub invert: bool,
+
+    /// Whether the sculpt geometry is mirrored (bit 7).
+    pub mirror: bool,
 }
 impl SculptData {
     /// converts bytes to a SculptData object
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
+
         let mut texture_id_bytes = [0u8; 16];
         parse!(cursor.read_exact(&mut texture_id_bytes))?;
         let texture_id = Uuid::from_bytes(texture_id_bytes);
 
-        let sculpt_type = SculptType::from_bytes(&parse!(cursor.read_u8())?);
+        let raw = parse!(cursor.read_u8())?;
+
         Ok(SculptData {
             texture_id,
-            sculpt_type,
+            sculpt_type: SculptType::from_bytes(&(raw & 0x07)),
+            invert: raw & 0x40 != 0,
+            mirror: raw & 0x80 != 0,
         })
     }
 }

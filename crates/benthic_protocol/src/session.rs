@@ -70,11 +70,6 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     pub inventory: Inventory,
     pub cache: Cache,
 
-    /// The list of currently downloading objects.
-    /// this contains a UUID of the object downloading, along with a receiver that other
-    /// objectupdats can subscribe to, in order to wake up when the download is complete.
-    pub downloads: Arc<Mutex<HashMap<Uuid, watch::Sender<DownloadState>>>>,
-
     pub share_dir_root: PathBuf,
 }
 

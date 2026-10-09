@@ -41,6 +41,21 @@ pub struct MeshObjectData<TextureEntry, ObjectType> {
     pub region_id: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct SculptObjectData<TextureEntry, SculptData> {
+    pub full_id: Uuid,
+    pub parent: Option<u32>,
+    pub local_id: u32,
+    pub position: Vec3,
+    pub data: SculptData,
+    pub rotation: Quat,
+    pub scale: Vec3,
+    pub texture: Option<TextureEntry>,
+    pub crc: u32,
+    pub region_id: String,
+    pub retry_count: u32,
+}
+
 pub struct TreeObjectData {}
 
 pub struct GrassObjectData {}

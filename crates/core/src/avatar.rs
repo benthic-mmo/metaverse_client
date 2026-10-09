@@ -1,6 +1,8 @@
 use super::session::Mailbox;
+use crate::COORDINATE_CONVERSION;
 use crate::session::{RetryMessage, SendUIMessage};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
@@ -22,6 +24,119 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+#[derive(Message, Clone)]
+#[rtype(result = "()")]
+pub struct AvatarObjectUpdate {
+    pub id: Uuid,
+    pub position: Vec3,
+    pub retry_count: u32,
+}
+impl Handler<AvatarObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+
+        if !session.inventory_data.current_outfit_init {
+            let info_message =
+                "Current outfit not initialized. Requeueing avatar download...".to_string();
+            msg.retry_count += 1;
+            ctx.address().do_send(RetryMessage {
+                retries: msg.retry_count,
+                message: msg,
+                info_message,
+                long_backoff: true,
+            });
+            return;
+        }
+        let avatar = Avatar::new(msg.id, msg.position);
+        session.avatars.insert(msg.id, avatar.clone());
+        let addr = ctx.address();
+
+        if msg.id == session.agent_id {
+            addr.do_send(SendUIMessage {
+                ui_message: UIMessage::new_camera_position(CameraPosition {
+                    position: COORDINATE_CONVERSION.mul_vec3(msg.position),
+                }),
+            });
+            let agent_id = session.agent_id;
+            let cache = session.cache.clone();
+            let inventory = session.inventory.clone();
+            ctx.spawn(
+                async move {
+                    let (avatar, outfit_items) = if cache_enabled() {
+                        match cache.avatar.current_outfit(agent_id, inventory).await {
+                            Ok(result) => result,
+                            Err(e) => {
+                                error!("HandleNewAvatar error: {:?}", e);
+                                return;
+                            }
+                        }
+                    } else {
+                        match inventory.get_current_outfit().await {
+                            Ok(outfit_items) => (None, outfit_items),
+                            Err(e) => {
+                                error!("HandleNewAvatarError {:?}", e);
+                                return;
+                            }
+                        }
+                    };
+
+                    if addr
+                        .send(SetOutfitSize {
+                            agent_id,
+                            outfit_size: outfit_items.len(),
+                        })
+                        .await
+                        .is_err()
+                    {
+                        error!("Failed to set outfit size for {:?}", agent_id);
+                        return;
+                    }
+
+                    if let Some(avatar) = avatar {
+                        addr.do_send(LoadFromCache { avatar });
+                        return;
+                    }
+
+                    for item in outfit_items {
+                        match item.item_type {
+                            ObjectType::Object => {
+                                addr.do_send(DownloadAgentAsset {
+                                    asset_id: item.asset_id,
+                                    item_type: item.item_type,
+                                    agent_id,
+                                });
+                            }
+                            ObjectType::Bodypart => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Bodypart,
+                                    agent_id,
+                                });
+                            }
+                            ObjectType::Clothing => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Clothing,
+                                    agent_id,
+                                });
+                            }
+                            _ => {
+                                addr.do_send(AddObjectToAvatar {
+                                    object: OutfitObject::Other,
+                                    agent_id,
+                                });
+                            }
+                        }
+                    }
+                }
+                .into_actor(self),
+            );
+        } else {
+            // TODO: HANDLE NON USER UPDATES
+        }
+    }
+}
 /// Requests Agent data from the ViewerAsset capability endpoint
 ///
 /// These are requested from inventory objects, and not ObjectUpdate packets.
@@ -159,9 +274,7 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let skeleton = avatar.skeleton.clone();
         let used_joints = avatar.used_joints.clone();
         let items = avatar.items.clone();
-        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
-            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
-        let position = conversion.mul_vec3(avatar.position);
+        let position = COORDINATE_CONVERSION.mul_vec3(avatar.position);
         let cache = session.cache.clone();
         let base_dir = session.share_dir_root.clone();
         let mut avatar = avatar.clone();
@@ -228,9 +341,8 @@ impl Handler<LoadFromCache> for Mailbox {
         session
             .avatars
             .insert(msg.avatar.agent_id, msg.avatar.clone());
-        let conversion = Quat::from_rotation_z(std::f32::consts::PI)
-            * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
-        let position = conversion.mul_vec3(msg.avatar.position);
+
+        let position = COORDINATE_CONVERSION.mul_vec3(msg.avatar.position);
         // render the cached avatar
         ctx.address().do_send(RenderAvatar {
             message: MeshUpdate {

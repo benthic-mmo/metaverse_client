@@ -7,7 +7,7 @@ use benthic_protocol::{
 use glam::{Vec2, Vec3};
 use metaverse_avatar::{
     avatar::{Avatar, OutfitObject},
-    avatar_object_handler::{AvatarState, add_object_to_avatar, finalize_avatar, init_avatar},
+    avatar_object_handler::{AvatarState, add_object_to_avatar, finalize_avatar},
 };
 use metaverse_messages::http::{mesh::Mesh, scene::SceneGroup};
 use metaverse_objects::object_handler::create_render_object;
@@ -87,8 +87,6 @@ pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (),
 
         #[cfg(feature = "avatar")]
         avatars: HashMap::new(),
-
-        downloads: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     }
 }
 
@@ -181,7 +179,7 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
     let mut avatar = Avatar::new(AGENT_ID, Vec3::ZERO);
     avatar.outfit_size = 4;
 
-    init_avatar(&mut session, &avatar).unwrap();
+    session.avatars.insert(avatar.agent_id, avatar.clone());
 
     let scene_groups_path =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/raw_server_data/scenegroups");
