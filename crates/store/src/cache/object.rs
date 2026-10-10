@@ -5,7 +5,10 @@ use benthic_protocol::objects::{GeneratorObject, MeshObjectData};
 use glam::{Quat, Vec3};
 use metaverse_messages::{
     udp::object::object_update::ExtraParams,
-    utils::{object_types::ObjectType, texture_entry::TextureEntry},
+    utils::{
+        object_types::ObjectType,
+        texture_entry::{TextureEntries, TextureEntry},
+    },
 };
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
@@ -238,7 +241,7 @@ impl ObjectCache {
 
     pub async fn update(
         &self,
-        object: MeshObjectData<TextureEntry, ObjectType>,
+        object: MeshObjectData<TextureEntries, ObjectType>,
     ) -> Result<(), InventoryError> {
         let parent_id = object.parent.unwrap_or(0);
         let rotation = object.rotation.normalize();

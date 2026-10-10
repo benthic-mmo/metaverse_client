@@ -17,7 +17,6 @@ use std::{
     fs,
     net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 use uuid::{Uuid, uuid};
 
@@ -114,12 +113,19 @@ fn mock_from_xml(
         let mesh_bytes = fs::read(&mesh_path)?;
         let mesh = Mesh::from_bytes(&mesh_bytes)?;
 
-        let texture_path = texture_dir.join(format!("{}.png", part.shape.texture.texture_id));
+        let mut texture_paths = HashMap::new();
 
+        let texture_path =
+            texture_dir.join(format!("{}.png", part.shape.texture.default.texture_id));
+        texture_paths.insert(u32::MAX, texture_path);
+        for (face_index, face) in &part.shape.texture.faces {
+            let texture_path = texture_dir.join(format!("{}.png", face.texture_id));
+            texture_paths.insert(*face_index, texture_path);
+        }
         let render_object = create_render_object(
             mesh,
             part.metadata.name.clone(),
-            &texture_path,
+            texture_paths,
             part.sculpt.texture,
         )?;
 

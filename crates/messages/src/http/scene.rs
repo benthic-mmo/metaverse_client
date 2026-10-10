@@ -1,6 +1,7 @@
 use crate::errors::SceneObjectParseError;
 use crate::parse;
 use crate::utils::path::{HollowShape, PathCurve, ProfileShape};
+use crate::utils::texture_entry::TextureEntries;
 use crate::{
     errors::ParseError,
     utils::{
@@ -9,7 +10,6 @@ use crate::{
         object_types::ObjectType,
         path::PrimPath,
         sound::AttachedSound,
-        texture_entry::TextureEntry,
     },
 };
 use glam::{Quat, Vec3, Vec4, bool};
@@ -153,7 +153,7 @@ pub struct Shape {
     /// Contains information about how the object emits lights.
     pub light: Light,
     /// Informaiton about the shape's texture
-    pub texture: TextureEntry,
+    pub texture: TextureEntries,
     /// TODO: Not handled yet
     pub texture_animation: Vec<u8>,
     /// TODO: not handled yet
@@ -413,8 +413,7 @@ impl SceneObject {
         macro_rules! parse_texture_entry {
             ($value:expr) => {{
                 let value = &$value;
-
-                TextureEntry::from_b64(value.as_bytes()).map_err(|e| {
+                TextureEntries::from_b64(value.as_bytes()).map_err(|e| {
                     ParseError::SceneObjectParse(SceneObjectParseError::new(
                         "TextureEntry",
                         value,

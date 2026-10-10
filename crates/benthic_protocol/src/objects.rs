@@ -12,7 +12,7 @@ pub struct GeneratorObject {
 }
 
 #[derive(Clone, Debug)]
-pub struct MeshObjectData<TextureEntry, ObjectType> {
+pub struct MeshObjectData<TextureEntries, ObjectType> {
     /// Type of the object. Required for retrieving full data from the capability endpoint
     pub object_type: ObjectType,
     /// The full ID of the object
@@ -31,7 +31,7 @@ pub struct MeshObjectData<TextureEntry, ObjectType> {
     pub parent: Option<u32>,
 
     /// Object's texture data
-    pub texture: Option<TextureEntry>,
+    pub texture: Option<TextureEntries>,
 
     pub sculpt_id: Uuid,
 
@@ -42,7 +42,7 @@ pub struct MeshObjectData<TextureEntry, ObjectType> {
 }
 
 #[derive(Debug, Clone)]
-pub struct SculptObjectData<TextureEntry, SculptData> {
+pub struct SculptObjectData<TextureEntries, SculptData> {
     pub full_id: Uuid,
     pub parent: Option<u32>,
     pub local_id: u32,
@@ -50,7 +50,7 @@ pub struct SculptObjectData<TextureEntry, SculptData> {
     pub data: SculptData,
     pub rotation: Quat,
     pub scale: Vec3,
-    pub texture: Option<TextureEntry>,
+    pub texture: Option<TextureEntries>,
     pub crc: u32,
     pub region_id: String,
     pub retry_count: u32,
@@ -71,13 +71,14 @@ pub struct AttachmentObjectData {
 }
 
 #[derive(Clone, Debug)]
-pub struct ParametricPrimData<TextureEntry, PrimPath> {
+pub struct ParametricPrimData<TextureEntries, PrimPath> {
     pub full_id: Uuid,
     pub local_id: u32,
     pub scale: Vec3,
     pub position: Vec3,
     pub rotation: Quat,
     pub parent: Option<u32>,
-    pub texture: Option<TextureEntry>,
+    pub texture: Option<TextureEntries>,
     pub path_data: PrimPath,
+    pub retry_count: u32,
 }

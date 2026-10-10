@@ -12,7 +12,7 @@ use metaverse_messages::{
         object_update::AttachItem, object_update_cached::CachedObjectData,
         request_multiple_objects::CacheMissType,
     },
-    utils::{object_types::ObjectType, texture_entry::TextureEntry},
+    utils::{object_types::ObjectType, texture_entry::TextureEntries},
 };
 use metaverse_store::initialize_sqlite::Cache;
 use tokio::sync::{
@@ -55,7 +55,7 @@ pub enum CacheResult {
 
 #[derive(Debug)]
 pub struct DownloadMeshObjectData {
-    pub object: MeshObjectData<TextureEntry, ObjectType>,
+    pub object: MeshObjectData<TextureEntries, ObjectType>,
     pub retry_count: u32,
 }
 
@@ -122,7 +122,7 @@ pub async fn object_update_cached(
 
 pub async fn mesh_update(
     cache: Cache,
-    object: MeshObjectData<TextureEntry, ObjectType>,
+    object: MeshObjectData<TextureEntries, ObjectType>,
     out_dir: PathBuf,
     downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {

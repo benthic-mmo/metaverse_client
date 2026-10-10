@@ -16,7 +16,7 @@ use crate::{
     udp::object::util::{ObjectFlag, ObjectUpdateData},
     utils::{
         material::MaterialType, object_types::ObjectType, path::PrimPath, sound::AttachedSound,
-        texture_entry::TextureEntry,
+        texture_entry::TextureEntries,
     },
 };
 use std::io::{Cursor, Read};
@@ -72,7 +72,7 @@ pub struct ObjectUpdate {
     /// Strores imformation about primitive geometry
     pub primitive_geometry: PrimPath,
     /// Full property list for each object's face, including textures and colors.
-    pub texture_entry: Option<TextureEntry>,
+    pub texture_entry: Option<TextureEntries>,
     /// Properties to set up texture animations for each face
     pub texture_anim: Vec<u8>,
     /// Any name values specific to the object. Mostly used for avatar names.
@@ -124,7 +124,7 @@ impl ObjectUpdateData for ObjectUpdate {
     fn scale(&self) -> Vec3 {
         self.scale
     }
-    fn texture(&self) -> &Option<TextureEntry> {
+    fn texture(&self) -> &Option<TextureEntries> {
         &self.texture_entry
     }
     fn crc(&self) -> u32 {
@@ -188,7 +188,7 @@ impl PacketData for ObjectUpdate {
         let texture_entry_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut texture_entry_bytes = vec![0u8; texture_entry_length as usize];
         parse!(cursor.read_exact(&mut texture_entry_bytes))?;
-        let texture_entry = Some(TextureEntry::from_bytes(&texture_entry_bytes)?);
+        let texture_entry = Some(TextureEntries::from_bytes(&texture_entry_bytes)?);
 
         let texture_anim_length = parse!(cursor.read_u8())?;
         let mut texture_anim = vec![0u8; texture_anim_length as usize];

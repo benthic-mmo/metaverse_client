@@ -295,6 +295,7 @@ async fn classify_object_update(
                             parent: object.parent_id(),
                             texture: object.texture().clone(),
                             path_data: path,
+                            retry_count: 0,
                         }));
                     } else {
                         error!("No path data found for parametric prim.");

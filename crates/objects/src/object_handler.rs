@@ -1,17 +1,15 @@
-use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::GeneratorObject,
-    render_data::{RenderObject, SkinData},
+    render_data::{RenderFace, RenderObject, SkinData},
     session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::{Skeleton, SkinJoint},
 };
-use glam::Vec3;
 use log::{info, warn};
 use metaverse_avatar::skeleton::create_skeleton;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::{http::mesh::Mesh, utils::object_types::ObjectType};
 use metaverse_store::initialize_sqlite::Cache;
-use std::path::{Path, PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 use crate::{
@@ -55,16 +53,31 @@ pub async fn download_mesh_object(
         .await?,
     )?;
 
-    let texture_path = if let Some(ref texture) = data.object.texture {
-        handle_texture(base_dir.clone(), texture.texture_id, server_endpoint).await?
-    } else {
-        default_texture_path()
-    };
+    let mut texture_paths = HashMap::new();
+    if let Some(texture) = &data.object.texture {
+        let texture_path = handle_texture(
+            base_dir.to_path_buf(),
+            texture.default.texture_id,
+            server_endpoint.clone(),
+        )
+        .await?;
+        texture_paths.insert(u32::MAX, texture_path);
+        for (face_index, face) in &texture.faces {
+            let texture_path = handle_texture(
+                base_dir.to_path_buf(),
+                face.texture_id,
+                server_endpoint.clone(),
+            )
+            .await?;
+
+            texture_paths.insert(*face_index, texture_path);
+        }
+    }
 
     let render_object = create_render_object(
         mesh,
         "name".to_string(),
-        &texture_path,
+        texture_paths,
         data.object.sculpt_id,
     )?;
 
@@ -123,81 +136,90 @@ pub async fn mesh_from_json(
 pub fn create_render_object(
     mesh: Mesh,
     name: String,
-    texture_path: &Path,
+    texture_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<RenderObject, DownloadError> {
-    let domain = &mesh.high_level_of_detail.texture_coordinate_domain;
-    let uvs: Vec<[f32; 2]> = mesh
+    let skin = mesh.skin.as_ref();
+
+    let faces = mesh
         .high_level_of_detail
-        .texture_coordinate
         .iter()
-        .map(|tc| {
-            // Normalize U and V from 0..65535 to 0..1
-            let u_norm = tc.u as f32 / 65535.0;
-            let v_norm = tc.v as f32 / 65535.0;
-            [
-                domain.min[0] + u_norm * (domain.max[0] - domain.min[0]),
-                // we need to flip this to make these render correctly in GLTF.
-                1.0 - (domain.min[1] + v_norm * (domain.max[1] - domain.min[1])),
-            ]
+        .enumerate()
+        .filter(|(_, face)| !face.no_geometry)
+        .map(|(face_index, face)| {
+            let domain = &face.texture_coordinate_domain;
+
+            let uv = face
+                .texture_coordinate
+                .iter()
+                .map(|tc| {
+                    let u = tc.u as f32 / 65535.0;
+                    let v = tc.v as f32 / 65535.0;
+
+                    [
+                        domain.min[0] + u * (domain.max[0] - domain.min[0]),
+                        1.0 - (domain.min[1] + v * (domain.max[1] - domain.min[1])),
+                    ]
+                })
+                .collect();
+
+            let vertices = face
+                .vertices
+                .iter()
+                .map(|vertex| {
+                    skin.map_or(*vertex, |skin| {
+                        skin.bind_shape_matrix.transform_point3(*vertex)
+                    })
+                })
+                .collect();
+
+            RenderFace {
+                face_index: face_index as u32,
+                vertices,
+                indices: face.indices.clone(),
+                uv,
+                normals: face.normals.clone(),
+                texture: texture_paths
+                    .get(&(face_index as u32))
+                    .or_else(|| texture_paths.get(&u32::MAX))
+                    .cloned(),
+                weights: face.weights.clone(),
+            }
         })
         .collect();
 
-    let object = if let Some(skin) = &mesh.skin {
-        // Apply bind shape matrix
-        let vertices = mesh
-            .high_level_of_detail
-            .vertices
-            .iter()
-            .map(|v| skin.bind_shape_matrix.transform_point3(*v))
-            .collect::<Vec<_>>();
-
+    let skin_data = if let Some(skin) = skin {
         let skeleton = create_skeleton(name.clone(), asset_id, skin).unwrap_or_else(|e| {
             warn!("Failed to create skeleton: {:?}", e);
             Skeleton::default()
         });
 
-        let skin_data = SkinData {
+        Some(SkinData {
             skeleton,
             weights: mesh
                 .high_level_of_detail
-                .weights
-                .clone()
-                .unwrap_or_default(),
+                .iter()
+                .filter(|face| !face.no_geometry)
+                .flat_map(|face| face.weights.clone().unwrap_or_default())
+                .collect(),
             joint_names: skin
                 .joints
                 .iter()
                 .filter_map(|joint| match joint {
                     SkinJoint::Joint(name) => Some(*name),
-                    SkinJoint::Collision(_) => None,
                     _ => None,
                 })
                 .collect(),
             inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
-        };
-
-        RenderObject {
-            name,
-            id: asset_id,
-            indices: mesh.high_level_of_detail.indices,
-            vertices,
-            skin: Some(skin_data),
-            texture: Some(texture_path.to_path_buf()),
-            uv: Some(uvs),
-            normals: mesh.high_level_of_detail.normals,
-        }
+        })
     } else {
-        let vertices: Vec<Vec3> = mesh.high_level_of_detail.vertices;
-        RenderObject {
-            name,
-            id: asset_id,
-            indices: mesh.high_level_of_detail.indices,
-            vertices,
-            skin: None,
-            texture: Some(texture_path.to_path_buf()),
-            uv: Some(uvs),
-            normals: mesh.high_level_of_detail.normals,
-        }
+        None
     };
-    Ok(object)
+
+    Ok(RenderObject {
+        name,
+        id: asset_id,
+        faces,
+        skin: skin_data,
+    })
 }
