@@ -1,5 +1,5 @@
 use crate::land::Land;
-use benthic_protocol::render_data::RenderObject;
+use benthic_protocol::render_data::{RenderFace, RenderObject};
 use glam::Vec3;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -236,13 +236,17 @@ pub fn build_terrain(
     builder.build();
 
     RenderObject {
-        vertices: builder.vertices,
-        indices: builder.indices,
-        id: Uuid::nil(),
         name: layer.terrain_header.location.to_string(),
+        id: Uuid::nil(),
+        faces: vec![RenderFace {
+            face_index: 0,
+            vertices: builder.vertices,
+            indices: builder.indices,
+            uv: Vec::new(),
+            normals: None,
+            texture: None,
+            weights: None,
+        }],
         skin: None,
-        texture: None,
-        uv: None,
-        normals: None,
     }
 }

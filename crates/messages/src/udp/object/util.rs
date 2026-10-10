@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     udp::object::object_update::ExtraParams,
-    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntry},
+    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
 /// this trait unifies the ObjectUpdate packets to allow using them as a single object.
 pub trait ObjectUpdateData {
@@ -16,7 +16,7 @@ pub trait ObjectUpdateData {
     fn position(&self) -> Vec3;
     fn rotation(&self) -> Quat;
     fn scale(&self) -> Vec3;
-    fn texture(&self) -> &Option<TextureEntry>;
+    fn texture(&self) -> &Option<TextureEntries>;
     fn crc(&self) -> u32;
     fn extra_params(&self) -> Option<&[ExtraParams]>;
     fn sculpt_path(&self) -> Option<PrimPath>;

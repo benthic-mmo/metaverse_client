@@ -19,26 +19,22 @@ pub struct JointWeight {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-/// This contains required data that will be used for rendering.
-pub struct RenderObject {
-    /// Name of the object to render
-    pub name: String,
-    /// ID of the object to render
-    pub id: Uuid,
-    /// full list of vertices
+pub struct RenderFace {
+    pub face_index: u32,
     pub vertices: Vec<Vec3>,
-    /// full list of indices
-    /// This contains information on where in the triangle each of your vertices are. This saves
-    /// space by not duplicating vertices and allows the renderer to handle building the triangles.
     pub indices: Vec<u32>,
-    /// The skeleton of the object.
-    pub skin: Option<SkinData>,
-    /// The optional png texture of the object
-    pub texture: Option<PathBuf>,
-    /// UV values for applying textures
-    pub uv: Option<Vec<[f32; 2]>>,
-    /// Normal values
+    pub uv: Vec<[f32; 2]>,
     pub normals: Option<Vec<Vec3>>,
+    pub texture: Option<PathBuf>,
+    pub weights: Option<Vec<JointWeight>>,
+}
+/// This contains required data that will be used for rendering.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct RenderObject {
+    pub name: String,
+    pub id: Uuid,
+    pub faces: Vec<RenderFace>,
+    pub skin: Option<SkinData>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

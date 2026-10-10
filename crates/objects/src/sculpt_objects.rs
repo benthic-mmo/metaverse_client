@@ -2,14 +2,14 @@ use std::path::PathBuf;
 
 use benthic_protocol::{
     objects::{GeneratorObject, SculptObjectData},
-    render_data::RenderObject,
+    render_data::{RenderFace, RenderObject},
     session::cache_enabled,
 };
 use glam::Vec3;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::{
     http::scene::SculptType, udp::object::object_update::SculptData,
-    utils::texture_entry::TextureEntry,
+    utils::texture_entry::TextureEntries,
 };
 use uuid::Uuid;
 
@@ -21,7 +21,7 @@ use crate::{
 pub async fn handle_sculpt_object(
     out_dir: &PathBuf,
     texture_path: PathBuf,
-    object: SculptObjectData<TextureEntry, SculptData>,
+    object: SculptObjectData<TextureEntries, SculptData>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let image = image::open(&texture_path)?.into_rgb8();
     let (width, height) = image.dimensions();
@@ -139,12 +139,16 @@ pub async fn handle_sculpt_object(
             let render_object = RenderObject {
                 name: "Prim".to_string(),
                 id: object.full_id,
-                vertices,
-                indices,
+                faces: vec![RenderFace {
+                    face_index: 0,
+                    vertices,
+                    indices,
+                    uv: Vec::new(),
+                    normals: Some(normals),
+                    texture: None,
+                    weights: None,
+                }],
                 skin: None,
-                texture: None,
-                uv: None,
-                normals: Some(normals),
             };
 
             let json = serde_json::to_vec_pretty(&render_object)?;

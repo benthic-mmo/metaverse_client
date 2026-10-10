@@ -6,12 +6,13 @@ use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::http::{item::Item, scene::SceneGroup};
 use metaverse_messages::utils::object_types::ObjectType;
+use std::collections::HashMap;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::errors::DownloadError;
-use crate::object_handler::create_render_object;
+use crate::object_handler::{create_render_object, handle_texture};
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object using the object's asset ID.
 /// Creates a get request in the format of
@@ -118,17 +119,31 @@ pub async fn download_texture(
 pub async fn download_scene_group(
     scene_group: &SceneGroup,
     url: &str,
-    texture_path: &Path,
+    base_dir: &Path,
+    server_endpoint: String,
 ) -> Result<Vec<RenderObject>, DownloadError> {
     let mut render_objects = Vec::new();
+
     for scene in &scene_group.parts {
+        let mut texture_paths = HashMap::new();
+        for (&face_index, face) in &scene.shape.texture.faces {
+            let texture_path = handle_texture(
+                base_dir.to_path_buf(),
+                face.texture_id,
+                server_endpoint.clone(),
+            )
+            .await?;
+
+            texture_paths.insert(face_index, texture_path);
+        }
+
         if scene.sculpt.sculpt_type == SculptType::Mesh {
             let mesh =
                 download_mesh(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?;
             render_objects.push(create_render_object(
                 mesh,
                 scene.metadata.name.clone(),
-                texture_path,
+                texture_paths,
                 scene.sculpt.texture,
             )?)
         } else {

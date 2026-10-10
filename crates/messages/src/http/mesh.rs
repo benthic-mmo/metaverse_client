@@ -25,17 +25,18 @@ pub struct Mesh {
     pub position: Option<Vec3>,
     /// Data for rendering the highest level of detail. This contains the most polygons.
     /// This is the default level of detail, and must be present.
-    pub high_level_of_detail: MeshGeometry,
+    /// This is stored as a vec of Faces. Each face can have its own geometry, UVs, and textures.
+    pub high_level_of_detail: Vec<MeshGeometry>,
     /// Data for rendering a medium level of detail. This is a lower resolution version of the
     /// model.
-    pub medium_level_of_detail: Option<MeshGeometry>,
+    pub medium_level_of_detail: Option<Vec<MeshGeometry>>,
     /// Data for rendering a low level of detail. This is an even lower resolution version of the
     /// model.
-    pub low_level_of_detail: Option<MeshGeometry>,
+    pub low_level_of_detail: Option<Vec<MeshGeometry>>,
     /// Data for rendering the lowest level of detail. This gives only a vague impression of the
     /// shape.
-    pub lowest_level_of_detail: Option<MeshGeometry>,
-    /// This is a physics representation taht uses convex hull approximation for collision and
+    pub lowest_level_of_detail: Option<Vec<MeshGeometry>>,
+    /// This is a physics representation that uses convex hull approximation for collision and
     /// physics simulation.
     pub physics_convex: Option<Vec<u8>>,
     /// This is the skinning information, which tells the mesh how to deform based on the avatar's
@@ -216,16 +217,21 @@ pub struct MeshGeometry {
 }
 
 impl MeshGeometry {
-    fn from_llsd(data: LLSDValue, skin: &Option<Skin>) -> Result<Self, ParseError> {
+    fn from_llsd(data: LLSDValue, skin: &Option<Skin>) -> Result<Vec<Self>, ParseError> {
         let array = data
             .as_array()
             .ok_or_else(|| ParseError::missing_field("Expected top level array"))?;
 
-        // this length is always one.
-        let map = array
-            .first()
-            .and_then(LLSDValue::as_map)
-            .ok_or_else(|| ParseError::missing_field("Expected map inside array"))?;
+        array
+            .iter()
+            .map(|face| Self::from_face_llsd(face, skin))
+            .collect()
+    }
+
+    fn from_face_llsd(data: &LLSDValue, skin: &Option<Skin>) -> Result<Self, ParseError> {
+        let map = data
+            .as_map()
+            .ok_or_else(|| ParseError::missing_field("Expected top level array"))?;
 
         // Some faces have no geometry.
         if matches!(map.get("NoGeometry"), Some(LLSDValue::Boolean(true))) {

@@ -22,9 +22,13 @@ pub async fn download_asset_objects(
     let scene_group = download_object(object_type.to_string(), asset_id, server_endpoint).await?;
     let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
 
-    let texture_id = scene_group.parts[0].shape.texture.texture_id;
-    let texture_path = handle_texture(base_dir, texture_id, server_endpoint.to_string()).await?;
-    let render_objects = download_scene_group(&scene_group, server_endpoint, &texture_path).await?;
+    let render_objects = download_scene_group(
+        &scene_group,
+        server_endpoint,
+        &base_dir,
+        server_endpoint.to_string(),
+    )
+    .await?;
 
     let json_path = format!(
         "{:?}_{}",

@@ -1,21 +1,26 @@
-use std::{f32::consts::TAU, path::PathBuf};
+use std::{
+    collections::HashMap,
+    f32::consts::TAU,
+    path::{Path, PathBuf},
+};
 
 use benthic_protocol::{
     objects::{GeneratorObject, ParametricPrimData},
-    render_data::RenderObject,
+    render_data::{RenderFace, RenderObject},
     session::{cache_enabled, create_sub_object_dir},
 };
 use glam::Vec3;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::utils::{
     path::{HollowShape, PathCurve, PrimPath, ProfileShape},
-    texture_entry::TextureEntry,
+    texture_entry::TextureEntries,
 };
 use metaverse_store::initialize_sqlite::Cache;
 use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
+    object_handler::handle_texture,
     object_updates::{ObjectUpdateAction, RenderObjectData},
 };
 
@@ -23,11 +28,33 @@ use crate::{
 struct MeshLayer(Vec<Vec3>);
 
 pub async fn handle_parametric_prim(
-    cache: &Cache,
-    out_dir: &PathBuf,
-    object: &ParametricPrimData<TextureEntry, PrimPath>,
+    out_dir: &Path,
+    object: &ParametricPrimData<TextureEntries, PrimPath>,
+    server_endpoint: String,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let mut actions: Vec<ObjectUpdateAction> = Vec::new();
+
+    let mut texture_paths = HashMap::new();
+    if let Some(texture) = &object.texture {
+        let texture_path = handle_texture(
+            out_dir.to_path_buf(),
+            texture.default.texture_id,
+            server_endpoint.clone(),
+        )
+        .await?;
+        texture_paths.insert(u32::MAX, texture_path);
+        for (face_index, face) in &texture.faces {
+            let texture_path = handle_texture(
+                out_dir.to_path_buf(),
+                face.texture_id,
+                server_endpoint.clone(),
+            )
+            .await?;
+
+            texture_paths.insert(*face_index, texture_path);
+        }
+    }
+
     let profile_layer = build_profile(
         object.path_data.hollow_shape,
         object.path_data.profile_hollow,
@@ -53,14 +80,17 @@ pub async fn handle_parametric_prim(
             let render_object = RenderObject {
                 name: "Prim".to_string(),
                 id: object.full_id,
-                vertices,
-                indices,
+                faces: vec![RenderFace {
+                    face_index: 0,
+                    vertices,
+                    indices,
+                    uv: Vec::new(),
+                    normals: Some(normals),
+                    texture: None,
+                    weights: None,
+                }],
                 skin: None,
-                texture: None,
-                uv: None,
-                normals: Some(normals),
             };
-
             let json = serde_json::to_vec_pretty(&render_object)?;
             std::fs::write(&file_path, json)?;
         }

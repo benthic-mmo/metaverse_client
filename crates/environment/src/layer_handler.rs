@@ -77,8 +77,8 @@ pub fn handle_layer<C, A, U, I, X>(
                     let scale = land.terrain_header.patch_size as f32;
                     let json_path = write_json(
                         &LandData {
-                            vertices: mesh.vertices,
-                            indices: mesh.indices,
+                            vertices: mesh.faces[0].vertices.clone(),
+                            indices: mesh.faces[0].indices.clone(),
                             position: Vec3 {
                                 x: (coordinate.x as f32) * scale,
                                 y: (coordinate.y as f32) * scale,

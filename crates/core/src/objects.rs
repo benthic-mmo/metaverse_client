@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::session::Mailbox;
 #[cfg(feature = "z-up")]
 use crate::COORDINATE_CONVERSION;
@@ -26,7 +28,7 @@ use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::path::PrimPath;
-use metaverse_messages::utils::texture_entry::TextureEntry;
+use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::errors::DownloadError;
 use metaverse_objects::object_handler::download_mesh_object;
 use metaverse_objects::object_handler::handle_texture;
@@ -42,7 +44,7 @@ use metaverse_objects::sculpt_objects::handle_sculpt_object;
 
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct MeshObjectUpdate(pub MeshObjectData<TextureEntry, ObjectType>);
+pub struct MeshObjectUpdate(pub MeshObjectData<TextureEntries, ObjectType>);
 impl Handler<MeshObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: MeshObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
@@ -82,19 +84,37 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntry, PrimPath>);
+pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: ParametricPrimObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        mut msg: ParametricPrimObjectUpdate,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let cache = session.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
+            Some(endpoint) => endpoint.to_string(),
+            None => {
+                msg.0.retry_count += 1;
+                ctx.address().do_send(RetryMessage {
+                    retries: msg.0.retry_count,
+                    message: msg,
+                    long_backoff: true,
+                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
+                        .to_string(),
+                });
+                return;
+            }
+        };
+
         ctx.spawn(
             async move {
-                match handle_parametric_prim(&cache, &out_dir, &msg.0).await {
+                match handle_parametric_prim(&out_dir, &msg.0, server_endpoint).await {
                     Ok(actions) => {
                         for action in actions {
                             match action {
@@ -129,7 +149,7 @@ impl Handler<AttachmentObjectUpdate> for Mailbox {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntry, SculptData>);
+pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
 impl Handler<SculptObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: SculptObjectUpdate, ctx: &mut Self::Context) -> Self::Result {

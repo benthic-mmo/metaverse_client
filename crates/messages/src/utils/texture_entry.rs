@@ -11,6 +11,47 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{errors::ParseError, parse};
+use bitflags::bitflags;
+
+bitflags! {
+    /// textures can target more than one face at a time. This bitflags struct allows for checking
+    /// which faces the texture targets.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct FaceIndices: u32 {
+        const FACE_0  = 1 << 0;
+        const FACE_1  = 1 << 1;
+        const FACE_2  = 1 << 2;
+        const FACE_3  = 1 << 3;
+        const FACE_4  = 1 << 4;
+        const FACE_5  = 1 << 5;
+        const FACE_6  = 1 << 6;
+        const FACE_7  = 1 << 7;
+        const FACE_8  = 1 << 8;
+        const FACE_9  = 1 << 9;
+        const FACE_10 = 1 << 10;
+        const FACE_11 = 1 << 11;
+        const FACE_12 = 1 << 12;
+        const FACE_13 = 1 << 13;
+        const FACE_14 = 1 << 14;
+        const FACE_15 = 1 << 15;
+        const FACE_16 = 1 << 16;
+        const FACE_17 = 1 << 17;
+        const FACE_18 = 1 << 18;
+        const FACE_19 = 1 << 19;
+        const FACE_20 = 1 << 20;
+        const FACE_21 = 1 << 21;
+        const FACE_22 = 1 << 22;
+        const FACE_23 = 1 << 23;
+        const FACE_24 = 1 << 24;
+        const FACE_25 = 1 << 25;
+        const FACE_26 = 1 << 26;
+        const FACE_27 = 1 << 27;
+        const FACE_28 = 1 << 28;
+        const FACE_29 = 1 << 29;
+        const FACE_30 = 1 << 30;
+        const FACE_31 = 1 << 31;
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// the texture data for an object
@@ -56,8 +97,50 @@ impl Default for TextureEntry {
         }
     }
 }
-
 impl TextureEntry {
+    fn inherit_missing(&mut self, base: &TextureEntry) {
+        if self.texture_id.is_nil() {
+            self.texture_id = base.texture_id;
+        }
+        if self.rgba == Rgba::default() {
+            self.rgba = base.rgba;
+        }
+        if self.repeat_u == 0.0 {
+            self.repeat_u = base.repeat_u;
+        }
+        if self.repeat_v == 0.0 {
+            self.repeat_v = base.repeat_v;
+        }
+        if self.offset_u == 0.0 {
+            self.offset_u = base.offset_u;
+        }
+        if self.offset_v == 0.0 {
+            self.offset_v = base.offset_v;
+        }
+        if self.rotation == 0.0 {
+            self.rotation = base.rotation;
+        }
+        if self.material == 0 {
+            self.material = base.material;
+        }
+        if self.media == 0 {
+            self.media = base.media;
+        }
+        if self.glow == 0.0 {
+            self.glow = base.glow;
+        }
+        if self.material_id.is_nil() {
+            self.material_id = base.material_id;
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct TextureEntries {
+    pub default: TextureEntry,
+    pub faces: HashMap<u32, TextureEntry>,
+}
+impl TextureEntries {
     /// Convert from a b64 byte array to a TextureEntry object.
     /// Used by SceneObjects.
     pub fn from_b64(b64: &[u8]) -> Result<Self, ParseError> {
@@ -65,7 +148,10 @@ impl TextureEntry {
         let mut texture = TextureEntry::default();
 
         if b64.len() < 16 {
-            return Ok(texture);
+            return Ok(TextureEntries {
+                default: texture,
+                faces,
+            });
         }
 
         let bytes = parse!(
@@ -282,7 +368,10 @@ impl TextureEntry {
             face.inherit_missing(&texture);
         }
 
-        Ok(texture)
+        Ok(TextureEntries {
+            default: texture,
+            faces,
+        })
     }
 
     /// Convert from bytes to a TextureEntry.
@@ -292,7 +381,10 @@ impl TextureEntry {
         let mut faces: HashMap<u32, TextureEntry> = HashMap::new();
 
         if bytes.len() < 16 {
-            return Ok(texture);
+            return Ok(TextureEntries {
+                default: texture,
+                faces,
+            });
         }
 
         let mut cursor = Cursor::new(bytes);
@@ -629,43 +721,10 @@ impl TextureEntry {
             face.inherit_missing(&texture);
         }
 
-        Ok(texture)
-    }
-
-    fn inherit_missing(&mut self, base: &TextureEntry) {
-        if self.texture_id.is_nil() {
-            self.texture_id = base.texture_id;
-        }
-        if self.rgba == Rgba::default() {
-            self.rgba = base.rgba;
-        }
-        if self.repeat_u == 0.0 {
-            self.repeat_u = base.repeat_u;
-        }
-        if self.repeat_v == 0.0 {
-            self.repeat_v = base.repeat_v;
-        }
-        if self.offset_u == 0.0 {
-            self.offset_u = base.offset_u;
-        }
-        if self.offset_v == 0.0 {
-            self.offset_v = base.offset_v;
-        }
-        if self.rotation == 0.0 {
-            self.rotation = base.rotation;
-        }
-        if self.material == 0 {
-            self.material = base.material;
-        }
-        if self.media == 0 {
-            self.media = base.media;
-        }
-        if self.glow == 0.0 {
-            self.glow = base.glow;
-        }
-        if self.material_id.is_nil() {
-            self.material_id = base.material_id;
-        }
+        Ok(TextureEntries {
+            default: texture,
+            faces,
+        })
     }
 }
 

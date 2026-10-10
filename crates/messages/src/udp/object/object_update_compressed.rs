@@ -16,7 +16,7 @@ use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
 use crate::utils::path::PrimPath;
 use crate::utils::sound::AttachedSound;
-use crate::utils::texture_entry::TextureEntry;
+use crate::utils::texture_entry::TextureEntries;
 
 use std::io::{Cursor, Read};
 
@@ -154,7 +154,7 @@ pub struct ObjectDataCompressed {
     /// path data for the object's sculpt
     pub sculpt_path: Option<PrimPath>,
     /// texture data for the object
-    pub texture_entry: Option<TextureEntry>,
+    pub texture_entry: Option<TextureEntries>,
     /// texture animation data for the object
     pub texture_animation: Option<Vec<u8>>,
     /// particle system information
@@ -188,7 +188,7 @@ impl ObjectUpdateData for ObjectDataCompressed {
     fn scale(&self) -> Vec3 {
         self.scale
     }
-    fn texture(&self) -> &Option<TextureEntry> {
+    fn texture(&self) -> &Option<TextureEntries> {
         &self.texture_entry
     }
     fn crc(&self) -> u32 {
@@ -410,7 +410,7 @@ impl PacketData for ObjectUpdateCompressed {
                 let mut te_bytes = vec![0u8; te_len as usize];
                 parse!(cursor.read_exact(&mut te_bytes))?;
 
-                let texture_entry = parse!(TextureEntry::from_bytes(&te_bytes))?;
+                let texture_entry = parse!(TextureEntries::from_bytes(&te_bytes))?;
 
                 let texture_animation =
                     if compressed_flags.contains(&CompressedFlag::TextureAnimation) {
