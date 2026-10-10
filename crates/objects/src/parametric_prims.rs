@@ -37,7 +37,8 @@ pub async fn handle_parametric_prim(
     )?;
 
     let mesh_layers = follow_path(object.path_data.clone(), &profile_layer)?;
-    let (vertices, indices) = stitch_faces(mesh_layers)?;
+    let has_hollow = object.path_data.profile_hollow > 0.0;
+    let (vertices, indices) = stitch_faces(mesh_layers, has_hollow)?;
     let normals = generate_normals(&vertices, &indices);
 
     let path_hash = object.path_data.hash();
@@ -86,7 +87,10 @@ pub async fn handle_parametric_prim(
     Ok(actions)
 }
 
-fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u32>), ObjectUpdateError> {
+fn stitch_faces(
+    layers: Vec<MeshLayer>,
+    has_hollow: bool,
+) -> Result<(Vec<Vec3>, Vec<u32>), ObjectUpdateError> {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
@@ -129,8 +133,32 @@ fn stitch_faces(layers: Vec<MeshLayer>) -> Result<(Vec<Vec3>, Vec<u32>), ObjectU
         }
     }
 
+    if !has_hollow {
+        let last_start = ((layers.len() - 1) * layer_size) as u32;
+        cap_layer(&layers[0], 0, true, &mut indices); // bottom, flipped winding  
+        cap_layer(&layers[layers.len() - 1], last_start, false, &mut indices); // top  
+    }
+
     Ok((vertices, indices))
 }
+
+fn cap_layer(layer: &MeshLayer, layer_start: u32, flip: bool, indices: &mut Vec<u32>) {
+    let n = layer.0.len() as u32;
+    if n < 3 {
+        return;
+    }
+    for i in 1..n - 1 {
+        let a = layer_start;
+        let b = layer_start + i;
+        let c = layer_start + i + 1;
+        if flip {
+            indices.extend_from_slice(&[a, c, b]);
+        } else {
+            indices.extend_from_slice(&[a, b, c]);
+        }
+    }
+}
+
 fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
     let mut normals = vec![Vec3::ZERO; vertices.len()];
 
@@ -160,7 +188,7 @@ fn follow_path(
 ) -> Result<Vec<MeshLayer>, ObjectUpdateError> {
     let mut layers = Vec::new();
     match path_data.curve {
-        PathCurve::Circle => {
+        PathCurve::Circle | PathCurve::Circle2 | PathCurve::Test => {
             let y_path_scale = path_data.scale_y * 0.5;
             let ring_radius = 0.5 - y_path_scale;
             let start_angle =
@@ -189,9 +217,45 @@ fn follow_path(
 
             Ok(layers)
         }
-        _ => Err(ObjectUpdateError::Unimplemented {
-            feature: "non-circle paths".to_string(),
-        })?,
+        PathCurve::Line | PathCurve::Flexible => {
+            let length = path_data.end - path_data.begin;
+            let steps = path_data.curve.high_resolution_steps(); // same LOD lookup as circular  
+            let step_size = length / steps;
+
+            let mut z_offset = -0.5 + path_data.begin;
+            let mut x_offset = path_data.shear_x * path_data.begin;
+            let mut y_offset = path_data.shear_y * path_data.begin;
+
+            let x_step = path_data.shear_x * length / steps;
+            let y_step = path_data.shear_y * length / steps;
+
+            let mut percent_of_path = path_data.begin;
+            let percent_step = step_size * 0.999999;
+
+            let mut step = 0;
+            loop {
+                let node_pos = Vec3::new(x_offset, y_offset, z_offset);
+
+                let vertices = face_vertices.0.iter().map(|v| *v + node_pos).collect();
+                layers.push(MeshLayer(vertices));
+
+                if step as f32 >= steps {
+                    break;
+                }
+
+                percent_of_path += percent_step;
+                if percent_of_path > path_data.end {
+                    break;
+                }
+
+                step += 1;
+                x_offset += x_step;
+                y_offset += y_step;
+                z_offset += step_size;
+            }
+
+            Ok(layers)
+        }
     }
 }
 
@@ -202,52 +266,27 @@ fn build_profile(
     x_scale: f32,
     y_scale: f32,
 ) -> Result<MeshLayer, ObjectUpdateError> {
-    let sides = profile.default_sides_high();
-    let mut vertices = Vec::new();
-    match profile {
-        ProfileShape::Circle => {
-            for _ in 0..sides {
-                let profile_vertices = build_profile_vertices(profile, x_scale, y_scale)?;
-                vertices.extend(profile_vertices.clone());
-                // if hollow_size is nothing, don't handle  hollow size
-                if hollow_size <= 0.0 {
-                    continue;
-                }
-                match hollow_shape {
-                    HollowShape::Circle | HollowShape::Same => {
-                        for vertex in profile_vertices {
-                            vertices.push(vertex * hollow_size)
-                        }
-                    }
-                    HollowShape::Square => {
-                        let hollow_vertices =
-                            build_profile_vertices(ProfileShape::Square, x_scale, y_scale)?;
-                        for vertex in hollow_vertices {
-                            vertices.push(vertex * hollow_size)
-                        }
-                    }
+    let outer_vertices = build_profile_vertices(profile, x_scale, y_scale)?;
+    let mut vertices = outer_vertices.clone();
 
-                    HollowShape::Triangle => {
-                        let hollow_vertices =
-                            build_profile_vertices(ProfileShape::EqualTriangle, x_scale, y_scale)?;
-                        for vertex in hollow_vertices {
-                            vertices.push(vertex * hollow_size)
-                        }
-                    }
-                    HollowShape::Unknown => {
-                        let hollow_vertices =
-                            build_profile_vertices(ProfileShape::Unknown, x_scale, y_scale)?;
-                        for vertex in hollow_vertices {
-                            vertices.push(vertex * hollow_size)
-                        }
-                    }
-                };
-            }
-        }
-        _ => Err(ObjectUpdateError::Unimplemented {
-            feature: "Non-circle profile".to_string(),
-        })?,
+    if hollow_size <= 0.0 {
+        return Ok(MeshLayer(vertices));
+    }
+
+    let hollow_profile = match hollow_shape {
+        HollowShape::Same => profile,
+        HollowShape::Circle => ProfileShape::Circle,
+        HollowShape::Square => ProfileShape::Square,
+        HollowShape::Triangle => ProfileShape::EqualTriangle,
+        HollowShape::Unknown => ProfileShape::Square,
     };
+
+    let mut hollow_vertices = build_profile_vertices(hollow_profile, x_scale, y_scale)?;
+    hollow_vertices.reverse();
+
+    for vertex in hollow_vertices {
+        vertices.push(vertex * hollow_size);
+    }
 
     Ok(MeshLayer(vertices))
 }
@@ -264,11 +303,33 @@ fn build_profile_vertices(
         ProfileShape::Circle => {
             for i in 0..sides {
                 let angle = 2.0 * std::f32::consts::PI * i as f32 / sides as f32;
-
                 vertices.push(Vec3::new(angle.cos() * x_scale, angle.sin() * y_scale, 0.0));
             }
         }
-        _ => {
+
+        ProfileShape::HalfCircle => {
+            for i in 0..sides {
+                let angle = std::f32::consts::PI * i as f32 / (sides - 1) as f32;
+                vertices.push(Vec3::new(angle.cos() * x_scale, angle.sin() * y_scale, 0.0));
+            }
+        }
+
+        ProfileShape::Square | ProfileShape::IsoTriangle | ProfileShape::RightTriangle => {
+            let scale = std::f32::consts::FRAC_1_SQRT_2;
+            let corners = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)];
+            for (x, y) in corners {
+                vertices.push(Vec3::new(x * scale * x_scale, y * scale * y_scale, 0.0));
+            }
+        }
+
+        ProfileShape::EqualTriangle => {
+            let corners = [(1.0, 0.0), (-0.5, 0.8660254), (-0.5, -0.8660254)];
+            for (x, y) in corners {
+                vertices.push(Vec3::new(x * 0.5 * x_scale, y * 0.5 * y_scale, 0.0));
+            }
+        }
+
+        ProfileShape::Unknown => {
             return Err(ObjectUpdateError::Unimplemented {
                 feature: format!("Profile shape {profile:?}"),
             });

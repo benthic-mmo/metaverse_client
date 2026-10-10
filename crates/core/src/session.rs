@@ -98,7 +98,7 @@ pub struct Mailbox {
     /// objectupdats can subscribe to, in order to wake up when the download is complete.
     pub downloads: Arc<tokioMutex<HashMap<Uuid, watch::Sender<DownloadState>>>>,
     /// RenderObjectMessages pending their parent to load in. The u32 is the local ID of the parent.
-    pub pending_children: HashMap<u32, Vec<RenderObjectMessage>>,
+    pub pending_children: Arc<tokioMutex<HashMap<u32, Vec<RenderObjectMessage>>>>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
