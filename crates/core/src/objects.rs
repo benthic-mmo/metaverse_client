@@ -454,10 +454,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
         let addr = ctx.address();
         let cache = session.cache.clone();
         // check to see if there are any children pending this object
-        let children = self
-            .pending_children
-            .remove(&msg.0.object.local_id)
-            .unwrap_or_default();
+        let children = self.pending_children.clone();
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
@@ -491,6 +488,11 @@ impl Handler<RenderObjectMessage> for Mailbox {
                 // if it's the root, just render it.
                 let parent_id = match msg.object.parent_id {
                     Some(0) | None => {
+                        let children = children
+                            .lock()
+                            .await
+                            .remove(&msg.object.local_id)
+                            .unwrap_or_default();
                         let position = COORDINATE_CONVERSION.mul_vec3(msg.object.position);
                         let rotation = COORDINATE_CONVERSION * msg.object.rotation;
                         addr.do_send(SendUIMessage {
@@ -560,10 +562,19 @@ pub struct WaitForParent {
 impl Handler<WaitForParent> for Mailbox {
     type Result = ();
 
-    fn handle(&mut self, msg: WaitForParent, _: &mut Self::Context) {
-        self.pending_children
-            .entry(msg.parent_id)
-            .or_default()
-            .push(msg.message);
+    fn handle(&mut self, msg: WaitForParent, ctx: &mut Self::Context) {
+        let pending_children = self.pending_children.clone();
+
+        ctx.spawn(
+            async move {
+                pending_children
+                    .lock()
+                    .await
+                    .entry(msg.parent_id)
+                    .or_default()
+                    .push(msg.message);
+            }
+            .into_actor(self),
+        );
     }
 }
