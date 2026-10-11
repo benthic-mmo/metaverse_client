@@ -9,7 +9,7 @@ use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::session::{cache_enabled, create_agent_animation_dir};
 use benthic_protocol::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
-use log::{error, warn};
+use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;
 use metaverse_avatar::avatar::Avatar;
 use metaverse_avatar::avatar::OutfitObject;
@@ -24,7 +24,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-#[derive(Message, Clone)]
+#[derive(Message, Clone, Debug)]
 #[rtype(result = "()")]
 pub struct AvatarObjectUpdate {
     pub id: Uuid,
@@ -33,23 +33,17 @@ pub struct AvatarObjectUpdate {
 }
 impl Handler<AvatarObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
 
         if !session.inventory_data.current_outfit_init {
-            let info_message =
-                "Current outfit not initialized. Requeueing avatar download...".to_string();
-            msg.retry_count += 1;
-            ctx.address().do_send(RetryMessage {
-                retries: msg.retry_count,
-                message: msg,
-                info_message,
-                long_backoff: true,
-            });
+            info!("Current outfit not initialized. Adding object update to queue");
+            self.pending_avatar_objects.push(msg);
             return;
         }
+
         let avatar = Avatar::new(msg.id, msg.position);
         session.avatars.insert(msg.id, avatar.clone());
         let addr = ctx.address();
@@ -159,14 +153,22 @@ pub struct DownloadAgentAsset {
 impl Handler<DownloadAgentAsset> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: DownloadAgentAsset, ctx: &mut Self::Context) -> Self::Result {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .cloned()
+        });
+
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::ViewerAsset, msg);
+            return;
+        };
+
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let server_endpoint = session
-            .capability_urls
-            .get(&Capability::ViewerAsset)
-            .unwrap()
-            .to_string();
+
         let object_type = msg.item_type;
         let asset_id = msg.asset_id;
         let agent_id = msg.agent_id;
@@ -395,33 +397,23 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
             Some(avatar) => {
                 if !avatar.fully_loaded {
-                    let info_message = format!(
-                        "Animation targeting player {:?} is not yet fully loaded. Queueing animation...",
-                        msg.avatar_animation.sender_id
-                    );
-                    msg.retries += 1;
-                    ctx.address().do_send(RetryMessage {
-                        retries: msg.retries,
-                        message: msg,
-                        info_message,
-                        long_backoff: true,
-                    });
+                    info!("Avatar not fully loaded. Adding to queue.");
+                    self.pending_animations
+                        .entry(msg.avatar_animation.sender_id)
+                        .or_default()
+                        .push(msg);
+
                     return;
                 }
                 avatar
             }
             None => {
-                let info_message = format!(
-                    "Animation targeting player {:?} is not yet in scene. Queueing animation...",
-                    msg.avatar_animation.sender_id
-                );
-                msg.retries += 1;
-                ctx.address().do_send(RetryMessage {
-                    retries: msg.retries,
-                    message: msg,
-                    info_message,
-                    long_backoff: true,
-                });
+                info!("Avatar not yet in scene. Adding to queue.");
+                self.pending_animations
+                    .entry(msg.avatar_animation.sender_id)
+                    .or_default()
+                    .push(msg);
+
                 return;
             }
         };
@@ -514,6 +506,11 @@ impl Handler<RenderAvatar> for Mailbox {
             });
 
             avatar.fully_loaded = true;
+            if let Some(animations) = self.pending_animations.remove(&msg.agent_id) {
+                for animation in animations {
+                    ctx.address().do_send(animation);
+                }
+            }
         }
     }
 }

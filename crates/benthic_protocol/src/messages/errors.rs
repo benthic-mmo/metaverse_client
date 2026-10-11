@@ -69,6 +69,9 @@ pub enum ParseError {
     #[error("UTF8 error: {0}")]
     /// wrapper for FromUTF8 errors
     UTF8Error(#[from] FromUtf8Error),
+
+    #[error("Unexpected home string format: {length}, {parts:?}")]
+    HomeStringError { length: usize, parts: Vec<String> },
 }
 
 impl From<ParseError> for LoginError {

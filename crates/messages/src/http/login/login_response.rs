@@ -508,11 +508,6 @@ impl FromLLSDValue for HomeValues {
 
             // Expect 2 + 3 + 3 numbers
             if parts.len() != 8 {
-                eprintln!(
-                    "Unexpected home string format, got {} parts: {:?}",
-                    parts.len(),
-                    parts
-                );
                 return None;
             }
 

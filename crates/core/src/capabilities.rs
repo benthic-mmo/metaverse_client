@@ -33,9 +33,17 @@ pub struct SendCapabilityRequest {
 
 impl Handler<SetCapabilityUrls> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: SetCapabilityUrls, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) {
+        let capabilities: Vec<Capability> = msg.capability_urls.keys().cloned().collect();
+
         if let Some(session) = &mut self.session {
             session.capability_urls.extend(msg.capability_urls);
+        } else {
+            return;
+        }
+
+        for capability in capabilities {
+            self.flush_capability(capability, ctx);
         }
     }
 }

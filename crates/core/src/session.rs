@@ -1,3 +1,4 @@
+use crate::avatar::{AvatarObjectUpdate, HandleNewAvatarAnimation};
 use crate::environment::FetchEnvironmentEvent;
 use crate::inventory::FetchCurrentOutfit;
 use crate::objects::RenderObjectMessage;
@@ -66,9 +67,9 @@ use uuid::Uuid;
 
 static DEFAULT_MAX_RETRIES: u32 = 20;
 static DEFAULT_LONG_TIMEOUT_RETRIES: u32 = 20;
+type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
-#[derive(Debug)]
 pub struct Mailbox {
     /// the client socket for UDP connections
     pub client_socket: u16,
@@ -99,6 +100,12 @@ pub struct Mailbox {
     pub downloads: Arc<tokioMutex<HashMap<Uuid, watch::Sender<DownloadState>>>>,
     /// RenderObjectMessages pending their parent to load in. The u32 is the local ID of the parent.
     pub pending_children: Arc<tokioMutex<HashMap<u32, Vec<RenderObjectMessage>>>>,
+    /// Avatar objects pending because the current outfit is not loaded yet.
+    pub pending_avatar_objects: Vec<AvatarObjectUpdate>,
+    /// Messages that need capabilities to be present before sending
+    pub pending_capability_messages: HashMap<Capability, Vec<PendingSend>>,
+    /// animations that need an avatar to be rendered before sending
+    pub pending_animations: HashMap<Uuid, Vec<HandleNewAvatarAnimation>>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -112,6 +119,29 @@ impl Mailbox {
         // notify on start and stop
         if new_state == ServerState::Running || new_state == ServerState::Stopped {
             self.notify.notify_one();
+        }
+    }
+    pub fn queue_for_capability<M>(&mut self, capability: Capability, msg: M)
+    where
+        M: Message<Result = ()> + Send + 'static,
+        Mailbox: Handler<M>,
+    {
+        self.pending_capability_messages
+            .entry(capability)
+            .or_default()
+            .push(Box::new(move |addr| {
+                addr.do_send(msg);
+            }));
+    }
+    pub fn flush_capability(&mut self, capability: Capability, ctx: &mut Context<Self>) {
+        let Some(pending) = self.pending_capability_messages.remove(&capability) else {
+            return;
+        };
+
+        let addr = ctx.address();
+
+        for send in pending {
+            send(&addr);
         }
     }
 }
@@ -249,7 +279,7 @@ impl Handler<SendAckList> for Mailbox {
             let sock_clone = session.socket.clone().unwrap();
             let ack_wait = async move {
                 if let Err(e) = sock_clone.send_to(&packet, addr).await {
-                    println!("Failed to send ack: {:?}", e)
+                    error!("Failed to send ack: {:?}", e)
                 };
             };
             ctx.spawn(ack_wait.into_actor(self));

@@ -191,7 +191,6 @@ impl ItemMetadata {
                     ObjectType::from_bytes(&if *item_type >= 0 {
                         *item_type as u8
                     } else {
-                        println!("WEIRD TYPE GOT {:?}", item_type);
                         99
                     })
                 }

@@ -21,6 +21,7 @@ use metaverse_messages::{
 use metaverse_objects::{
     object_updates::ObjectUpdateAction, parametric_prims::handle_parametric_prim,
 };
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::common::mock_session;
@@ -82,8 +83,20 @@ async fn test_parametric_prims() {
                 path_data,
                 retry_count: 0,
             };
+            let texture_paths: HashMap<u32, PathBuf> = parametric_prim
+                .texture
+                .iter()
+                .map(|texture| {
+                    (
+                        0,
+                        data_dir
+                            .join("textures")
+                            .join(format!("{}.png", texture.default.texture_id)),
+                    )
+                })
+                .collect();
 
-            let data = handle_parametric_prim(&session.cache, &generated_dir, &parametric_prim)
+            let data = handle_parametric_prim(&generated_dir, &parametric_prim, texture_paths)
                 .await
                 .unwrap();
 

@@ -26,14 +26,34 @@ pub async fn download_asset(
     server_endpoint: &str,
 ) -> Result<bytes::Bytes, DownloadError> {
     let client = awc::Client::default();
-    let url = format!("{}/?{}_id={}", server_endpoint, item_type, asset_id);
+    let url = format!(
+        "{}/?{}_id={}",
+        server_endpoint.trim_end_matches('/'),
+        item_type,
+        asset_id
+    );
     let mut response = client.get(&url).send().await?;
 
-    let body_bytes = response.body().await?;
-    if body_bytes.is_empty() {
-        return Err(DownloadError::EmptyBody {});
+    let status = response.status();
+
+    if !status.is_success() {
+        return Err(DownloadError::HttpStatus {
+            status: status.as_u16(),
+            url,
+        });
     }
-    Ok(body_bytes)
+
+    let body = response.body().await?;
+
+    if body.is_empty() {
+        return Err(DownloadError::EmptyBody {
+            status: status.as_u16(),
+            url,
+            headers: vec![],
+        });
+    }
+
+    Ok(body)
 }
 
 /// retrieve an Object from the ViewerAsset endpoint.

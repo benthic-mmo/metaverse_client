@@ -16,7 +16,7 @@ use crate::{
     water::Water,
     wind::Wind,
 };
-use glam::{Quat, U16Vec2, Vec3, u16, u32, usize};
+use glam::{U16Vec2, Vec3, u16, u32, usize};
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();
@@ -249,7 +249,10 @@ impl TerrainHeader {
 }
 
 /// Decompresss the heightmap data using JPEG like decompression
-pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f32> {
+pub fn decompress_patch(
+    terrain_header: &TerrainHeader,
+    patch: &[f32],
+) -> Result<Vec<f32>, PatchError> {
     let patch_size = terrain_header.patch_size;
     let mut block: Vec<f32> = vec![0.0; patch_size * patch_size];
     let mut output: Vec<f32> = vec![0.0; patch_size * patch_size];
@@ -271,12 +274,14 @@ pub fn decompress_patch(terrain_header: &TerrainHeader, patch: &[f32]) -> Vec<f3
             idct_line16(&temp, &mut block, i);
         }
     } else {
-        println!("patch size unsupported")
+        Err(PatchError::Unsupported {
+            feature: "patch size unsupported".to_string(),
+        })?;
     }
     for i in 0..block.len() {
         output[i] = block[i] * mult + addval;
     }
-    output
+    Ok(output)
 }
 
 /// This handles the big-endianness of the bit parsing

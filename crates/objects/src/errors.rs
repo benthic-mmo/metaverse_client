@@ -22,8 +22,14 @@ pub enum DownloadError {
     #[error("Capbility missing: {capability}")]
     CapabilityNotPresent { capability: Capability },
 
-    #[error("Response body empty")]
-    EmptyBody {},
+    #[error("Empty response body: status={status}, url={url}, headers={headers:?}")]
+    EmptyBody {
+        status: u16,
+        url: String,
+        headers: Vec<(String, String)>,
+    },
+    #[error("Asset request failed: HTTP {status}, url={url}")]
+    HttpStatus { status: u16, url: String },
 
     #[error("Object contained no SceneGroup: {error}")]
     SceneGroupNotPresent { error: std::io::Error },
