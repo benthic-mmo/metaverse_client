@@ -16,7 +16,6 @@ use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
-    object_handler::handle_texture,
     object_updates::{ObjectUpdateAction, RenderObjectData},
 };
 

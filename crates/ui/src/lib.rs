@@ -1,4 +1,5 @@
 pub mod animation;
+pub mod avatar;
 pub mod click_handler;
 pub mod core_plugin;
 pub mod environment;
@@ -7,6 +8,7 @@ pub mod inspector;
 pub mod loading;
 pub mod login;
 pub mod mesh;
+pub mod object;
 pub mod panels;
 pub mod plugin;
 pub mod sky;

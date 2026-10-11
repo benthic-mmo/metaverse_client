@@ -7,7 +7,7 @@ use bevy::{
     },
 };
 
-use crate::mesh::ObjectData;
+use crate::object::ObjectData;
 
 pub struct ClickHandlerPlugin;
 

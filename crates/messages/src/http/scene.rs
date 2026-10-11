@@ -897,7 +897,7 @@ impl SceneObject {
                 scene_object.metadata.permissions.owner_mask = parse_value!(val, i32)?;
             }
 
-            ["Groupmask"] => {
+            ["GroupMask"] => {
                 scene_object.metadata.permissions.group_mask = parse_value!(val, i32)?;
             }
 
@@ -911,7 +911,7 @@ impl SceneObject {
 
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.metadata.flags = PrimFlags::None;
+                    scene_object.metadata.flags = PrimFlags::NONE;
                 } else {
                     scene_object.metadata.flags = PrimFlags::from_string(&val);
                 }
@@ -938,7 +938,7 @@ impl SceneObject {
                 _ => {}
             },
 
-            ["Textureanimation"] => {
+            ["TextureAnimation"] => {
                 scene_object.shape.texture_animation = val.into_bytes();
             }
 
@@ -984,13 +984,13 @@ impl SceneObject {
             },
 
             ["Torque", rest @ ..] => match rest {
-                ["x"] => {
+                ["X"] => {
                     scene_object.motion_data.torque[0] = parse_value!(val, f32)?;
                 }
-                ["y"] => {
+                ["Y"] => {
                     scene_object.motion_data.torque[1] = parse_value!(val, f32)?;
                 }
-                ["z"] => {
+                ["Z"] => {
                     scene_object.motion_data.torque[2] = parse_value!(val, f32)?;
                 }
                 _ => {}
@@ -1000,32 +1000,32 @@ impl SceneObject {
                 scene_object.volume_detect_active = parse_value!(val, bool)?;
             }
 
-            ["PhysicsShapetype"] => {
+            ["PhysicsShapeType"] => {
                 scene_object.physics_shape_type =
                     PhysicsShapeType::from_bytes(parse_value!(val, i32)?);
             }
 
             ["CameraEyeOffset", rest @ ..] => match rest {
-                ["x"] => {
+                ["X"] => {
                     scene_object.camera_eye_offset[0] = parse_value!(val, f32)?;
                 }
-                ["y"] => {
+                ["Y"] => {
                     scene_object.camera_eye_offset[1] = parse_value!(val, f32)?;
                 }
-                ["z"] => {
+                ["Z"] => {
                     scene_object.camera_eye_offset[2] = parse_value!(val, f32)?;
                 }
                 _ => {}
             },
 
             ["CameraAtOffset", rest @ ..] => match rest {
-                ["x"] => {
+                ["X"] => {
                     scene_object.camera_at_offset[0] = parse_value!(val, f32)?;
                 }
-                ["y"] => {
+                ["Y"] => {
                     scene_object.camera_at_offset[1] = parse_value!(val, f32)?;
                 }
-                ["z"] => {
+                ["Z"] => {
                     scene_object.camera_at_offset[2] = parse_value!(val, f32)?;
                 }
                 _ => {}
@@ -1058,91 +1058,73 @@ impl SceneObject {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub enum PrimFlags {
-    #[default]
-    None,
-    Phantom,
-    Physics,
-    TemporaryOnRez,
-    Scripted,
-    Touch,
-    Money,
-    AllowInventoryDrop,
-    InventoryEmpty,
-    ObjectYouOwner,
-    ObjectYouOfficer,
-    ObjectOwnerModify,
-    ObjectGroupOwned,
-    ObjectAnyOwner,
-    ObjectTransfer,
-    ObjectCopy,
-    ObjectModify,
-    ObjectMove,
-    CameraDecoupled,
-    AnimSource,
-    DieAtEdge,
-    ReturnAtEdge,
-    Sandbox,
-    CreateSelected,
+use bitflags::bitflags;
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+    pub struct PrimFlags: u32 {
+        const NONE                  = 0;
+        const PHANTOM               = 1 << 0;
+        const PHYSICS               = 1 << 1;
+        const TEMPORARY_ON_REZ      = 1 << 2;
+        const SCRIPTED              = 1 << 3;
+        const TOUCH                 = 1 << 4;
+        const MONEY                 = 1 << 5;
+        const ALLOW_INVENTORY_DROP  = 1 << 6;
+        const INVENTORY_EMPTY       = 1 << 7;
+        const OBJECT_YOU_OWNER      = 1 << 8;
+        const OBJECT_YOU_OFFICER    = 1 << 9;
+        const OBJECT_OWNER_MODIFY   = 1 << 10;
+        const OBJECT_GROUP_OWNED    = 1 << 11;
+        const OBJECT_ANY_OWNER      = 1 << 12;
+        const OBJECT_TRANSFER       = 1 << 13;
+        const OBJECT_COPY           = 1 << 14;
+        const OBJECT_MODIFY         = 1 << 15;
+        const OBJECT_MOVE           = 1 << 16;
+        const CAMERA_DECOUPLED      = 1 << 17;
+        const ANIM_SOURCE           = 1 << 18;
+        const DIE_AT_EDGE           = 1 << 19;
+        const RETURN_AT_EDGE        = 1 << 20;
+        const SANDBOX               = 1 << 21;
+        const CREATE_SELECTED       = 1 << 22;
+    }
 }
+
 impl PrimFlags {
-    pub fn from_bytes(bytes: &u32) -> Self {
-        match bytes {
-            0x00000000 => PrimFlags::None,
-            0x00000010 => PrimFlags::Phantom,
-            0x00000020 => PrimFlags::Physics,
-            0x00000040 => PrimFlags::TemporaryOnRez,
-            0x00000008 => PrimFlags::Scripted,
-            0x00000100 => PrimFlags::Touch,
-            0x00000200 => PrimFlags::Money,
-            0x00000400 => PrimFlags::AllowInventoryDrop,
-            0x00000800 => PrimFlags::InventoryEmpty,
-            0x00001000 => PrimFlags::ObjectYouOwner,
-            0x00002000 => PrimFlags::ObjectYouOfficer,
-            0x00004000 => PrimFlags::ObjectOwnerModify,
-            0x00008000 => PrimFlags::ObjectGroupOwned,
-            0x00020000 => PrimFlags::ObjectAnyOwner,
-            0x00040000 => PrimFlags::ObjectTransfer,
-            0x00080000 => PrimFlags::ObjectCopy,
-            0x00100000 => PrimFlags::ObjectModify,
-            0x00200000 => PrimFlags::ObjectMove,
-            0x00400000 => PrimFlags::CameraDecoupled,
-            0x00800000 => PrimFlags::AnimSource,
-            0x01000000 => PrimFlags::DieAtEdge,
-            0x02000000 => PrimFlags::ReturnAtEdge,
-            0x04000000 => PrimFlags::Sandbox,
-            0x08000000 => PrimFlags::CreateSelected,
-            _ => PrimFlags::None,
-        }
+    pub fn from_bytes(value: u32) -> Self {
+        Self::from_bits_retain(value)
+    }
+
+    pub fn has_flag(&self, flag: Self) -> bool {
+        self.contains(flag)
     }
     pub fn from_string(value: &str) -> Self {
         match value {
-            "None" => PrimFlags::None,
-            "Phantom" => PrimFlags::Phantom,
-            "Physics" => PrimFlags::Physics,
-            "TemporaryOnRez" => PrimFlags::TemporaryOnRez,
-            "Scripted" => PrimFlags::Scripted,
-            "Touch" => PrimFlags::Touch,
-            "Money" => PrimFlags::Money,
-            "AllowInventoryDrop" => PrimFlags::AllowInventoryDrop,
-            "InventoryEmpty" => PrimFlags::InventoryEmpty,
-            "ObjectYouOwner" => PrimFlags::ObjectYouOwner,
-            "ObjectYouOfficer" => PrimFlags::ObjectYouOfficer,
-            "ObjectOwnerModify" => PrimFlags::ObjectOwnerModify,
-            "ObjectGroupOwned" => PrimFlags::ObjectGroupOwned,
-            "ObjectAnyOwner" => PrimFlags::ObjectAnyOwner,
-            "ObjectTransfer" => PrimFlags::ObjectTransfer,
-            "ObjectCopy" => PrimFlags::ObjectCopy,
-            "ObjectModify" => PrimFlags::ObjectModify,
-            "ObjectMove" => PrimFlags::ObjectMove,
-            "CameraDecoupled" => PrimFlags::CameraDecoupled,
-            "AnimSource" => PrimFlags::AnimSource,
-            "DieAtEdge" => PrimFlags::DieAtEdge,
-            "ReturnAtEdge" => PrimFlags::ReturnAtEdge,
-            "Sandbox" => PrimFlags::Sandbox,
-            "CreateSelected" => PrimFlags::CreateSelected,
-            _ => PrimFlags::None,
+            "None" => Self::empty(),
+            "Phantom" => Self::PHANTOM,
+            "Physics" => Self::PHYSICS,
+            "TemporaryOnRez" => Self::TEMPORARY_ON_REZ,
+            "Scripted" => Self::SCRIPTED,
+            "Touch" => Self::TOUCH,
+            "Money" => Self::MONEY,
+            "AllowInventoryDrop" => Self::ALLOW_INVENTORY_DROP,
+            "InventoryEmpty" => Self::INVENTORY_EMPTY,
+            "ObjectYouOwner" => Self::OBJECT_YOU_OWNER,
+            "ObjectYouOfficer" => Self::OBJECT_YOU_OFFICER,
+            "ObjectOwnerModify" => Self::OBJECT_OWNER_MODIFY,
+            "ObjectGroupOwned" => Self::OBJECT_GROUP_OWNED,
+            "ObjectAnyOwner" => Self::OBJECT_ANY_OWNER,
+            "ObjectTransfer" => Self::OBJECT_TRANSFER,
+            "ObjectCopy" => Self::OBJECT_COPY,
+            "ObjectModify" => Self::OBJECT_MODIFY,
+            "ObjectMove" => Self::OBJECT_MOVE,
+            "CameraDecoupled" => Self::CAMERA_DECOUPLED,
+            "AnimSource" => Self::ANIM_SOURCE,
+            "DieAtEdge" => Self::DIE_AT_EDGE,
+            "ReturnAtEdge" => Self::RETURN_AT_EDGE,
+            "Sandbox" => Self::SANDBOX,
+            "CreateSelected" => Self::CREATE_SELECTED,
+            _ => Self::empty(),
         }
     }
 }

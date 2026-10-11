@@ -6,19 +6,11 @@ use sqlx::Row;
 use uuid::Uuid;
 
 impl Inventory {
-    pub async fn get_current_outfit(&self) -> Result<Vec<OutfitItem>, InventoryError> {
-        let folder_row = sqlx::query(
-            r#"
-        SELECT id
-        FROM categories
-        WHERE name = 'Current Outfit'
-        LIMIT 1
-        "#,
-        )
-        .fetch_one(&self.db)
-        .await?;
-
-        let folder_id: String = folder_row.get("id");
+    pub async fn get_current_outfit(
+        &self,
+        current_outfit_id: Uuid,
+    ) -> Result<Vec<OutfitItem>, InventoryError> {
+        let folder_id = current_outfit_id.to_string();
 
         let items_rows = sqlx::query(
             r#"
@@ -46,10 +38,10 @@ impl Inventory {
                 && let Some(asset_id) = asset_id_str.as_deref()
                 && let Ok(linked_row) = sqlx::query(
                     r#"
-                    SELECT name, item_id, asset_id, item_type, json, mesh
-                    FROM items
-                    WHERE item_id = ?
-                    "#,
+                SELECT name, item_id, asset_id, item_type, json, mesh
+                FROM items
+                WHERE item_id = ?
+                "#,
                 )
                 .bind(asset_id)
                 .fetch_one(&self.db)
@@ -87,6 +79,7 @@ impl Inventory {
         use std::collections::HashMap;
 
         let mut map: HashMap<Uuid, OutfitItem> = HashMap::new();
+
         for item in result {
             map.entry(item.item_id).or_insert(item);
         }

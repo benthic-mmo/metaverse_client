@@ -1,6 +1,6 @@
 use benthic_ui::loading::loading_screen;
 use benthic_ui::login::login_screen;
-use benthic_ui::mesh::MainCamera;
+use benthic_ui::plugin::MainCamera;
 use benthic_ui::plugin::MetaversePlugin;
 use benthic_ui::plugin::ViewerState;
 use bevy::app::TerminalCtrlCHandlerPlugin;

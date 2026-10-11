@@ -34,8 +34,9 @@ use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::errors::DownloadError;
 use metaverse_objects::errors::ObjectUpdateError;
 use metaverse_objects::http_handler::download_asset;
+use metaverse_objects::http_handler::download_texture;
+use metaverse_objects::object_handler::download_face_textures;
 use metaverse_objects::object_handler::download_mesh_object;
-use metaverse_objects::object_handler::handle_texture;
 use metaverse_objects::object_handler::mesh_from_json;
 use metaverse_objects::object_updates::DownloadMeshObjectData;
 use metaverse_objects::object_updates::GenerateMeshData;
@@ -227,31 +228,35 @@ impl Handler<SculptObjectUpdate> for Mailbox {
         ctx.spawn(
             async move {
                 // retrieve sculpt texture from endpoint
-                let sculpt_path = match handle_texture(
-                    base_dir.clone(),
+                let texture_path = base_dir.join(format!("{:?}.png", sculpt_id));
+                if let Err(e) = download_texture(
+                    ObjectType::Texture.to_string(),
                     sculpt_id,
-                    server_endpoint.clone(),
+                    &server_endpoint,
+                    &texture_path,
                 )
                 .await
                 {
-                    Ok(path) => path,
-                    Err(e @ DownloadError::Retryable { .. }) => {
-                        msg.0.retry_count += 1;
-                        addr.do_send(RetryMessage {
-                            retries: msg.0.retry_count,
-                            message: msg,
-                            long_backoff: true,
-                            info_message: format!(
-                                "Sculpt texture download failed: {e}. Retrying..."
-                            ),
-                        });
-                        return;
+                    match e {
+                        e @ DownloadError::Retryable { .. } => {
+                            msg.0.retry_count += 1;
+                            addr.do_send(RetryMessage {
+                                retries: msg.0.retry_count,
+                                message: msg,
+                                long_backoff: true,
+                                info_message: format!(
+                                    "Sculpt texture download failed: {e}. Retrying..."
+                                ),
+                            });
+                        }
+                        e => {
+                            error!("Sculpt texture download failed: {:?}", e);
+                        }
                     }
-                    Err(e) => {
-                        error!("Sculpt texture download failed: {:?}", e);
-                        return;
-                    }
-                };
+                    return;
+                }
+
+                let sculpt_path = texture_path;
 
                 // retrieve per-face textures from endpoint
                 let textures_dir = match create_textures_dir(&out_dir) {
@@ -319,39 +324,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
         );
     }
 }
-async fn download_face_textures(
-    out_dir: &Path,
-    texture: &Option<TextureEntries>,
-    server_endpoint: &str,
-) -> Result<HashMap<u32, PathBuf>, DownloadError> {
-    let mut paths = HashMap::new();
 
-    let Some(texture) = texture else {
-        return Ok(paths);
-    };
-
-    let default_path = handle_texture(
-        out_dir.to_path_buf(),
-        texture.default.texture_id,
-        server_endpoint.to_owned(),
-    )
-    .await?;
-
-    paths.insert(u32::MAX, default_path);
-
-    for (&face_index, face) in &texture.faces {
-        let path = handle_texture(
-            out_dir.to_path_buf(),
-            face.texture_id,
-            server_endpoint.to_owned(),
-        )
-        .await?;
-
-        paths.insert(face_index, path);
-    }
-
-    Ok(paths)
-}
 /// Message for downloading object update from its capability endpoint
 ///
 /// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh

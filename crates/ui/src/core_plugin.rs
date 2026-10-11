@@ -1,3 +1,4 @@
+use benthic_protocol::messages::ui::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::coarse_location_update::CoarseLocationUpdate;
@@ -47,6 +48,11 @@ pub struct MeshUpdateEvent {
 }
 
 #[derive(Message)]
+pub struct AvatarUpdateEvent {
+    pub value: AvatarUpdate,
+}
+
+#[derive(Message)]
 pub struct SkyboxUpdateEvent {
     pub value: SkyboxUpdate,
 }
@@ -88,6 +94,7 @@ impl Plugin for CorePlugin {
             .add_message::<ChatMessageEvent>()
             .add_message::<AnimationEvent>()
             .add_message::<InventoryPopulateEvent>()
+            .add_message::<AvatarUpdateEvent>()
             .add_systems(Update, handle_queue);
     }
 }
@@ -107,6 +114,7 @@ fn handle_queue(
     mut ev_chat_update: MessageWriter<ChatMessageEvent>,
     mut ev_animation_update: MessageWriter<AnimationEvent>,
     mut ev_inventory_update: MessageWriter<InventoryPopulateEvent>,
+    mut ev_avatar_update: MessageWriter<AvatarUpdateEvent>,
 ) {
     // Check for events in the channel
     let receiver = event_channel.receiver.clone();
@@ -115,15 +123,22 @@ fn handle_queue(
             UIMessage::LandUpdate(land_update) => {
                 ev_land_update.write(LandUpdateEvent { value: land_update });
             }
+            UIMessage::MeshUpdate(mesh_update) => {
+                ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
+            }
+            UIMessage::AvatarUpdate(avatar_update) => {
+                ev_avatar_update.write(AvatarUpdateEvent {
+                    value: avatar_update,
+                });
+            }
             UIMessage::LoginResponse(login_response) => {
                 ev_loginresponse.write(LoginResponseEvent {
                     value: Ok(login_response),
                 });
             }
-            UIMessage::MeshUpdate(mesh_update) => {
-                ev_mesh_update.write(MeshUpdateEvent { value: mesh_update });
-            }
+
             UIMessage::PlayAnimation(play_animation) => {
+                println!("HELLO ANIMATION EVENT RECEIVED");
                 ev_animation_update.write(AnimationEvent {
                     value: play_animation,
                 });

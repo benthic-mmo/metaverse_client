@@ -1,12 +1,13 @@
 use super::session::Mailbox;
 use crate::COORDINATE_CONVERSION;
-use crate::session::{RetryMessage, SendUIMessage};
+use crate::session::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use benthic_protocol::messages::ui::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
-use benthic_protocol::messages::ui::mesh_update::{MeshType, MeshUpdate};
+use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::session::{cache_enabled, create_agent_animation_dir};
+use benthic_protocol::session::cache_enabled;
 use benthic_protocol::skeleton::{JointName, Skeleton};
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
@@ -47,6 +48,7 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
         let avatar = Avatar::new(msg.id, msg.position);
         session.avatars.insert(msg.id, avatar.clone());
         let addr = ctx.address();
+        let current_outfit_id = session.inventory_data.current_outfit_root;
 
         if msg.id == session.agent_id {
             addr.do_send(SendUIMessage {
@@ -60,7 +62,11 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
             ctx.spawn(
                 async move {
                     let (avatar, outfit_items) = if cache_enabled() {
-                        match cache.avatar.current_outfit(agent_id, inventory).await {
+                        match cache
+                            .avatar
+                            .current_outfit(agent_id, inventory, current_outfit_id)
+                            .await
+                        {
                             Ok(result) => result,
                             Err(e) => {
                                 error!("HandleNewAvatar error: {:?}", e);
@@ -68,7 +74,7 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
                             }
                         }
                     } else {
-                        match inventory.get_current_outfit().await {
+                        match inventory.get_current_outfit(current_outfit_id).await {
                             Ok(outfit_items) => (None, outfit_items),
                             Err(e) => {
                                 error!("HandleNewAvatarError {:?}", e);
@@ -304,14 +310,10 @@ impl Handler<FinalizeAvatar> for Mailbox {
                             error!("FinalizeAvatar error: {:?}", e);
                         }
                         addr.do_send(RenderAvatar {
-                            message: MeshUpdate {
+                            message: AvatarUpdate {
                                 position,
-                                scale: Vec3::ONE,
                                 rotation: Quat::IDENTITY,
-                                parent: None,
-                                scene_id: None,
                                 path: glb_path,
-                                mesh_type: MeshType::Avatar,
                                 id: Some(msg.agent_id),
                             },
                             agent_id,
@@ -347,14 +349,10 @@ impl Handler<LoadFromCache> for Mailbox {
         let position = COORDINATE_CONVERSION.mul_vec3(msg.avatar.position);
         // render the cached avatar
         ctx.address().do_send(RenderAvatar {
-            message: MeshUpdate {
+            message: AvatarUpdate {
                 position,
-                scale: Vec3::ONE,
                 rotation: Quat::IDENTITY,
-                parent: None,
-                scene_id: None,
                 path: msg.avatar.path.unwrap(),
-                mesh_type: MeshType::Avatar,
                 id: Some(msg.avatar.agent_id),
             },
             agent_id: msg.avatar.agent_id,
@@ -380,11 +378,7 @@ pub struct HandleNewAvatarAnimation {
 }
 impl Handler<HandleNewAvatarAnimation> for Mailbox {
     type Result = ();
-    fn handle(
-        &mut self,
-        mut msg: HandleNewAvatarAnimation,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
+    fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -422,18 +416,18 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let used_joints = avatar.used_joints.clone();
         let target_skeleton = avatar.skeleton.clone();
         let out_dir = session.share_dir_root.clone();
-        let Ok(out_dir) = create_agent_animation_dir(&out_dir, &avatar.agent_id) else {
-            error!("Failed to create agent animation directory");
-            return;
-        };
+        let agent_id = session.agent_id;
 
         let sender_id = msg.avatar_animation.sender_id;
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match build_animation(animations, used_joints, target_skeleton, out_dir).await {
+                match build_animation(animations, used_joints, target_skeleton, out_dir, agent_id)
+                    .await
+                {
                     Ok(mesh_paths) => {
                         for path in mesh_paths {
+                            println!("PLAYING ANIMATION AT PATH: {:?}", path);
                             addr.do_send(SendUIMessage {
                                 ui_message: UIMessage::new_play_animation(PlayAnimation {
                                     player_id: sender_id,
@@ -443,7 +437,7 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                         }
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("Build animation failed: {:?}", e)
                     }
                 };
             }
@@ -488,7 +482,7 @@ impl Handler<HandleNewAvatarAppearance> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderAvatar {
-    message: MeshUpdate,
+    message: AvatarUpdate,
     agent_id: Uuid,
     skeleton: BTreeSet<JointName>,
 }
@@ -502,7 +496,7 @@ impl Handler<RenderAvatar> for Mailbox {
             let addr = ctx.address();
 
             addr.do_send(SendUIMessage {
-                ui_message: UIMessage::new_mesh_update(msg.message),
+                ui_message: UIMessage::new_avatar_update(msg.message),
             });
 
             avatar.fully_loaded = true;

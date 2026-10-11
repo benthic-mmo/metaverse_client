@@ -1,7 +1,7 @@
 use crate::messages::{
     errors::ParseError,
     ui::{
-        agent_update::AgentUpdate, camera_position::CameraPosition,
+        agent_update::AgentUpdate, avatar_update::AvatarUpdate, camera_position::CameraPosition,
         chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromUI,
         coarse_location_update::CoarseLocationUpdate, disable_simulator::DisableSimulator,
         errors::SessionError, land_update::LandUpdate, login_event::Login,
@@ -68,6 +68,7 @@ pub enum UIMessage {
     CameraPosition(CameraPosition),
     /// message for informing the UI of an animation that is currently playing
     PlayAnimation(PlayAnimation),
+    AvatarUpdate(AvatarUpdate),
 
     PopulateInventory(PopulateInventory),
 }

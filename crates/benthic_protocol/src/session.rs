@@ -213,8 +213,8 @@ pub fn create_animation_agents_dir(root: &Path) -> Result<PathBuf, SessionError>
 
 /// Create the directory for a specific agent's animations.
 pub fn create_agent_animation_dir(root: &Path, agent_id: &Uuid) -> Result<PathBuf, SessionError> {
-    let agents_dir = create_animation_agents_dir(root)?;
-    create_sub_dir(&agents_dir, &agent_id.to_string())
+    let agent_dir = create_sub_agent_dir(root, &agent_id.to_string())?;
+    create_sub_dir(&agent_dir, "animations")
 }
 
 pub enum CacheDir {

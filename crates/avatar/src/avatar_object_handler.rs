@@ -67,6 +67,7 @@ pub async fn finalize_avatar(
     out_dir: PathBuf,
 ) -> Result<(PathBuf, Skeleton), AvatarError> {
     let skeleton = finalize_skeleton(skeleton);
+
     let json_paths: Vec<PathBuf> = items
         .into_iter()
         .filter_map(|item| {

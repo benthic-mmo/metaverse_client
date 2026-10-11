@@ -1,10 +1,12 @@
 use crate::animation::{BenthicAnimationPlugin, scene_instance_ready};
+use crate::avatar::AvatarPlugin;
 use crate::click_handler::ClickHandlerPlugin;
 use crate::core_plugin::{CorePlugin, DisableSimulatorEvent, LoginResponseEvent};
 use crate::environment::LandPlugin;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::login;
 use crate::mesh::BenthicMeshPlugin;
+use crate::object::BenthicObjectPlugin;
 use crate::panels::chat_panel::ChatPlugin;
 use crate::panels::inventory_panel::InventoryPanelPlugin;
 use crate::subscriber::listen_for_core_events;
@@ -26,6 +28,9 @@ use std::net::UdpSocket;
 use std::path::PathBuf;
 
 pub const VIEWER_NAME: &str = "benthic";
+
+#[derive(Component)]
+pub struct MainCamera;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum ViewerState {
@@ -110,7 +115,8 @@ impl Plugin for MetaversePlugin {
             //.add_plugins(SkyPlugin)
             .add_plugins(LandPlugin)
             .add_plugins(ClickHandlerPlugin)
-            .add_plugins(BenthicMeshPlugin)
+            .add_plugins(BenthicObjectPlugin)
+            .add_plugins(AvatarPlugin)
             .add_plugins(BenthicAnimationPlugin)
             .insert_resource(login_data)
             .insert_resource(SessionData {

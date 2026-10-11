@@ -2,7 +2,10 @@ use crate::errors::AnimationError;
 use benthic_default_asset_converter::generated_animation_path;
 use benthic_protocol::{
     default_animations::DefaultAnimation,
-    session::{cache_enabled, create_filtered_animation_dir},
+    session::{
+        cache_enabled, create_agent_animation_dir, create_animation_agents_dir,
+        create_animation_dir, create_filtered_animation_dir,
+    },
     skeleton::{JointName, Skeleton},
 };
 use metaverse_mesh::animation::{
@@ -17,12 +20,14 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     path::PathBuf,
 };
+use uuid::Uuid;
 
 pub async fn build_animation(
     animations: Vec<AnimationEntry>,
     used_joints: BTreeSet<JointName>,
     target_skeleton: Skeleton,
     out_dir: PathBuf,
+    agent_id: Uuid,
 ) -> Result<Vec<PathBuf>, AnimationError> {
     let mut hasher = DefaultHasher::new();
     used_joints.hash(&mut hasher);
@@ -39,11 +44,11 @@ pub async fn build_animation(
                 feature: "non-default animations".to_string(),
             })?;
 
+        let agent_animation_dir = create_agent_animation_dir(&out_dir, &agent_id)?;
         let filtered_animation_dir = create_filtered_animation_dir(&out_dir, &animation.anim_id)?;
         let filtered_animation_out_path = filtered_animation_dir.join(format!("{joint_hash}.json"));
 
-        let json_out_path = out_dir.join(format!("{}.json", animation.anim_id));
-
+        let json_out_path = agent_animation_dir.join(format!("{}.json", animation.anim_id));
         if !filtered_animation_out_path.exists() || !cache_enabled() {
             retarget_gltf_animation(
                 &animation_json_path,
@@ -61,11 +66,10 @@ pub async fn build_animation(
             }
         }
 
-        let animation_out_path = out_dir.join(format!("{}.glb", animation.anim_id));
+        let animation_out_path = agent_animation_dir.join(format!("{}.glb", animation.anim_id));
         generate_gltf_animation(&json_out_path, &animation_out_path)?;
 
         animation_paths.push(animation_out_path);
     }
-
     Ok(animation_paths)
 }
