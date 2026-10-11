@@ -1,6 +1,7 @@
 use crate::land::Land;
 use benthic_protocol::render_data::{RenderFace, RenderObject};
 use glam::Vec3;
+use rgb::Rgba;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -246,6 +247,7 @@ pub fn build_terrain(
             normals: None,
             texture: None,
             weights: None,
+            color: Rgba::new(255, 255, 255, 255),
         }],
         skin: None,
     }

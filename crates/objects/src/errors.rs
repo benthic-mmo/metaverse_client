@@ -82,6 +82,9 @@ impl From<awc::error::SendRequestError> for DownloadError {
             awc::error::SendRequestError::Connect(_) => DownloadError::Retryable {
                 error: Box::new(DownloadError::ObjectError { error }),
             },
+            awc::error::SendRequestError::Timeout => DownloadError::Retryable {
+                error: Box::new(DownloadError::ObjectError { error }),
+            },
 
             _ => DownloadError::Unrecoverable { error },
         }

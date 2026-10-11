@@ -80,6 +80,7 @@ async fn test_parametric_prims() {
                 parent: object.parent_id(),
                 texture: object.texture().clone(),
                 path_data,
+                retry_count: 0,
             };
 
             let data = handle_parametric_prim(&session.cache, &generated_dir, &parametric_prim)

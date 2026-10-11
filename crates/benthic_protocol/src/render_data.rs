@@ -1,6 +1,7 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
 use glam::{Mat4, Vec3};
+use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -27,6 +28,16 @@ pub struct RenderFace {
     pub normals: Option<Vec<Vec3>>,
     pub texture: Option<PathBuf>,
     pub weights: Option<Vec<JointWeight>>,
+
+    pub color: Rgba<u8>,
+    // TODO: Implement these soon
+    //
+    //pub shiny: Option<ShinyLevel>,
+    //pub fullbright: bool,
+    //pub glow: f32,
+    //pub bump: Option<BumpMapping>,
+    //pub texture_transform: Option<TextureTransform>,
+    //pub alpha_mode: Option<AlphaMode>,
 }
 /// This contains required data that will be used for rendering.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

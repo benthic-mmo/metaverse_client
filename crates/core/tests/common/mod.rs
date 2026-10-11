@@ -127,6 +127,7 @@ fn mock_from_xml(
             part.metadata.name.clone(),
             texture_paths,
             part.sculpt.texture,
+            &Some(part.shape.texture.clone()),
         )?;
 
         render_objects.push(render_object);

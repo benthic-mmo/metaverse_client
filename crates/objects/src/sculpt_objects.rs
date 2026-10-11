@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use benthic_protocol::{
     objects::{GeneratorObject, SculptObjectData},
     render_data::{RenderFace, RenderObject},
-    session::cache_enabled,
+    session::{cache_enabled, create_sub_object_dir},
 };
 use glam::Vec3;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
@@ -11,18 +11,23 @@ use metaverse_messages::{
     http::scene::SculptType, udp::object::object_update::SculptData,
     utils::texture_entry::TextureEntries,
 };
+use rgb::Rgba;
 use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
+    object_handler::handle_texture,
     object_updates::{ObjectUpdateAction, RenderObjectData},
 };
 
 pub async fn handle_sculpt_object(
-    out_dir: &PathBuf,
+    out_dir: PathBuf,
     texture_path: PathBuf,
-    object: SculptObjectData<TextureEntries, SculptData>,
+    object: &SculptObjectData<TextureEntries, SculptData>,
+    texture_paths: HashMap<u32, PathBuf>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
+    let base_dir = create_sub_object_dir(&out_dir, &object.data.texture_id.to_string())?;
+
     let image = image::open(&texture_path)?.into_rgb8();
     let (width, height) = image.dimensions();
     let mut actions = Vec::new();
@@ -128,12 +133,32 @@ pub async fn handle_sculpt_object(
 
     let indices = create_sculpt_indices(&rows, false);
 
-    let vertices: Vec<Vec3> = rows.into_iter().flatten().collect();
+    let row_count = rows.len();
+    let row_width = rows[0].len();
+
+    let mut vertices = Vec::with_capacity(row_count * row_width);
+    let mut uv = Vec::with_capacity(row_count * row_width);
+
+    for (y, row) in rows.iter().enumerate() {
+        for (x, vertex) in row.iter().enumerate() {
+            vertices.push(*vertex);
+
+            uv.push([
+                x as f32 / (row_width - 1) as f32,
+                y as f32 / (row_count - 1) as f32,
+            ]);
+        }
+    }
 
     let normals = create_sculpt_normals(&vertices, &indices);
 
-    let file_path = out_dir.join(format!("{}.json", object.data.texture_id));
-    let glb_path = out_dir.join(format!("{}.glb", object.data.texture_id));
+    let file_path = base_dir.join(format!("{}.json", object.data.texture_id));
+    let glb_path = base_dir.join(format!("{}.glb", object.data.texture_id));
+    let color = if let Some(texture) = &object.texture {
+        texture.default.rgba
+    } else {
+        Rgba::new(255, 255, 255, 255)
+    };
     if !glb_path.exists() || !cache_enabled() {
         if !file_path.exists() || !cache_enabled() {
             let render_object = RenderObject {
@@ -143,10 +168,11 @@ pub async fn handle_sculpt_object(
                     face_index: 0,
                     vertices,
                     indices,
-                    uv: Vec::new(),
+                    uv,
                     normals: Some(normals),
-                    texture: None,
+                    texture: texture_paths.get(&u32::MAX).cloned(),
                     weights: None,
+                    color,
                 }],
                 skin: None,
             };
@@ -161,7 +187,7 @@ pub async fn handle_sculpt_object(
     actions.push(ObjectUpdateAction::Render(RenderObjectData {
         mesh_path: Some(glb_path),
         asset_id: Uuid::nil(),
-        base_dir: out_dir.clone(),
+        base_dir: base_dir.clone(),
         object: GeneratorObject {
             full_id: object.full_id,
             local_id: object.local_id,
