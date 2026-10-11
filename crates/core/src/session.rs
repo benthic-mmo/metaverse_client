@@ -802,19 +802,19 @@ where
 }
 
 fn backoff_ms(retry: u32) -> u64 {
-    let base_ms = 1_000;
-    let max_ms = 30_000;
+    let base_ms = 50;
+    let max_ms = 5_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
-    rand::rng().random_range(0..=max)
+    rand::rng().random_range(50..=max)
 }
 
 fn long_backoff_ms(retry: u32) -> u64 {
-    let base_ms = 5_000;
-    let max_ms = 120_000;
+    let base_ms = 50;
+    let max_ms = 5_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
-    rand::rng().random_range(0..=max)
+    rand::rng().random_range(50..=max)
 }

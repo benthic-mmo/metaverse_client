@@ -1,5 +1,5 @@
 use crate::core_plugin::SkyboxUpdateEvent;
-use crate::mesh::MainCamera;
+use crate::plugin::MainCamera;
 use bevy::core_pipeline::Skybox;
 use bevy::core_pipeline::prepass::DeferredPrepass;
 use bevy::core_pipeline::tonemapping::Tonemapping;

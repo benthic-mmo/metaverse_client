@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     errors::DownloadError,
-    http_handler::{download_object, download_scene_group},
-    object_handler::handle_texture,
+    http_handler::{download_object, download_scene_group_assets},
 };
 use benthic_protocol::session::{CacheDir, cache_enabled, create_sub_agent_dir, write_json};
 use log::warn;
@@ -22,7 +21,7 @@ pub async fn download_asset_objects(
     let scene_group = download_object(object_type.to_string(), asset_id, server_endpoint).await?;
     let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
 
-    let render_objects = download_scene_group(
+    let render_objects = download_scene_group_assets(
         &scene_group,
         server_endpoint,
         &base_dir,

@@ -33,6 +33,7 @@ pub mod water_update;
 pub mod ui_messages;
 
 pub mod agent_update;
+pub mod avatar_update;
 pub mod chat_from_simulator;
 pub mod coarse_location_update;
 pub mod disable_simulator;

@@ -14,31 +14,55 @@ use metaverse_messages::{
 };
 use metaverse_store::initialize_sqlite::Cache;
 use rgb::Rgba;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
 use crate::{
     errors::{DownloadError, MeshBuildError},
-    http_handler::{download_asset, download_texture},
+    http_handler::download_texture,
     object_updates::{
         DownloadMeshObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData,
     },
 };
+pub async fn download_face_textures(
+    out_dir: &Path,
+    texture: &Option<TextureEntries>,
+    server_endpoint: &str,
+) -> Result<HashMap<u32, PathBuf>, DownloadError> {
+    let mut paths = HashMap::new();
 
-pub async fn handle_texture(
-    base_dir: PathBuf,
-    texture_id: Uuid,
-    server_endpoint: String,
-) -> Result<PathBuf, DownloadError> {
-    let texture_path = base_dir.join(format!("{:?}.png", texture_id));
-    download_texture(
-        ObjectType::Texture.to_string(),
-        texture_id,
-        &server_endpoint,
-        &texture_path,
-    )
-    .await?;
-    Ok(texture_path)
+    let Some(texture) = texture else {
+        return Ok(paths);
+    };
+
+    let download = |texture_id: Uuid| {
+        let texture_path = out_dir.join(format!("{:?}.png", texture_id));
+        let server_endpoint = server_endpoint.to_owned();
+
+        async move {
+            download_texture(
+                ObjectType::Texture.to_string(),
+                texture_id,
+                &server_endpoint,
+                &texture_path,
+            )
+            .await?;
+            Ok::<PathBuf, DownloadError>(texture_path)
+        }
+    };
+
+    let default_path = download(texture.default.texture_id).await?;
+    paths.insert(u32::MAX, default_path);
+
+    for (&face_index, face) in &texture.faces {
+        let path = download(face.texture_id).await?;
+        paths.insert(face_index, path);
+    }
+
+    Ok(paths)
 }
 
 pub async fn download_mesh_object(
