@@ -21,7 +21,7 @@ use bevy::{
     platform::collections::HashMap,
 };
 use bevy_world_serialization::WorldInstanceReady;
-use log::warn;
+use log::{info, warn};
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -65,10 +65,6 @@ pub fn scene_instance_ready(
             commands.entity(player_entity).insert(AgentAnimationPlayer {
                 agent_id: agent_id.id,
             });
-            println!(
-                "Mapped AnimationPlayer {:?} to agent {:?}",
-                player_entity, agent_id.id
-            );
         }
     }
 }
@@ -103,12 +99,12 @@ pub fn update_animations(
         for (player_entity, mut player, agent_animation) in players.iter_mut() {
             if agent_animation.agent_id == *agent_id {
                 let Some(gltf) = gltf_assets.get(&animation_data.gltf_handle) else {
-                    println!("GLTF not loaded yet: {:?}", animation_data.gltf_handle);
+                    warn!("GLTF not loaded yet: {:?}", animation_data.gltf_handle);
                     continue;
                 };
 
                 let Some(anim_handle) = gltf.animations.first() else {
-                    println!("No animations in GLTF: {:?}", animation_data.gltf_handle);
+                    warn!("No animations in GLTF: {:?}", animation_data.gltf_handle);
                     continue;
                 };
 
@@ -120,7 +116,7 @@ pub fn update_animations(
                     .insert(AnimationGraphHandle(graph_handle));
                 player.play(node_index).repeat();
 
-                println!(
+                info!(
                     "Playing animation for {:?} at node {:?}",
                     agent_id, node_index
                 );

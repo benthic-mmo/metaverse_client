@@ -6,12 +6,10 @@ use benthic_protocol::messages::ui::land_update::LandUpdate;
 use benthic_protocol::messages::ui::{skybox_update::SkyboxUpdate, ui_messages::UIMessage};
 use log::error;
 use log::info;
-use log::warn;
 use metaverse_environment::layer_handler::handle_layer;
 use metaverse_environment::sim_time::fetch_environment_time;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::udp::environment::layer_data::LayerData;
-use std::time::Duration;
 
 /// Handles received SimulatorVIewerTimeMessages
 ///
@@ -67,25 +65,23 @@ pub struct FetchEnvironmentEvent {}
 impl Handler<FetchEnvironmentEvent> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: FetchEnvironmentEvent, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_ref() else {
-            return;
-        };
-
-        if session.capability_urls.is_empty() {
-            warn!("Capabilities not ready yet. Queueing Environment fetch...");
-            ctx.notify_later(msg, Duration::from_secs(1));
-            return;
-        }
-        let capability_url = {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
             session
                 .capability_urls
                 .get(&Capability::ExtEnvironment)
                 .cloned()
+        });
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::ExtEnvironment, msg);
+            return;
+        };
+        let Some(_session) = self.session.as_ref() else {
+            return;
         };
 
         ctx.spawn(
             async move {
-                match fetch_environment_time(&capability_url).await {
+                match fetch_environment_time(&server_endpoint).await {
                     Ok(_) => {}
                     Err(e) => error!("{:?}", e),
                 }

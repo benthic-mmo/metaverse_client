@@ -25,6 +25,9 @@ pub enum PatchError {
     /// Failed to construct the patch header.
     #[error("Failed to create header: {0}")]
     Header(String),
+
+    #[error("Unsupported: {feature}")]
+    Unsupported { feature: String },
 }
 
 /// Errors that can occur while retrieving or parsing simulator time.

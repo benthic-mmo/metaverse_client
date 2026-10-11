@@ -23,7 +23,6 @@ use benthic_protocol::session::create_sub_object_dir;
 use benthic_protocol::session::create_textures_dir;
 use log::{error, warn};
 use metaverse_messages::http::capabilities::Capability;
-use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
 use metaverse_messages::udp::object::object_update::SculptData;
@@ -98,28 +97,23 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         mut msg: ParametricPrimObjectUpdate,
         ctx: &mut Self::Context,
     ) -> Self::Result {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .cloned()
+        });
+
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::ViewerAsset, msg);
+            return;
+        };
         let Some(session) = self.session.as_mut() else {
             return;
         };
 
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
-
-        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
-            Some(endpoint) => endpoint.to_string(),
-            None => {
-                msg.0.retry_count += 1;
-                addr.do_send(RetryMessage {
-                    retries: msg.0.retry_count,
-                    message: msg,
-                    long_backoff: true,
-                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
-                        .to_string(),
-                });
-                return;
-            }
-        };
-
         ctx.spawn(
             async move {
                 let textures_dir = match create_textures_dir(&out_dir) {
@@ -201,23 +195,21 @@ pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
 impl Handler<SculptObjectUpdate> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: SculptObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .cloned()
+        });
+
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::ViewerAsset, msg);
+            return;
+        };
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
-            Some(endpoint) => endpoint.to_string(),
-            None => {
-                msg.0.retry_count += 1;
-                ctx.address().do_send(RetryMessage {
-                    retries: msg.0.retry_count,
-                    message: msg,
-                    long_backoff: true,
-                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
-                        .to_string(),
-                });
-                return;
-            }
-        };
+
         let out_dir = session.share_dir_root.clone();
         let sculpt_id = msg.0.data.texture_id;
 
@@ -377,23 +369,18 @@ impl Handler<DownloadMeshObject> for Mailbox {
     type Result = ();
 
     fn handle(&mut self, mut msg: DownloadMeshObject, ctx: &mut Self::Context) {
-        let Some(session) = self.session.as_mut() else {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .cloned()
+        });
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::ViewerAsset, msg);
             return;
         };
-
-        let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
-            Some(endpoint) => endpoint.to_string(),
-            None => {
-                msg.0.retry_count += 1;
-                ctx.address().do_send(RetryMessage {
-                    retries: msg.0.retry_count,
-                    message: msg,
-                    long_backoff: true,
-                    info_message: "ViewerAsset capability not currently enabled. Requeueing..."
-                        .to_string(),
-                });
-                return;
-            }
+        let Some(session) = self.session.as_mut() else {
+            return;
         };
 
         let addr = ctx.address();

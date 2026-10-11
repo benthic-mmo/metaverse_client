@@ -1,12 +1,8 @@
+use super::session::Mailbox;
+use crate::session::{RetryMessage, SendUIMessage};
+use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use log::error;
-use std::time::Duration;
-
-use crate::session::{RetryMessage, SendUIMessage};
-
-use super::session::Mailbox;
-use actix::{AsyncContext, Handler, Message, WrapFuture};
-use log::warn;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;
 use uuid::Uuid;
@@ -18,28 +14,20 @@ pub struct FetchCurrentOutfit {
 }
 impl Handler<FetchCurrentOutfit> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: FetchCurrentOutfit, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+    fn handle(&mut self, msg: FetchCurrentOutfit, ctx: &mut Self::Context) -> Self::Result {
+        let server_endpoint = self.session.as_mut().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::FetchInventoryDescendents2)
+                .cloned()
+        });
+
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::FetchInventoryDescendents2, msg);
             return;
         };
-        if session.capability_urls.is_empty() {
-            let info_message =
-                "Capabilities not ready yet. Requeueing current outfit fetch ...".to_string();
-            msg.retry_count += 1;
-            ctx.address().do_send(RetryMessage {
-                retries: msg.retry_count,
-                message: msg,
-                info_message,
-                long_backoff: true,
-            });
-            return;
-        }
 
-        let Some(url) = session
-            .capability_urls
-            .get(&Capability::FetchInventoryDescendents2)
-            .cloned()
-        else {
+        let Some(session) = self.session.as_mut() else {
             return;
         };
 
@@ -51,7 +39,11 @@ impl Handler<FetchCurrentOutfit> for Mailbox {
         ctx.spawn(
             async move {
                 match inventory
-                    .predownload_current_outfit(current_outfit_root, owner_id, url.clone())
+                    .predownload_current_outfit(
+                        current_outfit_root,
+                        owner_id,
+                        server_endpoint.clone(),
+                    )
                     .await
                 {
                     Ok(_) => {
@@ -107,11 +99,16 @@ impl Handler<InventoryInit> for Mailbox {
 pub struct AvatarInit;
 impl Handler<AvatarInit> for Mailbox {
     type Result = ();
-    fn handle(&mut self, _: AvatarInit, _: &mut Self::Context) -> Self::Result {
+
+    fn handle(&mut self, _: AvatarInit, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
         session.inventory_data.current_outfit_init = true;
+        let pending = std::mem::take(&mut self.pending_avatar_objects);
+        for update in pending {
+            ctx.address().do_send(update);
+        }
     }
 }
 
@@ -135,33 +132,27 @@ pub struct RefreshInventoryEvent {
 #[cfg(feature = "inventory")]
 impl Handler<RefreshInventoryEvent> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
+        let server_endpoint = {
+            let Some(session) = self.session.as_mut() else {
+                return;
+            };
+            session
+                .capability_urls
+                .get(&Capability::FetchInventoryDescendents2)
+                .cloned()
+        };
+        let Some(server_endpoint) = server_endpoint else {
+            self.queue_for_capability(Capability::FetchInventoryDescendents2, msg);
+            return;
+        };
         let Some(session) = self.session.as_mut() else {
             return;
         };
 
-        if session.capability_urls.is_empty() {
-            let info_message = format!("Capabilities not ready yet. Queueing inventory refresh...");
-            msg.retry_count += 1;
-            ctx.address().do_send(RetryMessage {
-                retries: msg.retry_count,
-                message: msg,
-                info_message,
-                long_backoff: true,
-            });
-            return;
-        }
-
-        let Some(url) = session
-            .capability_urls
-            .get(&Capability::FetchInventoryDescendents2)
-            .cloned()
-        else {
-            return;
-        };
         let owner_id = session.agent_id;
         let folder_id = session.inventory_data.inventory_root;
-        let url = url.clone();
+        let url = server_endpoint.clone();
         let addr = ctx.address();
         let inventory = session.inventory.clone();
         ctx.spawn(

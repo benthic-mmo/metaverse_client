@@ -27,10 +27,7 @@ const MESH_GENERATOR_VERSION: u32 = 16;
 
 /// One layer of vertices along a prim's path.
 struct MeshLayer(Vec<Vec3>);
-fn is_hollow_cylinder(object: &ParametricPrimData<TextureEntries, PrimPath>) -> bool {
-    matches!(object.path_data.profile_shape, ProfileShape::Circle)
-        && object.path_data.profile_hollow > 0.0
-}
+
 pub async fn handle_parametric_prim(
     out_dir: &Path,
     object: &ParametricPrimData<TextureEntries, PrimPath>,
@@ -48,7 +45,6 @@ pub async fn handle_parametric_prim(
     let layers = follow_path(object.path_data.clone(), &profile)?;
     let has_hollow = object.path_data.profile_hollow > 0.0;
 
-    let debug_faces = is_hollow_cylinder(object);
     let faces = split_faces(
         &layers,
         object.path_data.profile_shape,
@@ -57,25 +53,6 @@ pub async fn handle_parametric_prim(
         &texture_paths,
         &object.texture,
     )?;
-    if debug_faces {
-        println!(
-            "\n=== Hollow cylinder {}: face assignments ===",
-            object.local_id
-        );
-
-        for face in &faces {
-            println!(
-                "Face {:>2}: texture={:?}, color={:?}, vertices={}, triangles={}",
-                face.face_index,
-                face.texture,
-                face.color,
-                face.vertices.len(),
-                face.indices.len() / 3,
-            );
-        }
-
-        println!("=== End hollow cylinder faces ===\n");
-    }
 
     let json_path = base_dir.join(format!("{cache_key}.json"));
     let glb_path = base_dir.join(format!("{cache_key}.glb"));

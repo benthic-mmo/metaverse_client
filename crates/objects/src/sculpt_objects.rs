@@ -32,8 +32,6 @@ pub async fn handle_sculpt_object(
     let (width, height) = image.dimensions();
     let mut actions = Vec::new();
 
-    println!("Texture dimensions: {width}x{height}");
-
     let mut vertices: Vec<Vec3> = Vec::with_capacity((width * height) as usize);
 
     for y in 0..height {

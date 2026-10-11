@@ -16,7 +16,7 @@ use metaverse_messages::{
     udp::object::{object_update::ExtraParams, util::ObjectUpdateData},
 };
 use metaverse_objects::{object_updates::ObjectUpdateAction, sculpt_objects::handle_sculpt_object};
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::common::mock_session;
 
@@ -93,18 +93,38 @@ async fn test_sculpys() {
                     region_id: "".to_string(),
                     retry_count: 0,
                 };
-                let actions =
-                    match handle_sculpt_object(&generated_dir, texture_path, sculpt_object).await {
-                        Ok(actions) => actions,
-                        Err(e) => {
-                            eprintln!(
-                                "Failed to process sculpt {} from {}: {e}",
-                                sculpt.texture_id,
-                                path.display()
-                            );
-                            continue;
-                        }
-                    };
+
+                let texture_paths: HashMap<u32, PathBuf> = sculpt_object
+                    .texture
+                    .iter()
+                    .map(|texture| {
+                        (
+                            1,
+                            data_dir
+                                .join("textures")
+                                .join(format!("{}.png", texture.default.texture_id)),
+                        )
+                    })
+                    .collect();
+
+                let actions = match handle_sculpt_object(
+                    generated_dir.clone(),
+                    texture_path,
+                    &sculpt_object,
+                    texture_paths,
+                )
+                .await
+                {
+                    Ok(actions) => actions,
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to process sculpt {} from {}: {e}",
+                            sculpt.texture_id,
+                            path.display()
+                        );
+                        continue;
+                    }
+                };
                 for action in actions {
                     match action {
                         ObjectUpdateAction::Render(prim_data) => {

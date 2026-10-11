@@ -55,6 +55,9 @@ pub async fn initialize(
             HashMap::<Uuid, Sender<DownloadState>>::new(),
         )),
         pending_children: Arc::new(tokioMutex::new(HashMap::new())),
+        pending_avatar_objects: Vec::new(),
+        pending_capability_messages: HashMap::new(),
+        pending_animations: HashMap::new(),
     }
     .start();
     // wait until the mailbox starts

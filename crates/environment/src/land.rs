@@ -123,7 +123,7 @@ impl PatchData for Land {
             );
 
             // this decompresses the data using JPEG type decompression
-            let heightmap = decompress_patch(&terrain_header, &patch);
+            let heightmap = decompress_patch(&terrain_header, &patch)?;
 
             patches.push(Land {
                 terrain_header,
