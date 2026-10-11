@@ -78,31 +78,26 @@ pub struct PrimPath {
     pub profile_shape: ProfileShape,
 }
 impl PrimPath {
-    pub fn hash(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-
-        self.curve.hash(&mut hasher);
-        self.begin.to_bits().hash(&mut hasher);
-        self.end.to_bits().hash(&mut hasher);
-        self.scale_x.to_bits().hash(&mut hasher);
-        self.scale_y.to_bits().hash(&mut hasher);
-        self.shear_x.to_bits().hash(&mut hasher);
-        self.shear_y.to_bits().hash(&mut hasher);
-        self.twist_end.to_bits().hash(&mut hasher);
-        self.twist_begin.to_bits().hash(&mut hasher);
-        self.radius_offset.to_bits().hash(&mut hasher);
-        self.taper_x.to_bits().hash(&mut hasher);
-        self.taper_y.to_bits().hash(&mut hasher);
-        self.revolutions.to_bits().hash(&mut hasher);
-        self.skew.to_bits().hash(&mut hasher);
-        self.profile_begin.to_bits().hash(&mut hasher);
-        self.profile_end.to_bits().hash(&mut hasher);
-        self.profile_hollow.to_bits().hash(&mut hasher);
-
-        self.hollow_shape.hash(&mut hasher);
-        self.profile_shape.hash(&mut hasher);
-
-        hasher.finish()
+    pub fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.curve.hash(&mut *hasher);
+        self.begin.to_bits().hash(&mut *hasher);
+        self.end.to_bits().hash(&mut *hasher);
+        self.scale_x.to_bits().hash(&mut *hasher);
+        self.scale_y.to_bits().hash(&mut *hasher);
+        self.shear_x.to_bits().hash(&mut *hasher);
+        self.shear_y.to_bits().hash(&mut *hasher);
+        self.twist_end.to_bits().hash(&mut *hasher);
+        self.twist_begin.to_bits().hash(&mut *hasher);
+        self.radius_offset.to_bits().hash(&mut *hasher);
+        self.taper_x.to_bits().hash(&mut *hasher);
+        self.taper_y.to_bits().hash(&mut *hasher);
+        self.revolutions.to_bits().hash(&mut *hasher);
+        self.skew.to_bits().hash(&mut *hasher);
+        self.profile_begin.to_bits().hash(&mut *hasher);
+        self.profile_end.to_bits().hash(&mut *hasher);
+        self.profile_hollow.to_bits().hash(&mut *hasher);
+        self.hollow_shape.hash(&mut *hasher);
+        self.profile_shape.hash(&mut *hasher);
     }
 }
 

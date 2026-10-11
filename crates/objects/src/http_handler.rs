@@ -79,9 +79,10 @@ pub async fn download_texture(
     server_endpoint: &str,
     path: &PathBuf,
 ) -> Result<(), DownloadError> {
-    let tex = &download_asset(item_type, asset_id, server_endpoint)
-        .await
-        .map_err(DownloadError::from)?;
+    if path.exists() {
+        return Ok(());
+    }
+    let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 
@@ -145,6 +146,7 @@ pub async fn download_scene_group(
                 scene.metadata.name.clone(),
                 texture_paths,
                 scene.sculpt.texture,
+                &Some(scene.shape.texture.clone()),
             )?)
         } else {
             info!("Non-mesh scene group")

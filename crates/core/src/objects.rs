@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::path::Path;
+use std::path::PathBuf;
 
 use super::session::Mailbox;
 #[cfg(feature = "z-up")]
@@ -18,6 +20,7 @@ use benthic_protocol::objects::ParametricPrimData;
 use benthic_protocol::objects::SculptObjectData;
 use benthic_protocol::session::DownloadState;
 use benthic_protocol::session::create_sub_object_dir;
+use benthic_protocol::session::create_textures_dir;
 use log::{error, warn};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::scene::SculptType;
@@ -30,6 +33,8 @@ use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::path::PrimPath;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::errors::DownloadError;
+use metaverse_objects::errors::ObjectUpdateError;
+use metaverse_objects::http_handler::download_asset;
 use metaverse_objects::object_handler::download_mesh_object;
 use metaverse_objects::object_handler::handle_texture;
 use metaverse_objects::object_handler::mesh_from_json;
@@ -87,6 +92,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
+
     fn handle(
         &mut self,
         mut msg: ParametricPrimObjectUpdate,
@@ -95,13 +101,15 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+
         let server_endpoint = match session.capability_urls.get(&Capability::ViewerAsset) {
             Some(endpoint) => endpoint.to_string(),
             None => {
                 msg.0.retry_count += 1;
-                ctx.address().do_send(RetryMessage {
+                addr.do_send(RetryMessage {
                     retries: msg.0.retry_count,
                     message: msg,
                     long_backoff: true,
@@ -114,19 +122,59 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 
         ctx.spawn(
             async move {
-                match handle_parametric_prim(&out_dir, &msg.0, server_endpoint).await {
-                    Ok(actions) => {
-                        for action in actions {
-                            match action {
-                                ObjectUpdateAction::Render(data) => {
-                                    addr.do_send(RenderObjectMessage(data));
-                                }
-                                _ => {}
-                            }
+                let textures_dir = match create_textures_dir(&out_dir) {
+                    Ok(path) => path,
+                    Err(_) => {
+                        error!("Failed to create textures dir");
+                        return;
+                    }
+                };
+                let texture_paths =
+                    match download_face_textures(&textures_dir, &msg.0.texture, &server_endpoint)
+                        .await
+                    {
+                        Ok(paths) => paths,
+                        Err(e @ DownloadError::Retryable { .. }) => {
+                            msg.0.retry_count += 1;
+                            addr.do_send(RetryMessage {
+                                retries: msg.0.retry_count,
+                                message: msg,
+                                long_backoff: true,
+                                info_message: format!(
+                                    "Parametric prim texture download failed: {e}. Retrying..."
+                                ),
+                            });
+                            return;
                         }
+                        Err(e) => {
+                            error!("Parametric prim texture download failed: {:?}", e);
+                            return;
+                        }
+                    };
+
+                let actions = match handle_parametric_prim(&out_dir, &msg.0, texture_paths).await {
+                    Ok(actions) => actions,
+                    Err(ObjectUpdateError::DownloadError(e @ DownloadError::Retryable { .. })) => {
+                        msg.0.retry_count += 1;
+                        addr.do_send(RetryMessage {
+                            retries: msg.0.retry_count,
+                            message: msg,
+                            long_backoff: true,
+                            info_message: format!(
+                                "Parametric prim processing failed: {e}. Retrying..."
+                            ),
+                        });
+                        return;
                     }
                     Err(e) => {
-                        error!("HandleObjectUpdate error: {:?}", e)
+                        error!("Handle parametric prim error: {:?}", e);
+                        return;
+                    }
+                };
+
+                for action in actions {
+                    if let ObjectUpdateAction::Render(data) = action {
+                        addr.do_send(RenderObjectMessage(data));
                     }
                 }
             }
@@ -186,45 +234,132 @@ impl Handler<SculptObjectUpdate> for Mailbox {
         };
         ctx.spawn(
             async move {
-                match handle_texture(base_dir, sculpt_id, server_endpoint).await {
-                    Ok(texture_path) => {
-                        match handle_sculpt_object(&out_dir, texture_path, msg.0).await {
-                            Ok(actions) => {
-                                for action in actions {
-                                    match action {
-                                        ObjectUpdateAction::Render(data) => {
-                                            addr.do_send(RenderObjectMessage(data));
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                error!("HandleSculptObject error: {:?}", e)
-                            }
-                        };
+                // retrieve sculpt texture from endpoint
+                let sculpt_path = match handle_texture(
+                    base_dir.clone(),
+                    sculpt_id,
+                    server_endpoint.clone(),
+                )
+                .await
+                {
+                    Ok(path) => path,
+                    Err(e @ DownloadError::Retryable { .. }) => {
+                        msg.0.retry_count += 1;
+                        addr.do_send(RetryMessage {
+                            retries: msg.0.retry_count,
+                            message: msg,
+                            long_backoff: true,
+                            info_message: format!(
+                                "Sculpt texture download failed: {e}. Retrying..."
+                            ),
+                        });
+                        return;
                     }
                     Err(e) => {
-                        if matches!(e, DownloadError::Retryable { .. }) {
+                        error!("Sculpt texture download failed: {:?}", e);
+                        return;
+                    }
+                };
+
+                // retrieve per-face textures from endpoint
+                let textures_dir = match create_textures_dir(&out_dir) {
+                    Ok(path) => path,
+                    Err(_) => {
+                        error!("Failed to create textures dir");
+                        return;
+                    }
+                };
+                let texture_paths =
+                    match download_face_textures(&textures_dir, &msg.0.texture, &server_endpoint)
+                        .await
+                    {
+                        Ok(paths) => paths,
+                        Err(e @ DownloadError::Retryable { .. }) => {
+                            msg.0.retry_count += 1;
+                            addr.do_send(RetryMessage {
+                            retries: msg.0.retry_count,
+                            message: msg,
+                            long_backoff: true,
+                            info_message: format!(
+                                "Material texture download failed: {e}. Retrying sculpt object..."
+                            ),
+                        });
+                            return;
+                        }
+                        Err(e) => {
+                            error!("Material texture download failed: {:?}", e);
+                            return;
+                        }
+                    };
+
+                // build the sculpt object
+                let actions =
+                    match handle_sculpt_object(out_dir, sculpt_path, &msg.0, texture_paths).await {
+                        Ok(actions) => actions,
+                        Err(ObjectUpdateError::DownloadError(
+                            e @ DownloadError::Retryable { .. },
+                        )) => {
                             msg.0.retry_count += 1;
                             addr.do_send(RetryMessage {
                                 retries: msg.0.retry_count,
                                 message: msg,
                                 long_backoff: true,
                                 info_message: format!(
-                                    "Download error {}. Retrying object download...",
-                                    e
+                                    "Sculpt object processing failed: {e}. Retrying..."
                                 ),
                             });
+                            return;
                         }
+                        Err(e) => {
+                            error!("Handle sculpt object error: {:?}", e);
+                            return;
+                        }
+                    };
+
+                // render the generated sculpt object
+                for action in actions {
+                    if let ObjectUpdateAction::Render(data) = action {
+                        addr.do_send(RenderObjectMessage(data));
                     }
-                };
+                }
             }
             .into_actor(self),
         );
     }
 }
+async fn download_face_textures(
+    out_dir: &Path,
+    texture: &Option<TextureEntries>,
+    server_endpoint: &str,
+) -> Result<HashMap<u32, PathBuf>, DownloadError> {
+    let mut paths = HashMap::new();
 
+    let Some(texture) = texture else {
+        return Ok(paths);
+    };
+
+    let default_path = handle_texture(
+        out_dir.to_path_buf(),
+        texture.default.texture_id,
+        server_endpoint.to_owned(),
+    )
+    .await?;
+
+    paths.insert(u32::MAX, default_path);
+
+    for (&face_index, face) in &texture.faces {
+        let path = handle_texture(
+            out_dir.to_path_buf(),
+            face.texture_id,
+            server_endpoint.to_owned(),
+        )
+        .await?;
+
+        paths.insert(face_index, path);
+    }
+
+    Ok(paths)
+}
 /// Message for downloading object update from its capability endpoint
 ///
 /// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh
@@ -240,7 +375,8 @@ impl Handler<SculptObjectUpdate> for Mailbox {
 pub struct DownloadMeshObject(DownloadMeshObjectData);
 impl Handler<DownloadMeshObject> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: DownloadMeshObject, ctx: &mut Self::Context) -> Self::Result {
+
+    fn handle(&mut self, mut msg: DownloadMeshObject, ctx: &mut Self::Context) {
         let Some(session) = self.session.as_mut() else {
             return;
         };
@@ -259,49 +395,126 @@ impl Handler<DownloadMeshObject> for Mailbox {
                 return;
             }
         };
+
         let addr = ctx.address();
         let cache = session.cache.clone();
         let out_dir = session.share_dir_root.clone();
         let semaphore = self.max_concurrent_downloads.clone();
         let downloads = self.downloads.clone();
+
         ctx.spawn(
             async move {
-                // ensure there aren't more than the permitted amount of downloads happening
-                // concurrently.
-                let _permit = semaphore.acquire_owned().await.unwrap();
+                let _permit = match semaphore.acquire_owned().await {
+                    Ok(permit) => permit,
+                    Err(e) => {
+                        error!("Failed to acquire download semaphore: {e}");
+                        return;
+                    }
+                };
 
-                match download_mesh_object(cache, server_endpoint, &msg.0, out_dir).await {
-                    Ok(action) => {
-                        if let ObjectUpdateAction::GenerateFromJSON(action) = action {
-                            addr.do_send(GenerateMeshMessage(action));
-                        }
+                // Download the mesh first.
+                let mesh_bytes = match download_asset(
+                    ObjectType::Mesh.to_string(),
+                    msg.0.object.sculpt_id,
+                    &server_endpoint,
+                )
+                .await
+                {
+                    Ok(bytes) => bytes,
+                    Err(e @ DownloadError::Retryable { .. }) => {
+                        msg.0.retry_count += 1;
+                        addr.do_send(RetryMessage {
+                            retries: msg.0.retry_count,
+                            message: msg,
+                            long_backoff: true,
+                            info_message: format!(
+                                "Mesh download failed: {e}. Retrying object download..."
+                            ),
+                        });
+                        return;
                     }
                     Err(e) => {
-                        if matches!(e, DownloadError::Retryable { .. }) {
+                        error!("Mesh download failed: {:?}", e);
+                        let mut downloads = downloads.lock().await;
+                        if let Some(tx) = downloads.remove(&msg.0.object.sculpt_id) {
+                            let _ = tx.send(DownloadState::Failed);
+                        }
+                        return;
+                    }
+                };
+
+                // Download material textures.
+                let textures_dir = match create_textures_dir(&out_dir) {
+                    Ok(path) => path,
+                    Err(_) => {
+                        error!("Failed to create textures dir");
+                        return;
+                    }
+                };
+                let texture_paths = match download_face_textures(
+                    &textures_dir,
+                    &msg.0.object.texture,
+                    &server_endpoint,
+                )
+                .await
+                {
+                    Ok(paths) => paths,
+                    Err(e @ DownloadError::Retryable { .. }) => {
+                        msg.0.retry_count += 1;
+                        addr.do_send(RetryMessage {
+                            retries: msg.0.retry_count,
+                            message: msg,
+                            long_backoff: true,
+                            info_message: format!("Mesh texture download failed: {e}. Retrying..."),
+                        });
+                        return;
+                    }
+                    Err(e) => {
+                        error!("Mesh texture download failed: {:?}", e);
+
+                        let mut downloads = downloads.lock().await;
+                        if let Some(tx) = downloads.remove(&msg.0.object.sculpt_id) {
+                            let _ = tx.send(DownloadState::Failed);
+                        }
+                        return;
+                    }
+                };
+
+                let action =
+                    match download_mesh_object(cache, &msg.0, out_dir, mesh_bytes, texture_paths)
+                        .await
+                    {
+                        Ok(action) => action,
+                        Err(e @ DownloadError::Retryable { .. }) => {
                             msg.0.retry_count += 1;
                             addr.do_send(RetryMessage {
                                 retries: msg.0.retry_count,
                                 message: msg,
                                 long_backoff: true,
                                 info_message: format!(
-                                    "Download error {}. Retrying object download...",
-                                    e
+                                    "Mesh object processing failed: {e}. Retrying..."
                                 ),
                             });
-                        } else {
+                            return;
+                        }
+                        Err(e) => {
+                            error!("Mesh object processing failed: {:?}", e);
                             let mut downloads = downloads.lock().await;
                             if let Some(tx) = downloads.remove(&msg.0.object.sculpt_id) {
                                 let _ = tx.send(DownloadState::Failed);
                             }
+                            return;
                         }
-                    }
-                };
+                    };
+
+                if let ObjectUpdateAction::GenerateFromJSON(action) = action {
+                    addr.do_send(GenerateMeshMessage(action));
+                }
             }
             .into_actor(self),
         );
     }
 }
-
 /// Message for handing improved terse object update packets
 ///
 /// TODO: currently unimplemented

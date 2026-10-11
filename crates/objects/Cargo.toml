@@ -28,3 +28,4 @@ log.workspace = true
 serde_json.workspace = true 
 indexmap.workspace = true 
 tokio.workspace=true
+rgb.workspace = true

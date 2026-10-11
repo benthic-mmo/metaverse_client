@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    f32::consts::TAU,
+    hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
 
@@ -9,96 +9,91 @@ use benthic_protocol::{
     render_data::{RenderFace, RenderObject},
     session::{cache_enabled, create_sub_object_dir},
 };
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::utils::{
     path::{HollowShape, PathCurve, PrimPath, ProfileShape},
     texture_entry::TextureEntries,
 };
-use metaverse_store::initialize_sqlite::Cache;
+use rgb::Rgba;
 use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
-    object_handler::handle_texture,
     object_updates::{ObjectUpdateAction, RenderObjectData},
 };
 
-/// This contains one layer of vertices.
-struct MeshLayer(Vec<Vec3>);
+const MESH_GENERATOR_VERSION: u32 = 16;
 
+/// One layer of vertices along a prim's path.
+struct MeshLayer(Vec<Vec3>);
+fn is_hollow_cylinder(object: &ParametricPrimData<TextureEntries, PrimPath>) -> bool {
+    matches!(object.path_data.profile_shape, ProfileShape::Circle)
+        && object.path_data.profile_hollow > 0.0
+}
 pub async fn handle_parametric_prim(
     out_dir: &Path,
     object: &ParametricPrimData<TextureEntries, PrimPath>,
-    server_endpoint: String,
+    texture_paths: HashMap<u32, PathBuf>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-    let mut actions: Vec<ObjectUpdateAction> = Vec::new();
+    let cache_key = create_cache_key(object);
+    let base_dir = create_sub_object_dir(out_dir, &format!("{cache_key:016x}"))?;
 
-    let mut texture_paths = HashMap::new();
-    if let Some(texture) = &object.texture {
-        let texture_path = handle_texture(
-            out_dir.to_path_buf(),
-            texture.default.texture_id,
-            server_endpoint.clone(),
-        )
-        .await?;
-        texture_paths.insert(u32::MAX, texture_path);
-        for (face_index, face) in &texture.faces {
-            let texture_path = handle_texture(
-                out_dir.to_path_buf(),
-                face.texture_id,
-                server_endpoint.clone(),
-            )
-            .await?;
-
-            texture_paths.insert(*face_index, texture_path);
-        }
-    }
-
-    let profile_layer = build_profile(
+    let profile = build_profile(
         object.path_data.hollow_shape,
         object.path_data.profile_hollow,
         object.path_data.profile_shape,
-        object.path_data.scale_x,
-        object.path_data.scale_y,
     )?;
 
-    let mesh_layers = follow_path(object.path_data.clone(), &profile_layer)?;
+    let layers = follow_path(object.path_data.clone(), &profile)?;
     let has_hollow = object.path_data.profile_hollow > 0.0;
-    let (vertices, indices) = stitch_faces(mesh_layers, has_hollow)?;
-    let normals = generate_normals(&vertices, &indices);
 
-    let path_hash = object.path_data.hash();
+    let debug_faces = is_hollow_cylinder(object);
+    let faces = split_faces(
+        &layers,
+        object.path_data.profile_shape,
+        object.path_data.hollow_shape,
+        has_hollow,
+        &texture_paths,
+        &object.texture,
+    )?;
+    if debug_faces {
+        println!(
+            "\n=== Hollow cylinder {}: face assignments ===",
+            object.local_id
+        );
 
-    let base_dir = create_sub_object_dir(out_dir, &format!("{path_hash:016x}"))?;
-
-    let file_path = base_dir.join(format!("{}.json", path_hash));
-    let glb_path = base_dir.join(format!("{}.glb", path_hash));
-
-    if !glb_path.exists() || !cache_enabled() {
-        if !file_path.exists() || !cache_enabled() {
-            let render_object = RenderObject {
-                name: "Prim".to_string(),
-                id: object.full_id,
-                faces: vec![RenderFace {
-                    face_index: 0,
-                    vertices,
-                    indices,
-                    uv: Vec::new(),
-                    normals: Some(normals),
-                    texture: None,
-                    weights: None,
-                }],
-                skin: None,
-            };
-            let json = serde_json::to_vec_pretty(&render_object)?;
-            std::fs::write(&file_path, json)?;
+        for face in &faces {
+            println!(
+                "Face {:>2}: texture={:?}, color={:?}, vertices={}, triangles={}",
+                face.face_index,
+                face.texture,
+                face.color,
+                face.vertices.len(),
+                face.indices.len() / 3,
+            );
         }
 
-        generate_object_mesh(file_path.clone(), glb_path.clone())?;
+        println!("=== End hollow cylinder faces ===\n");
     }
 
-    actions.push(ObjectUpdateAction::Render(RenderObjectData {
+    let json_path = base_dir.join(format!("{cache_key}.json"));
+    let glb_path = base_dir.join(format!("{cache_key}.glb"));
+
+    let render_object = RenderObject {
+        name: "Prim".to_string(),
+        id: object.full_id,
+        faces,
+        skin: None,
+    };
+
+    std::fs::write(&json_path, serde_json::to_vec_pretty(&render_object)?)?;
+
+    if !glb_path.exists() || !cache_enabled() {
+        generate_object_mesh(json_path, glb_path.clone())?;
+    }
+
+    Ok(vec![ObjectUpdateAction::Render(RenderObjectData {
         mesh_path: Some(glb_path),
         asset_id: Uuid::nil(),
         base_dir,
@@ -112,81 +107,36 @@ pub async fn handle_parametric_prim(
         },
         download: None,
         retry_count: 0,
-    }));
-
-    Ok(actions)
+    })])
 }
 
-fn stitch_faces(
-    layers: Vec<MeshLayer>,
-    has_hollow: bool,
-) -> Result<(Vec<Vec3>, Vec<u32>), ObjectUpdateError> {
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
+/// Build a cache key from geometry parameters, texture assignments and colors.
+/// Build a cache key from geometry parameters, texture IDs, and colors.
+fn create_cache_key(object: &ParametricPrimData<TextureEntries, PrimPath>) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
-    if layers.len() < 2 {
-        return Ok((vertices, indices));
-    }
+    object.path_data.hash(&mut hasher);
+    MESH_GENERATOR_VERSION.hash(&mut hasher);
 
-    let layer_size = layers[0].0.len();
+    if let Some(texture) = &object.texture {
+        texture.default.texture_id.hash(&mut hasher);
+        hash_color(texture.default.rgba, &mut hasher);
 
-    if layer_size < 3 {
-        return Ok((vertices, indices));
-    }
+        let mut faces: Vec<_> = texture.faces.iter().collect();
+        faces.sort_by_key(|(index, _)| **index);
 
-    // Flatten all layers into one vertex array.
-    for layer in &layers {
-        if layer.0.len() != layer_size {
-            return Err(ObjectUpdateError::Unimplemented {
-                feature: "Mesh layers have mismatched vertex counts".to_string(),
-            });
-        }
-
-        vertices.extend_from_slice(&layer.0);
-    }
-
-    // Stitch every layer to the next layer.
-    for layer_index in 0..layers.len() - 1 {
-        let current_start = layer_index * layer_size;
-        let next_start = (layer_index + 1) * layer_size;
-
-        for i in 0..layer_size {
-            let next_i = (i + 1) % layer_size;
-
-            let a = (current_start + i) as u32;
-            let b = (current_start + next_i) as u32;
-            let c = (next_start + i) as u32;
-            let d = (next_start + next_i) as u32;
-
-            // Two triangles forming the quad.
-            indices.extend_from_slice(&[a, c, b, b, c, d]);
+        for (index, face) in faces {
+            index.hash(&mut hasher);
+            face.texture_id.hash(&mut hasher);
+            hash_color(face.rgba, &mut hasher);
         }
     }
 
-    if !has_hollow {
-        let last_start = ((layers.len() - 1) * layer_size) as u32;
-        cap_layer(&layers[0], 0, true, &mut indices); // bottom, flipped winding  
-        cap_layer(&layers[layers.len() - 1], last_start, false, &mut indices); // top  
-    }
-
-    Ok((vertices, indices))
+    hasher.finish()
 }
 
-fn cap_layer(layer: &MeshLayer, layer_start: u32, flip: bool, indices: &mut Vec<u32>) {
-    let n = layer.0.len() as u32;
-    if n < 3 {
-        return;
-    }
-    for i in 1..n - 1 {
-        let a = layer_start;
-        let b = layer_start + i;
-        let c = layer_start + i + 1;
-        if flip {
-            indices.extend_from_slice(&[a, c, b]);
-        } else {
-            indices.extend_from_slice(&[a, b, c]);
-        }
-    }
+fn hash_color<H: Hasher>(color: Rgba<u8>, hasher: &mut H) {
+    (color.r, color.g, color.b, color.a).hash(hasher);
 }
 
 fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
@@ -197,9 +147,7 @@ fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
         let b = triangle[1] as usize;
         let c = triangle[2] as usize;
 
-        let edge1 = vertices[b] - vertices[a];
-        let edge2 = vertices[c] - vertices[a];
-        let normal = edge1.cross(edge2);
+        let normal = (vertices[b] - vertices[a]).cross(vertices[c] - vertices[a]);
 
         normals[a] += normal;
         normals[b] += normal;
@@ -212,80 +160,102 @@ fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
 
     normals
 }
+
+fn linear_path_scale(scale: f32, t: f32) -> f32 {
+    // Matches LLPathParams::getBeginScale/getEndScale.
+    let begin = if scale > 1.0 { 2.0 - scale } else { 1.0 };
+    let end = if scale < 1.0 { scale } else { 1.0 };
+
+    begin + (end - begin) * t
+}
+
+fn taper_scale(taper: f32, t: f32) -> f32 {
+    let mut begin = 1.0;
+    let mut end = 1.0 - taper;
+
+    if end > 1.0 {
+        begin = 2.0 - end;
+        end = 1.0;
+    }
+
+    begin + (end - begin) * t
+}
+
 fn follow_path(
     path_data: PrimPath,
-    face_vertices: &MeshLayer,
+    profile: &MeshLayer,
 ) -> Result<Vec<MeshLayer>, ObjectUpdateError> {
-    let mut layers = Vec::new();
+    let length = path_data.end - path_data.begin;
+
+    if length <= f32::EPSILON {
+        return Err(ObjectUpdateError::MeshTooSmall);
+    }
+
+    let step_count = path_data.curve.high_resolution_steps().max(1.0).ceil() as usize;
+    let mut layers = Vec::with_capacity(step_count + 1);
+
     match path_data.curve {
-        PathCurve::Circle | PathCurve::Circle2 | PathCurve::Test => {
-            let y_path_scale = path_data.scale_y * 0.5;
-            let ring_radius = 0.5 - y_path_scale;
-            let start_angle =
-                TAU * path_data.begin * path_data.revolutions - path_data.shear_y * 0.9;
-            let end_angle = TAU * path_data.end * path_data.revolutions - path_data.shear_y * 0.9;
-            let step = TAU / path_data.curve.high_resolution_steps();
-
-            let mut angle = start_angle;
-
-            loop {
-                let node_pos = Vec3::new(0.0, angle.cos() * ring_radius, angle.sin() * ring_radius);
-
-                let mut vertices = Vec::new();
-                // Move every profile vertex to this position on the path.
-                for vertex in face_vertices.0.clone() {
-                    vertices.push(vertex + node_pos);
-                }
-                layers.push(MeshLayer(vertices));
-
-                if angle >= end_angle {
-                    break;
-                }
-
-                angle = (angle + step).min(end_angle);
-            }
-
-            Ok(layers)
-        }
         PathCurve::Line | PathCurve::Flexible => {
-            let length = path_data.end - path_data.begin;
-            let steps = path_data.curve.high_resolution_steps(); // same LOD lookup as circular  
-            let step_size = length / steps;
+            for i in 0..=step_count {
+                let fraction = i as f32 / step_count as f32;
+                let t = path_data.begin + length * fraction;
 
-            let mut z_offset = -0.5 + path_data.begin;
-            let mut x_offset = path_data.shear_x * path_data.begin;
-            let mut y_offset = path_data.shear_y * path_data.begin;
+                let scale_x = linear_path_scale(path_data.scale_x, t);
+                let scale_y = linear_path_scale(path_data.scale_y, t);
 
-            let x_step = path_data.shear_x * length / steps;
-            let y_step = path_data.shear_y * length / steps;
+                let offset = Vec3::new(path_data.shear_x * t, path_data.shear_y * t, t - 0.5);
 
-            let mut percent_of_path = path_data.begin;
-            let percent_step = step_size * 0.999999;
+                let vertices = profile
+                    .0
+                    .iter()
+                    .map(|v| Vec3::new(v.x * scale_x, v.y * scale_y, v.z) + offset)
+                    .collect();
 
-            let mut step = 0;
-            loop {
-                let node_pos = Vec3::new(x_offset, y_offset, z_offset);
-
-                let vertices = face_vertices.0.iter().map(|v| *v + node_pos).collect();
                 layers.push(MeshLayer(vertices));
-
-                if step as f32 >= steps {
-                    break;
-                }
-
-                percent_of_path += percent_step;
-                if percent_of_path > path_data.end {
-                    break;
-                }
-
-                step += 1;
-                x_offset += x_step;
-                y_offset += y_step;
-                z_offset += step_size;
             }
-
-            Ok(layers)
         }
+
+        PathCurve::Circle | PathCurve::Circle2 | PathCurve::Test => {
+            // The profile has a base radius of 0.5.
+            let ring_radius = 0.5 * (1.0 - path_data.scale_y);
+
+            for i in 0..=step_count {
+                let fraction = i as f32 / step_count as f32;
+                let t = path_data.begin + length * fraction;
+
+                let angle =
+                    std::f32::consts::TAU * path_data.revolutions * t - path_data.shear_y * 0.9;
+
+                let offset = Vec3::new(0.0, angle.cos() * ring_radius, angle.sin() * ring_radius);
+
+                let scale_x = path_data.scale_x * taper_scale(path_data.taper_x, t);
+                let scale_y = path_data.scale_y * taper_scale(path_data.taper_y, t);
+                let rotation = Quat::from_rotation_x(angle);
+
+                let vertices = profile
+                    .0
+                    .iter()
+                    .map(|v| {
+                        let scaled = Vec3::new(v.x * scale_x, v.y * scale_y, v.z);
+                        rotation * scaled + offset
+                    })
+                    .collect();
+
+                layers.push(MeshLayer(vertices));
+            }
+        }
+    }
+
+    Ok(layers)
+}
+
+fn hollow_profile_shape(shape: HollowShape, profile: ProfileShape) -> ProfileShape {
+    match shape {
+        HollowShape::Same => profile,
+        HollowShape::Circle => ProfileShape::Circle,
+        HollowShape::Square => ProfileShape::Square,
+        HollowShape::Triangle => ProfileShape::EqualTriangle,
+        HollowShape::Unknown => ProfileShape::Square,
     }
 }
 
@@ -293,69 +263,70 @@ fn build_profile(
     hollow_shape: HollowShape,
     hollow_size: f32,
     profile: ProfileShape,
-    x_scale: f32,
-    y_scale: f32,
 ) -> Result<MeshLayer, ObjectUpdateError> {
-    let outer_vertices = build_profile_vertices(profile, x_scale, y_scale)?;
-    let mut vertices = outer_vertices.clone();
+    let mut vertices = build_profile_vertices(profile)?;
 
     if hollow_size <= 0.0 {
         return Ok(MeshLayer(vertices));
     }
 
-    let hollow_profile = match hollow_shape {
-        HollowShape::Same => profile,
-        HollowShape::Circle => ProfileShape::Circle,
-        HollowShape::Square => ProfileShape::Square,
-        HollowShape::Triangle => ProfileShape::EqualTriangle,
-        HollowShape::Unknown => ProfileShape::Square,
-    };
+    let inner_profile = hollow_profile_shape(hollow_shape, profile);
+    let mut inner = build_profile_vertices(inner_profile)?;
 
-    let mut hollow_vertices = build_profile_vertices(hollow_profile, x_scale, y_scale)?;
-    hollow_vertices.reverse();
+    // The inner perimeter runs in the opposite direction to the outer one.
+    inner.reverse();
 
-    for vertex in hollow_vertices {
-        vertices.push(vertex * hollow_size);
-    }
+    let hollow_size = hollow_size.clamp(0.0, 1.0);
+    vertices.extend(inner.into_iter().map(|v| v * hollow_size));
 
     Ok(MeshLayer(vertices))
 }
 
-fn build_profile_vertices(
-    profile: ProfileShape,
-    x_scale: f32,
-    y_scale: f32,
-) -> Result<Vec<Vec3>, ObjectUpdateError> {
+fn build_profile_vertices(profile: ProfileShape) -> Result<Vec<Vec3>, ObjectUpdateError> {
     let sides = profile.default_sides_high();
     let mut vertices = Vec::with_capacity(sides);
 
     match profile {
         ProfileShape::Circle => {
             for i in 0..sides {
-                let angle = 2.0 * std::f32::consts::PI * i as f32 / sides as f32;
-                vertices.push(Vec3::new(angle.cos() * x_scale, angle.sin() * y_scale, 0.0));
+                let angle = std::f32::consts::TAU * i as f32 / sides as f32;
+                vertices.push(Vec3::new(angle.cos() * 0.5, angle.sin() * 0.5, 0.0));
             }
         }
 
         ProfileShape::HalfCircle => {
             for i in 0..sides {
                 let angle = std::f32::consts::PI * i as f32 / (sides - 1) as f32;
-                vertices.push(Vec3::new(angle.cos() * x_scale, angle.sin() * y_scale, 0.0));
+                vertices.push(Vec3::new(angle.cos() * 0.5, angle.sin() * 0.5, 0.0));
             }
         }
 
-        ProfileShape::Square | ProfileShape::IsoTriangle | ProfileShape::RightTriangle => {
-            let scale = std::f32::consts::FRAC_1_SQRT_2;
-            let corners = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)];
-            for (x, y) in corners {
-                vertices.push(Vec3::new(x * scale * x_scale, y * scale * y_scale, 0.0));
+        ProfileShape::IsoTriangle => {
+            for (x, y) in [(0.0, 0.5), (-0.4330127, -0.25), (0.4330127, -0.25)] {
+                vertices.push(Vec3::new(x, y, 0.0));
             }
+        }
+
+        ProfileShape::RightTriangle => {
+            vertices.extend_from_slice(&[
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+                Vec3::new(-0.5, 0.5, 0.0),
+            ]);
+        }
+
+        ProfileShape::Square => {
+            vertices.extend_from_slice(&[
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+                Vec3::new(0.5, 0.5, 0.0),
+                Vec3::new(-0.5, 0.5, 0.0),
+            ]);
         }
 
         ProfileShape::EqualTriangle => {
-            let corners = [(1.0, 0.0), (-0.5, 0.8660254), (-0.5, -0.8660254)];
-            for (x, y) in corners {
-                vertices.push(Vec3::new(x * 0.5 * x_scale, y * 0.5 * y_scale, 0.0));
+            for (x, y) in [(1.0, 0.0), (-0.5, 0.8660254), (-0.5, -0.8660254)] {
+                vertices.push(Vec3::new(x * 0.53, y * 0.53, 0.0));
             }
         }
 
@@ -367,4 +338,394 @@ fn build_profile_vertices(
     }
 
     Ok(vertices)
+}
+
+fn profile_vertex_count(profile: ProfileShape) -> usize {
+    match profile {
+        ProfileShape::Square => 4,
+        ProfileShape::IsoTriangle | ProfileShape::RightTriangle | ProfileShape::EqualTriangle => 3,
+        ProfileShape::Circle | ProfileShape::HalfCircle => profile.default_sides_high(),
+        ProfileShape::Unknown => 0,
+    }
+}
+
+/// Returns the start vertex and segment count for each logical face.
+fn profile_face_ranges(profile: ProfileShape, ring_size: usize) -> Vec<(usize, usize)> {
+    if ring_size < 2 {
+        return Vec::new();
+    }
+
+    match profile {
+        ProfileShape::Circle => vec![(0, ring_size)],
+        ProfileShape::HalfCircle
+        | ProfileShape::Square
+        | ProfileShape::IsoTriangle
+        | ProfileShape::RightTriangle
+        | ProfileShape::EqualTriangle => (0..ring_size).map(|i| (i, 1)).collect(),
+        ProfileShape::Unknown => Vec::new(),
+    }
+}
+
+fn face_texture(texture_paths: &HashMap<u32, PathBuf>, face_index: u32) -> Option<PathBuf> {
+    texture_paths
+        .get(&face_index)
+        .or_else(|| texture_paths.get(&u32::MAX))
+        .cloned()
+}
+
+fn face_color(texture: &Option<TextureEntries>, face_index: u32) -> Rgba<u8> {
+    texture
+        .as_ref()
+        .map(|entries| {
+            entries
+                .faces
+                .get(&face_index)
+                .map(|face| face.rgba)
+                .unwrap_or(entries.default.rgba)
+        })
+        .unwrap_or_else(|| Rgba::new(255, 255, 255, 255))
+}
+
+/// Construct a RenderFace and calculate its normals consistently.
+fn make_face(
+    face_index: u32,
+    vertices: Vec<Vec3>,
+    indices: Vec<u32>,
+    uv: Vec<[f32; 2]>,
+    texture_paths: &HashMap<u32, PathBuf>,
+    texture: &Option<TextureEntries>,
+) -> RenderFace {
+    let normals = generate_normals(&vertices, &indices);
+
+    RenderFace {
+        face_index,
+        vertices,
+        indices,
+        uv,
+        normals: Some(normals),
+        texture: face_texture(texture_paths, face_index),
+        weights: None,
+        color: face_color(texture, face_index),
+    }
+}
+
+/// Extract one ring's faces from the path layers.
+fn append_ring_faces(
+    faces: &mut Vec<RenderFace>,
+    layers: &[MeshLayer],
+    profile: ProfileShape,
+    ring_start: usize,
+    ring_size: usize,
+    texture_face_start: u32,
+    texture_paths: &HashMap<u32, PathBuf>,
+    texture: &Option<TextureEntries>,
+) {
+    if layers.len() < 2 || ring_size < 2 {
+        return;
+    }
+
+    let ranges = profile_face_ranges(profile, ring_size);
+    let num_layers = layers.len();
+
+    for (range_index, (start, count)) in ranges.into_iter().enumerate() {
+        if count == 0 {
+            continue;
+        }
+
+        let verts_per_layer = count + 1;
+        let mut vertices = Vec::with_capacity(num_layers * verts_per_layer);
+        let mut uv = Vec::with_capacity(num_layers * verts_per_layer);
+        let mut indices = Vec::with_capacity((num_layers - 1) * count * 6);
+
+        for (layer_index, layer) in layers.iter().enumerate() {
+            for local_i in 0..=count {
+                let ring_index = (start + local_i) % ring_size;
+                let vertex_index = ring_start + ring_index;
+
+                let Some(vertex) = layer.0.get(vertex_index) else {
+                    return;
+                };
+
+                vertices.push(*vertex);
+                let (u, v) = match profile {
+                    ProfileShape::Circle | ProfileShape::HalfCircle => (
+                        1.0 - layer_index as f32 / (num_layers - 1) as f32,
+                        local_i as f32 / count as f32,
+                    ),
+                    _ => (
+                        local_i as f32 / count as f32,
+                        1.0 - layer_index as f32 / (num_layers - 1) as f32,
+                    ),
+                };
+                uv.push([u, v]);
+            }
+        }
+
+        for layer_index in 0..num_layers - 1 {
+            let current = (layer_index * verts_per_layer) as u32;
+            let next = ((layer_index + 1) * verts_per_layer) as u32;
+
+            for local_i in 0..count {
+                let i = local_i as u32;
+
+                let a = current + i;
+                let b = current + i + 1;
+                let c = next + i;
+                let d = next + i + 1;
+
+                // Preserve the existing outward-facing winding.
+                indices.extend_from_slice(&[a, b, c, b, d, c]);
+            }
+        }
+        let face_index = texture_face_start + range_index as u32;
+        faces.push(make_face(
+            face_index,
+            vertices,
+            indices,
+            uv,
+            texture_paths,
+            texture,
+        ));
+    }
+}
+
+fn planar_uvs(vertices: &[Vec3]) -> Vec<[f32; 2]> {
+    if vertices.is_empty() {
+        return Vec::new();
+    }
+
+    let min_x = vertices.iter().map(|v| v.x).fold(f32::INFINITY, f32::min);
+    let max_x = vertices
+        .iter()
+        .map(|v| v.x)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let min_y = vertices.iter().map(|v| v.y).fold(f32::INFINITY, f32::min);
+    let max_y = vertices
+        .iter()
+        .map(|v| v.y)
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    let width = (max_x - min_x).max(f32::EPSILON);
+    let height = (max_y - min_y).max(f32::EPSILON);
+
+    vertices
+        .iter()
+        .map(|v| [(v.x - min_x) / width, 1.0 - (v.y - min_y) / height])
+        .collect()
+}
+
+/// Split path-generated geometry into separately textured faces.
+fn split_faces(
+    layers: &[MeshLayer],
+    profile: ProfileShape,
+    hollow_shape: HollowShape,
+    has_hollow: bool,
+    texture_paths: &HashMap<u32, PathBuf>,
+    texture: &Option<TextureEntries>,
+) -> Result<Vec<RenderFace>, ObjectUpdateError> {
+    if layers.len() < 2 {
+        return Ok(Vec::new());
+    }
+
+    let outer_count = profile_vertex_count(profile);
+    let inner_profile = hollow_profile_shape(hollow_shape, profile);
+    let inner_count = if has_hollow {
+        profile_vertex_count(inner_profile)
+    } else {
+        0
+    };
+
+    let expected_size = outer_count + inner_count;
+
+    for layer in layers {
+        if layer.0.len() != expected_size {
+            return Err(ObjectUpdateError::Unimplemented {
+                feature: format!(
+                    "Profile layer has {} vertices; expected {}",
+                    layer.0.len(),
+                    expected_size,
+                ),
+            });
+        }
+    }
+
+    // OpenSim face 0 is the top cap; side faces begin at 1.
+    let outer_face_count = profile_face_ranges(profile, outer_count).len() as u32;
+    let inner_face_count = if has_hollow {
+        profile_face_ranges(inner_profile, inner_count).len() as u32
+    } else {
+        0
+    };
+
+    let is_round = matches!(profile, ProfileShape::Circle | ProfileShape::HalfCircle);
+    let hollow_gap = if has_hollow && is_round { 1 } else { 0 };
+
+    let outer_face_start = 1;
+    let inner_face_start = outer_face_start + outer_face_count + hollow_gap;
+    let bottom_face_index = inner_face_start + inner_face_count;
+
+    let mut faces = Vec::new();
+
+    append_ring_faces(
+        &mut faces,
+        layers,
+        profile,
+        0,
+        outer_count,
+        outer_face_start,
+        texture_paths,
+        texture,
+    );
+
+    if has_hollow {
+        append_ring_faces(
+            &mut faces,
+            layers,
+            inner_profile,
+            outer_count,
+            inner_count,
+            inner_face_start,
+            texture_paths,
+            texture,
+        );
+    }
+
+    let bottom = &layers[0];
+    let top = &layers[layers.len() - 1];
+
+    for (layer, flip, face_index) in [(bottom, true, bottom_face_index), (top, false, 0)] {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        if has_hollow {
+            append_hollow_cap(
+                layer,
+                outer_count,
+                inner_count,
+                flip,
+                &mut vertices,
+                &mut indices,
+            );
+        } else {
+            vertices.extend_from_slice(&layer.0[..outer_count]);
+
+            let count = outer_count as u32;
+            for i in 1..count.saturating_sub(1) {
+                if flip {
+                    indices.extend_from_slice(&[0, i + 1, i]);
+                } else {
+                    indices.extend_from_slice(&[0, i, i + 1]);
+                }
+            }
+        }
+
+        let uv = planar_uvs(&vertices);
+        faces.push(make_face(
+            face_index,
+            vertices,
+            indices,
+            uv,
+            texture_paths,
+            texture,
+        ));
+    }
+
+    Ok(faces)
+}
+
+/// Resample a closed polygonal ring evenly by perimeter distance.
+fn resample_ring(vertices: &[Vec3], count: usize) -> Vec<Vec3> {
+    if vertices.is_empty() || count == 0 {
+        return Vec::new();
+    }
+
+    if vertices.len() == 1 {
+        return vec![vertices[0]; count];
+    }
+
+    let edge_lengths: Vec<f32> = (0..vertices.len())
+        .map(|i| vertices[i].distance(vertices[(i + 1) % vertices.len()]))
+        .collect();
+
+    let perimeter: f32 = edge_lengths.iter().sum();
+
+    if perimeter <= f32::EPSILON {
+        return vec![vertices[0]; count];
+    }
+
+    let mut result = Vec::with_capacity(count);
+
+    for sample in 0..count {
+        let target = perimeter * sample as f32 / count as f32;
+        let mut distance = 0.0;
+
+        for (i, &edge_length) in edge_lengths.iter().enumerate() {
+            let next_distance = distance + edge_length;
+
+            if target <= next_distance || i == edge_lengths.len() - 1 {
+                let t = if edge_length > f32::EPSILON {
+                    ((target - distance) / edge_length).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+
+                let a = vertices[i];
+                let b = vertices[(i + 1) % vertices.len()];
+                result.push(a.lerp(b, t));
+                break;
+            }
+
+            distance = next_distance;
+        }
+    }
+
+    result
+}
+
+/// Create an annular cap between outer and inner profile rings.
+fn append_hollow_cap(
+    layer: &MeshLayer,
+    outer_count: usize,
+    inner_count: usize,
+    flip: bool,
+    vertices: &mut Vec<Vec3>,
+    indices: &mut Vec<u32>,
+) {
+    if outer_count < 3 || inner_count < 3 || layer.0.len() < outer_count + inner_count {
+        return;
+    }
+
+    let outer = &layer.0[..outer_count];
+    let inner: Vec<Vec3> = layer.0[outer_count..outer_count + inner_count]
+        .iter()
+        .rev()
+        .copied()
+        .collect();
+
+    let count = outer_count.max(inner_count);
+    let outer = resample_ring(outer, count);
+    let inner = resample_ring(&inner, count);
+
+    if outer.len() != count || inner.len() != count {
+        return;
+    }
+
+    vertices.extend_from_slice(&outer);
+    vertices.extend_from_slice(&inner);
+
+    let inner_start = count as u32;
+
+    for i in 0..count {
+        let next = ((i + 1) % count) as u32;
+        let outer_a = i as u32;
+        let outer_b = next;
+        let inner_a = inner_start + i as u32;
+        let inner_b = inner_start + next;
+
+        if flip {
+            indices.extend_from_slice(&[outer_a, inner_a, outer_b, outer_b, inner_a, inner_b]);
+        } else {
+            indices.extend_from_slice(&[outer_a, outer_b, inner_a, outer_b, inner_b, inner_a]);
+        }
+    }
 }

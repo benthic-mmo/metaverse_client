@@ -4,11 +4,16 @@ use benthic_protocol::{
     session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::{Skeleton, SkinJoint},
 };
+use bytes::Bytes;
 use log::{info, warn};
 use metaverse_avatar::skeleton::create_skeleton;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::{http::mesh::Mesh, utils::object_types::ObjectType};
+use metaverse_messages::{
+    http::mesh::Mesh,
+    utils::{object_types::ObjectType, texture_entry::TextureEntries},
+};
 use metaverse_store::initialize_sqlite::Cache;
+use rgb::Rgba;
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
@@ -38,47 +43,21 @@ pub async fn handle_texture(
 
 pub async fn download_mesh_object(
     cache: Cache,
-    server_endpoint: String,
     data: &DownloadMeshObjectData,
     out_dir: PathBuf,
+    mesh_bytes: Bytes,
+    texture_paths: HashMap<u32, PathBuf>,
 ) -> Result<ObjectUpdateAction, DownloadError> {
     let base_dir = create_sub_object_dir(&out_dir, &data.object.sculpt_id.to_string())?;
 
-    let mesh = Mesh::from_bytes(
-        &download_asset(
-            ObjectType::Mesh.to_string(),
-            data.object.sculpt_id,
-            &server_endpoint,
-        )
-        .await?,
-    )?;
-
-    let mut texture_paths = HashMap::new();
-    if let Some(texture) = &data.object.texture {
-        let texture_path = handle_texture(
-            base_dir.to_path_buf(),
-            texture.default.texture_id,
-            server_endpoint.clone(),
-        )
-        .await?;
-        texture_paths.insert(u32::MAX, texture_path);
-        for (face_index, face) in &texture.faces {
-            let texture_path = handle_texture(
-                base_dir.to_path_buf(),
-                face.texture_id,
-                server_endpoint.clone(),
-            )
-            .await?;
-
-            texture_paths.insert(*face_index, texture_path);
-        }
-    }
+    let mesh = Mesh::from_bytes(&mesh_bytes)?;
 
     let render_object = create_render_object(
         mesh,
         "name".to_string(),
         texture_paths,
         data.object.sculpt_id,
+        &data.object.texture,
     )?;
 
     let json_path = write_json(
@@ -138,6 +117,7 @@ pub fn create_render_object(
     name: String,
     texture_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
+    texture: &Option<TextureEntries>,
 ) -> Result<RenderObject, DownloadError> {
     let skin = mesh.skin.as_ref();
 
@@ -184,6 +164,7 @@ pub fn create_render_object(
                     .or_else(|| texture_paths.get(&u32::MAX))
                     .cloned(),
                 weights: face.weights.clone(),
+                color: face_color(texture, face_index as u32),
             }
         })
         .collect();
@@ -222,4 +203,16 @@ pub fn create_render_object(
         faces,
         skin: skin_data,
     })
+}
+
+fn face_color(texture: &Option<TextureEntries>, face_index: u32) -> Rgba<u8> {
+    let Some(texture) = texture else {
+        return Rgba::new(255, 255, 255, 255);
+    };
+
+    texture
+        .faces
+        .get(&face_index)
+        .map(|face| face.rgba)
+        .unwrap_or(texture.default.rgba)
 }

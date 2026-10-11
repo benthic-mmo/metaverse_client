@@ -185,6 +185,11 @@ pub fn create_animation_dir(root: &Path) -> Result<PathBuf, SessionError> {
     create_sub_share_dir(root, "animations")
 }
 
+/// Create the global animations directory.
+pub fn create_textures_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    create_sub_share_dir(root, "textures")
+}
+
 /// Create the directory containing shared filtered animations.
 pub fn create_filtered_animations_dir(root: &Path) -> Result<PathBuf, SessionError> {
     let animations_dir = create_animation_dir(root)?;
