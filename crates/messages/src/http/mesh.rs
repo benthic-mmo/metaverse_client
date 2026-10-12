@@ -564,7 +564,7 @@ impl Skin {
                 v.as_string()
                     .ok_or_else(|| ParseError::invalid_field("joint name (not a string)"))
                     .and_then(|s| {
-                        JointName::resolve_joint_and_collision(s).ok_or_else(|| {
+                        JointName::resolve_joint_and_deform(s).ok_or_else(|| {
                             ParseError::invalid_field(format!("Unknown joint name: {s}"))
                         })
                     })

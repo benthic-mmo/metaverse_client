@@ -54,18 +54,31 @@ pub struct Transform {
     pub rank: usize,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Copy)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Copy, Eq, PartialEq)]
 pub enum SkinJoint {
     #[default]
     None,
-    Collision(CollisionName),
+    Deform(DeformName),
     Joint(JointName),
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, EnumString, Copy)]
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    EnumString,
+    Copy,
+    Eq,
+    PartialEq,
+    Hash,
+    PartialOrd,
+    Ord,
+)]
 /// This is used to separate out the collision entities from the skeleton.
 /// These get passed in as joints, despite not being joints in the default skeleton.
-pub enum CollisionName {
+pub enum DeformName {
     #[strum(serialize = "BUTT")]
     Butt,
     // Root
@@ -609,11 +622,11 @@ impl JointName {
             .or_else(|| JointName::from_str(s).ok())
     }
 
-    pub fn resolve_joint_and_collision(s: &str) -> Option<SkinJoint> {
+    pub fn resolve_joint_and_deform(s: &str) -> Option<SkinJoint> {
         JointName::from_str(s)
             .ok()
             .map(SkinJoint::Joint)
-            .or_else(|| CollisionName::from_str(s).ok().map(SkinJoint::Collision))
+            .or_else(|| DeformName::from_str(s).ok().map(SkinJoint::Deform))
     }
 
     pub fn from_str_non_bento(s: &str) -> Option<JointName> {
