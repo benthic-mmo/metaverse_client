@@ -137,6 +137,7 @@ async fn load_animation(
         used_joints.clone(),
         target_skeleton.clone(),
         generated_animation_path("Retargeted"),
+        AGENT_ID,
     )
     .await
 }
@@ -177,6 +178,7 @@ async fn build_test_animation() {
         artifacts.avatar_object.used_joints.clone(),
         artifacts.avatar_object.global_skeleton.clone(),
         generated_animation_path("Retargeted"),
+        AGENT_ID,
     )
     .await
     .unwrap();
