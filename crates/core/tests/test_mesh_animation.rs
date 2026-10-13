@@ -1,5 +1,5 @@
 use benthic_protocol::default_animations::DefaultAnimation;
-use benthic_protocol::skeleton::{JointName, Skeleton};
+use benthic_protocol::skeleton::{JointName, Skeleton, SkinJoint};
 use bevy::app::Update;
 use bevy::asset::{AssetMode, AssetPlugin, UnapprovedPathMode};
 use bevy::camera::Camera3d;
@@ -121,7 +121,7 @@ fn generated_animation_path(name: &str) -> PathBuf {
 async fn load_animation(
     name: &str,
     target_skeleton: &Skeleton,
-    used_joints: &BTreeSet<JointName>,
+    used_joints: &BTreeSet<SkinJoint>,
 ) -> Result<Vec<PathBuf>, AnimationError> {
     let anim_id = DefaultAnimation::from_string(name)
         .unwrap_or_else(|| panic!("unknown default animation: {name}"))

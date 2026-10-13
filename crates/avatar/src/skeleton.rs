@@ -46,16 +46,11 @@ pub fn create_skeleton(
         // the identity matrix, and only contain translation information. The default
         // skeleton contains the rotations.
 
-        // only process Joints. Don't add Collision joints to the skeleton.
-        let SkinJoint::Joint(name) = skin_joint else {
-            continue;
-        };
-
         let default_joints = default_skeleton
             .joints
-            .get(name)
+            .get(skin_joint)
             .ok_or(AvatarError::UnknownJoint {
-                joint: name.to_string(),
+                joint: skin_joint.to_string(),
             })?
             .clone();
         let mut default_transform = default_joints.global_transforms[0].transform;
@@ -78,24 +73,24 @@ pub fn create_skeleton(
 
         // create the joint object that contains the calculted transforms
         let joint = Joint {
-            name: *name,
+            name: *skin_joint,
             parent: default_joints.parent,
             children: default_joints.children.into_iter().collect(),
             global_transforms: vec![transform.clone()],
             // leave the local tranforms empty for now. They will be added after the loop.
             local_transforms: vec![],
         };
-        joints.insert(*name, joint.clone());
+        joints.insert(*skin_joint, joint.clone());
     }
 
     // determine the root joints of the skeleton
-    let root_joints: Vec<JointName> = joints
+    let root_joints: Vec<SkinJoint> = joints
         .values()
         .filter(|joint| joint.parent.is_none())
         .map(|joint| joint.name)
         .collect();
 
-    let last_transforms: IndexMap<JointName, Mat4> = joints
+    let last_transforms: IndexMap<SkinJoint, Mat4> = joints
         .iter()
         .map(|(name, joint)| (*name, joint.global_transforms.last().unwrap().transform))
         .collect();

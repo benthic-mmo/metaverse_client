@@ -8,7 +8,7 @@ use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::session::cache_enabled;
-use benthic_protocol::skeleton::{JointName, Skeleton};
+use benthic_protocol::skeleton::{JointName, Skeleton, SkinJoint};
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;
@@ -484,7 +484,7 @@ impl Handler<HandleNewAvatarAppearance> for Mailbox {
 pub struct RenderAvatar {
     message: AvatarUpdate,
     agent_id: Uuid,
-    skeleton: BTreeSet<JointName>,
+    skeleton: BTreeSet<SkinJoint>,
 }
 impl Handler<RenderAvatar> for Mailbox {
     type Result = ();

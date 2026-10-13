@@ -1,8 +1,7 @@
-use std::str::FromStr;
-
 use glam::Mat4;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use strum_macros::{Display, EnumString};
 use uuid::Uuid;
 
@@ -10,25 +9,25 @@ use uuid::Uuid;
 /// Definitions for the avatar's skeleton  
 pub struct Skeleton {
     /// The joints that make up the skeleton
-    pub joints: IndexMap<JointName, Joint>,
+    pub joints: IndexMap<SkinJoint, Joint>,
     /// The root bone
     /// this can contain many joints, if the object has a partial skeleton.
-    pub root: Vec<JointName>,
+    pub root: Vec<SkinJoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Defines the joint that makes up the skeleton
 pub struct Joint {
     /// The name of the joint
-    pub name: JointName,
+    pub name: SkinJoint,
     /// The global transforms applied to the joint
     pub global_transforms: Vec<Transform>,
     /// The transforms applied to the joint based on its parent and child relationship.
     pub local_transforms: Vec<Transform>,
     /// The position in the skeleton's vec of the joint's children
-    pub children: Vec<JointName>,
+    pub children: Vec<SkinJoint>,
     /// The position in the skeleton's vec of the joint's parent
-    pub parent: Option<JointName>,
+    pub parent: Option<SkinJoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,12 +53,59 @@ pub struct Transform {
     pub rank: usize,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum SkinJoint {
     #[default]
     None,
     Deform(DeformName),
     Joint(JointName),
+}
+impl std::fmt::Display for SkinJoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SkinJoint::Joint(joint) => write!(f, "Joint::{joint}"),
+            SkinJoint::Deform(deform) => write!(f, "Deform::{deform}"),
+            SkinJoint::None => write!(f, "None"),
+        }
+    }
+}
+impl serde::Serialize for SkinJoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            SkinJoint::Joint(joint) => serializer.serialize_str(&format!("Joint::{joint}")),
+            SkinJoint::Deform(deform) => serializer.serialize_str(&format!("Deform::{deform}")),
+            SkinJoint::None => serializer.serialize_str("None"),
+        }
+    }
+}
+impl<'de> serde::Deserialize<'de> for SkinJoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
+    }
+}
+impl std::str::FromStr for SkinJoint {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "None" {
+            return Ok(SkinJoint::None);
+        }
+
+        let name = s
+            .strip_prefix("Joint::")
+            .or_else(|| s.strip_prefix("Deform::"))
+            .ok_or_else(|| format!("Invalid SkinJoint key: {s}"))?;
+
+        SkinJoint::resolve_joint_and_deform(name)
+            .ok_or_else(|| format!("Unknown skin joint: {name}"))
+    }
 }
 
 #[derive(
@@ -75,6 +121,7 @@ pub enum SkinJoint {
     Hash,
     PartialOrd,
     Ord,
+    Display,
 )]
 /// This is used to separate out the collision entities from the skeleton.
 /// These get passed in as joints, despite not being joints in the default skeleton.
@@ -500,126 +547,127 @@ pub enum JointName {
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
-static BVH_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| {
+static BVH_JOINT_ALIASES: Lazy<HashMap<&'static str, SkinJoint>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
     // Root
-    m.insert("hip", JointName::Pelvis);
-    m.insert("abdomen", JointName::Torso);
-    m.insert("chest", JointName::Chest);
-    m.insert("neck", JointName::Neck);
-    m.insert("head", JointName::Head);
+    m.insert("hip", SkinJoint::Joint(JointName::Pelvis));
+    m.insert("abdomen", SkinJoint::Joint(JointName::Torso));
+    m.insert("chest", SkinJoint::Joint(JointName::Chest));
+    m.insert("neck", SkinJoint::Joint(JointName::Neck));
+    m.insert("head", SkinJoint::Joint(JointName::Head));
 
     // Left arm
-    m.insert("lCollar", JointName::CollarLeft);
-    m.insert("lShldr", JointName::ShoulderLeft);
-    m.insert("lForeArm", JointName::ElbowLeft);
-    m.insert("lHand", JointName::HandLeft);
+    m.insert("lCollar", SkinJoint::Joint(JointName::CollarLeft));
+    m.insert("lShldr", SkinJoint::Joint(JointName::ShoulderLeft));
+    m.insert("lForeArm", SkinJoint::Joint(JointName::ElbowLeft));
+    m.insert("lHand", SkinJoint::Joint(JointName::HandLeft));
 
     // Right arm
-    m.insert("rCollar", JointName::CollarRight);
-    m.insert("rShldr", JointName::ShoulderRight);
-    m.insert("rForeArm", JointName::ElbowRight);
-    m.insert("rHand", JointName::HandRight);
+    m.insert("rCollar", SkinJoint::Joint(JointName::CollarRight));
+    m.insert("rShldr", SkinJoint::Joint(JointName::ShoulderRight));
+    m.insert("rForeArm", SkinJoint::Joint(JointName::ElbowRight));
+    m.insert("rHand", SkinJoint::Joint(JointName::HandRight));
 
     // Left leg
-    m.insert("lThigh", JointName::HipLeft);
-    m.insert("lShin", JointName::KneeLeft);
-    m.insert("lFoot", JointName::FootLeft);
+    m.insert("lThigh", SkinJoint::Joint(JointName::HipLeft));
+    m.insert("lShin", SkinJoint::Joint(JointName::KneeLeft));
+    m.insert("lFoot", SkinJoint::Joint(JointName::FootLeft));
 
     // Right leg
-    m.insert("rThigh", JointName::HipRight);
-    m.insert("rShin", JointName::KneeRight);
-    m.insert("rFoot", JointName::FootRight);
+    m.insert("rThigh", SkinJoint::Joint(JointName::HipRight));
+    m.insert("rShin", SkinJoint::Joint(JointName::KneeRight));
+    m.insert("rFoot", SkinJoint::Joint(JointName::FootRight));
 
     m
 });
 
-static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, JointName>> = Lazy::new(|| {
+static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, SkinJoint>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
     // Spine
-    m.insert("pelvis", JointName::Pelvis);
-    m.insert("spine_01", JointName::Torso);
-    m.insert("spine_02", JointName::Spine2);
-    m.insert("spine_03", JointName::Chest);
+    m.insert("pelvis", SkinJoint::Joint(JointName::Pelvis));
+    m.insert("spine_01", SkinJoint::Joint(JointName::Torso));
+    m.insert("spine_02", SkinJoint::Joint(JointName::Spine2));
+    m.insert("spine_03", SkinJoint::Joint(JointName::Chest));
 
     // Neck & Head
-    m.insert("neck_01", JointName::Head);
-    m.insert("Head", JointName::Skull);
+    m.insert("neck_01", SkinJoint::Joint(JointName::Head));
+    m.insert("Head", SkinJoint::Joint(JointName::Skull));
 
     // Left Arm
-    m.insert("upperarm_l", JointName::ShoulderLeft);
-    m.insert("lowerarm_l", JointName::ElbowLeft);
-    m.insert("hand_l", JointName::WristLeft);
-    m.insert("clavicle_l", JointName::CollarLeft);
+    m.insert("upperarm_l", SkinJoint::Joint(JointName::ShoulderLeft));
+    m.insert("lowerarm_l", SkinJoint::Joint(JointName::ElbowLeft));
+    m.insert("hand_l", SkinJoint::Joint(JointName::WristLeft));
+    m.insert("clavicle_l", SkinJoint::Joint(JointName::CollarLeft));
 
     // Right Arm
-    m.insert("upperarm_r", JointName::ShoulderRight);
-    m.insert("lowerarm_r", JointName::ElbowRight);
-    m.insert("hand_r", JointName::WristRight);
-    m.insert("clavicle_r", JointName::CollarRight);
+    m.insert("upperarm_r", SkinJoint::Joint(JointName::ShoulderRight));
+    m.insert("lowerarm_r", SkinJoint::Joint(JointName::ElbowRight));
+    m.insert("hand_r", SkinJoint::Joint(JointName::WristRight));
+    m.insert("clavicle_r", SkinJoint::Joint(JointName::CollarRight));
 
     // Left Leg
-    m.insert("thigh_l", JointName::HipLeft);
-    m.insert("calf_l", JointName::KneeLeft);
-    m.insert("foot_l", JointName::FootLeft);
+    m.insert("thigh_l", SkinJoint::Joint(JointName::HipLeft));
+    m.insert("calf_l", SkinJoint::Joint(JointName::KneeLeft));
+    m.insert("foot_l", SkinJoint::Joint(JointName::FootLeft));
 
     // Right Leg
-    m.insert("thigh_r", JointName::HipRight);
-    m.insert("calf_r", JointName::KneeRight);
-    m.insert("foot_r", JointName::FootRight);
+    m.insert("thigh_r", SkinJoint::Joint(JointName::HipRight));
+    m.insert("calf_r", SkinJoint::Joint(JointName::KneeRight));
+    m.insert("foot_r", SkinJoint::Joint(JointName::FootRight));
 
-    // Fingers
-    m.insert("thumb_01_l", JointName::HandThumb1Left);
-    m.insert("thumb_02_l", JointName::HandThumb2Left);
-    m.insert("thumb_03_l", JointName::HandThumb3Left);
+    // Left Fingers
+    m.insert("thumb_01_l", SkinJoint::Joint(JointName::HandThumb1Left));
+    m.insert("thumb_02_l", SkinJoint::Joint(JointName::HandThumb2Left));
+    m.insert("thumb_03_l", SkinJoint::Joint(JointName::HandThumb3Left));
 
-    m.insert("index_01_l", JointName::HandIndex1Left);
-    m.insert("index_02_l", JointName::HandIndex2Left);
-    m.insert("index_03_l", JointName::HandIndex3Left);
+    m.insert("index_01_l", SkinJoint::Joint(JointName::HandIndex1Left));
+    m.insert("index_02_l", SkinJoint::Joint(JointName::HandIndex2Left));
+    m.insert("index_03_l", SkinJoint::Joint(JointName::HandIndex3Left));
 
-    m.insert("middle_01_l", JointName::HandMiddle1Left);
-    m.insert("middle_02_l", JointName::HandMiddle2Left);
-    m.insert("middle_03_l", JointName::HandMiddle3Left);
+    m.insert("middle_01_l", SkinJoint::Joint(JointName::HandMiddle1Left));
+    m.insert("middle_02_l", SkinJoint::Joint(JointName::HandMiddle2Left));
+    m.insert("middle_03_l", SkinJoint::Joint(JointName::HandMiddle3Left));
 
-    m.insert("ring_01_l", JointName::HandRing1Left);
-    m.insert("ring_02_l", JointName::HandRing2Left);
-    m.insert("ring_03_l", JointName::HandRing3Left);
+    m.insert("ring_01_l", SkinJoint::Joint(JointName::HandRing1Left));
+    m.insert("ring_02_l", SkinJoint::Joint(JointName::HandRing2Left));
+    m.insert("ring_03_l", SkinJoint::Joint(JointName::HandRing3Left));
 
-    m.insert("pinky_01_l", JointName::HandPinky1Left);
-    m.insert("pinky_02_l", JointName::HandPinky2Left);
-    m.insert("pinky_03_l", JointName::HandPinky3Left);
+    m.insert("pinky_01_l", SkinJoint::Joint(JointName::HandPinky1Left));
+    m.insert("pinky_02_l", SkinJoint::Joint(JointName::HandPinky2Left));
+    m.insert("pinky_03_l", SkinJoint::Joint(JointName::HandPinky3Left));
 
-    m.insert("thumb_01_r", JointName::HandThumb1Right);
-    m.insert("thumb_02_r", JointName::HandThumb2Right);
-    m.insert("thumb_03_r", JointName::HandThumb3Right);
+    // Right Fingers
+    m.insert("thumb_01_r", SkinJoint::Joint(JointName::HandThumb1Right));
+    m.insert("thumb_02_r", SkinJoint::Joint(JointName::HandThumb2Right));
+    m.insert("thumb_03_r", SkinJoint::Joint(JointName::HandThumb3Right));
 
-    m.insert("index_01_r", JointName::HandIndex1Right);
-    m.insert("index_02_r", JointName::HandIndex2Right);
-    m.insert("index_03_r", JointName::HandIndex3Right);
+    m.insert("index_01_r", SkinJoint::Joint(JointName::HandIndex1Right));
+    m.insert("index_02_r", SkinJoint::Joint(JointName::HandIndex2Right));
+    m.insert("index_03_r", SkinJoint::Joint(JointName::HandIndex3Right));
 
-    m.insert("middle_01_r", JointName::HandMiddle1Right);
-    m.insert("middle_02_r", JointName::HandMiddle2Right);
-    m.insert("middle_03_r", JointName::HandMiddle3Right);
+    m.insert("middle_01_r", SkinJoint::Joint(JointName::HandMiddle1Right));
+    m.insert("middle_02_r", SkinJoint::Joint(JointName::HandMiddle2Right));
+    m.insert("middle_03_r", SkinJoint::Joint(JointName::HandMiddle3Right));
 
-    m.insert("ring_01_r", JointName::HandRing1Right);
-    m.insert("ring_02_r", JointName::HandRing2Right);
-    m.insert("ring_03_r", JointName::HandRing3Right);
+    m.insert("ring_01_r", SkinJoint::Joint(JointName::HandRing1Right));
+    m.insert("ring_02_r", SkinJoint::Joint(JointName::HandRing2Right));
+    m.insert("ring_03_r", SkinJoint::Joint(JointName::HandRing3Right));
 
-    m.insert("pinky_01_r", JointName::HandPinky1Right);
-    m.insert("pinky_02_r", JointName::HandPinky2Right);
-    m.insert("pinky_03_r", JointName::HandPinky3Right);
+    m.insert("pinky_01_r", SkinJoint::Joint(JointName::HandPinky1Right));
+    m.insert("pinky_02_r", SkinJoint::Joint(JointName::HandPinky2Right));
+    m.insert("pinky_03_r", SkinJoint::Joint(JointName::HandPinky3Right));
 
     m
 });
 
-impl JointName {
-    pub fn resolve_joint_name(s: &str) -> Option<JointName> {
+impl SkinJoint {
+    pub fn resolve_joint_name(s: &str) -> Option<SkinJoint> {
         QUATERNIUS_JOINT_ALIASES
             .get(s)
             .copied()
-            .or_else(|| JointName::from_str(s).ok())
+            .or_else(|| JointName::from_str(s).ok().map(SkinJoint::Joint))
     }
 
     pub fn resolve_joint_and_deform(s: &str) -> Option<SkinJoint> {
@@ -629,13 +677,10 @@ impl JointName {
             .or_else(|| DeformName::from_str(s).ok().map(SkinJoint::Deform))
     }
 
-    pub fn from_str_non_bento(s: &str) -> Option<JointName> {
-        // Check BVH aliases
-        if let Some(j) = BVH_JOINT_ALIASES.get(s) {
-            return Some(*j);
-        }
-
-        // Fallback to enum’s own from_str
-        JointName::from_str(s).ok()
+    pub fn from_str_non_bento(s: &str) -> Option<SkinJoint> {
+        BVH_JOINT_ALIASES
+            .get(s)
+            .copied()
+            .or_else(|| JointName::from_str(s).ok().map(SkinJoint::Joint))
     }
 }
