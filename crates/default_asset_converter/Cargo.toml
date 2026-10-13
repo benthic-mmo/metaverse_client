@@ -23,8 +23,10 @@ serde.workspace = true
 serde_json.workspace = true 
 
 [features]
+default = ["local-assets"]
 animations = ["quaternius_adjustments"]
 quaternius_adjustments = []
+local-assets = []
 
 
 [dependencies]
