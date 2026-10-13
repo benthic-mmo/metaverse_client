@@ -144,7 +144,7 @@ async fn load_animation(
 
 #[tokio::test]
 async fn load_stand() {
-    let artifacts = mock_avatar_load().await;
+    let artifacts = mock_avatar_load("puffball".to_string()).await;
     load_animation(
         "Stand",
         &artifacts.avatar_object.global_skeleton,
@@ -166,7 +166,7 @@ async fn run_dance() {
 
 #[tokio::test]
 async fn build_test_animation() {
-    let artifacts = mock_avatar_load().await;
+    let artifacts = mock_avatar_load("puffball".to_string()).await;
 
     let animations = vec![AnimationEntry {
         anim_id: DefaultAnimation::Stand.uuid(),
@@ -255,7 +255,7 @@ fn display_vertices(vertices_a: Vec<Vec3>, vertices_b: Vec<Vec3>) {
 struct AnimationName(String);
 
 async fn display_animation(animation: &str) {
-    let artifacts = mock_avatar_load().await;
+    let artifacts = mock_avatar_load("puffball".to_string()).await;
 
     let animation_path = load_animation(
         animation,

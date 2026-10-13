@@ -22,16 +22,27 @@ use crate::common::{
 /// mesh handling.
 #[tokio::test]
 async fn test_mesh_generation() {
-    let _artifacts = mock_avatar_load().await;
+    let _artifacts = mock_avatar_load("puffball".to_string()).await;
+}
+
+#[tokio::test]
+async fn display_humanoid_puffball() {
+    display_test_model_for("humanoid_puffball").await;
 }
 
 /// this test builds the model and displays using Bevy.
 #[tokio::test]
 async fn display_test_model() {
-    let artifacts = mock_avatar_load().await;
+    display_test_model_for("puffball").await;
+}
+
+/// Builds and displays an avatar model using Bevy.
+async fn display_test_model_for(avatar_name: &str) {
+    let artifacts = mock_avatar_load(avatar_name.to_string()).await;
 
     let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("tests/generated/{}", common::AGENT_ID));
+
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
@@ -39,12 +50,13 @@ async fn display_test_model() {
                 run_on_any_thread: true,
             })
             .set(AssetPlugin {
-                file_path: tests_dir.into_string().unwrap(),
+                file_path: tests_dir.to_string_lossy().into_owned(),
                 mode: AssetMode::Unprocessed,
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..Default::default()
             }),
     );
+
     app.add_plugins(PanOrbitCameraPlugin);
     app.insert_resource(DebugVisibility {
         show_mesh: true,
