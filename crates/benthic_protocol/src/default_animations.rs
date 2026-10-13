@@ -1,4 +1,4 @@
-use crate::skeleton::{JointName, Skeleton};
+use crate::skeleton::{Skeleton, SkinJoint};
 use glam::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
@@ -11,7 +11,7 @@ pub struct AnimationClip {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JointAnimation {
-    pub joint: JointName,
+    pub joint: SkinJoint,
     pub translations: Vec<Keyframe<Vec3>>,
     pub rotations: Vec<Keyframe<Quat>>,
     pub scales: Vec<Keyframe<Vec3>>,

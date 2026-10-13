@@ -5,7 +5,7 @@ use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::skeleton::{JointName, Skeleton, SkinJoint};
+use crate::skeleton::{Skeleton, SkinJoint};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// Information about the weights of each joint.
@@ -56,7 +56,7 @@ pub struct SkinData {
     /// Weight information for the mesh's joints
     pub weights: Vec<JointWeight>,
     /// Names of all of the joints. In order to correspond to weights and inverse bind matrices.
-    pub joint_names: Vec<JointName>,
+    pub joint_names: Vec<SkinJoint>,
     /// Inverse bind matrix. Used to determine the shape of the skeleton in relation to the mesh.
     pub inverse_bind_matrices: Vec<Mat4>,
 }
@@ -69,5 +69,5 @@ pub struct AvatarObject {
     /// global skeleton that is applied to all objects in the outfit
     pub global_skeleton: Skeleton,
     /// List of joints used by the avatar
-    pub used_joints: BTreeSet<JointName>,
+    pub used_joints: BTreeSet<SkinJoint>,
 }

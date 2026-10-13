@@ -1,8 +1,7 @@
 use benthic_protocol::default_animations::{
     AnimationClip, DefaultAnimation, JointAnimation, Keyframe,
 };
-use benthic_protocol::skeleton::JointName::Pelvis;
-use benthic_protocol::skeleton::{Joint, JointName, Skeleton, Transform};
+use benthic_protocol::skeleton::{Joint, JointName, Skeleton, SkinJoint, Transform};
 use bvh_anim::ChannelType;
 use glam::Mat4;
 use glam::{Quat, Vec3};
@@ -102,6 +101,7 @@ fn main() {
     }
 
     let target_skeleton = skeleton_from_gltf(target_skeleton_path);
+
     let skeleton_json =
         serde_json::to_string_pretty(&target_skeleton).expect("Failed to serialize skeleton");
 
@@ -161,7 +161,7 @@ fn main() {
 fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
     let (document, buffers, _) = gltf::import(path).unwrap();
 
-    let mut animation_data: HashMap<JointName, JointAnimation> = HashMap::new();
+    let mut animation_data: HashMap<SkinJoint, JointAnimation> = HashMap::new();
 
     let (mut bind_skeleton, mut _root_transform) =
         bind_skeleton_from_gltf(&document, axis_conversion);
@@ -177,7 +177,7 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
                 None => continue,
             };
 
-            let joint_name = match JointName::resolve_joint_name(node_name) {
+            let joint_name = match SkinJoint::resolve_joint_name(node_name) {
                 Some(name) => name,
                 None => continue,
             };
@@ -209,7 +209,7 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
 
                             let value = converted.to_scale_rotation_translation().2;
 
-                            if entry.joint != Pelvis {
+                            if entry.joint != SkinJoint::Joint(JointName::Pelvis) {
                                 continue;
                             };
 
@@ -268,14 +268,14 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
         rotate_hip_subtree(
             &mut bind_skeleton,
             &mut animation_data,
-            JointName::HipLeft,
+            SkinJoint::Joint(JointName::HipLeft),
             hip_rotation,
         );
 
         rotate_hip_subtree(
             &mut bind_skeleton,
             &mut animation_data,
-            JointName::HipRight,
+            SkinJoint::Joint(JointName::HipRight),
             hip_rotation,
         );
     }
@@ -288,14 +288,14 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
 fn bind_skeleton_from_gltf(document: &gltf::Document, axis_conversion: Mat4) -> (Skeleton, Mat4) {
     let mut skeleton = Skeleton {
         joints: IndexMap::new(),
-        root: vec![JointName::Pelvis],
+        root: vec![SkinJoint::Joint(JointName::Pelvis)],
     };
 
     let mut root_transform = Mat4::IDENTITY;
 
     fn recurse(
         node: gltf::Node,
-        parent: Option<JointName>,
+        parent: Option<SkinJoint>,
         skeleton: &mut Skeleton,
         root_transform: &mut Mat4,
         found_root_joint: &mut bool,
@@ -312,7 +312,7 @@ fn bind_skeleton_from_gltf(document: &gltf::Document, axis_conversion: Mat4) -> 
             Vec3::from(translation),
         );
 
-        match JointName::resolve_joint_name(name) {
+        match SkinJoint::resolve_joint_name(name) {
             Some(joint_name) => {
                 *found_root_joint = true;
 
@@ -403,7 +403,10 @@ fn bind_skeleton_from_gltf(document: &gltf::Document, axis_conversion: Mat4) -> 
     }
 
     // Bake the pre-skeleton root transform into Pelvis.
-    if let Some(pelvis) = skeleton.joints.get_mut(&JointName::Pelvis) {
+    if let Some(pelvis) = skeleton
+        .joints
+        .get_mut(&SkinJoint::Joint(JointName::Pelvis))
+    {
         let pelvis_local = pelvis.local_transforms[0].transform;
 
         pelvis.local_transforms[0].transform = converted_root * pelvis_local;
@@ -416,7 +419,7 @@ fn bind_skeleton_from_gltf(document: &gltf::Document, axis_conversion: Mat4) -> 
 }
 
 fn calculate_bind_globals(skeleton: &mut Skeleton) {
-    fn recurse(joint_name: JointName, skeleton: &mut Skeleton, parent_global: Mat4) {
+    fn recurse(joint_name: SkinJoint, skeleton: &mut Skeleton, parent_global: Mat4) {
         let local = skeleton.joints[&joint_name].local_transforms[0].transform;
 
         let global = parent_global * local;
@@ -439,7 +442,7 @@ fn calculate_bind_globals(skeleton: &mut Skeleton) {
         }
     }
 
-    let roots: Vec<JointName> = skeleton
+    let roots: Vec<SkinJoint> = skeleton
         .joints
         .values()
         .filter(|joint| joint.parent.is_none())
@@ -455,7 +458,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
 
     let bvh = bvh_anim::from_reader(BufReader::new(bvh_file)).unwrap();
 
-    let mut animation_data: HashMap<JointName, JointAnimation> = HashMap::new();
+    let mut animation_data: HashMap<SkinJoint, JointAnimation> = HashMap::new();
 
     let axis_correction = Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2);
 
@@ -466,7 +469,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
 
         for joint in bvh.joints() {
             let joint_name =
-                match JointName::resolve_joint_name(joint.data().name().to_str().unwrap()) {
+                match SkinJoint::resolve_joint_name(joint.data().name().to_str().unwrap()) {
                     Some(j) => j,
                     None => continue,
                 };
@@ -495,7 +498,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
             let corrected_translation = (axis_correction * translation) * 0.01;
 
             let corrected_rotation = match joint_name {
-                JointName::Pelvis => rotation,
+                SkinJoint::Joint(JointName::Pelvis) => rotation,
                 _ => axis_correction * rotation * axis_correction.inverse(),
             };
 
@@ -508,7 +511,7 @@ fn load_bvh_animation(path: &PathBuf) -> AnimationClip {
                     scales: Vec::new(),
                 });
 
-            if joint_name == JointName::Pelvis {
+            if joint_name == SkinJoint::Joint(JointName::Pelvis) {
                 entry.translations.push(Keyframe {
                     time,
                     value: corrected_translation,
@@ -570,20 +573,20 @@ fn skeleton_from_gltf(skeleton_path: PathBuf) -> Skeleton {
 
     Skeleton {
         joints,
-        root: vec![JointName::Pelvis],
+        root: vec![SkinJoint::Joint(JointName::Pelvis)],
     }
 }
 
 fn build_joint_recursive(
     index: usize,
-    parent: Option<JointName>,
+    parent: Option<SkinJoint>,
     nodes: &[Node],
     parent_global: Mat4,
-    joints: &mut IndexMap<JointName, Joint>,
+    joints: &mut IndexMap<SkinJoint, Joint>,
 ) {
     let node = nodes[index].clone();
 
-    let name = JointName::from_str(node.name().unwrap()).unwrap();
+    let name = SkinJoint::resolve_joint_and_deform(node.name().unwrap()).unwrap();
 
     if joints.contains_key(&name) {
         return;
@@ -602,8 +605,8 @@ fn build_joint_recursive(
     let mut children = Vec::new();
 
     for child in node.children() {
-        let child_name = JointName::from_str(child.name().unwrap())
-            .unwrap_or_else(|err| panic!("errored on {:?}, {:?}", child.name(), err));
+        let child_name = SkinJoint::resolve_joint_and_deform(child.name().unwrap())
+            .unwrap_or_else(|| panic!("errored on {:?}", child.name()));
 
         children.push(child_name);
 
@@ -634,18 +637,22 @@ fn build_joint_recursive(
 
 fn rotate_hip_subtree(
     skeleton: &mut Skeleton,
-    animation_data: &mut HashMap<JointName, JointAnimation>,
-    hip: JointName,
+    animation_data: &mut HashMap<SkinJoint, JointAnimation>,
+    hip: SkinJoint,
     rotation: Quat,
 ) {
     let correction = Mat4::from_quat(rotation);
 
     let joints = match hip {
-        JointName::HipLeft => [JointName::HipLeft, JointName::KneeLeft, JointName::FootLeft],
-        JointName::HipRight => [
-            JointName::HipRight,
-            JointName::KneeRight,
-            JointName::FootRight,
+        SkinJoint::Joint(JointName::HipLeft) => [
+            SkinJoint::Joint(JointName::HipLeft),
+            SkinJoint::Joint(JointName::KneeLeft),
+            SkinJoint::Joint(JointName::FootLeft),
+        ],
+        SkinJoint::Joint(JointName::HipRight) => [
+            SkinJoint::Joint(JointName::HipRight),
+            SkinJoint::Joint(JointName::KneeRight),
+            SkinJoint::Joint(JointName::FootRight),
         ],
         _ => return,
     };

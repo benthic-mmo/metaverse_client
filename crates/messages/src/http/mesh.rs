@@ -1,8 +1,5 @@
 use crate::{errors::ParseError, parse};
-use benthic_protocol::{
-    render_data::JointWeight,
-    skeleton::{JointName, SkinJoint},
-};
+use benthic_protocol::{render_data::JointWeight, skeleton::SkinJoint};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};
@@ -564,7 +561,7 @@ impl Skin {
                 v.as_string()
                     .ok_or_else(|| ParseError::invalid_field("joint name (not a string)"))
                     .and_then(|s| {
-                        JointName::resolve_joint_and_deform(s).ok_or_else(|| {
+                        SkinJoint::resolve_joint_and_deform(s).ok_or_else(|| {
                             ParseError::invalid_field(format!("Unknown joint name: {s}"))
                         })
                     })

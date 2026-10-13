@@ -6,7 +6,7 @@ use benthic_protocol::{
         cache_enabled, create_agent_animation_dir, create_animation_agents_dir,
         create_animation_dir, create_filtered_animation_dir,
     },
-    skeleton::{JointName, Skeleton},
+    skeleton::{Skeleton, SkinJoint},
 };
 use metaverse_mesh::animation::{
     generate::{
@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 pub async fn build_animation(
     animations: Vec<AnimationEntry>,
-    used_joints: BTreeSet<JointName>,
+    used_joints: BTreeSet<SkinJoint>,
     target_skeleton: Skeleton,
     out_dir: PathBuf,
     agent_id: Uuid,

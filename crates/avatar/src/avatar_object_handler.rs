@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, fs, path::PathBuf};
 use benthic_protocol::{
     render_data::{AvatarObject, RenderObject},
     session::{CacheDir, Session, cache_enabled, create_sub_agent_dir, write_json},
-    skeleton::{JointName, Skeleton},
+    skeleton::{JointName, Skeleton, SkinJoint},
 };
 use glam::Mat4;
 use indexmap::IndexMap;
@@ -62,7 +62,7 @@ pub fn add_object_to_avatar<C, L, U, I, X>(
 pub async fn finalize_avatar(
     agent_id: Uuid,
     skeleton: Skeleton,
-    used_joints: BTreeSet<JointName>,
+    used_joints: BTreeSet<SkinJoint>,
     items: Vec<OutfitObject>,
     out_dir: PathBuf,
 ) -> Result<(PathBuf, Skeleton), AvatarError> {
@@ -109,7 +109,7 @@ pub async fn finalize_avatar(
 }
 
 fn finalize_skeleton(mut skeleton: Skeleton) -> Skeleton {
-    let globals: IndexMap<JointName, Mat4> = skeleton
+    let globals: IndexMap<SkinJoint, Mat4> = skeleton
         .joints
         .iter()
         .map(|(name, joint)| (*name, joint.global_transforms.last().unwrap().transform))

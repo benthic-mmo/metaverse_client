@@ -207,14 +207,7 @@ pub fn create_render_object(
                 .filter(|face| !face.no_geometry)
                 .flat_map(|face| face.weights.clone().unwrap_or_default())
                 .collect(),
-            joint_names: skin
-                .joints
-                .iter()
-                .filter_map(|joint| match joint {
-                    SkinJoint::Joint(name) => Some(*name),
-                    _ => None,
-                })
-                .collect(),
+            joint_names: skin.joints.clone(),
             inverse_bind_matrices: skin.inverse_bind_matrices.clone(),
         })
     } else {

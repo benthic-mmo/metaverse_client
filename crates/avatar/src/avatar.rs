@@ -1,6 +1,6 @@
 use actix::Message;
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
-use benthic_protocol::skeleton::{JointName, Skeleton};
+use benthic_protocol::skeleton::{Skeleton, SkinJoint};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -27,7 +27,7 @@ pub struct Avatar {
     /// the location on disk of the avatar model for rendering
     pub path: Option<PathBuf>,
     /// The total list of joints used by each clothing object in the avatar. Used for
-    pub used_joints: BTreeSet<JointName>,
+    pub used_joints: BTreeSet<SkinJoint>,
     /// If the avatar is considered fully downloaded.
     pub fully_loaded: bool,
 
