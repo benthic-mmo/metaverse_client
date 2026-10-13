@@ -92,15 +92,19 @@ pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (),
 fn mock_from_xml(
     session: &mut Session<(), Avatar, (), (), Inventory, Cache>,
     scene_group_path: &Path,
+    base_dir: &Path,
 ) -> Result<AvatarState, Box<dyn std::error::Error>> {
     // SceneGroup is raw XML received from the server.
     let buffer = fs::read(scene_group_path)?;
     let scene_group = SceneGroup::from_xml(&buffer)?;
 
-    let mesh_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/raw_server_data/meshes");
+    let mesh_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(base_dir)
+        .join("meshes");
 
-    let texture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/textures");
+    let texture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(base_dir)
+        .join("textures");
 
     let mut render_objects = Vec::new();
 
@@ -110,13 +114,13 @@ fn mock_from_xml(
         // The sculpt texture UUID identifies the mesh asset.
         let mesh_path = mesh_dir.join(format!("{}.bin", part.sculpt.texture));
 
-        let mesh_bytes = fs::read(&mesh_path)?;
-        let mesh = Mesh::from_bytes(&mesh_bytes)?;
+        let mesh_bytes = fs::read(&mesh_path).unwrap();
+        let mesh = Mesh::from_bytes(&mesh_bytes).unwrap();
 
         let mut texture_paths = HashMap::new();
-
         let texture_path =
             texture_dir.join(format!("{}.png", part.shape.texture.default.texture_id));
+
         texture_paths.insert(u32::MAX, texture_path);
         for (face_index, face) in &part.shape.texture.faces {
             let texture_path = texture_dir.join(format!("{}.png", face.texture_id));
@@ -172,7 +176,7 @@ async fn mock_finalize_avatar(
     Ok(glb_path)
 }
 
-pub async fn mock_avatar_load() -> CreationArtifacts {
+pub async fn mock_avatar_load(avatar_name: String) -> CreationArtifacts {
     set_cache_enabled(false);
 
     let mut artifacts = CreationArtifacts::new();
@@ -188,17 +192,17 @@ pub async fn mock_avatar_load() -> CreationArtifacts {
 
     session.avatars.insert(avatar.agent_id, avatar.clone());
 
-    let scene_groups_path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/raw_server_data/scenegroups");
+    let base_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("tests/data/avatars/{}", avatar_name));
 
-    for entry in fs::read_dir(scene_groups_path).unwrap() {
+    for entry in fs::read_dir(&base_dir).unwrap() {
         let path = entry.unwrap().path();
 
         if path.extension().is_none_or(|ext| ext != "xml") {
             continue;
         }
 
-        let state = mock_from_xml(&mut session, &path).unwrap();
+        let state = mock_from_xml(&mut session, &path, &base_dir).unwrap();
 
         if matches!(state, AvatarState::FullyLoaded) {
             let glb_path = mock_finalize_avatar(&mut session).await.unwrap();
