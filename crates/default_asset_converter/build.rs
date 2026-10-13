@@ -48,11 +48,38 @@ fn download_default_assets(out_dir: &Path) -> Result<PathBuf, Box<dyn std::error
     Ok(assets_dir)
 }
 
+fn get_default_assets(out_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if std::env::var_os("CARGO_FEATURE_LOCAL_ASSETS").is_some() {
+        let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
+
+        let assets_dir = std::env::var_os("BENTHIC_DEFAULT_ASSETS_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| manifest_dir.join("../../../benthic_default_assets/"));
+
+        if !assets_dir.join("Textures/default.png").is_file()
+            || !assets_dir.join("Skeleton/skeleton.gltf").is_file()
+        {
+            return Err(format!(
+                "Local default assets not found or incomplete: {}",
+                assets_dir.display()
+            )
+            .into());
+        }
+
+        println!("cargo:rerun-if-env-changed=BENTHIC_DEFAULT_ASSETS_PATH");
+        println!("Using local default assets: {}", assets_dir.display());
+
+        Ok(assets_dir)
+    } else {
+        download_default_assets(out_dir)
+    }
+}
+
 fn main() {
     let gen_animations = std::env::var("CARGO_FEATURE_ANIMATIONS").is_ok();
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    let default_assets = match download_default_assets(&out_dir) {
+    let default_assets = match get_default_assets(&out_dir) {
         Ok(path) => path,
         Err(error) => {
             println!(
