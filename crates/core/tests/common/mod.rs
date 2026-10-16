@@ -1,7 +1,7 @@
 use ::bevy::ecs::resource::Resource;
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
 use benthic_protocol::{
-    render_data::AvatarObject,
+    render_data::{AttachmentData, AvatarObject},
     session::{EnvironmentCache, InventoryData, RegionData, Session, set_cache_enabled},
 };
 use glam::{Vec2, Vec3};
@@ -132,7 +132,18 @@ fn mock_from_xml(
             texture_paths,
             part.sculpt.texture,
             &Some(part.shape.texture.clone()),
+            Some(AttachmentData {
+                attach_point: part.shape.last_attach_point,
+                position: part.attached_pos,
+                rotation: part.rotation_offset,
+                scale: part.scale,
+            }),
         )?;
+
+        println!(
+            "render object attach point: {:?}",
+            render_object.attachment_data
+        );
 
         render_objects.push(render_object);
     }
@@ -176,7 +187,7 @@ async fn mock_finalize_avatar(
     Ok(glb_path)
 }
 
-pub async fn mock_avatar_load(avatar_name: String) -> CreationArtifacts {
+pub async fn mock_avatar_load(avatar_name: String, outfit_size: usize) -> CreationArtifacts {
     set_cache_enabled(false);
 
     let mut artifacts = CreationArtifacts::new();
@@ -188,7 +199,7 @@ pub async fn mock_avatar_load(avatar_name: String) -> CreationArtifacts {
     let mut session = mock_session(generated_dir.clone()).await;
 
     let mut avatar = Avatar::new(AGENT_ID, Vec3::ZERO);
-    avatar.outfit_size = 4;
+    avatar.outfit_size = outfit_size;
 
     session.avatars.insert(avatar.agent_id, avatar.clone());
 

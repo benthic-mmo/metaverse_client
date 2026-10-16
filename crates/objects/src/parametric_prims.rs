@@ -60,6 +60,7 @@ pub async fn handle_parametric_prim(
     let render_object = RenderObject {
         name: "Prim".to_string(),
         id: object.full_id,
+        attachment_data: None,
         faces,
         skin: None,
     };

@@ -12,7 +12,7 @@ use crate::{
         sound::AttachedSound,
     },
 };
-use benthic_protocol::skeleton::{DeformName, Joint, JointName};
+use benthic_protocol::objects::AttachPoint;
 use glam::{Quat, Vec3, Vec4, bool};
 use quick_xml::{
     Reader,
@@ -142,7 +142,7 @@ pub struct Shape {
     pub state: i32,
     /// The last point the object was attached to. Helps reattach items to the same place when
     /// logging in or putting on again.
-    pub last_attach_point: i32,
+    pub last_attach_point: AttachPoint,
     /// Sculpt information. Contains data for creating a Scullpted prim (now legacy), and
     /// information about the mesh
     pub sculpt: Sculpt,
@@ -690,7 +690,8 @@ impl SceneObject {
                 }
 
                 ["LastAttachPoint"] => {
-                    scene_object.shape.last_attach_point = parse_value!(val, i32)?;
+                    scene_object.shape.last_attach_point =
+                        AttachPoint::from_i32(parse_value!(val, i32)?);
                 }
 
                 ["SculptTexture", "UUID"] => {
@@ -1254,218 +1255,5 @@ impl SculptType {
             5 => Self::Mesh,
             _ => Self::Unknown,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AttachmentTarget {
-    Bone(JointName),
-    DeformJoint(DeformName),
-    HUDAttachment(AttachPoint),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize)]
-#[repr(u8)]
-#[serde(into = "u8")]
-pub enum AttachPoint {
-    #[default]
-    Default = 0,
-    Chest = 1,
-    Head = 2,
-    ShoulderLeft = 3,
-    ShoulderRight = 4,
-    HandLeft = 5,
-    HandRight = 6,
-    FootLeft = 7,
-    FootRight = 8,
-    Spine = 9,
-    Pelvis = 10,
-    Mouth = 11,
-    Chin = 12,
-    EarLeft = 13,
-    EarRight = 14,
-    EyeballLeft = 15,
-    EyeballRight = 16,
-    Nose = 17,
-    UpperArmRight = 18,
-    LowerArmRight = 19,
-    UpperArmLeft = 20,
-    LowerArmLeft = 21,
-    HipRight = 22,
-    UpperLegRight = 23,
-    LowerLegRight = 24,
-    HipLeft = 25,
-    UpperLegLeft = 26,
-    LowerLegLeft = 27,
-    Stomach = 28,
-    PecLeft = 29,
-    PecRight = 30,
-    HUDCenter2 = 31,
-    HUDTopRight = 32,
-    HUDTop = 33,
-    HUDTopLeft = 34,
-    HUDCenter = 35,
-    HUDBottomLeft = 36,
-    HUDBottom = 37,
-    HUDBottomRight = 38,
-    Neck = 39,
-    Center = 40,
-    HandRing1Left = 41,
-    HandRing1Right = 42,
-    TailBase = 43,
-    TailTip = 44,
-    WingLeft = 45,
-    WingRight = 46,
-    FaceJaw = 47,
-    FaceEarLeft = 48,
-    FaceEarRight = 49,
-    FaceEyeLeft = 50,
-    FaceEyeRight = 51,
-    FaceTongue = 52,
-    Groin = 53,
-    HindFootLeft = 54,
-    HindFootRight = 55,
-}
-
-impl From<AttachPoint> for AttachmentTarget {
-    fn from(point: AttachPoint) -> Self {
-        match point {
-            AttachPoint::Chest => Self::DeformJoint(DeformName::Chest),
-            AttachPoint::Head => Self::DeformJoint(DeformName::Head),
-            AttachPoint::ShoulderLeft => Self::DeformJoint(DeformName::ShoulderLeft),
-            AttachPoint::ShoulderRight => Self::DeformJoint(DeformName::ShoulderRight),
-            AttachPoint::HandLeft => Self::DeformJoint(DeformName::HandLeft),
-            AttachPoint::HandRight => Self::DeformJoint(DeformName::HandRight),
-            AttachPoint::FootLeft => Self::DeformJoint(DeformName::FootLeft),
-            AttachPoint::FootRight => Self::DeformJoint(DeformName::FootRight),
-            AttachPoint::Spine => Self::Bone(JointName::Spine1),
-            AttachPoint::Pelvis => Self::DeformJoint(DeformName::Pelvis),
-            AttachPoint::Mouth => Self::Bone(JointName::FaceTongueTip),
-            AttachPoint::Chin => Self::Bone(JointName::FaceJaw),
-            AttachPoint::EarLeft => Self::Bone(JointName::FaceEar2Left),
-            AttachPoint::EarRight => Self::Bone(JointName::FaceEar2Right),
-            AttachPoint::EyeballLeft => Self::Bone(JointName::FaceEyeAltLeft),
-            AttachPoint::EyeballRight => Self::Bone(JointName::FaceEyeAltRight),
-            AttachPoint::Nose => Self::Bone(JointName::FaceNoseCenter),
-            AttachPoint::UpperArmRight => Self::DeformJoint(DeformName::UpperArmRight),
-            AttachPoint::LowerArmRight => Self::DeformJoint(DeformName::LowerArmRight),
-            AttachPoint::UpperArmLeft => Self::DeformJoint(DeformName::UpperArmLeft),
-            AttachPoint::LowerArmLeft => Self::DeformJoint(DeformName::LowerArmLeft),
-            AttachPoint::HipRight => Self::DeformJoint(DeformName::HipRight),
-            AttachPoint::UpperLegRight => Self::DeformJoint(DeformName::UpperLegRight),
-            AttachPoint::LowerLegRight => Self::DeformJoint(DeformName::LowerLegRight),
-            AttachPoint::HipLeft => Self::DeformJoint(DeformName::HipLeft),
-            AttachPoint::UpperLegLeft => Self::DeformJoint(DeformName::UpperLegLeft),
-            AttachPoint::LowerLegLeft => Self::DeformJoint(DeformName::LowerLegLeft),
-            AttachPoint::Stomach => Self::DeformJoint(DeformName::Belly),
-            AttachPoint::PecLeft => Self::DeformJoint(DeformName::PecLeft),
-            AttachPoint::PecRight => Self::DeformJoint(DeformName::PecRight),
-            AttachPoint::Neck => Self::DeformJoint(DeformName::Neck),
-            AttachPoint::HandRing1Left => Self::Bone(JointName::HandRing1Left),
-            AttachPoint::HandRing1Right => Self::Bone(JointName::HandRing1Right),
-            AttachPoint::TailBase => Self::Bone(JointName::Tail1),
-            AttachPoint::TailTip => Self::Bone(JointName::Tail6),
-            AttachPoint::WingLeft => Self::Bone(JointName::Wing1Left),
-            AttachPoint::WingRight => Self::Bone(JointName::Wing1Right),
-            AttachPoint::FaceJaw => Self::Bone(JointName::FaceJaw),
-            AttachPoint::FaceEarLeft => Self::Bone(JointName::FaceEar1Left),
-            AttachPoint::FaceEarRight => Self::Bone(JointName::FaceEar1Right),
-            AttachPoint::FaceEyeLeft => Self::Bone(JointName::FaceEyeLidUpperLeft),
-            AttachPoint::FaceEyeRight => Self::Bone(JointName::FaceEyeLidUpperRight),
-            AttachPoint::FaceTongue => Self::Bone(JointName::FaceTongueTip),
-            AttachPoint::Groin => Self::Bone(JointName::Groin),
-            AttachPoint::HindFootLeft => Self::Bone(JointName::HindLimb4Left),
-            AttachPoint::HindFootRight => Self::Bone(JointName::HindLimb4Right),
-            AttachPoint::HUDTop => Self::HUDAttachment(AttachPoint::HUDTop),
-            AttachPoint::HUDTopRight => Self::HUDAttachment(AttachPoint::HUDTopRight),
-            AttachPoint::HUDTopLeft => Self::HUDAttachment(AttachPoint::HUDTopLeft),
-            AttachPoint::HUDBottom => Self::HUDAttachment(AttachPoint::HUDBottom),
-            AttachPoint::HUDBottomRight => Self::HUDAttachment(AttachPoint::HUDBottomRight),
-            AttachPoint::HUDBottomLeft => Self::HUDAttachment(AttachPoint::HUDBottomLeft),
-            AttachPoint::HUDCenter => Self::HUDAttachment(AttachPoint::HUDCenter),
-            AttachPoint::HUDCenter2 => Self::HUDAttachment(AttachPoint::HUDCenter2),
-            AttachPoint::Center => Self::Bone(JointName::Spine2),
-            AttachPoint::Default => Self::Bone(JointName::Spine2),
-        }
-    }
-}
-impl From<AttachPoint> for u8 {
-    fn from(value: AttachPoint) -> Self {
-        value as u8
-    }
-}
-
-impl TryFrom<u8> for AttachPoint {
-    type Error = &'static str;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Default),
-            1 => Ok(Self::Chest),
-            2 => Ok(Self::Head),
-            3 => Ok(Self::ShoulderLeft),
-            4 => Ok(Self::ShoulderRight),
-            5 => Ok(Self::HandLeft),
-            6 => Ok(Self::HandRight),
-            7 => Ok(Self::FootLeft),
-            8 => Ok(Self::FootRight),
-            9 => Ok(Self::Spine),
-            10 => Ok(Self::Pelvis),
-            11 => Ok(Self::Mouth),
-            12 => Ok(Self::Chin),
-            13 => Ok(Self::EarLeft),
-            14 => Ok(Self::EarRight),
-            15 => Ok(Self::EyeballLeft),
-            16 => Ok(Self::EyeballRight),
-            17 => Ok(Self::Nose),
-            18 => Ok(Self::UpperArmRight),
-            19 => Ok(Self::LowerArmRight),
-            20 => Ok(Self::UpperArmLeft),
-            21 => Ok(Self::LowerArmLeft),
-            22 => Ok(Self::HipRight),
-            23 => Ok(Self::UpperLegRight),
-            24 => Ok(Self::LowerLegRight),
-            25 => Ok(Self::HipLeft),
-            26 => Ok(Self::UpperLegLeft),
-            27 => Ok(Self::LowerLegLeft),
-            28 => Ok(Self::Stomach),
-            29 => Ok(Self::PecLeft),
-            30 => Ok(Self::PecRight),
-            31 => Ok(Self::HUDCenter2),
-            32 => Ok(Self::HUDTopRight),
-            33 => Ok(Self::HUDTop),
-            34 => Ok(Self::HUDTopLeft),
-            35 => Ok(Self::HUDCenter),
-            36 => Ok(Self::HUDBottomLeft),
-            37 => Ok(Self::HUDBottom),
-            38 => Ok(Self::HUDBottomRight),
-            39 => Ok(Self::Neck),
-            40 => Ok(Self::Center),
-            41 => Ok(Self::HandRing1Left),
-            42 => Ok(Self::HandRing1Right),
-            43 => Ok(Self::TailBase),
-            44 => Ok(Self::TailTip),
-            45 => Ok(Self::WingLeft),
-            46 => Ok(Self::WingRight),
-            47 => Ok(Self::FaceJaw),
-            48 => Ok(Self::FaceEarLeft),
-            49 => Ok(Self::FaceEarRight),
-            50 => Ok(Self::FaceEyeLeft),
-            51 => Ok(Self::FaceEyeRight),
-            52 => Ok(Self::FaceTongue),
-            53 => Ok(Self::Groin),
-            54 => Ok(Self::HindFootLeft),
-            55 => Ok(Self::HindFootRight),
-            _ => Err("Invalid attachment point"),
-        }
-    }
-}
-impl<'de> Deserialize<'de> for AttachPoint {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let value = u8::deserialize(deserializer)?;
-        Self::try_from(value).map_err(serde::de::Error::custom)
     }
 }

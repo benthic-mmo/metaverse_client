@@ -1,11 +1,14 @@
 use std::{collections::BTreeSet, path::PathBuf};
 
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, Vec3};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::skeleton::{Skeleton, SkinJoint};
+use crate::{
+    objects::AttachPoint,
+    skeleton::{Skeleton, SkinJoint},
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 /// Information about the weights of each joint.
@@ -45,7 +48,16 @@ pub struct RenderObject {
     pub name: String,
     pub id: Uuid,
     pub faces: Vec<RenderFace>,
+    pub attachment_data: Option<AttachmentData>,
     pub skin: Option<SkinData>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct AttachmentData {
+    pub attach_point: AttachPoint,
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

@@ -22,23 +22,23 @@ use crate::common::{
 /// mesh handling.
 #[tokio::test]
 async fn test_mesh_generation() {
-    let _artifacts = mock_avatar_load("puffball".to_string()).await;
+    let _artifacts = mock_avatar_load("puffball".to_string(), 4).await;
 }
 
 #[tokio::test]
 async fn display_humanoid_puffball() {
-    display_test_model_for("humanoid_puffball").await;
+    display_test_model_for("humanoid_puffball", 3).await;
 }
 
 /// this test builds the model and displays using Bevy.
 #[tokio::test]
 async fn display_test_model() {
-    display_test_model_for("puffball").await;
+    display_test_model_for("puffball", 4).await;
 }
 
 /// Builds and displays an avatar model using Bevy.
-async fn display_test_model_for(avatar_name: &str) {
-    let artifacts = mock_avatar_load(avatar_name.to_string()).await;
+async fn display_test_model_for(avatar_name: &str, outfit_size: usize) {
+    let artifacts = mock_avatar_load(avatar_name.to_string(), outfit_size).await;
 
     let tests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join(format!("tests/generated/{}", common::AGENT_ID));
