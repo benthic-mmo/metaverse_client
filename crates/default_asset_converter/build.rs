@@ -58,6 +58,7 @@ fn get_default_assets(out_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Err
 
         if !assets_dir.join("Textures/default.png").is_file()
             || !assets_dir.join("Skeleton/skeleton.gltf").is_file()
+            || !assets_dir.join("Mesh/empty.glb").is_file()
         {
             return Err(format!(
                 "Local default assets not found or incomplete: {}",
@@ -112,6 +113,9 @@ fn main() {
         out_dir.join("default.png"),
     )
     .unwrap();
+
+    let mesh_path = default_assets.join("Mesh");
+    fs::copy(mesh_path.join("empty.glb"), out_dir.join("empty.glb")).unwrap();
 
     let animation_path = default_assets.join("Animations");
     let target_skeleton_path = default_assets.join("Skeleton").join("skeleton.gltf");

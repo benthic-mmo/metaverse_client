@@ -41,6 +41,10 @@ pub fn default_texture_path() -> PathBuf {
     PathBuf::from(concat!(env!("OUT_DIR"), "/default.png"))
 }
 
+pub fn no_geometry_mesh_path() -> PathBuf {
+    PathBuf::from(concat!(env!("OUT_DIR"), "/empty.glb"))
+}
+
 #[cfg(feature = "animations")]
 #[allow(unused)]
 macro_rules! define_animations {

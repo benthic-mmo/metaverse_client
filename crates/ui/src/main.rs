@@ -14,6 +14,7 @@ use bevy_panorbit_camera::PanOrbitCameraPlugin;
 pub const CONFIG_FILE: &str = "login_conf.json";
 
 fn main() {
+    unsafe { backtrace_on_stack_overflow::enable() };
     App::new()
         .add_plugins(
             DefaultPlugins
