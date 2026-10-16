@@ -34,6 +34,10 @@ pub async fn download_asset(
 
     let status = response.status();
 
+    if status == awc::http::StatusCode::NOT_FOUND {
+        return Err(DownloadError::NotFound { url });
+    }
+
     if !status.is_success() {
         return Err(DownloadError::HttpStatus {
             status: status.as_u16(),
