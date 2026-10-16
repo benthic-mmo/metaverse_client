@@ -1,8 +1,8 @@
 use benthic_protocol::{
     objects::GeneratorObject,
-    render_data::{RenderFace, RenderObject, SkinData},
+    render_data::{AttachmentData, RenderFace, RenderObject, SkinData},
     session::{CacheDir, create_sub_object_dir, write_json},
-    skeleton::{Skeleton, SkinJoint},
+    skeleton::Skeleton,
 };
 use bytes::Bytes;
 use log::{info, warn};
@@ -82,6 +82,7 @@ pub async fn download_mesh_object(
         texture_paths,
         data.object.sculpt_id,
         &data.object.texture,
+        None,
     )?;
 
     let json_path = write_json(
@@ -142,6 +143,7 @@ pub fn create_render_object(
     texture_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
     texture: &Option<TextureEntries>,
+    attachment_data: Option<AttachmentData>,
 ) -> Result<RenderObject, DownloadError> {
     let skin = mesh.skin.as_ref();
 
@@ -218,6 +220,7 @@ pub fn create_render_object(
         name,
         id: asset_id,
         faces,
+        attachment_data,
         skin: skin_data,
     })
 }

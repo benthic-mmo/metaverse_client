@@ -78,10 +78,10 @@ pub fn scene_instance_ready(
     };
 
     let Some(agent_id) = agent_id else {
-        warn!(
-            "WorldInstanceReady: no AgentID found for {:?}",
-            trigger.entity
-        );
+        //warn!(
+        //    "WorldInstanceReady: no AgentID found for {:?}",
+        //    trigger.entity
+        //);
         return;
     };
 

@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, fs, path::PathBuf};
 use benthic_protocol::{
     render_data::{AvatarObject, RenderObject},
     session::{CacheDir, Session, cache_enabled, create_sub_agent_dir, write_json},
-    skeleton::{JointName, Skeleton, SkinJoint},
+    skeleton::{Skeleton, SkinJoint},
 };
 use glam::Mat4;
 use indexmap::IndexMap;

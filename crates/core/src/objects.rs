@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::path::Path;
-use std::path::PathBuf;
-
 use super::session::Mailbox;
 #[cfg(feature = "z-up")]
 use crate::COORDINATE_CONVERSION;
@@ -228,7 +224,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
         ctx.spawn(
             async move {
                 // retrieve sculpt texture from endpoint
-                let texture_path = base_dir.join(format!("{:?}.png", sculpt_id));
+                let texture_path = out_dir.join(format!("{:?}.png", sculpt_id));
                 if let Err(e) = download_texture(
                     ObjectType::Texture.to_string(),
                     sculpt_id,

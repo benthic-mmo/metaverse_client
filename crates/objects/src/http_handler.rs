@@ -1,4 +1,4 @@
-use benthic_protocol::render_data::RenderObject;
+use benthic_protocol::render_data::{AttachmentData, RenderObject};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
 use log::info;
@@ -160,6 +160,12 @@ pub async fn download_scene_group_assets(
                 texture_paths,
                 scene.sculpt.texture,
                 &Some(scene.shape.texture.clone()),
+                Some(AttachmentData {
+                    attach_point: scene.shape.last_attach_point,
+                    position: scene.attached_pos,
+                    rotation: scene.rotation_offset,
+                    scale: scene.scale,
+                }),
             )?)
         } else {
             info!("Non-mesh scene group")

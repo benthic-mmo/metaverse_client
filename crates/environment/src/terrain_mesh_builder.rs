@@ -236,9 +236,11 @@ pub fn build_terrain(
 
     builder.build();
 
+    // TODO: this should seriously not be a renderobject. Why am I doing this.
     RenderObject {
         name: layer.terrain_header.location.to_string(),
         id: Uuid::nil(),
+        attachment_data: None,
         faces: vec![RenderFace {
             face_index: 0,
             vertices: builder.vertices,

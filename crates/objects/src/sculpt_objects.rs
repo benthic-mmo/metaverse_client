@@ -161,6 +161,7 @@ pub async fn handle_sculpt_object(
             let render_object = RenderObject {
                 name: "Prim".to_string(),
                 id: object.full_id,
+                attachment_data: None,
                 faces: vec![RenderFace {
                     face_index: 0,
                     vertices,
