@@ -28,6 +28,10 @@ pub enum DownloadError {
         url: String,
         headers: Vec<(String, String)>,
     },
+
+    #[error("Asset not found: 404 at url={url}")]
+    NotFound { url: String },
+
     #[error("Asset request failed: HTTP {status}, url={url}")]
     HttpStatus { status: u16, url: String },
 

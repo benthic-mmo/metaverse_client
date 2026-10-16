@@ -1,3 +1,4 @@
+use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::GeneratorObject,
     render_data::{AttachmentData, RenderFace, RenderObject, SkinData},
@@ -43,14 +44,18 @@ pub async fn download_face_textures(
         let server_endpoint = server_endpoint.to_owned();
 
         async move {
-            download_texture(
+            match download_texture(
                 ObjectType::Texture.to_string(),
                 texture_id,
                 &server_endpoint,
                 &texture_path,
             )
-            .await?;
-            Ok::<PathBuf, DownloadError>(texture_path)
+            .await
+            {
+                Ok(()) => Ok(texture_path),
+                Err(DownloadError::NotFound { .. }) => Ok(default_texture_path()),
+                Err(e) => Err(e),
+            }
         }
     };
 
