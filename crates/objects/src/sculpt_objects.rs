@@ -26,138 +26,137 @@ pub async fn handle_sculpt_object(
     texture_paths: HashMap<u32, PathBuf>,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let base_dir = create_sub_object_dir(&out_dir, &object.data.texture_id.to_string())?;
-
-    let image = image::open(&texture_path)?.into_rgb8();
-    let (width, height) = image.dimensions();
-    let mut actions = Vec::new();
-
-    let mut vertices: Vec<Vec3> = Vec::with_capacity((width * height) as usize);
-
-    for y in 0..height {
-        for x in 0..width {
-            let pixel = image.get_pixel(x, y);
-
-            vertices.push(Vec3::new(
-                pixel[0] as f32 / 255.0 - 0.5,
-                pixel[1] as f32 / 255.0 - 0.5,
-                pixel[2] as f32 / 255.0 - 0.5,
-            ));
-        }
-    }
-
-    let w = width as usize;
-    let h = height as usize;
-
-    if w < 2 || h < 2 {
-        Err(ObjectUpdateError::MeshTooSmall)?;
-    }
-
-    // Reshape the row-major vertices into horizontal scanlines.
-    // this is just how you do it I guess
-    let mut rows: Vec<Vec<Vec3>> = vertices
-        .chunks_exact(w)
-        .map(|chunk| chunk.to_vec())
-        .collect();
-
-    let original_width = w;
-
-    match object.data.sculpt_type {
-        SculptType::Plane => {}
-
-        SculptType::Sphere => {
-            // Close the seam.
-            if rows.len().is_multiple_of(2) {
-                for row in &mut rows {
-                    row.push(row[0]);
-                }
-            } else {
-                for row in &mut rows {
-                    let last = row.len() - 1;
-                    row[0] = row[last];
-                }
-            }
-
-            // Collapse or extend the poles.
-            let mid = original_width / 2;
-            let top_pole = rows[0][mid];
-            let bottom_pole = rows[rows.len() - 1][mid];
-            let row_width = rows[0].len();
-
-            if rows.len().is_multiple_of(2) {
-                rows.insert(0, vec![top_pole; row_width]);
-                rows.push(vec![bottom_pole; row_width]);
-            } else {
-                let last = rows.len() - 1;
-
-                for x in 0..row_width {
-                    rows[0][x] = top_pole;
-                    rows[last][x] = bottom_pole;
-                }
-            }
-        }
-
-        SculptType::Torus => {
-            // Close the first loop.
-            if rows.len().is_multiple_of(2) {
-                for row in &mut rows {
-                    row.push(row[0]);
-                }
-            } else {
-                for row in &mut rows {
-                    let last = row.len() - 1;
-                    row[0] = row[last];
-                }
-            }
-
-            // Close the second loop.
-            rows.push(rows[0].clone());
-        }
-
-        _ => {
-            // Close the seam for other sculpt types.
-            if rows.len().is_multiple_of(2) {
-                for row in &mut rows {
-                    row.push(row[0]);
-                }
-            } else {
-                for row in &mut rows {
-                    let last = row.len() - 1;
-                    row[0] = row[last];
-                }
-            }
-        }
-    }
-
-    let indices = create_sculpt_indices(&rows, false);
-
-    let row_count = rows.len();
-    let row_width = rows[0].len();
-
-    let mut vertices = Vec::with_capacity(row_count * row_width);
-    let mut uv = Vec::with_capacity(row_count * row_width);
-
-    for (y, row) in rows.iter().enumerate() {
-        for (x, vertex) in row.iter().enumerate() {
-            vertices.push(*vertex);
-
-            uv.push([
-                x as f32 / (row_width - 1) as f32,
-                y as f32 / (row_count - 1) as f32,
-            ]);
-        }
-    }
-
-    let normals = create_sculpt_normals(&vertices, &indices);
-
     let file_path = base_dir.join(format!("{}.json", object.data.texture_id));
     let glb_path = base_dir.join(format!("{}.glb", object.data.texture_id));
-    let color = if let Some(texture) = &object.texture {
-        texture.default.rgba
-    } else {
-        Rgba::new(255, 255, 255, 255)
-    };
+
     if !glb_path.exists() || !cache_enabled() {
         if !file_path.exists() || !cache_enabled() {
+            let image = image::open(&texture_path)?.into_rgb8();
+            let (width, height) = image.dimensions();
+
+            let mut vertices: Vec<Vec3> = Vec::with_capacity((width * height) as usize);
+
+            for y in 0..height {
+                for x in 0..width {
+                    let pixel = image.get_pixel(x, y);
+
+                    vertices.push(Vec3::new(
+                        pixel[0] as f32 / 255.0 - 0.5,
+                        pixel[1] as f32 / 255.0 - 0.5,
+                        pixel[2] as f32 / 255.0 - 0.5,
+                    ));
+                }
+            }
+
+            let w = width as usize;
+            let h = height as usize;
+
+            if w < 2 || h < 2 {
+                return Err(ObjectUpdateError::MeshTooSmall);
+            }
+
+            // Reshape the row-major vertices into horizontal scanlines.
+            let mut rows: Vec<Vec<Vec3>> = vertices
+                .chunks_exact(w)
+                .map(|chunk| chunk.to_vec())
+                .collect();
+
+            let original_width = w;
+
+            match object.data.sculpt_type {
+                SculptType::Plane => {}
+
+                SculptType::Sphere => {
+                    // Close the seam.
+                    if rows.len().is_multiple_of(2) {
+                        for row in &mut rows {
+                            row.push(row[0]);
+                        }
+                    } else {
+                        for row in &mut rows {
+                            let last = row.len() - 1;
+                            row[0] = row[last];
+                        }
+                    }
+
+                    // Collapse or extend the poles.
+                    let mid = original_width / 2;
+                    let top_pole = rows[0][mid];
+                    let bottom_pole = rows[rows.len() - 1][mid];
+                    let row_width = rows[0].len();
+
+                    if rows.len().is_multiple_of(2) {
+                        rows.insert(0, vec![top_pole; row_width]);
+                        rows.push(vec![bottom_pole; row_width]);
+                    } else {
+                        let last = rows.len() - 1;
+
+                        for x in 0..row_width {
+                            rows[0][x] = top_pole;
+                            rows[last][x] = bottom_pole;
+                        }
+                    }
+                }
+
+                SculptType::Torus => {
+                    // Close the first loop.
+                    if rows.len().is_multiple_of(2) {
+                        for row in &mut rows {
+                            row.push(row[0]);
+                        }
+                    } else {
+                        for row in &mut rows {
+                            let last = row.len() - 1;
+                            row[0] = row[last];
+                        }
+                    }
+
+                    // Close the second loop.
+                    rows.push(rows[0].clone());
+                }
+
+                _ => {
+                    // Close the seam for other sculpt types.
+                    if rows.len().is_multiple_of(2) {
+                        for row in &mut rows {
+                            row.push(row[0]);
+                        }
+                    } else {
+                        for row in &mut rows {
+                            let last = row.len() - 1;
+                            row[0] = row[last];
+                        }
+                    }
+                }
+            }
+
+            let indices = create_sculpt_indices(&rows, false);
+
+            let row_count = rows.len();
+            let row_width = rows[0].len();
+
+            let mut vertices = Vec::with_capacity(row_count * row_width);
+            let mut uv = Vec::with_capacity(row_count * row_width);
+
+            for (y, row) in rows.iter().enumerate() {
+                for (x, vertex) in row.iter().enumerate() {
+                    vertices.push(*vertex);
+
+                    uv.push([
+                        x as f32 / (row_width - 1) as f32,
+                        y as f32 / (row_count - 1) as f32,
+                    ]);
+                }
+            }
+
+            let normals = create_sculpt_normals(&vertices, &indices);
+
+            let color = if let Some(texture) = &object.texture {
+                texture.default.rgba
+            } else {
+                Rgba::new(255, 255, 255, 255)
+            };
+
             let render_object = RenderObject {
                 name: "Prim".to_string(),
                 id: object.full_id,
@@ -175,17 +174,16 @@ pub async fn handle_sculpt_object(
                 skin: None,
             };
 
-            let json = serde_json::to_vec_pretty(&render_object)?;
-            std::fs::write(&file_path, json)?;
+            std::fs::write(&file_path, serde_json::to_vec_pretty(&render_object)?)?;
         }
 
         generate_object_mesh(file_path.clone(), glb_path.clone())?;
     }
 
-    actions.push(ObjectUpdateAction::Render(RenderObjectData {
+    Ok(vec![ObjectUpdateAction::Render(RenderObjectData {
         mesh_path: Some(glb_path),
-        asset_id: Uuid::nil(),
-        base_dir: base_dir.clone(),
+        asset_id: object.full_id,
+        base_dir,
         object: GeneratorObject {
             full_id: object.full_id,
             local_id: object.local_id,
@@ -196,11 +194,8 @@ pub async fn handle_sculpt_object(
         },
         download: None,
         retry_count: 0,
-    }));
-
-    Ok(actions)
+    })])
 }
-
 fn create_sculpt_indices(rows: &[Vec<Vec3>], invert: bool) -> Vec<u32> {
     if rows.len() < 2 || rows[0].len() < 2 {
         return Vec::new();

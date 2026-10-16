@@ -138,7 +138,6 @@ fn handle_queue(
             }
 
             UIMessage::PlayAnimation(play_animation) => {
-                println!("HELLO ANIMATION EVENT RECEIVED");
                 ev_animation_update.write(AnimationEvent {
                     value: play_animation,
                 });

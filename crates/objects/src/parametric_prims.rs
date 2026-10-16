@@ -16,7 +16,6 @@ use metaverse_messages::utils::{
     texture_entry::TextureEntries,
 };
 use rgb::Rgba;
-use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
@@ -35,45 +34,47 @@ pub async fn handle_parametric_prim(
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let cache_key = create_cache_key(object);
     let base_dir = create_sub_object_dir(out_dir, &format!("{cache_key:016x}"))?;
-
-    let profile = build_profile(
-        object.path_data.hollow_shape,
-        object.path_data.profile_hollow,
-        object.path_data.profile_shape,
-    )?;
-
-    let layers = follow_path(object.path_data.clone(), &profile)?;
-    let has_hollow = object.path_data.profile_hollow > 0.0;
-
-    let faces = split_faces(
-        &layers,
-        object.path_data.profile_shape,
-        object.path_data.hollow_shape,
-        has_hollow,
-        &texture_paths,
-        &object.texture,
-    )?;
-
     let json_path = base_dir.join(format!("{cache_key}.json"));
     let glb_path = base_dir.join(format!("{cache_key}.glb"));
 
-    let render_object = RenderObject {
-        name: "Prim".to_string(),
-        id: object.full_id,
-        attachment_data: None,
-        faces,
-        skin: None,
-    };
-
-    std::fs::write(&json_path, serde_json::to_vec_pretty(&render_object)?)?;
-
     if !glb_path.exists() || !cache_enabled() {
-        generate_object_mesh(json_path, glb_path.clone())?;
+        if json_path.exists() && cache_enabled() {
+            generate_object_mesh(json_path, glb_path.clone())?;
+        } else {
+            let profile = build_profile(
+                object.path_data.hollow_shape,
+                object.path_data.profile_hollow,
+                object.path_data.profile_shape,
+            )?;
+
+            let layers = follow_path(object.path_data.clone(), &profile)?;
+            let has_hollow = object.path_data.profile_hollow > 0.0;
+
+            let faces = split_faces(
+                &layers,
+                object.path_data.profile_shape,
+                object.path_data.hollow_shape,
+                has_hollow,
+                &texture_paths,
+                &object.texture,
+            )?;
+
+            let render_object = RenderObject {
+                name: "Prim".to_string(),
+                id: object.full_id,
+                attachment_data: None,
+                faces,
+                skin: None,
+            };
+
+            std::fs::write(&json_path, serde_json::to_vec_pretty(&render_object)?)?;
+            generate_object_mesh(json_path, glb_path.clone())?;
+        }
     }
 
     Ok(vec![ObjectUpdateAction::Render(RenderObjectData {
         mesh_path: Some(glb_path),
-        asset_id: Uuid::nil(),
+        asset_id: object.full_id,
         base_dir,
         object: GeneratorObject {
             full_id: object.full_id,
@@ -87,7 +88,6 @@ pub async fn handle_parametric_prim(
         retry_count: 0,
     })])
 }
-
 /// Build a cache key from geometry parameters, texture assignments and colors.
 /// Build a cache key from geometry parameters, texture IDs, and colors.
 fn create_cache_key(object: &ParametricPrimData<TextureEntries, PrimPath>) -> u64 {
@@ -425,16 +425,8 @@ fn append_ring_faces(
                 };
 
                 vertices.push(*vertex);
-                let (u, v) = match profile {
-                    ProfileShape::Circle | ProfileShape::HalfCircle => (
-                        1.0 - layer_index as f32 / (num_layers - 1) as f32,
-                        local_i as f32 / count as f32,
-                    ),
-                    _ => (
-                        local_i as f32 / count as f32,
-                        1.0 - layer_index as f32 / (num_layers - 1) as f32,
-                    ),
-                };
+                let u = local_i as f32 / count as f32;
+                let v = 1.0 - layer_index as f32 / (num_layers - 1) as f32;
                 uv.push([u, v]);
             }
         }

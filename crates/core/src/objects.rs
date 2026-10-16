@@ -1,5 +1,4 @@
 use super::session::Mailbox;
-#[cfg(feature = "z-up")]
 use crate::COORDINATE_CONVERSION;
 use crate::session::OutgoingPacket;
 use crate::session::RetryMessage;
@@ -7,17 +6,19 @@ use crate::session::SendUIMessage;
 use actix::AsyncContext;
 use actix::WrapFuture;
 use actix::{Handler, Message};
+use benthic_default_asset_converter::no_geometry_mesh_path;
 use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::AttachmentObjectData;
+use benthic_protocol::objects::GeneratorObject;
 use benthic_protocol::objects::MeshObjectData;
 use benthic_protocol::objects::ParametricPrimData;
 use benthic_protocol::objects::SculptObjectData;
 use benthic_protocol::session::DownloadState;
 use benthic_protocol::session::create_sub_object_dir;
 use benthic_protocol::session::create_textures_dir;
-use log::{error, warn};
+use log::{error, info};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -88,7 +89,6 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
-
     fn handle(
         &mut self,
         mut msg: ParametricPrimObjectUpdate,
@@ -174,18 +174,6 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct AttachmentObjectUpdate(pub AttachmentObjectData);
-impl Handler<AttachmentObjectUpdate> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, mut msg: AttachmentObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
-            return;
-        };
-    }
-}
-
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
@@ -224,7 +212,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
         ctx.spawn(
             async move {
                 // retrieve sculpt texture from endpoint
-                let texture_path = out_dir.join(format!("{:?}.png", sculpt_id));
+                let texture_path = base_dir.join(format!("{:?}.png", sculpt_id));
                 if let Err(e) = download_texture(
                     ObjectType::Texture.to_string(),
                     sculpt_id,
@@ -246,7 +234,28 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                             });
                         }
                         e => {
-                            error!("Sculpt texture download failed: {:?}", e);
+                            // if the SculpTexture download gets an unrecoverable error, render an empty
+                            // mesh and return early.
+                            error!(
+                                "Sculpt texture download failed: rendering default mesh {:?}",
+                                e
+                            );
+                            addr.do_send(RenderObjectMessage(RenderObjectData {
+                                mesh_path: Some(no_geometry_mesh_path()),
+                                base_dir,
+                                asset_id: msg.0.full_id,
+                                object: GeneratorObject {
+                                    full_id: msg.0.full_id,
+                                    local_id: msg.0.local_id,
+                                    parent_id: msg.0.parent,
+                                    position: msg.0.position,
+                                    scale: msg.0.scale,
+                                    rotation: msg.0.rotation,
+                                },
+                                retry_count: 0,
+                                download: None,
+                            }));
+                            return;
                         }
                     }
                     return;
@@ -318,6 +327,18 @@ impl Handler<SculptObjectUpdate> for Mailbox {
             }
             .into_actor(self),
         );
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct AttachmentObjectUpdate(pub AttachmentObjectData);
+impl Handler<AttachmentObjectUpdate> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, mut msg: AttachmentObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
     }
 }
 
@@ -491,7 +512,7 @@ impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
         _ctx: &mut Self::Context,
     ) -> Self::Result {
         // TODO: unimplemented
-        warn!("ImprovedTerseObjectUpdate packet received. Currently unimplemented.")
+        //warn!("ImprovedTerseObjectUpdate packet received. Currently unimplemented.")
     }
 }
 
@@ -622,14 +643,6 @@ impl Handler<GenerateMeshMessage> for Mailbox {
     }
 }
 
-/// Helper message to render objects from stored json files
-///
-/// # Cause
-/// [`HandleObjectUpdateCached`]
-/// [`GenerateMeshFromJson`]
-///
-/// # Effect
-/// [`MeshUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderObjectMessage(RenderObjectData);
@@ -637,13 +650,12 @@ impl Handler<RenderObjectMessage> for Mailbox {
     type Result = ();
 
     fn handle(&mut self, msg: RenderObjectMessage, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+        let Some(_session) = self.session.as_mut() else {
             return;
         };
+
         let addr = ctx.address();
-        let cache = session.cache.clone();
-        // check to see if there are any children pending this object
-        let children = self.pending_children.clone();
+
         ctx.spawn(
             async move {
                 let mut msg = msg.0;
@@ -662,8 +674,6 @@ impl Handler<RenderObjectMessage> for Mailbox {
                             return;
                         }
                         DownloadState::Downloading => {
-                            // Shouldn't normally happen unless the sender changes
-                            // the state to Downloading again.
                             return;
                         }
                     }
@@ -674,94 +684,28 @@ impl Handler<RenderObjectMessage> for Mailbox {
                     return;
                 };
 
-                // if it's the root, just render it.
-                let parent_id = match msg.object.parent_id {
-                    Some(0) | None => {
-                        let children = children
-                            .lock()
-                            .await
-                            .remove(&msg.object.local_id)
-                            .unwrap_or_default();
-                        let position = COORDINATE_CONVERSION.mul_vec3(msg.object.position);
-                        let rotation = COORDINATE_CONVERSION * msg.object.rotation;
-                        addr.do_send(SendUIMessage {
-                            ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                                position,
-                                scale: msg.object.scale,
-                                rotation,
-                                parent: msg.object.parent_id,
-                                scene_id: Some(msg.object.local_id),
-                                path: mesh_path.clone(),
-                                mesh_type: MeshType::Object,
-                                id: Some(msg.asset_id),
-                            }),
-                        });
-
-                        // loop through and send any pending children.
-                        // if there are no children, this is 0 and it doesn't run.
-                        for child in children {
-                            addr.do_send(child);
-                        }
-                        return;
-                    }
-
-                    Some(id) => id,
+                let (position, rotation) = if msg.object.parent_id.is_none_or(|id| id == 0) {
+                    (
+                        COORDINATE_CONVERSION.mul_vec3(msg.object.position),
+                        COORDINATE_CONVERSION * msg.object.rotation,
+                    )
+                } else {
+                    (msg.object.position, msg.object.rotation)
                 };
 
-                match cache.object.get_parent(msg.object.local_id).await {
-                    Ok(_parent) => {
-                        addr.do_send(SendUIMessage {
-                            ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                                position: msg.object.position,
-                                scale: msg.object.scale,
-                                rotation: msg.object.rotation,
-                                parent: msg.object.parent_id,
-                                scene_id: Some(msg.object.local_id),
-                                path: mesh_path.clone(),
-                                mesh_type: MeshType::Object,
-                                id: Some(msg.asset_id),
-                            }),
-                        });
-                    }
-
-                    Err(inventory_error) => {
-                        warn!(
-                            "Parent {} not ready, queuing child {}: {}",
-                            parent_id, msg.object.full_id, inventory_error
-                        );
-
-                        addr.do_send(WaitForParent {
-                            parent_id,
-                            message: RenderObjectMessage(msg),
-                        });
-                    }
-                }
-            }
-            .into_actor(self),
-        );
-    }
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct WaitForParent {
-    pub parent_id: u32,
-    pub message: RenderObjectMessage,
-}
-impl Handler<WaitForParent> for Mailbox {
-    type Result = ();
-
-    fn handle(&mut self, msg: WaitForParent, ctx: &mut Self::Context) {
-        let pending_children = self.pending_children.clone();
-
-        ctx.spawn(
-            async move {
-                pending_children
-                    .lock()
-                    .await
-                    .entry(msg.parent_id)
-                    .or_default()
-                    .push(msg.message);
+                info!("Rendering object {:?}", msg.asset_id);
+                addr.do_send(SendUIMessage {
+                    ui_message: UIMessage::new_mesh_update(MeshUpdate {
+                        position,
+                        scale: msg.object.scale,
+                        rotation,
+                        parent: msg.object.parent_id,
+                        scene_id: Some(msg.object.local_id),
+                        path: mesh_path.clone(),
+                        mesh_type: MeshType::Object,
+                        id: Some(msg.asset_id),
+                    }),
+                });
             }
             .into_actor(self),
         );

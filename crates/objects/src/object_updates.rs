@@ -128,7 +128,6 @@ pub async fn mesh_update(
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     cache.object.update(object.clone()).await?;
     let mut actions = Vec::new();
-
     match cache
         .object
         .check_cache_by_asset_id(object.sculpt_id, object.full_id)

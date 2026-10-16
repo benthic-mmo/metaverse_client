@@ -28,6 +28,7 @@ use crate::{
         DownloadMeshObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData,
     },
 };
+
 pub async fn download_face_textures(
     out_dir: &Path,
     texture: &Option<TextureEntries>,
@@ -127,7 +128,6 @@ pub async fn mesh_from_json(
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
     let glb_path = data.base_dir.join(format!("{:?}_high.glb", data.asset_id));
     generate_object_mesh(data.json_path, glb_path.clone())?;
-    info!("Rendering object {:?}", data.asset_id);
     cache
         .object
         .update_glb_path(data.object.full_id, &glb_path.to_string_lossy())

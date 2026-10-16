@@ -129,7 +129,6 @@ pub fn update_animations(
     let mut done = vec![];
 
     for (agent_id, animation_data) in animation_queue.pending.iter() {
-        println!("HELLO PENDING UPDATE ANIMATION event");
         for (player_entity, mut player, agent_animation) in players.iter_mut() {
             if agent_animation.agent_id == *agent_id {
                 let Some(gltf) = gltf_assets.get(&animation_data.gltf_handle) else {
