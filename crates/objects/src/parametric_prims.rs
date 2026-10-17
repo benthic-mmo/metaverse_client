@@ -182,41 +182,62 @@ fn follow_path(
                 let scale_y = linear_path_scale(path_data.scale_y, t);
 
                 let offset = Vec3::new(path_data.shear_x * t, path_data.shear_y * t, t - 0.5);
+                let twist = Quat::from_rotation_z(
+                    path_data.twist_begin
+                        + (path_data.twist_end - path_data.twist_begin) * t * std::f32::consts::PI, // note: π, not 2π, on Line
+                );
 
                 let vertices = profile
                     .0
                     .iter()
-                    .map(|v| Vec3::new(v.x * scale_x, v.y * scale_y, v.z) + offset)
+                    .map(|v| twist * Vec3::new(v.x * scale_x, v.y * scale_y, v.z) + offset)
                     .collect();
-
                 layers.push(MeshLayer(vertices));
             }
         }
 
         PathCurve::Circle | PathCurve::Circle2 | PathCurve::Test => {
-            // The profile has a base radius of 0.5.
-            let ring_radius = 0.5 * (1.0 - path_data.scale_y);
+            let skew = path_data.skew;
+            let skew_mag = skew.abs();
+            let hole_x = path_data.scale_x * (1.0 - skew_mag); // scale.x shrinks with skew  
+            let hole_y = path_data.scale_y;
+
+            let mut radius_start = 0.5 * (1.0 - hole_y);
+            let mut radius_end = radius_start;
+            let radius_offset = path_data.radius_offset;
+            if radius_offset < 0.0 {
+                radius_start *= 1.0 + radius_offset;
+            } else {
+                radius_end *= 1.0 - radius_offset;
+            }
 
             for i in 0..=step_count {
                 let fraction = i as f32 / step_count as f32;
                 let t = path_data.begin + length * fraction;
 
-                let angle =
-                    std::f32::consts::TAU * path_data.revolutions * t - path_data.shear_y * 0.9;
+                let angle = std::f32::consts::TAU * path_data.revolutions * t;
+                let radius = radius_start + (radius_end - radius_start) * t;
+                let (s, c) = (angle.sin() * radius, angle.cos() * radius);
 
-                let offset = Vec3::new(0.0, angle.cos() * ring_radius, angle.sin() * ring_radius);
+                let offset = Vec3::new(
+                    path_data.shear_x * s + (-skew + (skew + skew) * t) * 0.5, // lerp(-skew, skew, t)*0.5
+                    c + path_data.shear_y * s,
+                    s,
+                );
 
-                let scale_x = path_data.scale_x * taper_scale(path_data.taper_x, t);
-                let scale_y = path_data.scale_y * taper_scale(path_data.taper_y, t);
-                let rotation = Quat::from_rotation_x(angle);
+                let scale_x = hole_x * taper_scale(path_data.taper_x, t);
+                let scale_y = hole_y * taper_scale(path_data.taper_y, t);
+
+                let twist_angle = (path_data.twist_begin
+                    + (path_data.twist_end - path_data.twist_begin) * t)
+                    * std::f32::consts::TAU
+                    - std::f32::consts::PI;
+                let rotation = Quat::from_rotation_z(twist_angle) * Quat::from_rotation_x(angle);
 
                 let vertices = profile
                     .0
                     .iter()
-                    .map(|v| {
-                        let scaled = Vec3::new(v.x * scale_x, v.y * scale_y, v.z);
-                        rotation * scaled + offset
-                    })
+                    .map(|v| rotation * Vec3::new(v.x * scale_x, v.y * scale_y, v.z) + offset)
                     .collect();
 
                 layers.push(MeshLayer(vertices));

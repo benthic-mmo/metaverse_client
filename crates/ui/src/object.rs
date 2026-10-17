@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::core_plugin::MeshUpdateEvent;
 use crate::mesh::BenthicMeshPlugin;
-use bevy::asset::{AssetLoadFailedEvent, LoadState, UntypedAssetLoadFailedEvent};
+use bevy::asset::LoadState;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -22,7 +22,7 @@ pub struct ObjectData {
     pub parent: Option<u32>,
 }
 
-const MAX_IN_FLIGHT: usize = 4;
+const MAX_IN_FLIGHT: usize = 3;
 
 #[derive(Resource)]
 pub struct SceneIDMap {
