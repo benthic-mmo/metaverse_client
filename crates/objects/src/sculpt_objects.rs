@@ -12,7 +12,6 @@ use metaverse_messages::{
     utils::texture_entry::TextureEntries,
 };
 use rgb::Rgba;
-use uuid::Uuid;
 
 use crate::{
     errors::ObjectUpdateError,
@@ -61,6 +60,14 @@ pub async fn handle_sculpt_object(
                 .map(|chunk| chunk.to_vec())
                 .collect();
 
+            if object.data.mirror {
+                for row in &mut rows {
+                    for v in row.iter_mut() {
+                        v.x = -v.x;
+                    }
+                }
+            }
+
             let original_width = w;
 
             match object.data.sculpt_type {
@@ -81,20 +88,14 @@ pub async fn handle_sculpt_object(
 
                     // Collapse or extend the poles.
                     let mid = original_width / 2;
-                    let top_pole = rows[0][mid];
-                    let bottom_pole = rows[rows.len() - 1][mid];
                     let row_width = rows[0].len();
+                    let top_pole = rows[0][mid.min(row_width - 1)];
+                    let bottom_pole = rows[rows.len() - 1][mid.min(row_width - 1)];
+                    let last = rows.len() - 1;
 
-                    if rows.len().is_multiple_of(2) {
-                        rows.insert(0, vec![top_pole; row_width]);
-                        rows.push(vec![bottom_pole; row_width]);
-                    } else {
-                        let last = rows.len() - 1;
-
-                        for x in 0..row_width {
-                            rows[0][x] = top_pole;
-                            rows[last][x] = bottom_pole;
-                        }
+                    for x in 0..row_width {
+                        rows[0][x] = top_pole;
+                        rows[last][x] = bottom_pole;
                     }
                 }
 
@@ -116,7 +117,6 @@ pub async fn handle_sculpt_object(
                 }
 
                 _ => {
-                    // Close the seam for other sculpt types.
                     if rows.len().is_multiple_of(2) {
                         for row in &mut rows {
                             row.push(row[0]);
@@ -129,9 +129,10 @@ pub async fn handle_sculpt_object(
                     }
                 }
             }
-
-            let indices = create_sculpt_indices(&rows, false);
-
+            // mirror negates X geometry AND flips handedness; invert flips handedness only.
+            // XOR = reverse horizontal texture direction (sculpt_reverse_horizontal).
+            let reverse_h = object.data.invert != object.data.mirror;
+            let indices = create_sculpt_indices(&rows, reverse_h);
             let row_count = rows.len();
             let row_width = rows[0].len();
 
@@ -139,17 +140,25 @@ pub async fn handle_sculpt_object(
             let mut uv = Vec::with_capacity(row_count * row_width);
 
             for (y, row) in rows.iter().enumerate() {
-                for (x, vertex) in row.iter().enumerate() {
-                    vertices.push(*vertex);
+                for (x, _) in row.iter().enumerate() {
+                    let vx = if reverse_h { row_width - 1 - x } else { x };
+                    vertices.push(row[vx]);
 
                     uv.push([
-                        x as f32 / (row_width - 1) as f32,
+                        1.0 - vx as f32 / (row_width - 1) as f32, // global mirror + flag-aware u
                         y as f32 / (row_count - 1) as f32,
                     ]);
                 }
             }
 
-            let normals = create_sculpt_normals(&vertices, &indices);
+            let mut normals = create_sculpt_normals(&vertices, &indices);
+            if object.data.invert {
+                for n in &mut normals {
+                    *n = -*n;
+                }
+            }
+
+            smooth_sculpt_normals(&mut normals, row_width, row_count, &object.data.sculpt_type);
 
             let color = if let Some(texture) = &object.texture {
                 texture.default.rgba
@@ -196,6 +205,7 @@ pub async fn handle_sculpt_object(
         retry_count: 0,
     })])
 }
+
 fn create_sculpt_indices(rows: &[Vec<Vec3>], invert: bool) -> Vec<u32> {
     if rows.len() < 2 || rows[0].len() < 2 {
         return Vec::new();
@@ -255,4 +265,42 @@ fn create_sculpt_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
     }
 
     normals
+}
+
+fn smooth_sculpt_normals(normals: &mut [Vec3], w: usize, h: usize, ty: &SculptType) {
+    let set_avg = |n: &mut [Vec3], idxs: &[usize]| {
+        let avg = idxs.iter().fold(Vec3::ZERO, |a, &i| a + n[i]);
+        for &i in idxs {
+            n[i] = avg;
+        }
+    };
+
+    if matches!(ty, SculptType::Sphere) {
+        let top: Vec<usize> = (0..w).collect();
+        let bot: Vec<usize> = (0..w).map(|x| (h - 1) * w + x).collect();
+        set_avg(normals, &top);
+        set_avg(normals, &bot);
+    }
+    if matches!(
+        ty,
+        SculptType::Sphere | SculptType::Torus | SculptType::Cylinder
+    ) {
+        for y in 0..h {
+            let (a, b) = (y * w, y * w + w - 1);
+            let n = normals[a] + normals[b];
+            normals[a] = n;
+            normals[b] = n;
+        }
+    }
+    if matches!(ty, SculptType::Torus) {
+        for x in 0..w {
+            let (a, b) = (x, (h - 1) * w + x);
+            let n = normals[a] + normals[b];
+            normals[a] = n;
+            normals[b] = n;
+        }
+    }
+    for n in normals.iter_mut() {
+        *n = n.normalize_or_zero();
+    }
 }

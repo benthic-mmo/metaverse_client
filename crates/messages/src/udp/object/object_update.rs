@@ -581,7 +581,6 @@ pub struct SculptData {
     pub sculpt_type: SculptType,
     /// Whether the sculpt geometry is inverted (bit 6).
     pub invert: bool,
-
     /// Whether the sculpt geometry is mirrored (bit 7).
     pub mirror: bool,
 }
