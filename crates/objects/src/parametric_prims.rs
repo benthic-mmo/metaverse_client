@@ -4,9 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::{GeneratorObject, ParametricPrimData},
-    render_data::{RenderFace, RenderObject},
+    render_data::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
     session::{cache_enabled, create_sub_object_dir},
 };
 use glam::{Quat, Vec3};
@@ -385,7 +386,6 @@ fn face_color(texture: &Option<TextureEntries>, face_index: u32) -> Rgba<u8> {
         .unwrap_or_else(|| Rgba::new(255, 255, 255, 255))
 }
 
-/// Construct a RenderFace and calculate its normals consistently.
 fn make_face(
     face_index: u32,
     vertices: Vec<Vec3>,
@@ -395,16 +395,35 @@ fn make_face(
     texture: &Option<TextureEntries>,
 ) -> RenderFace {
     let normals = generate_normals(&vertices, &indices);
+    let material = texture.as_ref().map(|entries| {
+        let face = entries.faces.get(&face_index).unwrap_or(&entries.default);
 
+        MaterialModel::BlinnPhong(BlinnPhongMaterial {
+            texture_path: face_texture(texture_paths, face_index)
+                .unwrap_or_else(default_texture_path),
+            bump: face.bumpmap,
+            color: face.rgba,
+            fullbright: face.fullbright,
+            glow: face.glow,
+            shiny: face.shiny,
+            tex_gen: face.tex_gen,
+            texture_transform: TextureTransform {
+                repeat_u: face.repeat_u,
+                repeat_v: face.repeat_v,
+                offset_u: face.offset_u,
+                offset_v: face.offset_v,
+                rotation: face.rotation,
+            },
+        })
+    });
     RenderFace {
         face_index,
         vertices,
         indices,
         uv,
         normals: Some(normals),
-        texture: face_texture(texture_paths, face_index),
         weights: None,
-        color: face_color(texture, face_index),
+        material,
     }
 }
 

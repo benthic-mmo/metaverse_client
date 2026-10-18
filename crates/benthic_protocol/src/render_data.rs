@@ -29,19 +29,42 @@ pub struct RenderFace {
     pub indices: Vec<u32>,
     pub uv: Vec<[f32; 2]>,
     pub normals: Option<Vec<Vec3>>,
-    pub texture: Option<PathBuf>,
     pub weights: Option<Vec<JointWeight>>,
-
-    pub color: Rgba<u8>,
-    // TODO: Implement these soon
-    //
-    //pub shiny: Option<ShinyLevel>,
-    //pub fullbright: bool,
-    //pub glow: f32,
-    //pub bump: Option<BumpMapping>,
-    //pub texture_transform: Option<TextureTransform>,
-    //pub alpha_mode: Option<AlphaMode>,
+    pub material: Option<MaterialModel>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MaterialModel {
+    BlinnPhong(BlinnPhongMaterial),
+    PBR(PBRMaterial),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlinnPhongMaterial {
+    pub texture_path: PathBuf,
+    pub color: Rgba<u8>,
+    pub texture_transform: TextureTransform,
+    pub shiny: ShinyLevel,
+    pub fullbright: bool,
+    pub glow: f32,
+    pub bump: BumpMap,
+    pub tex_gen: TexGen,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TextureTransform {
+    pub repeat_u: f32,
+    pub repeat_v: f32,
+    pub offset_u: f32,
+    pub offset_v: f32,
+    pub rotation: f32,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct PBRMaterial {
+    pub texture_path: PathBuf,
+}
+
 /// This contains required data that will be used for rendering.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct RenderObject {
@@ -82,4 +105,116 @@ pub struct AvatarObject {
     pub global_skeleton: Skeleton,
     /// List of joints used by the avatar
     pub used_joints: BTreeSet<SkinJoint>,
+}
+
+pub const TEX_GEN_MASK: u8 = 0x06;
+
+pub const BUMP_MASK: u8 = 0x1f;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TexGen {
+    Default,
+    Planar,
+    Spherical,
+    Cylindrical,
+}
+impl TexGen {
+    pub fn from_bits(bits: u8) -> Self {
+        match bits & TEX_GEN_MASK {
+            0x02 => TexGen::Planar,
+            0x04 => TexGen::Spherical,
+            0x06 => TexGen::Cylindrical,
+            _ => TexGen::Default,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ShinyLevel {
+    None,
+    Low,
+    Medium,
+    High,
+}
+
+impl ShinyLevel {
+    pub fn from_bits(bits: u8) -> Self {
+        match bits {
+            0 => ShinyLevel::None,
+            1 => ShinyLevel::Low,
+            2 => ShinyLevel::Medium,
+            _ => ShinyLevel::High,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BumpMap {
+    None,
+    Brightness,
+    Darkness,
+    Woodgrain,
+    Bark,
+    Bricks,
+    Checker,
+    Concrete,
+    Tile,
+    Stone,
+    Discs,
+    Gravel,
+    Blobs,
+    Siding,
+    Largetile,
+    Stucco,
+    Suction,
+    Weave,
+    Other(u8),
+}
+impl BumpMap {
+    pub fn from_bits(bits: u8) -> Self {
+        match bits & BUMP_MASK {
+            0 => Self::None,
+            1 => Self::Brightness,
+            2 => Self::Darkness,
+            3 => Self::Woodgrain,
+            4 => Self::Bark,
+            5 => Self::Bricks,
+            6 => Self::Checker,
+            7 => Self::Concrete,
+            8 => Self::Tile,
+            9 => Self::Stone,
+            10 => Self::Discs,
+            11 => Self::Gravel,
+            12 => Self::Blobs,
+            13 => Self::Siding,
+            14 => Self::Largetile,
+            15 => Self::Stucco,
+            16 => Self::Suction,
+            17 => Self::Weave,
+            v => Self::Other(v),
+        }
+    }
+
+    pub fn to_bits(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Brightness => 1,
+            Self::Darkness => 2,
+            Self::Woodgrain => 3,
+            Self::Bark => 4,
+            Self::Bricks => 5,
+            Self::Checker => 6,
+            Self::Concrete => 7,
+            Self::Tile => 8,
+            Self::Stone => 9,
+            Self::Discs => 10,
+            Self::Gravel => 11,
+            Self::Blobs => 12,
+            Self::Siding => 13,
+            Self::Largetile => 14,
+            Self::Stucco => 15,
+            Self::Suction => 16,
+            Self::Weave => 17,
+            Self::Other(v) => v & BUMP_MASK,
+        }
+    }
 }

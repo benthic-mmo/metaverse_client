@@ -22,22 +22,3 @@ fn handle_mesh_with_collision() {
     let mesh = Mesh::from_bytes(&buffer).unwrap();
     assert!(mesh.skin.is_some());
 }
-
-#[test]
-fn handle_mesh_2() {
-    let bytes = std::fs::read("tests/data/mesh_2.bin").unwrap();
-
-    for (i, chunk) in bytes.chunks(16).enumerate() {
-        println!(
-            "{:08x}: {}",
-            i * 16,
-            chunk
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
-    }
-
-    let result = binary_from_bytes(&bytes).unwrap();
-}
