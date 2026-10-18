@@ -170,6 +170,7 @@ pub async fn download_scene_group_assets(
                     rotation: scene.rotation_offset,
                     scale: scene.scale,
                 }),
+                scene.shape.texture_animation.clone(),
             )?)
         } else {
             info!("Non-mesh scene group")

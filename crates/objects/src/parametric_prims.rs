@@ -7,7 +7,10 @@ use std::{
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::{GeneratorObject, ParametricPrimData},
-    render_data::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
+    render_data::{
+        BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureAnimation,
+        TextureTransform,
+    },
     session::{cache_enabled, create_sub_object_dir},
 };
 use glam::{Quat, Vec3};
@@ -58,6 +61,7 @@ pub async fn handle_parametric_prim(
                 has_hollow,
                 &texture_paths,
                 &object.texture,
+                object.texture_animation.clone(),
             )?;
 
             let render_object = RenderObject {
@@ -393,10 +397,18 @@ fn make_face(
     uv: Vec<[f32; 2]>,
     texture_paths: &HashMap<u32, PathBuf>,
     texture: &Option<TextureEntries>,
+    texture_animation: Option<TextureAnimation>,
 ) -> RenderFace {
     let normals = generate_normals(&vertices, &indices);
     let material = texture.as_ref().map(|entries| {
         let face = entries.faces.get(&face_index).unwrap_or(&entries.default);
+
+        let tex_animation = texture_animation
+            .as_ref()
+            .and_then(|tex_anim| match tex_anim.face {
+                f if f == face_index as i8 || f == -1 => Some(tex_anim.clone()),
+                _ => None,
+            });
 
         MaterialModel::BlinnPhong(BlinnPhongMaterial {
             texture_path: face_texture(texture_paths, face_index)
@@ -414,6 +426,7 @@ fn make_face(
                 offset_v: face.offset_v,
                 rotation: face.rotation,
             },
+            texture_animation: tex_animation,
         })
     });
     RenderFace {
@@ -437,6 +450,7 @@ fn append_ring_faces(
     texture_face_start: u32,
     texture_paths: &HashMap<u32, PathBuf>,
     texture: &Option<TextureEntries>,
+    texture_animation: &Option<TextureAnimation>,
 ) {
     if layers.len() < 2 || ring_size < 2 {
         return;
@@ -495,6 +509,7 @@ fn append_ring_faces(
             uv,
             texture_paths,
             texture,
+            texture_animation.clone(),
         ));
     }
 }
@@ -532,6 +547,7 @@ fn split_faces(
     has_hollow: bool,
     texture_paths: &HashMap<u32, PathBuf>,
     texture: &Option<TextureEntries>,
+    texture_animation: Option<TextureAnimation>,
 ) -> Result<Vec<RenderFace>, ObjectUpdateError> {
     if layers.len() < 2 {
         return Ok(Vec::new());
@@ -585,6 +601,7 @@ fn split_faces(
         outer_face_start,
         texture_paths,
         texture,
+        &texture_animation,
     );
 
     if has_hollow {
@@ -597,6 +614,7 @@ fn split_faces(
             inner_face_start,
             texture_paths,
             texture,
+            &texture_animation,
         );
     }
 
@@ -637,6 +655,7 @@ fn split_faces(
             uv,
             texture_paths,
             texture,
+            texture_animation.clone(),
         ));
     }
 
