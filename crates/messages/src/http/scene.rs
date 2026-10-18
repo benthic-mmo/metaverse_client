@@ -13,6 +13,7 @@ use crate::{
     },
 };
 use benthic_protocol::objects::AttachPoint;
+use benthic_protocol::render_data::TextureAnimation;
 use glam::{Quat, Vec3, Vec4, bool};
 use quick_xml::{
     Reader,
@@ -155,8 +156,7 @@ pub struct Shape {
     pub light: Light,
     /// Informaiton about the shape's texture
     pub texture: TextureEntries,
-    /// TODO: Not handled yet
-    pub texture_animation: Vec<u8>,
+    pub texture_animation: Option<TextureAnimation>,
     /// TODO: not handled yet
     pub particle_system: Vec<u8>,
 }
@@ -941,7 +941,8 @@ impl SceneObject {
             },
 
             ["TextureAnimation"] => {
-                scene_object.shape.texture_animation = val.into_bytes();
+                let bytes = val.into_bytes();
+                scene_object.shape.texture_animation = TextureAnimation::from_bytes(&bytes);
             }
 
             ["ParticleSystem"] => {

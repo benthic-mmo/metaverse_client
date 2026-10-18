@@ -1,3 +1,4 @@
+use benthic_protocol::render_data::TextureAnimation;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
@@ -74,7 +75,7 @@ pub struct ObjectUpdate {
     /// Full property list for each object's face, including textures and colors.
     pub texture_entry: Option<TextureEntries>,
     /// Properties to set up texture animations for each face
-    pub texture_anim: Vec<u8>,
+    pub texture_animation: Option<TextureAnimation>,
     /// Any name values specific to the object. Mostly used for avatar names.
     pub name_value: Option<String>,
     /// Generic appended data
@@ -136,6 +137,9 @@ impl ObjectUpdateData for ObjectUpdate {
     fn sculpt_path(&self) -> Option<PrimPath> {
         Some(self.primitive_geometry.clone())
     }
+    fn texture_animation(&self) -> Option<TextureAnimation> {
+        self.texture_animation.clone()
+    }
 }
 
 impl PacketData for ObjectUpdate {
@@ -190,9 +194,16 @@ impl PacketData for ObjectUpdate {
         parse!(cursor.read_exact(&mut texture_entry_bytes))?;
         let texture_entry = Some(TextureEntries::from_bytes(&texture_entry_bytes)?);
 
-        let texture_anim_length = parse!(cursor.read_u8())?;
-        let mut texture_anim = vec![0u8; texture_anim_length as usize];
-        parse!(cursor.read_exact(&mut texture_anim))?;
+        let texture_animation_length = parse!(cursor.read_u8())?;
+        let texture_animation = if texture_animation_length == 16 {
+            let mut bytes = [0u8; 16];
+            parse!(cursor.read_exact(&mut bytes))?;
+            TextureAnimation::from_bytes(&bytes)
+        } else {
+            let mut bytes = vec![0u8; texture_animation_length as usize];
+            parse!(cursor.read_exact(&mut bytes))?;
+            None
+        };
 
         let name_value_length = parse!(cursor.read_u16::<LittleEndian>())?;
         let mut name_value = vec![0u8; name_value_length as usize];
@@ -288,7 +299,7 @@ impl PacketData for ObjectUpdate {
             update_flags,
             primitive_geometry,
             texture_entry,
-            texture_anim,
+            texture_animation,
             name_value,
             data,
             text,

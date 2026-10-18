@@ -2,7 +2,10 @@ use glam::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::skeleton::{DeformName, JointName};
+use crate::{
+    render_data::TextureAnimation,
+    skeleton::{DeformName, JointName},
+};
 
 #[derive(Debug)]
 pub struct GeneratorObject {
@@ -23,7 +26,6 @@ pub struct MeshObjectData<TextureEntries, ObjectType> {
     /// The scene local ID of the object
     pub local_id: u32,
     /// The position of the object.
-    ///
     /// If the object is a child object, this position is relative to its parent object.
     pub position: Vec3,
     /// The rotation of the object.
@@ -42,6 +44,8 @@ pub struct MeshObjectData<TextureEntries, ObjectType> {
     pub crc: u32,
 
     pub region_id: String,
+
+    pub texture_animation: Option<TextureAnimation>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +58,7 @@ pub struct SculptObjectData<TextureEntries, SculptData> {
     pub rotation: Quat,
     pub scale: Vec3,
     pub texture: Option<TextureEntries>,
+    pub texture_animation: Option<TextureAnimation>,
     pub crc: u32,
     pub region_id: String,
     pub retry_count: u32,
@@ -89,6 +94,7 @@ pub struct ParametricPrimData<TextureEntries, PrimPath> {
     pub rotation: Quat,
     pub parent: Option<u32>,
     pub texture: Option<TextureEntries>,
+    pub texture_animation: Option<TextureAnimation>,
     pub path_data: PrimPath,
     pub retry_count: u32,
 }

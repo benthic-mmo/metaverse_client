@@ -1,3 +1,4 @@
+use benthic_protocol::render_data::TextureAnimation;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3};
 use rgb::Rgba;
@@ -156,7 +157,7 @@ pub struct ObjectDataCompressed {
     /// texture data for the object
     pub texture_entry: Option<TextureEntries>,
     /// texture animation data for the object
-    pub texture_animation: Option<Vec<u8>>,
+    pub texture_animation: Option<TextureAnimation>,
     /// particle system information
     pub particle_system: Option<Vec<u8>>,
 }
@@ -196,6 +197,9 @@ impl ObjectUpdateData for ObjectDataCompressed {
     }
     fn sculpt_path(&self) -> Option<PrimPath> {
         self.sculpt_path.clone()
+    }
+    fn texture_animation(&self) -> Option<TextureAnimation> {
+        self.texture_animation.clone()
     }
 }
 
@@ -415,11 +419,9 @@ impl PacketData for ObjectUpdateCompressed {
                 let texture_animation =
                     if compressed_flags.contains(&CompressedFlag::TextureAnimation) {
                         let len = parse!(cursor.read_u8())?;
-
                         let mut buf = vec![0u8; len as usize];
                         parse!(cursor.read_exact(&mut buf))?;
-
-                        Some(buf)
+                        TextureAnimation::from_bytes(&buf)
                     } else {
                         None
                     };

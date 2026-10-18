@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, io::Cursor, path::PathBuf};
 
 use glam::{Mat4, Quat, Vec3};
 use rgb::Rgba;
@@ -44,6 +44,7 @@ pub struct BlinnPhongMaterial {
     pub texture_path: PathBuf,
     pub color: Rgba<u8>,
     pub texture_transform: TextureTransform,
+    pub texture_animation: Option<TextureAnimation>,
     pub shiny: ShinyLevel,
     pub fullbright: bool,
     pub glow: f32,
@@ -216,5 +217,133 @@ impl BumpMap {
             Self::Weave => 17,
             Self::Other(v) => v & BUMP_MASK,
         }
+    }
+}
+
+pub const MODE_ON: u8 = 0x01;
+pub const MODE_SMOOTH: u8 = 0x02;
+pub const MODE_ROTATE: u8 = 0x04;
+pub const MODE_SCALE: u8 = 0x08;
+pub const MODE_REVERSE: u8 = 0x10;
+pub const MODE_PING_PONG: u8 = 0x20;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AnimationState {
+    Off,
+    On,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AnimationStyle {
+    Frame,
+    Smooth,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RotationMode {
+    None,
+    Rotate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ScaleMode {
+    None,
+    Scale,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlaybackDirection {
+    Forward,
+    Reverse,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlaybackMode {
+    Loop,
+    PingPong,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TextureAnimation {
+    pub state: AnimationState,
+    pub style: AnimationStyle,
+    pub rotation: RotationMode,
+    pub scale: ScaleMode,
+    pub direction: PlaybackDirection,
+    pub playback: PlaybackMode,
+    pub face: i8,
+    pub size_x: u8,
+    pub size_y: u8,
+    pub start: f32,
+    pub length: f32,
+    pub rate: f32,
+}
+
+impl TextureAnimation {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != 16 {
+            return None;
+        }
+
+        let mode = bytes[0];
+
+        if mode & MODE_ON == 0 {
+            return None;
+        }
+
+        let state = AnimationState::On;
+
+        let style = if mode & MODE_SMOOTH != 0 {
+            AnimationStyle::Smooth
+        } else {
+            AnimationStyle::Frame
+        };
+
+        let rotation = if mode & MODE_ROTATE != 0 {
+            RotationMode::Rotate
+        } else {
+            RotationMode::None
+        };
+
+        let scale = if mode & MODE_SCALE != 0 {
+            ScaleMode::Scale
+        } else {
+            ScaleMode::None
+        };
+
+        let direction = if mode & MODE_REVERSE != 0 {
+            PlaybackDirection::Reverse
+        } else {
+            PlaybackDirection::Forward
+        };
+
+        let playback = if mode & MODE_PING_PONG != 0 {
+            PlaybackMode::PingPong
+        } else {
+            PlaybackMode::Loop
+        };
+
+        let mut size_x = bytes[2];
+        let mut size_y = bytes[3];
+
+        if style != AnimationStyle::Smooth {
+            size_x = size_x.max(1);
+            size_y = size_y.max(1);
+        }
+
+        Some(Self {
+            state,
+            style,
+            rotation,
+            scale,
+            direction,
+            playback,
+            face: bytes[1] as i8,
+            size_x,
+            size_y,
+            start: f32::from_le_bytes(bytes[4..8].try_into().unwrap()),
+            length: f32::from_le_bytes(bytes[8..12].try_into().unwrap()),
+            rate: f32::from_le_bytes(bytes[12..16].try_into().unwrap()),
+        })
     }
 }

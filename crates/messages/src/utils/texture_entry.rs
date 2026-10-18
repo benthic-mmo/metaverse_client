@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    f32::consts::{PI, TAU},
+    f32::consts::TAU,
     io::{Cursor, Read},
 };
 

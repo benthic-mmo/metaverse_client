@@ -1,3 +1,4 @@
+use benthic_protocol::render_data::TextureAnimation;
 use glam::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -20,6 +21,7 @@ pub trait ObjectUpdateData {
     fn crc(&self) -> u32;
     fn extra_params(&self) -> Option<&[ExtraParams]>;
     fn sculpt_path(&self) -> Option<PrimPath>;
+    fn texture_animation(&self) -> Option<TextureAnimation>;
 }
 
 #[repr(u32)]

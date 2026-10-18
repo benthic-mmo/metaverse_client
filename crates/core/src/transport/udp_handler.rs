@@ -254,6 +254,7 @@ async fn classify_object_update(
                         texture: object.texture().clone(),
                         crc: object.crc(),
                         region_id: String::new(),
+                        texture_animation: object.texture_animation(),
                     }));
                 }
 
@@ -280,6 +281,7 @@ async fn classify_object_update(
                         crc: object.crc(),
                         region_id: String::new(),
                         retry_count: 0,
+                        texture_animation: object.texture_animation(),
                     }));
                 }
 
@@ -296,6 +298,7 @@ async fn classify_object_update(
                             texture: object.texture().clone(),
                             path_data: path,
                             retry_count: 0,
+                            texture_animation: object.texture_animation(),
                         }));
                     } else {
                         error!("No path data found for parametric prim.");

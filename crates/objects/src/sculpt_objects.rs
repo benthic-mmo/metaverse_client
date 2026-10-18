@@ -180,6 +180,7 @@ pub async fn handle_sculpt_object(
                         offset_v: face.offset_v,
                         rotation: face.rotation,
                     },
+                    texture_animation: object.texture_animation.clone(),
                 }))
             } else {
                 None

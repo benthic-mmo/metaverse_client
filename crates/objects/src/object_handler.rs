@@ -3,7 +3,7 @@ use benthic_protocol::{
     objects::GeneratorObject,
     render_data::{
         AttachmentData, BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, SkinData,
-        TextureTransform,
+        TextureAnimation, TextureTransform,
     },
     session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::Skeleton,
@@ -92,6 +92,7 @@ pub async fn download_mesh_object(
         data.object.sculpt_id,
         &data.object.texture,
         None,
+        data.object.texture_animation.clone(),
     )?;
 
     let json_path = write_json(
@@ -152,6 +153,7 @@ pub fn create_render_object(
     asset_id: Uuid,
     texture: &Option<TextureEntries>,
     attachment_data: Option<AttachmentData>,
+    texture_animation: Option<TextureAnimation>,
 ) -> Result<RenderObject, DownloadError> {
     let skin = mesh.skin.as_ref();
 
@@ -192,6 +194,12 @@ pub fn create_render_object(
                     .faces
                     .get(&(face_index as u32))
                     .unwrap_or(&entries.default);
+                let tex_animation = texture_animation
+                    .as_ref()
+                    .and_then(|tex_anim| match tex_anim.face {
+                        f if f == face_index as i8 || f == -1 => Some(tex_anim.clone()),
+                        _ => None,
+                    });
 
                 MaterialModel::BlinnPhong(BlinnPhongMaterial {
                     texture_path: texture_paths
@@ -199,6 +207,7 @@ pub fn create_render_object(
                         .or_else(|| texture_paths.get(&u32::MAX))
                         .cloned()
                         .unwrap_or_else(default_texture_path),
+                    texture_animation: tex_animation,
                     bump: face.bumpmap,
                     color: face.rgba,
                     fullbright: face.fullbright,
