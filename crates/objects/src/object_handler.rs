@@ -1,7 +1,10 @@
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::GeneratorObject,
-    render_data::{AttachmentData, RenderFace, RenderObject, SkinData},
+    render_data::{
+        AttachmentData, BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, SkinData,
+        TextureTransform,
+    },
     session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::Skeleton,
 };
@@ -184,18 +187,42 @@ pub fn create_render_object(
                 })
                 .collect();
 
+            let material = texture.as_ref().map(|entries| {
+                let face = entries
+                    .faces
+                    .get(&(face_index as u32))
+                    .unwrap_or(&entries.default);
+
+                MaterialModel::BlinnPhong(BlinnPhongMaterial {
+                    texture_path: texture_paths
+                        .get(&(face_index as u32))
+                        .or_else(|| texture_paths.get(&u32::MAX))
+                        .cloned()
+                        .unwrap_or_else(default_texture_path),
+                    bump: face.bumpmap,
+                    color: face.rgba,
+                    fullbright: face.fullbright,
+                    glow: face.glow,
+                    shiny: face.shiny,
+                    tex_gen: face.tex_gen,
+                    texture_transform: TextureTransform {
+                        repeat_u: face.repeat_u,
+                        repeat_v: face.repeat_v,
+                        offset_u: face.offset_u,
+                        offset_v: face.offset_v,
+                        rotation: face.rotation,
+                    },
+                })
+            });
+
             RenderFace {
                 face_index: face_index as u32,
                 vertices,
                 indices: face.indices.clone(),
                 uv,
                 normals: face.normals.clone(),
-                texture: texture_paths
-                    .get(&(face_index as u32))
-                    .or_else(|| texture_paths.get(&u32::MAX))
-                    .cloned(),
                 weights: face.weights.clone(),
-                color: face_color(texture, face_index as u32),
+                material,
             }
         })
         .collect();

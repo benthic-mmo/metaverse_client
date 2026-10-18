@@ -5,7 +5,9 @@ use std::{
 };
 
 use base64::{Engine, engine::general_purpose};
+use benthic_protocol::render_data::{BumpMap, ShinyLevel, TexGen};
 use byteorder::{LittleEndian, ReadBytesExt};
+use glam::Vec3;
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -52,6 +54,11 @@ bitflags! {
         const FACE_31 = 1 << 31;
     }
 }
+pub const FULLBRIGHT_MASK: u8 = 0x01;
+pub const SHINY_MASK: u8 = 0x03;
+pub const FULLBRIGHT_SHIFT: u8 = 5;
+pub const SHINY_SHIFT: u8 = 6;
+pub const MEDIA_MASK: u8 = 0x01;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// the texture data for an object
@@ -70,28 +77,33 @@ pub struct TextureEntry {
     pub offset_v: f32,
     /// rotation of the texture
     pub rotation: f32,
-    /// Material of the texture, used for reflections
-    pub material: u8,
-    /// media of the texture
-    pub media: u8,
-    /// glow value of the texture
+
+    pub bumpmap: BumpMap,
+    pub fullbright: bool,
+    pub shiny: ShinyLevel,
+    pub has_media: bool,
+    pub tex_gen: TexGen,
     pub glow: f32,
-    /// UUID of the texture
+
+    /// Asset UUID of the glTF PBR material for this face (null = legacy Blinn-Phong).  
     pub material_id: Uuid,
 }
 
 impl Default for TextureEntry {
     fn default() -> Self {
-        TextureEntry {
+        Self {
             texture_id: Uuid::nil(),
-            rgba: Rgba::new(0, 0, 0, 0),
-            repeat_u: 0.0,
-            repeat_v: 0.0,
+            rgba: Rgba::new(255, 255, 255, 255),
+            repeat_u: 1.0,
+            repeat_v: 1.0,
             offset_u: 0.0,
             offset_v: 0.0,
             rotation: 0.0,
-            material: 0,
-            media: 0,
+            bumpmap: BumpMap::None,
+            fullbright: false,
+            shiny: ShinyLevel::Low,
+            has_media: false,
+            tex_gen: TexGen::Default,
             glow: 0.0,
             material_id: Uuid::nil(),
         }
@@ -120,11 +132,20 @@ impl TextureEntry {
         if self.rotation == 0.0 {
             self.rotation = base.rotation;
         }
-        if self.material == 0 {
-            self.material = base.material;
+        if self.bumpmap == BumpMap::None {
+            self.bumpmap = base.bumpmap;
         }
-        if self.media == 0 {
-            self.media = base.media;
+        if !self.fullbright {
+            self.fullbright = base.fullbright;
+        }
+        if self.shiny == ShinyLevel::Low {
+            self.shiny = base.shiny;
+        }
+        if !self.has_media {
+            self.has_media = base.has_media;
+        }
+        if self.tex_gen == TexGen::Default {
+            self.tex_gen = base.tex_gen;
         }
         if self.glow == 0.0 {
             self.glow = base.glow;
@@ -290,35 +311,42 @@ impl TextureEntries {
             });
         }
 
-        texture.material = parse!(cursor.read_u8())?;
+        let bump = parse!(cursor.read_u8())?;
+        texture.bumpmap = BumpMap::from_bits(bump);
+        texture.fullbright = (bump >> FULLBRIGHT_SHIFT) & FULLBRIGHT_MASK != 0;
+        texture.shiny = ShinyLevel::from_bits(bump >> SHINY_SHIFT);
 
         loop {
             let (mask, _) = parse!(read_b64_face_bitfield(&mut cursor))?;
-
             if mask == 0 {
                 break;
             }
-
             let v = parse!(cursor.read_u8())?;
 
             for_each_face(mask, |f| {
-                faces.entry(f).or_default().material = v;
+                let face = faces.entry(f).or_default();
+                face.bumpmap = BumpMap::from_bits(v);
+                face.fullbright = (v >> FULLBRIGHT_SHIFT) & FULLBRIGHT_MASK != 0;
+                face.shiny = ShinyLevel::from_bits(v >> SHINY_SHIFT);
             });
         }
 
-        texture.media = parse!(cursor.read_u8())?;
+        // media/texgen byte (.....TTM)
+        let media = parse!(cursor.read_u8())?;
+        texture.has_media = media & MEDIA_MASK != 0;
+        texture.tex_gen = TexGen::from_bits(media);
 
         loop {
             let (mask, _) = parse!(read_b64_face_bitfield(&mut cursor))?;
-
             if mask == 0 {
                 break;
             }
-
             let v = parse!(cursor.read_u8())?;
 
             for_each_face(mask, |f| {
-                faces.entry(f).or_default().media = v;
+                let face = faces.entry(f).or_default();
+                face.has_media = v & MEDIA_MASK != 0;
+                face.tex_gen = TexGen::from_bits(v);
             });
         }
 
@@ -577,7 +605,7 @@ impl TextureEntries {
         // rotation
         if remaining(&cursor) >= 2 {
             let raw = parse!(cursor.read_i16::<LittleEndian>())?;
-            texture.rotation = raw as f32 * PI / 32767.0;
+            texture.rotation = raw as f32 / 32768.0 * TAU;
 
             loop {
                 if remaining(&cursor) < 1 {
@@ -595,7 +623,7 @@ impl TextureEntries {
                 }
 
                 let raw = parse!(cursor.read_i16::<LittleEndian>())?;
-                let r = raw as f32 * PI / 32767.0;
+                let r = raw as f32 / 32768.0 * TAU;
 
                 for_each_face(mask, |f| {
                     faces.entry(f).or_default().rotation = r;
@@ -603,60 +631,59 @@ impl TextureEntries {
             }
         }
 
-        // material
         if remaining(&cursor) >= 1 {
-            texture.material = parse!(cursor.read_u8())?;
+            let bump = parse!(cursor.read_u8())?;
+            texture.bumpmap = BumpMap::from_bits(bump);
+            texture.fullbright = (bump >> FULLBRIGHT_SHIFT) & 1 != 0;
+            texture.shiny = ShinyLevel::from_bits(bump >> SHINY_SHIFT);
 
             loop {
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let mask = parse!(read_face_bitfield(&mut cursor))?;
-
                 if mask == 0 {
                     break;
                 }
-
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let v = parse!(cursor.read_u8())?;
 
                 for_each_face(mask, |f| {
-                    faces.entry(f).or_default().material = v;
+                    let face = faces.entry(f).or_default();
+                    face.bumpmap = BumpMap::from_bits(v);
+                    face.fullbright = (v >> FULLBRIGHT_SHIFT) & 1 != 0;
+                    face.shiny = ShinyLevel::from_bits(v >> SHINY_SHIFT);
                 });
             }
         }
 
-        // media
         if remaining(&cursor) >= 1 {
-            texture.media = parse!(cursor.read_u8())?;
+            let media = parse!(cursor.read_u8())?;
+            texture.has_media = media & MEDIA_MASK != 0;
+            texture.tex_gen = TexGen::from_bits(media);
 
             loop {
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let mask = parse!(read_face_bitfield(&mut cursor))?;
-
                 if mask == 0 {
                     break;
                 }
-
                 if remaining(&cursor) < 1 {
                     break;
                 }
-
                 let v = parse!(cursor.read_u8())?;
 
                 for_each_face(mask, |f| {
-                    faces.entry(f).or_default().media = v;
+                    let face = faces.entry(f).or_default();
+                    face.has_media = v & MEDIA_MASK != 0;
+                    face.tex_gen = TexGen::from_bits(v);
                 });
             }
         }
-
         // glow
         if remaining(&cursor) >= 1 {
             let raw = parse!(cursor.read_u8())?;
@@ -757,4 +784,15 @@ fn read_b64_face_bitfield<R: Read>(r: &mut R) -> Result<(u32, u32), ParseError> 
     }
 
     Ok((face_bits, bitfield_size))
+}
+
+pub fn planar_projection(
+    pos: Vec3,
+    normal: Vec3,
+    tangent: Vec3,
+    binormal: Vec3,
+    center: Vec3,
+) -> [f32; 2] {
+    let d = pos - center;
+    [2.0 * binormal.dot(d), 2.0 * tangent.dot(d)]
 }

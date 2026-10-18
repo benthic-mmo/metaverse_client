@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     objects::{GeneratorObject, SculptObjectData},
-    render_data::{RenderFace, RenderObject},
+    render_data::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
     session::{cache_enabled, create_sub_object_dir},
 };
 use glam::Vec3;
@@ -11,7 +12,6 @@ use metaverse_messages::{
     http::scene::SculptType, udp::object::object_update::SculptData,
     utils::texture_entry::TextureEntries,
 };
-use rgb::Rgba;
 
 use crate::{
     errors::ObjectUpdateError,
@@ -160,10 +160,29 @@ pub async fn handle_sculpt_object(
 
             smooth_sculpt_normals(&mut normals, row_width, row_count, &object.data.sculpt_type);
 
-            let color = if let Some(texture) = &object.texture {
-                texture.default.rgba
+            let material = if let Some(texture) = &object.texture {
+                let face = &texture.default;
+                Some(MaterialModel::BlinnPhong(BlinnPhongMaterial {
+                    texture_path: texture_paths
+                        .get(&u32::MAX)
+                        .unwrap_or(&default_texture_path())
+                        .clone(),
+                    bump: face.bumpmap,
+                    color: face.rgba,
+                    fullbright: face.fullbright,
+                    glow: face.glow,
+                    shiny: face.shiny,
+                    tex_gen: face.tex_gen,
+                    texture_transform: TextureTransform {
+                        repeat_u: face.repeat_u,
+                        repeat_v: face.repeat_v,
+                        offset_u: face.offset_u,
+                        offset_v: face.offset_v,
+                        rotation: face.rotation,
+                    },
+                }))
             } else {
-                Rgba::new(255, 255, 255, 255)
+                None
             };
 
             let render_object = RenderObject {
@@ -176,9 +195,8 @@ pub async fn handle_sculpt_object(
                     indices,
                     uv,
                     normals: Some(normals),
-                    texture: texture_paths.get(&u32::MAX).cloned(),
                     weights: None,
-                    color,
+                    material,
                 }],
                 skin: None,
             };

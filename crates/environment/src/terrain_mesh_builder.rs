@@ -247,9 +247,8 @@ pub fn build_terrain(
             indices: builder.indices,
             uv: Vec::new(),
             normals: None,
-            texture: None,
             weights: None,
-            color: Rgba::new(255, 255, 255, 255),
+            material: None,
         }],
         skin: None,
     }
