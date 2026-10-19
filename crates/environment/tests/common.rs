@@ -50,6 +50,8 @@ pub fn mock_session() -> Session<(), (), Land, (), MockInventory, MockCache> {
             inventory_root: Uuid::nil(),
             inventory_lib_owner: Uuid::nil(),
             inventory_init: true,
+            current_outfit_init: true,
+            current_outfit_root: Uuid::nil(),
         },
 
         socket: None,

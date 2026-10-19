@@ -1,152 +1,34 @@
+use std::{collections::HashMap, path::PathBuf};
+
+use crate::errors::DownloadError;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
-    objects::GeneratorObject,
     render_data::{
         AttachmentData, BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, SkinData,
         TextureAnimation, TextureTransform,
     },
-    session::{CacheDir, create_sub_object_dir, write_json},
     skeleton::Skeleton,
 };
-use bytes::Bytes;
-use log::{info, warn};
+use log::warn;
 use metaverse_avatar::skeleton::create_skeleton;
-use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::{
-    http::mesh::Mesh,
-    utils::{object_types::ObjectType, texture_entry::TextureEntries},
-};
-use metaverse_store::initialize_sqlite::Cache;
-use rgb::Rgba;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use metaverse_messages::{http::mesh::Mesh, utils::texture_entry::TextureEntries};
 use uuid::Uuid;
 
-use crate::{
-    errors::{DownloadError, MeshBuildError},
-    http_handler::download_texture,
-    object_updates::{
-        DownloadMeshObjectData, GenerateMeshData, ObjectUpdateAction, RenderObjectData,
-    },
-};
-
-pub async fn download_face_textures(
-    out_dir: &Path,
-    texture: &Option<TextureEntries>,
-    server_endpoint: &str,
-) -> Result<HashMap<u32, PathBuf>, DownloadError> {
-    let mut paths = HashMap::new();
-
-    let Some(texture) = texture else {
-        return Ok(paths);
-    };
-
-    let download = |texture_id: Uuid| {
-        let texture_path = out_dir.join(format!("{:?}.png", texture_id));
-        let server_endpoint = server_endpoint.to_owned();
-
-        async move {
-            match download_texture(
-                ObjectType::Texture.to_string(),
-                texture_id,
-                &server_endpoint,
-                &texture_path,
-            )
-            .await
-            {
-                Ok(()) => Ok(texture_path),
-                Err(DownloadError::NotFound { .. }) => Ok(default_texture_path()),
-                Err(e) => Err(e),
-            }
-        }
-    };
-
-    let default_path = download(texture.default.texture_id).await?;
-    paths.insert(u32::MAX, default_path);
-
-    for (&face_index, face) in &texture.faces {
-        let path = download(face.texture_id).await?;
-        paths.insert(face_index, path);
-    }
-
-    Ok(paths)
-}
-
-pub async fn download_mesh_object(
-    cache: Cache,
-    data: &DownloadMeshObjectData,
-    out_dir: PathBuf,
-    mesh_bytes: Bytes,
-    texture_paths: HashMap<u32, PathBuf>,
-) -> Result<ObjectUpdateAction, DownloadError> {
-    let base_dir = create_sub_object_dir(&out_dir, &data.object.sculpt_id.to_string())?;
-
-    let mesh = Mesh::from_bytes(&mesh_bytes)?;
-
-    let render_object = create_render_object(
-        mesh,
-        "name".to_string(),
-        texture_paths,
-        data.object.sculpt_id,
-        &data.object.texture,
-        None,
-        data.object.texture_animation.clone(),
-    )?;
-
-    let json_path = write_json(
-        &render_object,
-        &data.object.sculpt_id.to_string(),
-        CacheDir::Object(data.object.sculpt_id),
-        &out_dir,
-    )?;
-
-    cache
-        .object
-        .update_json_path(
-            data.object.full_id,
-            data.object.sculpt_id,
-            &json_path.to_string_lossy(),
-        )
-        .await?;
-
-    Ok(ObjectUpdateAction::GenerateFromJSON(GenerateMeshData {
-        object: GeneratorObject {
-            full_id: data.object.full_id,
-            local_id: data.object.local_id,
-            parent_id: data.object.parent,
-            rotation: data.object.rotation,
-            scale: data.object.scale,
-            position: data.object.position,
-        },
-        asset_id: data.object.sculpt_id,
-        base_dir,
-        json_path,
-    }))
-}
-
-pub async fn mesh_from_json(
-    cache: Cache,
-    data: GenerateMeshData,
-) -> Result<ObjectUpdateAction, MeshBuildError> {
-    let glb_path = data.base_dir.join(format!("{:?}_high.glb", data.asset_id));
-    generate_object_mesh(data.json_path, glb_path.clone())?;
-    cache
-        .object
-        .update_glb_path(data.object.full_id, &glb_path.to_string_lossy())
-        .await?;
-    Ok(ObjectUpdateAction::Render(RenderObjectData {
-        mesh_path: Some(glb_path),
-        base_dir: data.base_dir,
-        asset_id: data.asset_id,
-        object: data.object,
-        retry_count: 0,
-        download: None,
-    }))
-}
-
-pub fn create_render_object(
+/// Creates a render object out of mesh data
+///
+/// # Parameters
+/// - `mesh`: The mesh object to create the render object for
+/// - `name`: The name of the object
+/// - `texture_paths`: a hashmap associating the u32 face id with the path of its texture on disk
+/// - `asset_id`: UUID of the mesh's asset. This is found in the object's sculpt texture value.
+/// - `texture`: An optional list of texture entries, containing relevant texture data for building
+///   a material of type [`MaterialModel`]
+///- `attachment_data`: Optional attachment data, if this object is attached to an avatar
+///- `texture_animation`: Optional texture animation data if this object has animated textures
+///
+///# Errors
+///- returns [`DownloadError`] on failure
+pub fn create_mesh_render_object(
     mesh: Mesh,
     name: String,
     texture_paths: HashMap<u32, PathBuf>,
@@ -264,16 +146,4 @@ pub fn create_render_object(
         attachment_data,
         skin: skin_data,
     })
-}
-
-fn face_color(texture: &Option<TextureEntries>, face_index: u32) -> Rgba<u8> {
-    let Some(texture) = texture else {
-        return Rgba::new(255, 255, 255, 255);
-    };
-
-    texture
-        .faces
-        .get(&face_index)
-        .map(|face| face.rgba)
-        .unwrap_or(texture.default.rgba)
 }

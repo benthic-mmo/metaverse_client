@@ -38,6 +38,11 @@ pub mod transport;
 
 use glam::Quat;
 
+/// Global constant coordinate conversion.
+/// this converts the y-up opensim space into z-up benthic space.
+/// this allows for easy use in things like Bevy and Godot.
+/// the z-up feature is on by default.
+/// if it is turned off, benthic uses the standard opensim y-up space.
 #[cfg(feature = "z-up")]
 const COORDINATE_CONVERSION: Quat = Quat::from_xyzw(
     0.0,

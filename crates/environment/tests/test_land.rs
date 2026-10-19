@@ -1,11 +1,11 @@
 mod common;
 
-use benthic_protocol::messages::ui::land_update::{LandData, LandUpdate};
+use benthic_protocol::messages::ui::land_update::LandData;
 use bevy::{
     DefaultPlugins,
     app::{App, PluginGroup, Startup},
     asset::{AssetMode, AssetPlugin, RenderAssetUsages, UnapprovedPathMode},
-    ecs::{message::MessageWriter, resource::Resource},
+    ecs::resource::Resource,
     prelude::*,
     winit::WinitPlugin,
 };
@@ -127,7 +127,7 @@ fn render_land(
         );
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, land_data.vertices);
-        mesh.insert_indices(bevy::mesh::Indices::U16(land_data.indices));
+        mesh.insert_indices(bevy::mesh::Indices::U32(land_data.indices));
         mesh.compute_smooth_normals();
 
         let mesh_handle = meshes.add(mesh);

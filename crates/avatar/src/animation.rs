@@ -3,8 +3,7 @@ use benthic_default_asset_converter::generated_animation_path;
 use benthic_protocol::{
     default_animations::DefaultAnimation,
     session::{
-        cache_enabled, create_agent_animation_dir, create_animation_agents_dir,
-        create_animation_dir, create_filtered_animation_dir,
+        cache_enabled, create_agent_animation_dir, create_filtered_animation_dir,
     },
     skeleton::{Skeleton, SkinJoint},
 };

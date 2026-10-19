@@ -5,7 +5,6 @@ use crate::core_plugin::{CorePlugin, DisableSimulatorEvent, LoginResponseEvent};
 use crate::environment::LandPlugin;
 use crate::errors::{NotLoggedIn, PacketSendError, PortError, ShareDirError};
 use crate::login;
-use crate::mesh::BenthicMeshPlugin;
 use crate::object::BenthicObjectPlugin;
 use crate::panels::chat_panel::ChatPlugin;
 use crate::panels::inventory_panel::InventoryPanelPlugin;

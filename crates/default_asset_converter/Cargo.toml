@@ -14,8 +14,8 @@ benthic_protocol.workspace = true
 
 bvh_anim = "0.4.0"
 
+gltf = { version = "1.4.1", features = ["KHR_texture_transform"] }
 bytemuck.workspace = true 
-gltf.workspace = true 
 uuid.workspace = true 
 indexmap.workspace = true 
 glam = {workspace=true, features=["serde"]}
@@ -30,10 +30,10 @@ local-assets = []
 
 
 [dependencies]
-benthic_protocol.workspace = true 
 
-gltf.workspace = true 
+gltf.workspace = true
 gltf-json.workspace = true
+benthic_protocol.workspace = true 
 once_cell.workspace = true 
 anyhow.workspace = true 
 glam.workspace = true 

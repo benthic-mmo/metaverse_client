@@ -8,10 +8,7 @@ fn test_coarse_location_update() {
         Ok(packet) => packet,
         Err(e) => panic!("Error creating packet: {}", e),
     };
-    match packet.body {
-        PacketType::CoarseLocationUpdate(packet) => {
-            assert!(-1 == packet.you);
-        }
-        _ => {}
+    if let PacketType::CoarseLocationUpdate(packet) = packet.body {
+        assert!(-1 == packet.you);
     }
 }

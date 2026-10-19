@@ -2,7 +2,7 @@ use crate::{errors::ParseError, parse};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::{
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     io::Cursor,
 };
 
@@ -78,6 +78,7 @@ pub struct PrimPath {
     pub profile_shape: ProfileShape,
 }
 impl PrimPath {
+    /// Generate a hash for the prim path so generated objects can be cached by geometry
     pub fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.curve.hash(&mut *hasher);
         self.begin.to_bits().hash(&mut *hasher);
@@ -118,8 +119,8 @@ pub enum PathCurve {
     /// Linear extrusion + flexible prim (always paired with the Flexible extra param).
     Flexible = 128,
 }
-
 impl PathCurve {
+    /// Convert bytes to a PathCurve
     pub fn from_byte(byte: u8) -> Self {
         match byte {
             16 => Self::Line,
@@ -131,6 +132,7 @@ impl PathCurve {
         }
     }
 
+    /// Convert a string to a PathCurve
     pub fn from_string(value: &str) -> Option<Self> {
         match value {
             "Line" => Some(Self::Line),
@@ -142,16 +144,22 @@ impl PathCurve {
         }
     }
 
+    /// Hash a PathCurve to allow objects to be cached by geometry
     pub fn hash(&self, hasher: &mut impl Hasher) {
         (*self as u8).hash(hasher);
     }
 
+    /// Steps in each path for high resolution
     pub fn high_resolution_steps(self) -> f32 {
         24.0
     }
+
+    /// Steps in each path for medium resolution
     pub fn medium_resolution_steps(self) -> f32 {
         12.0
     }
+
+    /// Steps in each path for low resolution
     pub fn low_resolution_steps(self) -> f32 {
         6.0
     }
@@ -165,20 +173,29 @@ impl PathCurve {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum ProfileShape {
+    /// Profile cross-section is in the shape of a circle
     #[default]
     Circle = 0,
+    /// Profile cross-section is in the shape of a square
     Square = 1,
+    /// Profile cross-section is in the shape of an isometric triangle
     IsoTriangle = 2,
+    /// Profile cross-section is in the shape of an equilateral triangle
     EqualTriangle = 3,
+    /// Profile cross-section is in the shape of a right triangle
     RightTriangle = 4,
+    /// Profile cross-section is in the shape of a half circle
     HalfCircle = 5,
+    /// profile is invalid
     Unknown = 255,
 }
 impl ProfileShape {
+    /// Hash the profileshape so the cache can be built from the geometry
     pub fn hash(&self, hasher: &mut impl Hasher) {
         (*self as u8).hash(hasher);
     }
 
+    /// Convert strings to ProfileShapes
     pub fn from_string(value: &str) -> Option<Self> {
         match value {
             "Circle" => Some(Self::Circle),
@@ -191,6 +208,8 @@ impl ProfileShape {
             _ => None,
         }
     }
+
+    /// Returns the default number of sides for each profile shape for high level of detail
     pub fn default_sides_high(self) -> usize {
         match self {
             Self::Circle => 24,
@@ -201,6 +220,8 @@ impl ProfileShape {
             Self::Unknown => 4,
         }
     }
+
+    /// Returns the default number of sides for each profile shape for the medium level of detail
     pub fn default_sides_medium(self) -> usize {
         match self {
             Self::Circle => 12,
@@ -211,6 +232,8 @@ impl ProfileShape {
             Self::Unknown => 4,
         }
     }
+
+    /// Returns the default number of sides for each prfile shape for the low level of detail
     pub fn default_sides_low(self) -> usize {
         match self {
             Self::Circle => 6,
@@ -233,22 +256,31 @@ impl ProfileShape {
         }
     }
 }
-/// Shape of the hollow cut into the profile (high nibble of the packed byte).
+/// Shape of the hollow cut into the profile
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum HollowShape {
     #[default]
+    /// Shape is same as the outer profile
     Same = 0,
+    /// Circular cut through the center
     Circle = 1,
+    /// Square cut through the center
     Square = 2,
+    /// Triangle cut through the center
     Triangle = 3,
+    /// Unknown
     Unknown = 255,
 }
 
 impl HollowShape {
+    /// Hasher for the hollow shape.
+    /// this allows objects to be cached based on their actual geometry
     pub fn hash(&self, hasher: &mut impl Hasher) {
         (*self as u8).hash(hasher);
     }
+
+    /// converts string to hollow shape
     pub fn from_string(value: &str) -> Option<Self> {
         match value {
             "Same" => Some(Self::Same),
@@ -260,6 +292,7 @@ impl HollowShape {
         }
     }
 
+    /// determine shape from high 4 bits
     fn from_nibble(nibble: u8) -> Self {
         match nibble {
             0 => Self::Same,

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, io::Cursor, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf};
 
 use glam::{Mat4, Quat, Vec3};
 use rgb::Rgba;
@@ -110,7 +110,6 @@ pub struct AvatarObject {
 
 pub const TEX_GEN_MASK: u8 = 0x06;
 
-pub const BUMP_MASK: u8 = 0x1f;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TexGen {
     Default,
@@ -148,6 +147,7 @@ impl ShinyLevel {
     }
 }
 
+pub const BUMP_MASK: u8 = 0x1f;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BumpMap {
     None,

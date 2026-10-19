@@ -157,7 +157,7 @@ fn test_decode() {
     let mut terrain_header = TerrainHeader::from_bytes(&mut reader, false).unwrap();
     terrain_header.stride = layer_data.stride;
     terrain_header.patch_size = layer_data.patch_size as usize;
-    let patch = parse_heightmap(&mut reader, &terrain_header).unwrap();
+    let _patch = parse_heightmap(&mut reader, &terrain_header).unwrap();
     //assert_eq!(patch, MODIFIED_PATCH);
 }
 
@@ -165,8 +165,8 @@ fn test_decode() {
 fn test_decode_heightmap() {
     let layer_data = <LayerData as PacketData>::from_bytes(&TEST_BYTES).unwrap();
     let mut reader = BitReader::new(&layer_data.layer_content);
-    let mut terrain_header = TerrainHeader::from_bytes(&mut reader, false).unwrap();
-    let patch = parse_heightmap(&mut reader, &terrain_header).unwrap();
+    let terrain_header = TerrainHeader::from_bytes(&mut reader, false).unwrap();
+    let _patch = parse_heightmap(&mut reader, &terrain_header).unwrap();
     //assert_eq!(patch, MODIFIED_PATCH);
 }
 

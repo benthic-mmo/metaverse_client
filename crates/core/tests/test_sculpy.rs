@@ -1,6 +1,6 @@
 mod common;
 
-use benthic_protocol::objects::SculptObjectData;
+use benthic_protocol::objects::{ObjectInstanceInfo, SculptObjectData};
 use bevy::{
     DefaultPlugins,
     app::{App, Startup, Update},
@@ -81,17 +81,20 @@ async fn test_sculpys() {
                     .join(format!("{}.png", sculpt.texture_id));
 
                 let sculpt_object = SculptObjectData {
-                    full_id: object.full_id(),
-                    parent: object.parent_id(),
-                    local_id: object.local_id(),
-                    position: object.position(),
+                    object_info: ObjectInstanceInfo {
+                        full_id: object.full_id(),
+                        parent_id: object.parent_id(),
+                        local_id: object.local_id(),
+                        position: object.position(),
+                        rotation: object.rotation(),
+                        scale: object.scale(),
+                    },
                     data: sculpt.clone(),
-                    rotation: object.rotation(),
-                    scale: object.scale(),
                     texture: object.texture().clone(),
                     crc: object.crc(),
                     region_id: "".to_string(),
                     retry_count: 0,
+                    texture_animation: None,
                 };
 
                 let texture_paths: HashMap<u32, PathBuf> = sculpt_object

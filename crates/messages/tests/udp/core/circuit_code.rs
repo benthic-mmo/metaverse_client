@@ -14,10 +14,7 @@ fn test_circuit_code() {
         Ok(packet) => packet,
         Err(e) => panic!("Failed to create packet: {:?}", e),
     };
-    match packet.body {
-        PacketType::CircuitCode(packet) => {
-            assert!(packet.code == CODE);
-        }
-        _ => {}
+    if let PacketType::CircuitCode(packet) = packet.body {
+        assert!(packet.code == CODE);
     }
 }

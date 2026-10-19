@@ -11,7 +11,7 @@ use actix::Addr;
 use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::objects::{
-    AttachmentObjectData, MeshObjectData, ParametricPrimData, SculptObjectData,
+    AttachmentObjectData, ObjectInstanceInfo, ParametricPrimData, SculptObjectData,
 };
 use log::{error, warn};
 use metaverse_messages::http::scene::SculptType;
@@ -21,6 +21,7 @@ use metaverse_messages::udp::object::object_update::ExtraParams::{self};
 use metaverse_messages::udp::object::util::ObjectUpdateData;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::errors::ObjectUpdateError;
+use metaverse_objects::object_updates::MeshObjectData;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use uuid::Uuid;
@@ -179,10 +180,7 @@ impl Mailbox {
                         }
                         PacketType::AvatarAnimation(data) => {
                             if let Err(e) = mailbox_address
-                                .send(HandleNewAvatarAnimation {
-                                    avatar_animation: *data.clone(),
-                                    retries: 0,
-                                })
+                                .send(HandleNewAvatarAnimation(*data.clone()))
                                 .await
                             {
                                 error!("Failed to handle AvatarAppearance {:?}", e)
@@ -240,21 +238,24 @@ async fn classify_object_update(
             match sculpt {
                 Some(sculpt)
                     if sculpt.texture_id != Uuid::nil()
-                        && matches!(sculpt.sculpt_type, SculptType::Mesh {}) =>
+                        && matches!(sculpt.sculpt_type, SculptType::Mesh) =>
                 {
                     addr.do_send(MeshObjectUpdate(MeshObjectData {
+                        object_info: ObjectInstanceInfo {
+                            full_id: object.full_id(),
+                            local_id: object.local_id(),
+                            parent_id: object.parent_id(),
+                            position: object.position(),
+                            rotation: object.rotation(),
+                            scale: object.scale(),
+                        },
                         object_type: object.object_type(),
-                        full_id: object.full_id(),
-                        parent: object.parent_id(),
-                        local_id: object.local_id(),
-                        position: object.position(),
                         sculpt_id: sculpt.texture_id,
-                        rotation: object.rotation(),
-                        scale: object.scale(),
                         texture: object.texture().clone(),
                         crc: object.crc(),
                         region_id: String::new(),
                         texture_animation: object.texture_animation(),
+                        retry_count: 0,
                     }));
                 }
 
@@ -270,13 +271,15 @@ async fn classify_object_update(
                 {
                     // This is a sculpty: geometry comes from the sculpt texture.
                     addr.do_send(SculptObjectUpdate(SculptObjectData {
-                        full_id: object.full_id(),
-                        parent: object.parent_id(),
-                        local_id: object.local_id(),
-                        position: object.position(),
+                        object_info: ObjectInstanceInfo {
+                            full_id: object.full_id(),
+                            local_id: object.local_id(),
+                            parent_id: object.parent_id(),
+                            position: object.position(),
+                            rotation: object.rotation(),
+                            scale: object.scale(),
+                        },
                         data: sculpt.clone(),
-                        rotation: object.rotation(),
-                        scale: object.scale(),
                         texture: object.texture().clone(),
                         crc: object.crc(),
                         region_id: String::new(),
@@ -289,12 +292,14 @@ async fn classify_object_update(
                     // No usable sculpt/mesh parameter: generate parametric geometry.
                     if let Some(path) = object.sculpt_path() {
                         addr.do_send(ParametricPrimObjectUpdate(ParametricPrimData {
-                            full_id: object.full_id(),
-                            local_id: object.local_id(),
-                            scale: object.scale(),
-                            position: object.position(),
-                            rotation: object.rotation(),
-                            parent: object.parent_id(),
+                            object_info: ObjectInstanceInfo {
+                                full_id: object.full_id(),
+                                local_id: object.local_id(),
+                                parent_id: object.parent_id(),
+                                position: object.position(),
+                                rotation: object.rotation(),
+                                scale: object.scale(),
+                            },
                             texture: object.texture().clone(),
                             path_data: path,
                             retry_count: 0,
@@ -311,7 +316,6 @@ async fn classify_object_update(
             addr.do_send(AvatarObjectUpdate {
                 id: object.full_id(),
                 position: object.position(),
-                retry_count: 0,
             });
         }
 

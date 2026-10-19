@@ -58,7 +58,10 @@ impl Handler<HandleSimulatorViewerTimeMessage> for Mailbox {
     }
 }
 
-/// An event to trigger the fetching of the day cycle data from the endpoint
+/// Message to trigger the fetching of the day cycle data from the endpoint
+///
+/// # Cause
+/// - `session.rs` 's handle login. Sent immediately after a successful login.
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct FetchEnvironmentEvent {}
@@ -102,6 +105,7 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
 ///
 /// # Effect
 /// - Dispatches a [`LandUpdate`] packet to the UI
+/// TODO: should dispatch more than a land update
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct HandleLayerData {

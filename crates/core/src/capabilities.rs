@@ -1,20 +1,9 @@
-use crate::errors::CapabilityError;
-
 use super::session::Mailbox;
+use crate::errors::CapabilityError;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use log::error;
 use metaverse_messages::http::capabilities::{Capability, CapabilityRequest};
 use std::collections::HashMap;
-
-/// Message to update the capability urls
-///
-/// # Cause
-/// [`SendCapabilityRequest`]
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct SetCapabilityUrls {
-    capability_urls: HashMap<Capability, String>,
-}
 
 /// Message to request full capability urls from the esrver
 ///
@@ -30,24 +19,6 @@ pub struct SendCapabilityRequest {
     /// The capabilities requested
     pub capability_request: CapabilityRequest,
 }
-
-impl Handler<SetCapabilityUrls> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) {
-        let capabilities: Vec<Capability> = msg.capability_urls.keys().cloned().collect();
-
-        if let Some(session) = &mut self.session {
-            session.capability_urls.extend(msg.capability_urls);
-        } else {
-            return;
-        }
-
-        for capability in capabilities {
-            self.flush_capability(capability, ctx);
-        }
-    }
-}
-
 impl Handler<SendCapabilityRequest> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: SendCapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
@@ -68,6 +39,32 @@ impl Handler<SendCapabilityRequest> for Mailbox {
                 }
                 .into_actor(self),
             );
+        }
+    }
+}
+
+/// Message to update the capability urls
+///
+/// # Cause
+/// [`SendCapabilityRequest`]
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct SetCapabilityUrls {
+    capability_urls: HashMap<Capability, String>,
+}
+impl Handler<SetCapabilityUrls> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) {
+        let capabilities: Vec<Capability> = msg.capability_urls.keys().cloned().collect();
+
+        if let Some(session) = &mut self.session {
+            session.capability_urls.extend(msg.capability_urls);
+        } else {
+            return;
+        }
+
+        for capability in capabilities {
+            self.flush_capability(capability, ctx);
         }
     }
 }

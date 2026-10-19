@@ -25,7 +25,7 @@ pub struct MeshUpdate {
     /// The type of mesh getting rendered. Land, Object, Avatar, etc.
     pub mesh_type: MeshType,
     /// ID of the mesh. For agents, this will be the AgentID.
-    pub id: Option<Uuid>,
+    pub full_id: Option<Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]

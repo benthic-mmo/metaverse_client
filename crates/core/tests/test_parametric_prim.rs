@@ -1,5 +1,5 @@
 mod common;
-use benthic_protocol::objects::ParametricPrimData;
+use benthic_protocol::objects::{ObjectInstanceInfo, ParametricPrimData};
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::winit::WinitPlugin;
@@ -31,7 +31,7 @@ async fn test_parametric_prims() {
     let generated_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/generated");
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/parametric_data");
 
-    let session = mock_session(generated_dir.clone()).await;
+    let _session = mock_session(generated_dir.clone()).await;
     let mut mesh_paths = Vec::new();
 
     for entry in std::fs::read_dir(&data_dir).unwrap() {
@@ -73,15 +73,18 @@ async fn test_parametric_prims() {
             };
 
             let parametric_prim = ParametricPrimData {
-                full_id: object.full_id(),
-                local_id: object.local_id(),
-                scale: object.scale(),
-                position: object.position(),
-                rotation: object.rotation(),
-                parent: object.parent_id(),
+                object_info: ObjectInstanceInfo {
+                    full_id: object.full_id(),
+                    local_id: object.local_id(),
+                    scale: object.scale(),
+                    position: object.position(),
+                    rotation: object.rotation(),
+                    parent_id: object.parent_id(),
+                },
                 texture: object.texture().clone(),
                 path_data,
                 retry_count: 0,
+                texture_animation: None,
             };
             let texture_paths: HashMap<u32, PathBuf> = parametric_prim
                 .texture

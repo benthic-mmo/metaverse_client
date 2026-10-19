@@ -5,7 +5,7 @@ const TEST_PACKET: [u8; 15] = [0, 0, 0, 0, 0, 0, 255, 255, 255, 251, 1, 0, 0, 0,
 #[test]
 fn test_header_for_acks() {
     let test_header = Header::try_from_bytes(&TEST_PACKET).unwrap();
-    assert!(test_header.reliable == false);
+    assert!(!test_header.reliable);
     assert!(test_header.sequence_number == 0);
 }
 

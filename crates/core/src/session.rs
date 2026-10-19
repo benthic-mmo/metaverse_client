@@ -10,6 +10,7 @@ use actix::prelude::*;
 use actix_rt::time;
 use benthic_protocol::errors::SessionError;
 use benthic_protocol::messages::ui::errors::MailboxSessionError;
+use benthic_protocol::objects::RetriableData;
 #[cfg(feature = "environment")]
 use benthic_protocol::session::EnvironmentCache;
 #[cfg(feature = "inventory")]
@@ -66,7 +67,6 @@ use tokio::{net::UdpSocket, sync::Notify, time::Duration};
 use uuid::Uuid;
 
 static DEFAULT_MAX_RETRIES: u32 = 20;
-static DEFAULT_LONG_TIMEOUT_RETRIES: u32 = 20;
 type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
@@ -91,9 +91,8 @@ pub struct Mailbox {
     pub sent_packet_count: u16,
     /// the global ping information
     pub ping_info: PingInfo,
-
+    /// Maximum amount of mesh downloads that can happen concurrently
     pub max_concurrent_downloads: Arc<Semaphore>,
-
     /// The list of currently downloading objects.
     /// this contains a UUID of the object downloading, along with a receiver that other
     /// objectupdats can subscribe to, in order to wake up when the download is complete.
@@ -121,6 +120,8 @@ impl Mailbox {
             self.notify.notify_one();
         }
     }
+
+    /// Add to the queue of messages waiting for capability endpoints.
     pub fn queue_for_capability<M>(&mut self, capability: Capability, msg: M)
     where
         M: Message<Result = ()> + Send + 'static,
@@ -133,6 +134,8 @@ impl Mailbox {
                 addr.do_send(msg);
             }));
     }
+
+    /// Once the capabilities have loaded in, restart all of the pending messages
     pub fn flush_capability(&mut self, capability: Capability, ctx: &mut Context<Self>) {
         let Some(pending) = self.pending_capability_messages.remove(&capability) else {
             return;
@@ -717,22 +720,13 @@ async fn handle_login(
     };
 
     #[cfg(feature = "inventory")]
-    if let Err(e) = mailbox_addr
-        .send(FetchCurrentOutfit { retry_count: 0 })
-        .await
-    {
+    if let Err(e) = mailbox_addr.send(FetchCurrentOutfit {}).await {
         Err(CapabilityError {
             message: e.to_string(),
         })?
     }
     #[cfg(feature = "inventory")]
-    if let Err(e) = mailbox_addr
-        .send(RefreshInventoryEvent {
-            agent_id: login_response.agent_id,
-            retry_count: 0,
-        })
-        .await
-    {
+    if let Err(e) = mailbox_addr.send(RefreshInventoryEvent {}).await {
         Err(CapabilityError {
             message: e.to_string(),
         })?
@@ -747,6 +741,14 @@ async fn handle_login(
     Ok(())
 }
 
+/// Generic Message for handling retries of network dependent assets.
+///
+/// This sends periodic retry messages for assets that failed download with recoverable errors.
+///
+/// # Cause
+/// -[`crate::objects::DownloadMeshObject`]
+/// -[`crate::objects::ParametricPrimObjectUpdate`]
+/// -[`crate::objects::SculptObjectUpdate`]
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct RetryMessage<Retriable>
@@ -755,62 +757,61 @@ where
     Retriable::Result: Send,
     Mailbox: Handler<Retriable>,
 {
+    /// Message to retry
     pub message: Retriable,
-    pub retries: u32,
-    pub long_backoff: bool,
+    /// Info message to dislpay upon retry
     pub info_message: String,
 }
 impl<Retriable> Handler<RetryMessage<Retriable>> for Mailbox
 where
-    Retriable: Send + 'static + actix::Message,
+    Retriable: Send + 'static + actix::Message + RetriableData,
     Retriable::Result: Send,
     Mailbox: Handler<Retriable>,
 {
     type Result = ();
-    fn handle(&mut self, msg: RetryMessage<Retriable>, ctx: &mut Self::Context) -> Self::Result {
-        let (max_retries, delay) = if msg.long_backoff {
-            (DEFAULT_LONG_TIMEOUT_RETRIES, long_backoff_ms(msg.retries))
-        } else {
-            (DEFAULT_MAX_RETRIES, backoff_ms(msg.retries))
-        };
 
-        if msg.retries >= max_retries {
+    fn handle(
+        &mut self,
+        mut msg: RetryMessage<Retriable>,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let retries = msg.message.retry_count();
+
+        let (max_retries, delay) = (DEFAULT_MAX_RETRIES, backoff_ms(retries));
+
+        if retries >= max_retries {
             error!(
                 "Dropping message {} after max retries {}",
                 type_name::<Retriable>(),
-                DEFAULT_MAX_RETRIES
+                max_retries
             );
             return;
         }
-        info!("{:?}", msg.info_message);
+
+        msg.message.inc_retry_count();
+
+        info!("{}", msg.info_message);
+
         warn!(
             "Message retrying. Retry {} #{} in {} ms",
             type_name::<Retriable>(),
-            msg.retries,
+            retries + 1,
             delay
         );
 
         let addr = ctx.address();
+
         ctx.spawn(
             async move {
                 actix::clock::sleep(std::time::Duration::from_millis(delay)).await;
+
                 addr.do_send(msg.message);
             }
             .into_actor(self),
         );
     }
 }
-
 fn backoff_ms(retry: u32) -> u64 {
-    let base_ms = 50;
-    let max_ms = 10_000;
-
-    let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
-
-    rand::rng().random_range(50..=max)
-}
-
-fn long_backoff_ms(retry: u32) -> u64 {
     let base_ms = 50;
     let max_ms = 10_000;
 

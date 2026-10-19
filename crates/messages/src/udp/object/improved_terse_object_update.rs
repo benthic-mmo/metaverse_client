@@ -63,6 +63,7 @@ pub struct TerseObjectData {
 }
 
 impl TerseObjectData {
+    /// Convert a vector of bytes to a TerseObjectData object
     pub fn from_bytes(data: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(data);
 
@@ -132,6 +133,7 @@ fn u16_to_float_cursor(cursor: &mut Cursor<&[u8]>, min: f32, max: f32) -> Result
 }
 
 impl PacketData for ImprovedTerseObjectUpdate {
+    /// Convert a vector of bytes to an ImprovedTerseObjectUpdate
     fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         let mut cursor = Cursor::new(bytes);
 

@@ -1,15 +1,9 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use crate::{errors::InventoryError, initialize_sqlite::ObjectCache};
-use benthic_protocol::objects::{GeneratorObject, MeshObjectData};
+use benthic_protocol::objects::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
-use metaverse_messages::{
-    udp::object::object_update::ExtraParams,
-    utils::{
-        object_types::ObjectType,
-        texture_entry::{TextureEntries, TextureEntry},
-    },
-};
+use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
@@ -113,7 +107,7 @@ impl ObjectCache {
         id: u32,
         crc: u32,
         region_id: String,
-    ) -> Result<(Uuid, PathBuf, Option<PathBuf>, GeneratorObject), InventoryError> {
+    ) -> Result<(Uuid, PathBuf, Option<PathBuf>, ObjectInstanceInfo), InventoryError> {
         let row = sqlx::query(
             r#"
         SELECT
@@ -144,7 +138,7 @@ impl ObjectCache {
         &self,
         asset_id: Uuid,
         full_id: Uuid,
-    ) -> Result<(PathBuf, GeneratorObject), InventoryError> {
+    ) -> Result<(PathBuf, ObjectInstanceInfo), InventoryError> {
         let glb_row = sqlx::query(
             r#"
         SELECT glb
@@ -185,7 +179,7 @@ impl ObjectCache {
         .await?
         .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
 
-        let generator = GeneratorObject {
+        let generator = ObjectInstanceInfo {
             full_id: {
                 let id: String = object_row.try_get("full_id")?;
                 Uuid::parse_str(&id)?
@@ -203,14 +197,14 @@ impl ObjectCache {
     async fn build_cache_result(
         &self,
         row: sqlx::sqlite::SqliteRow,
-    ) -> Result<(Uuid, PathBuf, Option<PathBuf>, GeneratorObject), InventoryError> {
+    ) -> Result<(Uuid, PathBuf, Option<PathBuf>, ObjectInstanceInfo), InventoryError> {
         let asset_id: String = row.try_get("asset_id")?;
         let asset_id = Uuid::parse_str(&asset_id)?;
 
         let glb: Option<String> = row.try_get("glb")?;
         let glb_path = glb.as_ref().map(PathBuf::from);
 
-        let generator = GeneratorObject {
+        let generator = ObjectInstanceInfo {
             full_id: {
                 let id_str: String = row.try_get("full_id")?;
                 Uuid::parse_str(&id_str)?
@@ -241,9 +235,12 @@ impl ObjectCache {
 
     pub async fn update(
         &self,
-        object: MeshObjectData<TextureEntries, ObjectType>,
+        object: ObjectInstanceInfo,
+        crc: u32,
+        region_id: String,
+        object_type: ObjectType,
     ) -> Result<(), InventoryError> {
-        let parent_id = object.parent.unwrap_or(0);
+        let parent_id = object.parent_id.unwrap_or(0);
         let rotation = object.rotation.normalize();
         sqlx::query(
             r#"
@@ -277,10 +274,10 @@ impl ObjectCache {
         )
         .bind(object.local_id as i64)
         .bind(object.full_id.to_string())
-        .bind(object.crc)
-        .bind(object.region_id)
+        .bind(crc)
+        .bind(region_id)
         .bind(parent_id as i64)
-        .bind(object.object_type.to_string())
+        .bind(object_type.to_string())
         .bind(object.position.x)
         .bind(object.position.y)
         .bind(object.position.z)

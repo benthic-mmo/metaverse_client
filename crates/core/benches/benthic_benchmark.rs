@@ -3,6 +3,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::scene::SceneGroup;
 use metaverse_objects::object_handler::create_render_object;
+use std::collections::HashMap;
 use std::hint::black_box;
 
 use std::fs;
@@ -97,15 +98,32 @@ fn avatar_benchmarks(c: &mut Criterion) {
         .map(|bytes| Mesh::from_bytes(bytes).unwrap())
         .collect();
 
-    let texture_paths: Vec<PathBuf> = parts
+    let texture_paths: Vec<HashMap<u32, PathBuf>> = parts
         .iter()
-        .map(|part| texture_dir.join(format!("{}.png", part.shape.texture.texture_id)))
+        .map(|part| {
+            let mut paths = HashMap::new();
+
+            paths.insert(
+                u32::MAX,
+                texture_dir.join(format!("{}.png", part.shape.texture.default.texture_id)),
+            );
+
+            for (&face_index, face) in &part.shape.texture.faces {
+                paths.insert(
+                    face_index,
+                    texture_dir.join(format!("{}.png", face.texture_id)),
+                );
+            }
+
+            paths
+        })
         .collect();
 
     c.bench_function("texture fs::read all", |b| {
         b.iter(|| {
             let textures: Vec<Vec<u8>> = texture_paths
                 .iter()
+                .flat_map(|paths| paths.values())
                 .map(|path| fs::read(black_box(path)).unwrap())
                 .collect();
 
@@ -123,8 +141,11 @@ fn avatar_benchmarks(c: &mut Criterion) {
                     create_render_object(
                         black_box(mesh.clone()),
                         black_box(part.metadata.name.clone()),
-                        black_box(texture_path),
+                        texture_path.clone(),
                         part.sculpt.texture,
+                        &Some(part.shape.texture.clone()),
+                        None,
+                        None,
                     )
                     .unwrap()
                 })
@@ -142,8 +163,11 @@ fn avatar_benchmarks(c: &mut Criterion) {
             create_render_object(
                 mesh,
                 part.metadata.name.clone(),
-                texture_path,
+                texture_path.clone(),
                 part.sculpt.texture,
+                &Some(part.shape.texture.clone()),
+                None,
+                None,
             )
             .unwrap()
         })
