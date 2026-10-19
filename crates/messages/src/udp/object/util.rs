@@ -1,99 +1,44 @@
-use benthic_protocol::render_data::TextureAnimation;
-use glam::{Quat, Vec3};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::{
     udp::object::object_update::ExtraParams,
     utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
-/// this trait unifies the ObjectUpdate packets to allow using them as a single object.
+use benthic_protocol::render_data::TextureAnimation;
+use glam::{Quat, Vec3};
+use uuid::Uuid;
+
+/// Provides a common interface for object update packets.
+/// this unifies the ObjectUpdate and ObjectUpdateCompressed packets.
 pub trait ObjectUpdateData {
+    /// Returns the type of the object
     fn object_type(&self) -> ObjectType;
+    /// Returns the object's global id
     fn full_id(&self) -> Uuid;
+    /// Returns the u32 scene-local parent ID.
+    /// Objects without parents will return None
     fn parent_id(&self) -> Option<u32>;
+    /// Returns the u32 scene-local ID
     fn local_id(&self) -> u32;
+    /// Returns the name value string of the object.
+    /// Not necessarily a name. This string can contain extra parameters used for attachments.
     fn name_value(&self) -> &Option<String>;
+    /// Returns the position of the object in space
     fn position(&self) -> Vec3;
+    /// Returns the rotation of the object
     fn rotation(&self) -> Quat;
+    /// Returns the scale of the object
     fn scale(&self) -> Vec3;
+    /// Returns te texture entry data of the object.
+    /// Objects without textures will return None
     fn texture(&self) -> &Option<TextureEntries>;
+    /// Returns the crc of the object
     fn crc(&self) -> u32;
+    /// Returns the extra parameter data of the object
+    /// Objects without extra params will return None
     fn extra_params(&self) -> Option<&[ExtraParams]>;
+    /// Returns the sculpt path of the object
+    /// Objects without sculpt information will return None
     fn sculpt_path(&self) -> Option<PrimPath>;
+    /// Returns the texture animation data of the object
+    /// Objects without texture animation data will return None
     fn texture_animation(&self) -> Option<TextureAnimation>;
-}
-
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ObjectFlag {
-    UsePhysics = 0x0000_0001,
-    CreateSelected = 0x0000_0002,
-    ObjectModify = 0x0000_0004,
-    ObjectCopy = 0x0000_0008,
-    ObjectAnyOwner = 0x0000_0010,
-    ObjectYouOwner = 0x0000_0020,
-    Scripted = 0x0000_0040,
-    HandleTouch = 0x0000_0080,
-    ObjectMove = 0x0000_0100,
-    TakesMoney = 0x0000_0200,
-    Phantom = 0x0000_0400,
-    InventoryEmpty = 0x0000_0800,
-    JointHinge = 0x0000_1000,
-    JointP2P = 0x0000_2000,
-    JointLP2P = 0x0000_4000,
-    IncludeInSearch = 0x0000_8000,
-    AllowInventoryDrop = 0x0001_0000,
-    ObjectTransfer = 0x0002_0000,
-    ObjectGroupOwned = 0x0004_0000,
-    CameraDecoupled = 0x0010_0000,
-    AnimSource = 0x0020_0000,
-    CameraSource = 0x0040_0000,
-    CastShadows = 0x0080_0000,
-    ObjectOwnerModify = 0x1000_0000,
-    TemporaryOnRez = 0x2000_0000,
-    Temporary = 0x4000_0000,
-    ZlibCompressed = 0x8000_0000,
-}
-
-impl ObjectFlag {
-    pub fn from_bytes(bits: u32) -> Vec<ObjectFlag> {
-        let mut flags = Vec::new();
-        for &flag in [
-            ObjectFlag::UsePhysics,
-            ObjectFlag::CreateSelected,
-            ObjectFlag::ObjectModify,
-            ObjectFlag::ObjectCopy,
-            ObjectFlag::ObjectAnyOwner,
-            ObjectFlag::ObjectYouOwner,
-            ObjectFlag::Scripted,
-            ObjectFlag::HandleTouch,
-            ObjectFlag::ObjectMove,
-            ObjectFlag::TakesMoney,
-            ObjectFlag::Phantom,
-            ObjectFlag::InventoryEmpty,
-            ObjectFlag::JointHinge,
-            ObjectFlag::JointP2P,
-            ObjectFlag::JointLP2P,
-            ObjectFlag::IncludeInSearch,
-            ObjectFlag::AllowInventoryDrop,
-            ObjectFlag::ObjectTransfer,
-            ObjectFlag::ObjectGroupOwned,
-            ObjectFlag::CameraDecoupled,
-            ObjectFlag::AnimSource,
-            ObjectFlag::CameraSource,
-            ObjectFlag::CastShadows,
-            ObjectFlag::ObjectOwnerModify,
-            ObjectFlag::TemporaryOnRez,
-            ObjectFlag::Temporary,
-            ObjectFlag::ZlibCompressed,
-        ]
-        .iter()
-        {
-            if bits & (flag as u32) != 0 {
-                flags.push(flag);
-            }
-        }
-        flags
-    }
 }

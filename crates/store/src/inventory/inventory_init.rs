@@ -4,7 +4,6 @@ use log::{info, warn};
 use metaverse_messages::http::folder_request::FolderRequest;
 use metaverse_messages::http::folder_types::{Category, Folder};
 use metaverse_messages::utils::item_metadata::ItemMetadata;
-use metaverse_messages::utils::object_types::ObjectType;
 use serde_llsd_benthic::from_str;
 use sqlx::{Row, SqlitePool};
 use std::time::SystemTime;
@@ -289,34 +288,4 @@ async fn insert_items(
     }
 
     Ok(())
-}
-
-async fn get_object_type_by_id(
-    pool: &SqlitePool,
-    item_id: &Uuid,
-) -> Result<Option<(ObjectType, Uuid, String)>, InventoryError> {
-    let item_id_str = item_id.to_string();
-    let row = sqlx::query(
-        r#"
-        SELECT item_type, asset_id, name
-        FROM items
-        WHERE item_id = ?
-        "#,
-    )
-    .bind(&item_id_str)
-    .fetch_optional(pool)
-    .await?;
-
-    if let Some(row) = row {
-        let item_type_str: String = row.try_get("item_type")?;
-        let item_type = ObjectType::from(item_type_str.as_str());
-
-        let asset_id_str: String = row.try_get("asset_id")?;
-        let asset_id = Uuid::parse_str(&asset_id_str)?;
-
-        let name: String = row.try_get("name")?;
-        Ok(Some((item_type, asset_id, name)))
-    } else {
-        Ok(None)
-    }
 }

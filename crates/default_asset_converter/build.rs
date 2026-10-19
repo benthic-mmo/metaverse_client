@@ -194,8 +194,12 @@ fn load_gltf_animation(path: &PathBuf, axis_conversion: Mat4) -> AnimationClip {
 
     let mut animation_data: HashMap<SkinJoint, JointAnimation> = HashMap::new();
 
+    #[cfg(feature = "quaternius_adjustments")]
     let (mut bind_skeleton, mut _root_transform) =
         bind_skeleton_from_gltf(&document, axis_conversion);
+
+    #[cfg(not(feature = "quaternius_adjustments"))]
+    let (bind_skeleton, _root_transform) = bind_skeleton_from_gltf(&document, axis_conversion);
 
     let inverse_conversion = axis_conversion.inverse();
 
@@ -666,6 +670,7 @@ fn build_joint_recursive(
     );
 }
 
+#[cfg(feature = "quaternius_adjustments")]
 fn rotate_hip_subtree(
     skeleton: &mut Skeleton,
     animation_data: &mut HashMap<SkinJoint, JointAnimation>,

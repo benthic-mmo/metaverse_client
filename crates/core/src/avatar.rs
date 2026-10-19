@@ -4,11 +4,10 @@ use crate::session::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::messages::ui::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::ui::camera_position::CameraPosition;
-use benthic_protocol::messages::ui::mesh_update::MeshType;
 use benthic_protocol::messages::ui::play_animation::PlayAnimation;
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use benthic_protocol::session::cache_enabled;
-use benthic_protocol::skeleton::{JointName, Skeleton, SkinJoint};
+use benthic_protocol::skeleton::{Skeleton, SkinJoint};
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;
@@ -20,17 +19,34 @@ use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
-use metaverse_objects::avatar_asset::download_asset_objects;
+use metaverse_objects::download_asset::download_avatar_assets;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Message to initalize a new avatar to the session.
+///
+/// # Cause
+/// - UDP handler receives an ObjectUpdate packet of type Avatar
+///
+/// # Effects
+/// If the avatar is the user's avatar:
+/// - [`CameraPosition`] is sent to the UI, updating the camera position
+/// - [`SetOutfitSize`] message is sent, updating the current avatar's outfit size
+///
+/// If the user avatar's GLTF already exists on disk
+/// - [`LoadFromCache`] message is sent, loading the avatar from the disk
+///
+/// If the user avatar's GLTF does not exist on disk
+/// - [`DownloadAgentAsset`] message is sent for objects that have renderable assets
+/// - [`AddObjectToAvatar`] message is sent for objects that do not
 #[derive(Message, Clone, Debug)]
 #[rtype(result = "()")]
 pub struct AvatarObjectUpdate {
+    /// ID of the avatar
     pub id: Uuid,
+    /// Position in space of the avatar
     pub position: Vec3,
-    pub retry_count: u32,
 }
 impl Handler<AvatarObjectUpdate> for Mailbox {
     type Result = ();
@@ -137,12 +153,13 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
         }
     }
 }
+
 /// Requests Agent data from the ViewerAsset capability endpoint
 ///
 /// These are requested from inventory objects, and not ObjectUpdate packets.
 ///
 /// # Cause
-/// - [`HandleNewAvatar`]
+/// - [`AvatarObjectUpdate`]
 ///
 /// # Effects
 ///  - Dispatches an [`AddObjectToAvatar`] message on successful download
@@ -183,7 +200,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let out_dir = session.share_dir_root.clone();
         ctx.spawn(
             async move {
-                match download_asset_objects(
+                match download_avatar_assets(
                     &server_endpoint,
                     object_type,
                     asset_id,
@@ -217,6 +234,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
 ///
 /// # Cause
 /// - [`DownloadAgentAsset`]
+/// - [`AvatarObjectUpdate`]
 ///
 /// # Effects
 /// - Dispatches a [`FinalizeAvatar`] message if the avatar's outfit has all items
@@ -330,9 +348,20 @@ impl Handler<FinalizeAvatar> for Mailbox {
     }
 }
 
+/// Handles adding pre-cached avatars to the session
+///
+/// Ensures that the session's local state contains all of the required objects
+/// TODO: does not currently do that. This needs to be fixed ASAP.
+///
+/// # Cause
+/// - [`AvatarObjectUpdate`]
+///
+/// # Effect
+/// - [`RenderAvatar`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct LoadFromCache {
+    /// The avatar to load from cache.
     pub avatar: Avatar,
 }
 impl Handler<LoadFromCache> for Mailbox {
@@ -364,36 +393,31 @@ impl Handler<LoadFromCache> for Mailbox {
 /// Message to handle an updated animation
 ///
 /// # Cause
-/// - Avatar Appearance packet received from UDP socket
+/// - Avatar Animation packet received from UDP socket
 ///
 /// # Effect
 /// - Dispatches a [`PlayAnimation`] message to inform the UI of a new animation
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct HandleNewAvatarAnimation {
-    /// the avatar appearance data to handle
-    pub avatar_animation: AvatarAnimation,
-    /// number of times this message has been requeued
-    pub retries: u32,
-}
+pub struct HandleNewAvatarAnimation(pub AvatarAnimation);
 impl Handler<HandleNewAvatarAnimation> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        if msg.avatar_animation.sender_id != session.agent_id {
+        if msg.0.sender_id != session.agent_id {
             //TODO: IMPLEMENT NON-USER ANIMATIONS
-            warn!("Non-user animation triggered. Currently unimplemented. Dropping animtaiton");
+            warn!("Non-user animation triggered. Currently unimplemented. Dropping animaiton");
             return;
         }
 
-        let avatar = match session.avatars.get(&msg.avatar_animation.sender_id) {
+        let avatar = match session.avatars.get(&msg.0.sender_id) {
             Some(avatar) => {
                 if !avatar.fully_loaded {
                     info!("Avatar not fully loaded. Adding to queue.");
                     self.pending_animations
-                        .entry(msg.avatar_animation.sender_id)
+                        .entry(msg.0.sender_id)
                         .or_default()
                         .push(msg);
 
@@ -404,7 +428,7 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
             None => {
                 info!("Avatar not yet in scene. Adding to queue.");
                 self.pending_animations
-                    .entry(msg.avatar_animation.sender_id)
+                    .entry(msg.0.sender_id)
                     .or_default()
                     .push(msg);
 
@@ -412,13 +436,13 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
             }
         };
 
-        let animations = msg.avatar_animation.animations;
+        let animations = msg.0.animations;
         let used_joints = avatar.used_joints.clone();
         let target_skeleton = avatar.skeleton.clone();
         let out_dir = session.share_dir_root.clone();
         let agent_id = session.agent_id;
 
-        let sender_id = msg.avatar_animation.sender_id;
+        let sender_id = msg.0.sender_id;
         let addr = ctx.address();
         ctx.spawn(
             async move {
@@ -465,7 +489,7 @@ impl Handler<HandleNewAvatarAppearance> for Mailbox {
         _msg: HandleNewAvatarAppearance,
         _ctx: &mut Self::Context,
     ) -> Self::Result {
-        // TODO: implement this. AvatarAppearance packets change skeleton joint positions to change
+        // TODO: implement this. AvatarAppearance packets change skeleton deform joint positions to change
         // the appearance of the avatar.
         warn!("AvatarAppearance packet received. Currently unimplemented");
     }
@@ -478,7 +502,7 @@ impl Handler<HandleNewAvatarAppearance> for Mailbox {
 /// - [`LoadFromCache`]
 ///
 /// # Effects
-/// - Dispatches a [`MeshUpdate`] message to inform the UI of an update
+/// - Dispatches a [`AvatarUpdate`] message to inform the UI of an update
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderAvatar {
@@ -509,13 +533,13 @@ impl Handler<RenderAvatar> for Mailbox {
     }
 }
 
-/// Message to set the outfit size of the avatar
+/// Simple helper message to set the outfit size of the avatar
 ///
 /// This must be set in order to trigger a render. Without this, the avatar doesn't know when the
 /// outfit is finished loading in.
 ///
 /// # Cause
-/// - [`HandleNewAvatar`]
+/// - [`AvatarObjectUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct SetOutfitSize {
@@ -535,7 +559,7 @@ impl Handler<SetOutfitSize> for Mailbox {
     }
 }
 
-/// Simple helper function to ensure that the avatar's GLB path is set correctly
+/// Simple helper message to ensure that the avatar's GLB path is set correctly
 ///
 /// #Cause
 /// - [`FinalizeAvatar`]
@@ -557,7 +581,7 @@ impl Handler<SetAvatarGlbPath> for Mailbox {
         }
     }
 }
-/// Simple helper function to ensure that the avatar's skeleton is updated after finalizing
+/// Simple helper message to ensure that the avatar's skeleton is updated after finalizing
 ///
 /// #Cause
 /// - [`FinalizeAvatar`]

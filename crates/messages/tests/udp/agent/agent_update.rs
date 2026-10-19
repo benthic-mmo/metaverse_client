@@ -16,10 +16,7 @@ fn test_agent_update() {
         Ok(p) => p,
         Err(e) => panic!("Error creating packet: {}", e),
     };
-    match packet.body {
-        PacketType::AgentUpdate(update) => {
-            assert!(update.agent_id == DEFAULT_USER_ID)
-        }
-        _ => {}
+    if let PacketType::AgentUpdate(update) = packet.body {
+        assert!(update.agent_id == DEFAULT_USER_ID)
     }
 }

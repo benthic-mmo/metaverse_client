@@ -138,6 +138,7 @@ fn mock_from_xml(
                 rotation: part.rotation_offset,
                 scale: part.scale,
             }),
+            None,
         )?;
 
         println!(

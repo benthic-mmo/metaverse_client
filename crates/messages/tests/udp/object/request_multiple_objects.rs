@@ -17,24 +17,18 @@ const PACKET_DATA2: [u8; 61] = [
 
 #[test]
 fn test_request_multiple_objects() {
-    match Packet::from_bytes(&PACKET_DATA2).unwrap().body {
-        PacketType::RequestMultipleObjects(data) => {
-            println!("{:?}", data)
-        }
-        _ => {}
+    if let PacketType::RequestMultipleObjects(data) = Packet::from_bytes(&PACKET_DATA2).unwrap().body {
+        println!("{:?}", data)
     }
     let created_packet = Packet::new_request_multiple_objects(RequestMultipleObjects {
         agent_id: Uuid::nil(),
         session_id: Uuid::nil(),
         requests: vec![(CacheMissType::Normal, 1), (CacheMissType::Normal, 2)],
     });
-    match Packet::from_bytes(&created_packet.to_bytes()).unwrap().body {
-        PacketType::RequestMultipleObjects(data) => {
-            assert_eq!(data.agent_id, Uuid::nil());
-            assert_eq!(data.session_id, Uuid::nil());
-            assert_eq!(data.requests.len(), 2);
-            assert_eq!(data.requests[0].1, 1);
-        }
-        _ => {}
+    if let PacketType::RequestMultipleObjects(data) = Packet::from_bytes(&created_packet.to_bytes()).unwrap().body {
+        assert_eq!(data.agent_id, Uuid::nil());
+        assert_eq!(data.session_id, Uuid::nil());
+        assert_eq!(data.requests.len(), 2);
+        assert_eq!(data.requests[0].1, 1);
     }
 }

@@ -19,8 +19,6 @@ bitreader = "0.3.11"
 bytemuck = {workspace=true, features = ["derive"] }
 byteorder.workspace = true 
 glam = {workspace = true, features=["serde"]}
-gltf.workspace = true 
-gltf-json.workspace = true 
 log.workspace = true 
 once_cell.workspace = true 
 uuid.workspace = true 

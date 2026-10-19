@@ -7,7 +7,7 @@ use crate::packet::{
     packet_types::PacketType,
 };
 use crate::parse;
-use crate::udp::object::util::ObjectFlag;
+use crate::utils::prim_flags::PrimFlags;
 use std::io::Cursor;
 
 impl Packet {
@@ -47,7 +47,7 @@ pub struct CachedObjectData {
     /// crc to check if there has been an update to the object
     pub crc: u32,
     /// object flags
-    pub flags: Vec<ObjectFlag>,
+    pub flags: Option<Vec<PrimFlags>>,
 }
 
 impl PacketData for ObjectUpdateCached {
@@ -63,7 +63,7 @@ impl PacketData for ObjectUpdateCached {
         for _ in 0..data_len {
             let id = parse!(cursor.read_u32::<LittleEndian>())?;
             let crc = parse!(cursor.read_u32::<LittleEndian>())?;
-            let flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
+            let flags = PrimFlags::from_bits_object(parse!(cursor.read_u32::<LittleEndian>())?);
 
             objects.push(CachedObjectData { id, crc, flags });
         }

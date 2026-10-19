@@ -1,6 +1,7 @@
 use crate::errors::SceneObjectParseError;
 use crate::parse;
 use crate::utils::path::{HollowShape, PathCurve, ProfileShape};
+use crate::utils::prim_flags::PrimFlags;
 use crate::utils::texture_entry::TextureEntries;
 use crate::{
     errors::ParseError,
@@ -113,7 +114,7 @@ pub struct SceneMetadata {
     /// the time the scene was created
     pub created_at: std::time::SystemTime,
     /// TODO: unknown
-    pub flags: PrimFlags,
+    pub flags: Option<PrimFlags>,
 }
 impl Default for SceneMetadata {
     fn default() -> Self {
@@ -156,6 +157,7 @@ pub struct Shape {
     pub light: Light,
     /// Informaiton about the shape's texture
     pub texture: TextureEntries,
+    /// Information about animations for the shape's textures
     pub texture_animation: Option<TextureAnimation>,
     /// TODO: not handled yet
     pub particle_system: Vec<u8>,
@@ -913,7 +915,7 @@ impl SceneObject {
 
             ["Flags"] => {
                 if val == "None" {
-                    scene_object.metadata.flags = PrimFlags::NONE;
+                    scene_object.metadata.flags = None;
                 } else {
                     scene_object.metadata.flags = PrimFlags::from_string(&val);
                 }
@@ -1058,77 +1060,6 @@ impl SceneObject {
         }
 
         Ok(())
-    }
-}
-
-use bitflags::bitflags;
-
-bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-    pub struct PrimFlags: u32 {
-        const NONE                  = 0;
-        const PHANTOM               = 1 << 0;
-        const PHYSICS               = 1 << 1;
-        const TEMPORARY_ON_REZ      = 1 << 2;
-        const SCRIPTED              = 1 << 3;
-        const TOUCH                 = 1 << 4;
-        const MONEY                 = 1 << 5;
-        const ALLOW_INVENTORY_DROP  = 1 << 6;
-        const INVENTORY_EMPTY       = 1 << 7;
-        const OBJECT_YOU_OWNER      = 1 << 8;
-        const OBJECT_YOU_OFFICER    = 1 << 9;
-        const OBJECT_OWNER_MODIFY   = 1 << 10;
-        const OBJECT_GROUP_OWNED    = 1 << 11;
-        const OBJECT_ANY_OWNER      = 1 << 12;
-        const OBJECT_TRANSFER       = 1 << 13;
-        const OBJECT_COPY           = 1 << 14;
-        const OBJECT_MODIFY         = 1 << 15;
-        const OBJECT_MOVE           = 1 << 16;
-        const CAMERA_DECOUPLED      = 1 << 17;
-        const ANIM_SOURCE           = 1 << 18;
-        const DIE_AT_EDGE           = 1 << 19;
-        const RETURN_AT_EDGE        = 1 << 20;
-        const SANDBOX               = 1 << 21;
-        const CREATE_SELECTED       = 1 << 22;
-    }
-}
-
-impl PrimFlags {
-    pub fn from_bytes(value: u32) -> Self {
-        Self::from_bits_retain(value)
-    }
-
-    pub fn has_flag(&self, flag: Self) -> bool {
-        self.contains(flag)
-    }
-    pub fn from_string(value: &str) -> Self {
-        match value {
-            "None" => Self::empty(),
-            "Phantom" => Self::PHANTOM,
-            "Physics" => Self::PHYSICS,
-            "TemporaryOnRez" => Self::TEMPORARY_ON_REZ,
-            "Scripted" => Self::SCRIPTED,
-            "Touch" => Self::TOUCH,
-            "Money" => Self::MONEY,
-            "AllowInventoryDrop" => Self::ALLOW_INVENTORY_DROP,
-            "InventoryEmpty" => Self::INVENTORY_EMPTY,
-            "ObjectYouOwner" => Self::OBJECT_YOU_OWNER,
-            "ObjectYouOfficer" => Self::OBJECT_YOU_OFFICER,
-            "ObjectOwnerModify" => Self::OBJECT_OWNER_MODIFY,
-            "ObjectGroupOwned" => Self::OBJECT_GROUP_OWNED,
-            "ObjectAnyOwner" => Self::OBJECT_ANY_OWNER,
-            "ObjectTransfer" => Self::OBJECT_TRANSFER,
-            "ObjectCopy" => Self::OBJECT_COPY,
-            "ObjectModify" => Self::OBJECT_MODIFY,
-            "ObjectMove" => Self::OBJECT_MOVE,
-            "CameraDecoupled" => Self::CAMERA_DECOUPLED,
-            "AnimSource" => Self::ANIM_SOURCE,
-            "DieAtEdge" => Self::DIE_AT_EDGE,
-            "ReturnAtEdge" => Self::RETURN_AT_EDGE,
-            "Sandbox" => Self::SANDBOX,
-            "CreateSelected" => Self::CREATE_SELECTED,
-            _ => Self::empty(),
-        }
     }
 }
 

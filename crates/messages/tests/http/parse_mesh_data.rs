@@ -1,7 +1,6 @@
 use std::{fs::File, io::Read};
 
 use metaverse_messages::http::mesh::Mesh;
-use serde_llsd_benthic::binary_from_bytes;
 
 #[test]
 fn handle_mesh_data() {

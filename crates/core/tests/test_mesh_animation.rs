@@ -316,7 +316,7 @@ fn setup_animation_graph(
 ) {
     let mut graph = AnimationGraph::new();
 
-    let animation_path = format!("{}", animation_name.0);
+    let animation_path = animation_name.0.to_string();
 
     let animations = vec![graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(animation_path)),

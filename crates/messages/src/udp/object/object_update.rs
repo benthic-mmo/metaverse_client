@@ -14,10 +14,10 @@ use crate::{
         packet_types::PacketType,
     },
     parse,
-    udp::object::util::{ObjectFlag, ObjectUpdateData},
+    udp::object::util::ObjectUpdateData,
     utils::{
-        material::MaterialType, object_types::ObjectType, path::PrimPath, sound::AttachedSound,
-        texture_entry::TextureEntries,
+        material::MaterialType, object_types::ObjectType, path::PrimPath, prim_flags::PrimFlags,
+        sound::AttachedSound, texture_entry::TextureEntries,
     },
 };
 use std::io::{Cursor, Read};
@@ -52,7 +52,7 @@ pub struct ObjectUpdate {
     pub state: u8,
     /// Full UUID of the object
     pub full_id: Uuid,
-    /// Copied directly from each message and not checked. Used for cache.
+    /// Crc used for cache invalidation
     pub crc: u32,
     /// Type of object reperesented by the task. Includes avatars, grass, trees, etc
     pub pcode: ObjectType,
@@ -68,15 +68,15 @@ pub struct ObjectUpdate {
     /// attachments. 0 if not present.  
     pub parent_id: Option<u32>,
     /// various pieces of information about object. Stores things like empty inventory, scripted,
-    /// etc
-    pub update_flags: Vec<ObjectFlag>,
-    /// Strores imformation about primitive geometry
+    pub update_flags: Option<Vec<PrimFlags>>,
+    /// Strores path information for generating primitive geometry
     pub primitive_geometry: PrimPath,
     /// Full property list for each object's face, including textures and colors.
     pub texture_entry: Option<TextureEntries>,
-    /// Properties to set up texture animations for each face
+    /// Properties for texture animation
     pub texture_animation: Option<TextureAnimation>,
-    /// Any name values specific to the object. Mostly used for avatar names.
+    /// Name values associate with the object, such as avatar name.
+    /// Also can be used to store certain types of attachment data.
     pub name_value: Option<String>,
     /// Generic appended data
     pub data: Vec<u8>,
@@ -182,7 +182,7 @@ impl PacketData for ObjectUpdate {
 
         let parent_id = parse!(cursor.read_u32::<LittleEndian>())?;
         let parent_id = (parent_id != 0).then_some(parent_id);
-        let update_flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
+        let update_flags = PrimFlags::from_bits_object(parse!(cursor.read_u32::<LittleEndian>())?);
 
         // this section is always 23 bytes
         let mut geometry_bytes = [0u8; 23];
@@ -339,6 +339,7 @@ pub struct MotionData {
     pub angular_velocity: Vec3,
 }
 impl MotionData {
+    /// Converts a vector of bytes to a MotionData object
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
         match bytes.len() {
             76 => Self::from_bytes_foot_collision_high(bytes),

@@ -65,7 +65,7 @@ pub fn handle_mesh_update(
     for renderable in ev_mesh_update.read() {
         received += 1;
         let object = &renderable.value;
-        let object_id = object.id.unwrap_or(Uuid::nil());
+        let object_id = object.full_id.unwrap_or(Uuid::nil());
 
         if let Some(&existing) = scene_id_map.spawned.get(&object_id) {
             commands.entity(existing).insert(Transform {
@@ -186,7 +186,7 @@ fn drain_load_queue(
 }
 
 // used to debug throughput issues
-fn io_throughput(
+fn _io_throughput(
     asset_server: Res<AssetServer>,
     scene_id_map: Res<SceneIDMap>,
     diagnostics: Res<DiagnosticsStore>,

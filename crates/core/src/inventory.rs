@@ -1,17 +1,21 @@
 use super::session::Mailbox;
-use crate::session::{RetryMessage, SendUIMessage};
+use crate::session::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::messages::ui::ui_messages::UIMessage;
 use log::error;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;
-use uuid::Uuid;
 
+/// Message to retrieve the current outfit from the sqlite cache.
+///
+/// # Cause
+/// - sent by session.rs immediately after a successful login
+///
+/// # Effect
+/// - [`AvatarInit`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct FetchCurrentOutfit {
-    pub retry_count: u32,
-}
+pub struct FetchCurrentOutfit {}
 impl Handler<FetchCurrentOutfit> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: FetchCurrentOutfit, ctx: &mut Self::Context) -> Self::Result {
@@ -94,6 +98,10 @@ impl Handler<InventoryInit> for Mailbox {
     }
 }
 
+/// Message to inform the session that the avatar's current outfit folder has been fully downloaded.
+///
+/// # Cause
+/// - [`FetchCurrentOutfit`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct AvatarInit;
@@ -124,11 +132,7 @@ impl Handler<AvatarInit> for Mailbox {
 /// - Dispatches a [`InventoryInit`] message after initialization
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct RefreshInventoryEvent {
-    /// The agent ID for the inventory refresh. Determines which endpoint to use.
-    pub agent_id: Uuid,
-    pub retry_count: u32,
-}
+pub struct RefreshInventoryEvent {}
 #[cfg(feature = "inventory")]
 impl Handler<RefreshInventoryEvent> for Mailbox {
     type Result = ();

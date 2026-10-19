@@ -1,8 +1,6 @@
-use std::{any::Any, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
-use metaverse_messages::{
-    packet::packet_protocol::Packet, udp::core::generic_streaming_message::GenericStreamingMessage,
-};
+use metaverse_messages::packet::packet_protocol::Packet;
 
 #[test]
 fn generic_streaming_message_1() {

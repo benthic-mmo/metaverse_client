@@ -404,5 +404,5 @@ pub mod request_multiple_objects;
 /// ## Reflection Probe Param
 /// TODO:UNIMPLEMENTED
 pub mod object_update;
-
+/// Utilities for object update packets
 pub mod util;

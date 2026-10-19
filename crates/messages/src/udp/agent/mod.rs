@@ -1,3 +1,5 @@
+/// TODO: UNIMPLEMENTED
+pub mod agent_data_update;
 /// # AgentUpdate
 /// <https://wiki.secondlife.com/wiki/AgentUpdate>
 ///
@@ -28,7 +30,29 @@
 /// | ControlFlags  |4 bytes  | [u32]         | Events such as movement and standing up |
 /// | Flags         |1 bytes  | [u8]          | Flag for hiding group tile in nametag |
 pub mod agent_update;
-
+/// TODO: UNIMPLEMENTED
+pub mod avatar_animation;
+/// # Avatar Appearance
+/// <https://wiki.secondlife.com/wiki/AvatarAppearance>
+///
+/// This packet is used to update the appearane of a user's avatar.
+/// Contains textures and VisualParams for the avatar
+///
+/// ## Header
+/// | Avatar Appearance  |       |                |                   |                     |
+/// |--------------|-------------|----------------|-------------------|---------------------|
+/// | Packet Header| id:158      | reliable: false| zerocoded: false  | frequency: Low      |
+///
+/// ## Packet Structure
+/// |Avatar Appearance ||||
+/// |--------------|----------|--------------------|----------------|
+/// | id           | 16 bytes | [Uuid](uuid::Uuid) | ID of the user |  
+/// | is_trial     | 1 byte   | [bool]             | Is the user a trial user|
+/// | texture_len  | 2 bytes  | [u16]              | length of the texture data block |
+/// | texture_data | variable bytes |              | Texture data for each face |
+/// | v_param_len  | 1 byte   | [u8]               | length of visual param block |
+/// | visual_param_data | variable byes |          | Bytes containing the visual param data |
+pub mod avatar_appearance;
 /// # CoarseLocationUpdate
 /// <https://wiki.secondlife.com/wiki/CoarseLocationUpdate>
 ///
@@ -53,29 +77,3 @@ pub mod agent_update;
 /// | You                    | 2 bytes          | [i16]         | Index of you in the list|
 /// | Prey                   | 2 bytes          | [i16]         | Index of who you are following in the list|
 pub mod coarse_location_update;
-
-/// TODO: UNIMPLEMENTED
-pub mod avatar_animation;
-/// # Avatar Appearance
-/// <https://wiki.secondlife.com/wiki/AvatarAppearance>
-///
-/// This packet is used to update the appearane of a user's avatar.
-/// Contains textures and VisualParams for the avatar
-///
-/// ## Header
-/// | Avatar Appearance  |       |                |                   |                     |
-/// |--------------|-------------|----------------|-------------------|---------------------|
-/// | Packet Header| id:158      | reliable: false| zerocoded: false  | frequency: Low      |
-///
-/// ## Packet Structure
-/// |Avatar Appearance ||||
-/// |--------------|----------|--------------------|----------------|
-/// | id           | 16 bytes | [Uuid](uuid::Uuid) | ID of the user |  
-/// | is_trial     | 1 byte   | [bool]             | Is the user a trial user|
-/// | texture_len  | 2 bytes  | [u16]              | length of the texture data block |
-/// | texture_data | variable bytes |              | Texture data for each face |
-/// | v_param_len  | 1 byte   | [u8]               | length of visual param block |
-/// | visual_param_data | variable byes |          | Bytes containing the visual param data |
-pub mod avatar_appearance;
-
-pub mod agent_data_update;

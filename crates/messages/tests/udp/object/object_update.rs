@@ -147,8 +147,8 @@ pub fn test_object_update() {
         }
         _ => assert!(false),
     }
-    let object_update = ObjectUpdate::from_bytes(&ATTACH_ITEM).unwrap();
-    let object_update = ObjectUpdate::from_bytes(&NON_ATTACH).unwrap();
+    let _object_update = ObjectUpdate::from_bytes(&ATTACH_ITEM).unwrap();
+    let _object_update = ObjectUpdate::from_bytes(&NON_ATTACH).unwrap();
 }
 
 #[test]

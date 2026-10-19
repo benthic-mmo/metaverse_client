@@ -9,6 +9,8 @@ pub mod material;
 pub mod object_types;
 /// Path data for defining how objects can be pulled, squashed and stretched.
 pub mod path;
+/// Information for handling primitive flags
+pub mod prim_flags;
 /// global values used for describing region capabilities
 pub mod region_flags;
 /// Sound data for playing sounds in-world

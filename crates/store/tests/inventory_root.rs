@@ -8,6 +8,7 @@ use sqlx::Row;
 use std::{fs::File, io::Read};
 use tempfile::TempDir;
 use tokio::task::LocalSet;
+use uuid::Uuid;
 
 fn folder_request() -> FolderRequest {
     FolderRequest {
@@ -18,6 +19,8 @@ fn folder_request() -> FolderRequest {
         sort_order: 0,
     }
 }
+
+const DEFAULT_OUTFIT_ID: &str = "0a1e5fc2-4b8f-48eb-bf11-fea1dcdb46a4";
 
 async fn create_test_inventory() -> (TempDir, Inventory) {
     let temp_dir = TempDir::new().unwrap();
@@ -83,7 +86,9 @@ async fn test_refresh_inventory_categories() {
 
             println!("refresh inventory result: {:?}", result);
 
-            let outfit = inventory.get_current_outfit().await;
+            let outfit = inventory
+                .get_current_outfit(Uuid::parse_str(DEFAULT_OUTFIT_ID).unwrap())
+                .await;
 
             println!("outfit: {:?}", outfit);
 
@@ -101,6 +106,8 @@ async fn print_tables(pool: &sqlx::SqlitePool) {
 
     println!("____ITEMS _________________");
     print_table(pool, "items").await.unwrap();
+
+    print_table(pool, "sale_info").await.unwrap();
 }
 
 async fn print_table(pool: &sqlx::SqlitePool, table: &str) -> Result<(), InventoryError> {

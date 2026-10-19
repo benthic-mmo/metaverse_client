@@ -12,10 +12,11 @@ use crate::packet::{
 };
 use crate::parse;
 use crate::udp::object::object_update::ExtraParams;
-use crate::udp::object::util::{ObjectFlag, ObjectUpdateData};
+use crate::udp::object::util::ObjectUpdateData;
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
 use crate::utils::path::PrimPath;
+use crate::utils::prim_flags::PrimFlags;
 use crate::utils::sound::AttachedSound;
 use crate::utils::texture_entry::TextureEntries;
 
@@ -109,7 +110,7 @@ pub struct ObjectUpdateCompressed {
 pub struct ObjectDataCompressed {
     /// The variable flags for decoding the packet. These flags determine which fields are present
     /// and how many bytes will ultimately be read
-    pub update_flags: Vec<ObjectFlag>,
+    pub update_flags: Option<Vec<PrimFlags>>,
     /// full Id of the object
     pub full_id: Uuid,
     /// local ID of the object within the scene
@@ -216,7 +217,8 @@ impl PacketData for ObjectUpdateCompressed {
         let mut object_data = Vec::new();
 
         for _ in 0..object_data_length {
-            let update_flags = ObjectFlag::from_bytes(parse!(cursor.read_u32::<LittleEndian>())?);
+            let update_flags =
+                PrimFlags::from_bits_object(parse!(cursor.read_u32::<LittleEndian>())?);
 
             let data_size = parse!(cursor.read_u16::<LittleEndian>())? as usize;
 

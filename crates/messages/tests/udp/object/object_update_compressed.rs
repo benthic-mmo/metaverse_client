@@ -112,7 +112,7 @@ fn test_object_update_compressed_2() {
     let mut file = File::open("tests/data/object_update_compressed.bin").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
-    let packet = match Packet::from_bytes(&buffer) {
+    let _packet = match Packet::from_bytes(&buffer) {
         Ok(p) => p,
         Err(e) => {
             panic!("Failed to create packet: {}", e)
@@ -125,7 +125,7 @@ fn test_object_update_compressed_3() {
     let mut file = File::open("tests/data/object_update_compressed_2.bin").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
-    let packet = match Packet::from_bytes(&buffer) {
+    let _packet = match Packet::from_bytes(&buffer) {
         Ok(p) => p,
         Err(e) => {
             panic!("Failed to create packet: {}", e)
@@ -138,7 +138,7 @@ fn test_object_update_compressed_4() {
     let mut file = File::open("tests/data/object_update_compressed_3.bin").unwrap();
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
-    let packet = match Packet::from_bytes(&buffer) {
+    let _packet = match Packet::from_bytes(&buffer) {
         Ok(p) => p,
         Err(e) => {
             panic!("Failed to create packet: {}", e)

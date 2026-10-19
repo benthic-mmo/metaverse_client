@@ -11,7 +11,6 @@ use std::{
 
 use glam::{U16Vec2, Vec2};
 use serde::Serialize;
-use tokio::sync::{Mutex, watch};
 use uuid::Uuid;
 
 use crate::errors::SessionError;
@@ -188,6 +187,11 @@ pub fn create_animation_dir(root: &Path) -> Result<PathBuf, SessionError> {
 /// Create the global animations directory.
 pub fn create_textures_dir(root: &Path) -> Result<PathBuf, SessionError> {
     create_sub_share_dir(root, "textures")
+}
+
+/// Create the global materials directory.
+pub fn create_materials_dir(root: &Path) -> Result<PathBuf, SessionError> {
+    create_sub_share_dir(root, "materials")
 }
 
 /// Create the directory containing shared filtered animations.

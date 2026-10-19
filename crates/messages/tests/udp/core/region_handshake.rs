@@ -143,10 +143,7 @@ const TEST_PACKET: [u8; 4095] = [
 
 #[test]
 fn test_region_handshake() {
-    match Packet::from_bytes(&TEST_PACKET).unwrap().body {
-        PacketType::RegionHandshake(data) => {
-            println!("{:?}", data);
-        }
-        _ => {}
+    if let PacketType::RegionHandshake(data) = Packet::from_bytes(&TEST_PACKET).unwrap().body {
+        println!("{:?}", data);
     };
 }

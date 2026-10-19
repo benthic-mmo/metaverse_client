@@ -670,7 +670,7 @@ fn parse_binary<'a>(
     }
 }
 
-fn get_slice<'a>(data: &'a [u8], offset: usize, size: usize) -> Result<&'a [u8], ParseError> {
+fn get_slice(data: &[u8], offset: usize, size: usize) -> Result<&[u8], ParseError> {
     let end = offset
         .checked_add(size)
         .ok_or(ParseError::invalid_field("slice range overflow"))?;
