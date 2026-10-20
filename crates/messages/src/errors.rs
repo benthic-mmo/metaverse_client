@@ -1,5 +1,5 @@
 use crate::packet::header::PacketFrequency;
-use benthic_protocol::messages::errors::ParseError as ProtocolParseError;
+use benthic_protocol::errors::ProtocolParseError;
 use serde_llsd_benthic::LLSDValue;
 use std::string::FromUtf8Error;
 use thiserror::Error;

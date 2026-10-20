@@ -3,11 +3,11 @@ use crate::session::PingInfo;
 use crate::transport::ui_event_listener::listen_for_ui_messages;
 use actix::Actor;
 use actix_rt::time;
-use benthic_protocol::errors::SessionError;
-use benthic_protocol::messages::ui::errors::MailboxSessionError;
-use benthic_protocol::session::DownloadState;
-use benthic_protocol::session::ServerState;
-use benthic_protocol::session::initialize_share_dir;
+use benthic_protocol::errors::ProtocolSessionError;
+use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
+use benthic_protocol::session::session::initialize_share_dir;
+use benthic_protocol::session::types::DownloadState;
+use benthic_protocol::session::types::ServerState;
 use portpicker::pick_unused_port;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -27,7 +27,7 @@ use uuid::Uuid;
 pub async fn initialize(
     ui_to_server_socket: u16,
     server_to_ui_socket: u16,
-) -> Result<JoinHandle<()>, SessionError> {
+) -> Result<JoinHandle<()>, ProtocolSessionError> {
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
 
@@ -63,7 +63,7 @@ pub async fn initialize(
     // wait until the mailbox starts
     notify.notified().await;
     if *state.lock().unwrap() != ServerState::Running {
-        return Err(SessionError::MailboxSession(MailboxSessionError {
+        return Err(ProtocolSessionError::MailboxSession(MailboxSessionError {
             message: ("Mailbox failed to enter state Running.".to_string()),
         }));
     };

@@ -1,8 +1,12 @@
 use crate::errors::DownloadError;
 use crate::utils::create_mesh_render_object;
 use benthic_default_asset_converter::default_texture_path;
-use benthic_protocol::render_data::{AttachmentData, RenderObject};
-use benthic_protocol::session::{CacheDir, cache_enabled, create_sub_agent_dir, write_json};
+use benthic_protocol::avatar::types::AttachmentData;
+use benthic_protocol::objects::types::RenderObject;
+use benthic_protocol::session::session::CacheDir;
+use benthic_protocol::session::session::cache_enabled;
+use benthic_protocol::session::session::create_sub_agent_dir;
+use benthic_protocol::session::session::write_json;
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
 use log::info;

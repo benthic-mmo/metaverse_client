@@ -5,7 +5,7 @@ use crate::packet::{
     packet_types::PacketType,
 };
 use crate::parse;
-use benthic_protocol::messages::utils::agent_update_types::{
+use benthic_protocol::messages::agent::agent_update_types::{
     ControlFlags, Flags, QuatBytes, State,
 };
 use glam::{Quat, Vec3};

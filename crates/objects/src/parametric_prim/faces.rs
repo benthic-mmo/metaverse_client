@@ -4,7 +4,7 @@ use super::{
 };
 use crate::errors::ObjectUpdateError;
 use benthic_default_asset_converter::default_texture_path;
-use benthic_protocol::render_data::{
+use benthic_protocol::objects::types::{
     BlinnPhongMaterial, MaterialModel, RenderFace, TextureAnimation, TextureTransform,
 };
 use glam::Vec3;

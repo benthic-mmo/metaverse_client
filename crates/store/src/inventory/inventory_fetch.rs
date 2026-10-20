@@ -1,22 +1,30 @@
-use std::{path::PathBuf, str::FromStr};
-
 use crate::{errors::InventoryError, initialize_sqlite::Inventory};
-use benthic_protocol::messages::ui::populate_inventory::{
+use benthic_protocol::messages::inventory::populate_inventory::{
     FolderContents, PopulateInventory, UiFolder, UiItem,
 };
 use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::{FromRow, Row, sqlite::SqliteRow};
+use std::{path::PathBuf, str::FromStr};
 use uuid::Uuid;
 
+/// Represents an inventory folder for parsing and storing inventory data
 #[derive(Debug, Clone)]
 pub struct InventoryFolder {
+    /// The ID of the folder
     pub id: Uuid,
+    /// The owner ID of the folder
     pub owner_id: Uuid,
+    /// The agent ID the folder belongs to
     pub agent_id: Uuid,
+    /// The version of the folder, used for invalidating cache
     pub version: i32,
+    /// Number of sub-folders inside the folder
     pub descendent_count: i32,
+    /// When the folder was created
     pub created_at: chrono::NaiveDateTime,
+    /// Bool to determine if the folder is fully downloaded
     pub fully_downloaded: bool,
+    /// UUID of the parent folder, if it has one
     pub parent: Option<Uuid>,
 }
 impl<'r> FromRow<'r, SqliteRow> for InventoryFolder {
@@ -42,12 +50,21 @@ impl<'r> FromRow<'r, SqliteRow> for InventoryFolder {
     }
 }
 
+/// Inventory item struct.
+/// this contains only the metadata of an inventory item. Real values need to be retrieved from the
+/// server.
 #[derive(Debug, Clone)]
 pub struct InventoryItem {
+    /// Name of the item
     pub name: String,
+    /// unique ID of the instance of the item
     pub item_id: Uuid,
+    /// asset ID for downloading full data from the server
     pub asset_id: Uuid,
+    /// type of the item
     pub item_type: ObjectType,
+    /// Thumbnail for the item for displaying in inventory
+    /// TODO: this is unused as of right now but should be implemented
     pub thumbnail: PathBuf,
 }
 impl<'r> FromRow<'r, SqliteRow> for InventoryItem {
@@ -66,6 +83,15 @@ impl<'r> FromRow<'r, SqliteRow> for InventoryItem {
 }
 
 impl Inventory {
+    /// Handles fetching the full inventory from the server.
+    ///
+    /// This is used to generate UI messages to populate the inventory in the UI
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure.
+    ///
+    /// # Side Effects
+    /// [Storage: Filesystem]
     pub async fn fetch_inventory(&self) -> Result<Vec<PopulateInventory>, InventoryError> {
         let folders = sqlx::query_as::<_, InventoryFolder>(
             r#"

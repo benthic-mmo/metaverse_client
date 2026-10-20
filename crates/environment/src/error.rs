@@ -1,5 +1,5 @@
 use awc::error::{PayloadError, SendRequestError};
-use benthic_protocol::errors::SessionError;
+use benthic_protocol::errors::ProtocolSessionError;
 use bitreader::BitReaderError;
 use metaverse_messages::errors::ParseError;
 
@@ -12,7 +12,7 @@ pub enum LayerError {
 
     /// An error occurred while accessing or communicating with the session.
     #[error("SessionError: {0}")]
-    SessionError(#[from] SessionError),
+    SessionError(#[from] ProtocolSessionError),
 }
 
 /// Errors that can occur while decoding a terrain patch.

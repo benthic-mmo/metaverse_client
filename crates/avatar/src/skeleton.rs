@@ -1,6 +1,6 @@
 use crate::{avatar::Avatar, errors::AvatarError};
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
-use benthic_protocol::skeleton::{Joint, Skeleton, SkinJoint, Transform};
+use benthic_protocol::avatar::skeleton::{Joint, Skeleton, SkinJoint, Transform};
 use glam::{Mat4, Vec4};
 use indexmap::IndexMap;
 use metaverse_messages::http::mesh::Skin;

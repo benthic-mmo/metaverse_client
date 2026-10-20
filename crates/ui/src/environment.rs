@@ -1,6 +1,6 @@
 use crate::core_plugin::LandUpdateEvent;
 use crate::textures::environment::HeightMaterial;
-use benthic_protocol::messages::ui::land_update::LandData;
+use benthic_protocol::messages::world::land_update::LandData;
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use std::fs;

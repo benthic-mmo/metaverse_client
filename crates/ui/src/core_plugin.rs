@@ -1,17 +1,17 @@
-use benthic_protocol::messages::ui::avatar_update::AvatarUpdate;
-use benthic_protocol::messages::ui::camera_position::CameraPosition;
-use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
-use benthic_protocol::messages::ui::coarse_location_update::CoarseLocationUpdate;
-use benthic_protocol::messages::ui::errors::SessionError;
-use benthic_protocol::messages::ui::land_update::LandUpdate;
-use benthic_protocol::messages::ui::login_error::LoginError;
-use benthic_protocol::messages::ui::login_response::LoginResponse;
-use benthic_protocol::messages::ui::mesh_update::MeshUpdate;
-use benthic_protocol::messages::ui::play_animation::PlayAnimation;
-use benthic_protocol::messages::ui::populate_inventory::PopulateInventory;
-use benthic_protocol::messages::ui::skybox_update::SkyboxUpdate;
-use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::messages::ui::water_update::WaterUpdate;
+use benthic_protocol::messages::agent::avatar_update::AvatarUpdate;
+use benthic_protocol::messages::agent::coarse_location_update::CoarseLocationUpdate;
+use benthic_protocol::messages::agent::play_animation::PlayAnimation;
+use benthic_protocol::messages::camera::camera_position::CameraPosition;
+use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
+use benthic_protocol::messages::inventory::populate_inventory::PopulateInventory;
+use benthic_protocol::messages::login::login_error::LoginError;
+use benthic_protocol::messages::login::login_response::LoginResponse;
+use benthic_protocol::messages::simulator::error_message::{MailboxSessionError, UiErrorMessage};
+use benthic_protocol::messages::ui_protocol::UIMessage;
+use benthic_protocol::messages::world::land_update::LandUpdate;
+use benthic_protocol::messages::world::mesh_update::MeshUpdate;
+use benthic_protocol::messages::world::skybox_update::SkyboxUpdate;
+use benthic_protocol::messages::world::water_update::WaterUpdate;
 use bevy::app::App;
 use bevy::prelude::*;
 
@@ -168,31 +168,31 @@ fn handle_queue(
                 ev_inventory_update.write(InventoryPopulateEvent { value: data });
             }
             UIMessage::Error(error) => match error {
-                SessionError::Login(e) => {
+                UiErrorMessage::Login(e) => {
                     ev_loginresponse.write(LoginResponseEvent {
                         value: Err(e.clone()),
                     });
                     error!("{:?}", e)
                 }
-                SessionError::MailboxSession(e) => {
+                UiErrorMessage::MailboxSession(e) => {
                     info!("MailboxError {:?}", e)
                 }
-                SessionError::AckError(e) => {
+                UiErrorMessage::AckError(e) => {
                     info!("AckError {:?}", e)
                 }
-                SessionError::CircuitCode(e) => {
+                UiErrorMessage::CircuitCode(e) => {
                     info!("CircuitcodeError {:?}", e)
                 }
-                SessionError::CompleteAgentMovement(e) => {
+                UiErrorMessage::CompleteAgentMovement(e) => {
                     info!("CompleteAgentMovmentError {:?}", e)
                 }
-                SessionError::Capability(e) => {
+                UiErrorMessage::Capability(e) => {
                     info!("CapabilityError {:?}", e)
                 }
-                SessionError::IOError(e) => {
+                UiErrorMessage::IOError(e) => {
                     info!("IOError {:?}", e)
                 }
-                SessionError::FeatureError(e) => {
+                UiErrorMessage::FeatureError(e) => {
                     info!("FeatureError {:?}", e)
                 }
             },

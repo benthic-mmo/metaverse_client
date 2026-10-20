@@ -1,4 +1,4 @@
-use benthic_protocol::render_data::TextureAnimation;
+use benthic_protocol::objects::types::TextureAnimation;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3};
 use rgb::Rgba;

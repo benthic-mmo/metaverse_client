@@ -1,10 +1,3 @@
-use benthic_protocol::render_data::TextureAnimation;
-use byteorder::{LittleEndian, ReadBytesExt};
-use glam::{Quat, Vec3, Vec4};
-use rgb::Rgba;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::{
     errors::ParseError,
     http::scene::SculptType,
@@ -20,7 +13,13 @@ use crate::{
         sound::AttachedSound, texture_entry::TextureEntries,
     },
 };
+use benthic_protocol::objects::types::TextureAnimation;
+use byteorder::{LittleEndian, ReadBytesExt};
+use glam::{Quat, Vec3, Vec4};
+use rgb::Rgba;
+use serde::{Deserialize, Serialize};
 use std::io::{Cursor, Read};
+use uuid::Uuid;
 
 impl Packet {
     /// create a new object update packet

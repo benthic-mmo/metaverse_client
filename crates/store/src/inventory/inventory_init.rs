@@ -10,6 +10,21 @@ use std::time::SystemTime;
 use uuid::Uuid;
 
 impl Inventory {
+    /// Initializes and refreshes the inventory
+    ///
+    /// Fetches all folders and item metadata for the user's inventory
+    /// This is called immediately after login, and can take a long time to complete.
+    ///
+    /// # Parameters
+    /// - `folder_request`: The folder request object. Contains fields to fetch items, folders, and
+    ///   sets the sort order.
+    /// - `server_endpoint`: The server capability URL for the inventory
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn refresh(
         &self,
         folder_request: FolderRequest,
@@ -111,6 +126,22 @@ impl Inventory {
         refresh_recursive(&self.db, folder_request, &server_endpoint, &mut visited).await
     }
 
+    /// Handle predownloading only the current outfit
+    ///
+    /// Since the full inventory refresh can take a long time, login triggers a download request
+    /// only for the current outfit folder. The UUID is received from the inventory skeleton from the
+    /// login response.
+    ///
+    /// # Parameters
+    /// - `current_outfit_id`: UUID of the current outfit from the inventory skeleton in the login response
+    /// - `owner_id`: UUID of the owner of the current outfit folder
+    /// - `server_endpoint`: capability endpoint for the server endpoint
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn predownload_current_outfit(
         &self,
         current_outfit_id: Uuid,

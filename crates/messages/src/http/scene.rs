@@ -13,8 +13,8 @@ use crate::{
         sound::AttachedSound,
     },
 };
-use benthic_protocol::objects::AttachPoint;
-use benthic_protocol::render_data::TextureAnimation;
+use benthic_protocol::avatar::types::AttachPoint;
+use benthic_protocol::objects::types::TextureAnimation;
 use glam::{Quat, Vec3, Vec4, bool};
 use quick_xml::{
     Reader,

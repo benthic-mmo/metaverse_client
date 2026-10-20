@@ -1,13 +1,3 @@
-use std::path::PathBuf;
-
-use benthic_protocol::{
-    messages::ui::land_update::LandData,
-    session::{CacheDir, Session, write_json},
-};
-use bitreader::{BitReader, BitReaderError};
-use log::warn;
-use metaverse_messages::udp::environment::layer_data::{LayerData, LayerType};
-
 use crate::{
     cloud::Cloud,
     constants::{build_copy_matrix16, build_dequantize_table16, idct_column16, idct_line16},
@@ -16,7 +6,18 @@ use crate::{
     water::Water,
     wind::Wind,
 };
+use benthic_protocol::{
+    messages::world::land_update::LandData,
+    session::{
+        session::{CacheDir, write_json},
+        types::Session,
+    },
+};
+use bitreader::{BitReader, BitReaderError};
 use glam::{U16Vec2, Vec3, u16, u32, usize};
+use log::warn;
+use metaverse_messages::udp::environment::layer_data::{LayerData, LayerType};
+use std::path::PathBuf;
 
 /// this is the copy matrix, used for decoding the encoded patch data.
 static COPY_MATRIX_16: [usize; 256] = build_copy_matrix16();

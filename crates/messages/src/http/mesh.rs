@@ -1,5 +1,5 @@
 use crate::{errors::ParseError, parse};
-use benthic_protocol::{render_data::JointWeight, skeleton::SkinJoint};
+use benthic_protocol::avatar::{skeleton::SkinJoint, types::JointWeight};
 use flate2::bufread::ZlibDecoder;
 use glam::{Mat4, Vec3};
 use serde::{Deserialize, Serialize};

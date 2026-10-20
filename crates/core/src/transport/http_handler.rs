@@ -1,5 +1,5 @@
-use benthic_protocol::messages::ui::login_error::{LoginError, Reason};
-use benthic_protocol::messages::ui::login_event::Login;
+use benthic_protocol::messages::login::login_error::{LoginError, Reason};
+use benthic_protocol::messages::login::login_event::Login;
 use metaverse_messages::http::login::login_response::{LoginResponse, LoginStatus};
 use metaverse_messages::http::login::simulator_login_protocol::SimulatorLoginProtocol;
 

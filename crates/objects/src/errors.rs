@@ -1,5 +1,5 @@
 use awc::error::PayloadError;
-use benthic_protocol::errors::SessionError;
+use benthic_protocol::errors::ProtocolSessionError;
 use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
 use metaverse_store::errors::InventoryError;
@@ -19,7 +19,7 @@ pub enum MeshBuildError {
 
     /// A session operation failed
     #[error("Session Error: {0}")]
-    SessionError(#[from] SessionError),
+    SessionError(#[from] ProtocolSessionError),
 
     /// A mesh failed to parse
     #[error("Failed to parse mesh: {0}")]
@@ -76,7 +76,7 @@ pub enum DownloadError {
 
     /// A session operation failed
     #[error("Session error: {0}")]
-    SessionError(#[from] SessionError),
+    SessionError(#[from] ProtocolSessionError),
 
     /// An inventory operation failed
     #[error("Inventory error: {0}")]
@@ -179,7 +179,7 @@ pub enum ObjectUpdateError {
 
     /// A session operation failed
     #[error("Session error: {0}")]
-    SessionError(#[from] SessionError),
+    SessionError(#[from] ProtocolSessionError),
 
     /// An object of unknown type was parsed
     #[error("Unknown Object Type: {object_type}")]

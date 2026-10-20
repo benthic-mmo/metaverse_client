@@ -8,9 +8,9 @@ use crate::session::{
     AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
 };
 use actix::Addr;
-use benthic_protocol::messages::ui::chat_from_simulator::ChatFromSimulator;
-use benthic_protocol::messages::ui::ui_messages::UIMessage;
-use benthic_protocol::objects::{
+use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
+use benthic_protocol::messages::ui_protocol::UIMessage;
+use benthic_protocol::objects::objects::{
     AttachmentObjectData, ObjectInstanceInfo, ParametricPrimData, SculptObjectData,
 };
 use log::{error, warn};

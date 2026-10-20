@@ -1,16 +1,15 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use super::geometry::SculptGeometry;
 use benthic_default_asset_converter::default_texture_path;
-use benthic_protocol::{
+use benthic_protocol::objects::{
     objects::SculptObjectData,
-    render_data::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
+    types::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
 };
 use glam::Vec3;
 use metaverse_messages::{
     http::scene::SculptType, udp::object::object_update::SculptData,
     utils::texture_entry::TextureEntries,
 };
+use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 pub(super) fn finalize_sculpt_object(

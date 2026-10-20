@@ -1,7 +1,6 @@
-use benthic_protocol::default_animations::{
-    AnimationClip, DefaultAnimation, JointAnimation, Keyframe,
-};
-use benthic_protocol::skeleton::{Joint, JointName, Skeleton, SkinJoint, Transform};
+use benthic_protocol::animation::default_animations::DefaultAnimation;
+use benthic_protocol::animation::types::{AnimationClip, JointAnimation, Keyframe};
+use benthic_protocol::avatar::skeleton::{Joint, JointName, Skeleton, SkinJoint, Transform};
 use bvh_anim::ChannelType;
 use glam::Mat4;
 use glam::{Quat, Vec3};

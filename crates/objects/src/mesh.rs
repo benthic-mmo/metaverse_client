@@ -1,4 +1,4 @@
-use benthic_protocol::session::{CacheDir, create_sub_object_dir, write_json};
+use benthic_protocol::session::session::{CacheDir, create_sub_object_dir, write_json};
 use bytes::Bytes;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::mesh::Mesh;

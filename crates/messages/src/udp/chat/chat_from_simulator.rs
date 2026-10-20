@@ -7,7 +7,7 @@ use crate::{
     },
     parse,
 };
-use benthic_protocol::messages::utils::chat_types::{Audible, ChatType, SourceType};
+use benthic_protocol::messages::chat::chat_types::{Audible, ChatType, SourceType};
 use byteorder::ReadBytesExt;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};

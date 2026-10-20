@@ -1,16 +1,15 @@
+use crate::{errors::ParseError, parse};
+use base64::{Engine, engine::general_purpose};
+use benthic_protocol::objects::types::{BumpMap, ShinyLevel, TexGen};
+use bitflags::bitflags;
+use byteorder::{LittleEndian, ReadBytesExt};
+use rgb::Rgba;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     f32::consts::TAU,
     io::{Cursor, Read},
 };
-
-use crate::{errors::ParseError, parse};
-use base64::{Engine, engine::general_purpose};
-use benthic_protocol::render_data::{BumpMap, ShinyLevel, TexGen};
-use bitflags::bitflags;
-use byteorder::{LittleEndian, ReadBytesExt};
-use rgb::Rgba;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 bitflags! {
