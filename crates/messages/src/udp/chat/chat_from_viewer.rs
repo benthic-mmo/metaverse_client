@@ -7,7 +7,7 @@ use crate::{
     },
     parse,
 };
-use benthic_protocol::messages::utils::chat_types::ChatType;
+use benthic_protocol::messages::chat::chat_types::ChatType;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;

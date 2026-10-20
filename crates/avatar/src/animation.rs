@@ -1,11 +1,9 @@
 use crate::errors::AnimationError;
 use benthic_default_asset_converter::generated_animation_path;
 use benthic_protocol::{
-    default_animations::DefaultAnimation,
-    session::{
-        cache_enabled, create_agent_animation_dir, create_filtered_animation_dir,
-    },
-    skeleton::{Skeleton, SkinJoint},
+    animation::default_animations::DefaultAnimation,
+    avatar::skeleton::{Skeleton, SkinJoint},
+    session::session::{cache_enabled, create_agent_animation_dir, create_filtered_animation_dir},
 };
 use metaverse_mesh::animation::{
     generate::{
@@ -21,6 +19,22 @@ use std::{
 };
 use uuid::Uuid;
 
+/// Builds an animation from the AnimationEntry targeting this specific agent's skeleton
+///
+/// This fully converts animations coming in, filters the joints, and runs a retargeting algorithm to get
+/// the animation to play correctly on whatever skeleton configuration the avatar is using.
+///
+/// # Parameters
+/// - `animations`: Vector of [`AnimationEntry`] objects. All of the animations that need to get retargeted
+/// - `used_joints`: BTreeSet of joints used by the avatar
+/// - `out_dir`: path where aniamtion data should be stored
+/// - `agent_id`: agent that this animation is targeting
+///
+/// # Errors
+/// - Returns an [`AnimationError`] on failure
+///
+/// # Side Effects
+/// [Storage: Filesystem ]
 pub async fn build_animation(
     animations: Vec<AnimationEntry>,
     used_joints: BTreeSet<SkinJoint>,

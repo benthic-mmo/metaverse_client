@@ -1,5 +1,5 @@
 use crate::{core_plugin::InventoryPopulateEvent, plugin::ViewerState};
-use benthic_protocol::messages::ui::populate_inventory::{FolderContents, UiFolder};
+use benthic_protocol::messages::inventory::populate_inventory::{FolderContents, UiFolder};
 use bevy::app::App;
 use bevy::ecs::error::Result;
 use bevy::prelude::*;

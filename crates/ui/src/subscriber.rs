@@ -1,4 +1,4 @@
-use benthic_protocol::messages::ui::ui_messages::UIMessage;
+use benthic_protocol::messages::ui_protocol::UIMessage;
 use crossbeam_channel::Sender;
 use std::net::UdpSocket;
 

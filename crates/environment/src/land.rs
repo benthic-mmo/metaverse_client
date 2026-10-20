@@ -1,13 +1,3 @@
-use std::collections::HashMap;
-
-use benthic_protocol::render_data::RenderObject;
-use bitreader::{BitReader, BitReaderError};
-use bytemuck::cast_slice;
-use glam::U16Vec2;
-use log::warn;
-use metaverse_messages::udp::environment::layer_data::LayerData;
-use twox_hash::XxHash32;
-
 use crate::{
     error::PatchError,
     layer_handler::{
@@ -15,6 +5,14 @@ use crate::{
     },
     terrain_mesh_builder::build_terrain,
 };
+use benthic_protocol::objects::types::RenderObject;
+use bitreader::{BitReader, BitReaderError};
+use bytemuck::cast_slice;
+use glam::U16Vec2;
+use log::warn;
+use metaverse_messages::udp::environment::layer_data::LayerData;
+use std::collections::HashMap;
+use twox_hash::XxHash32;
 
 // This handles receiving and parsing LayerData packets.
 // The LayerData packet system is very poorly documented.

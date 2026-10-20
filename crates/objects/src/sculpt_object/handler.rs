@@ -4,8 +4,8 @@ use crate::{
     object_updates::{ObjectUpdateAction, RenderMeshData},
 };
 use benthic_protocol::{
-    objects::SculptObjectData,
-    session::{cache_enabled, create_sub_object_dir},
+    objects::objects::SculptObjectData,
+    session::session::{cache_enabled, create_sub_object_dir},
 };
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::{

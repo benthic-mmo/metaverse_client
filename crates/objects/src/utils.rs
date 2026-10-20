@@ -1,17 +1,19 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use crate::errors::DownloadError;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
-    render_data::{
-        AttachmentData, BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, SkinData,
-        TextureAnimation, TextureTransform,
+    avatar::{
+        skeleton::Skeleton,
+        types::{AttachmentData, SkinData},
     },
-    skeleton::Skeleton,
+    objects::types::{
+        BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureAnimation,
+        TextureTransform,
+    },
 };
 use log::warn;
 use metaverse_avatar::skeleton::create_skeleton;
 use metaverse_messages::{http::mesh::Mesh, utils::texture_entry::TextureEntries};
+use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 /// Creates a render object out of mesh data

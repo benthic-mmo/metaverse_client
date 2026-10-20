@@ -1,9 +1,9 @@
 use crate::core_plugin::ChatMessageEvent;
 use crate::errors::ChatError;
 use crate::plugin::{ChatMessage, Sockets, ViewerState, send_packet_to_core};
-use benthic_protocol::messages::ui::chat_from_viewer::ChatFromUI;
-use benthic_protocol::messages::ui::ui_messages::UIResponse;
-use benthic_protocol::messages::utils::chat_types::ChatType;
+use benthic_protocol::messages::chat::chat_from_viewer::ChatFromUI;
+use benthic_protocol::messages::chat::chat_types::ChatType;
+use benthic_protocol::messages::ui_protocol::UIResponse;
 use bevy::app::{App, Plugin, Update};
 use bevy::ecs::error::Result;
 use bevy::ecs::message::MessageReader;

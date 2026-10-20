@@ -10,6 +10,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 impl AvatarCache {
+    /// Updates avatar cache with the serde json of the avatar
+    ///
+    /// # Parameters
+    /// - `avatar`: The avatar to add to the cache
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn update(&self, avatar: Avatar) -> Result<(), InventoryError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -33,6 +40,14 @@ impl AvatarCache {
         Ok(())
     }
 
+    /// Updates avatar cache with outfit item's JSON path
+    ///
+    /// # Parameters
+    /// - `asset_id`: The UUID of the object to update
+    /// - `json_path`: The path of the JSON to pupdate
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn update_outfit_item_json_path(
         &self,
         asset_id: Uuid,
@@ -55,6 +70,12 @@ impl AvatarCache {
         Ok(())
     }
 
+    /// Retrieve all of the objects in the user avatar's current outfit
+    ///
+    /// # Parameters
+    /// - `agent_id`: The UUID of the agent to retrieve
+    /// - `inventory`: The inventory object (this also contains a db connection )
+    /// - `current_outfit_id`: The uuid of the current outfit folder in the inventory
     pub async fn current_outfit(
         &self,
         agent_id: Uuid,

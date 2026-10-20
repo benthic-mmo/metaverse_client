@@ -8,23 +8,19 @@ use crate::{
 };
 use actix::prelude::*;
 use actix_rt::time;
-use benthic_protocol::errors::SessionError;
-use benthic_protocol::messages::ui::errors::MailboxSessionError;
-use benthic_protocol::objects::RetriableData;
-#[cfg(feature = "environment")]
-use benthic_protocol::session::EnvironmentCache;
-#[cfg(feature = "inventory")]
-use benthic_protocol::session::InventoryData;
-use benthic_protocol::session::{DownloadState, RegionData, initialize_share_dir};
-use benthic_protocol::{
-    messages::ui::{
-        errors::{CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError},
-        login_event::Login,
-        login_response::LoginResponse,
-        ui_messages::{UIMessage, UIResponse},
-        water_update::WaterUpdate,
-    },
-    session::{ServerState, Session},
+use benthic_protocol::errors::ProtocolSessionError;
+use benthic_protocol::messages::login::login_event::Login;
+use benthic_protocol::messages::login::login_response::LoginResponse;
+use benthic_protocol::messages::simulator::error_message::{
+    CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
+    MailboxSessionError, UiErrorMessage,
+};
+use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
+use benthic_protocol::messages::world::water_update::WaterUpdate;
+use benthic_protocol::objects::objects::RetriableData;
+use benthic_protocol::session::session::initialize_share_dir;
+use benthic_protocol::session::types::{
+    DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
 };
 use glam::Vec2;
 use log::{error, info, warn};
@@ -547,7 +543,7 @@ async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
     db_path: &Path,
-) -> Result<(), SessionError> {
+) -> Result<(), ProtocolSessionError> {
     let (login_response, local_ip) = match login_to_simulator(login_data).await {
         Ok((login_response, local_ip)) => {
             if let Err(e) = mailbox_addr

@@ -6,6 +6,16 @@ use sqlx::Row;
 use uuid::Uuid;
 
 impl Inventory {
+    /// Handles retrieving the current outfit from the db
+    ///
+    /// This returns a vector of OutfitItems for each object worn by the current user from their inventory
+    ///
+    /// # Parameters
+    /// - current_outfit_id: The ID of the current outfit. This is received from the login response
+    ///   packet, under the inventory skeleton.
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure
     pub async fn get_current_outfit(
         &self,
         current_outfit_id: Uuid,

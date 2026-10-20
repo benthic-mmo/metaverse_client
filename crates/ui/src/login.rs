@@ -3,7 +3,7 @@ use crate::{
     login,
     plugin::{ShareDir, Sockets, VIEWER_NAME, ViewerState, send_packet_to_core},
 };
-use benthic_protocol::messages::ui::{login_event::Login, ui_messages::UIResponse};
+use benthic_protocol::messages::{login::login_event::Login, ui_protocol::UIResponse};
 use bevy::log::error;
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};

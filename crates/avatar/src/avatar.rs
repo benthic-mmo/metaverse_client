@@ -1,6 +1,6 @@
 use actix::Message;
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
-use benthic_protocol::skeleton::{Skeleton, SkinJoint};
+use benthic_protocol::avatar::skeleton::{Skeleton, SkinJoint};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -30,13 +30,13 @@ pub struct Avatar {
     pub used_joints: BTreeSet<SkinJoint>,
     /// If the avatar is considered fully downloaded.
     pub fully_loaded: bool,
-
+    /// number of obects in the full outfit. Used to determine if the avatar is fully loaded.
     pub outfit_size: usize,
-
+    /// Last time the avatar was updated. Useful for non-user avatar updates.
     pub last_update: SystemTime,
 }
-
 impl Avatar {
+    /// Create a new avatar object with default values
     pub fn new(agent_id: Uuid, position: Vec3) -> Self {
         Avatar {
             agent_id,

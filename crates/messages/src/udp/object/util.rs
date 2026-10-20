@@ -2,7 +2,7 @@ use crate::{
     udp::object::object_update::ExtraParams,
     utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
-use benthic_protocol::render_data::TextureAnimation;
+use benthic_protocol::objects::types::TextureAnimation;
 use glam::{Quat, Vec3};
 use uuid::Uuid;
 

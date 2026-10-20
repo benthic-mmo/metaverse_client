@@ -1,7 +1,7 @@
 use crate::utils::agent_access::AgentAccess;
 use crate::utils::object_types::ObjectType;
-use benthic_protocol::messages::errors::ParseError;
-use benthic_protocol::messages::ui::login_error::LoginError;
+use benthic_protocol::errors::ProtocolParseError;
+use benthic_protocol::messages::login::login_error::LoginError;
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use serde_llsd_benthic::converter::{FromLLSDValue, get, get_nested_vec, get_opt, get_vec};
@@ -116,7 +116,7 @@ pub struct LoginResponse {
 impl LoginResponse {
     /// Parses an LLSD-formatted XML login response into a `LoginResponse` struct.
     /// If the login failed, returns a `LoginError` with details from the response.
-    pub fn from_xmlrpc(data: &str) -> Result<LoginStatus, ParseError> {
+    pub fn from_xmlrpc(data: &str) -> Result<LoginStatus, ProtocolParseError> {
         match auto_from_str(data) {
             Ok(xml) => match xml {
                 LLSDValue::Map(ref map) => {

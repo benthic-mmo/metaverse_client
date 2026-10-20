@@ -1,13 +1,18 @@
-use std::{collections::BTreeSet, fs, path::PathBuf};
-
 use benthic_protocol::{
-    render_data::{AvatarObject, RenderObject},
-    session::{CacheDir, Session, cache_enabled, create_sub_agent_dir, write_json},
-    skeleton::{Skeleton, SkinJoint},
+    avatar::{
+        skeleton::{Skeleton, SkinJoint},
+        types::AvatarObject,
+    },
+    objects::types::RenderObject,
+    session::{
+        session::{CacheDir, cache_enabled, create_sub_agent_dir, write_json},
+        types::Session,
+    },
 };
 use glam::Mat4;
 use indexmap::IndexMap;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
+use std::{collections::BTreeSet, fs, path::PathBuf};
 use uuid::Uuid;
 
 use crate::{
@@ -17,16 +22,32 @@ use crate::{
     skeleton::update_global_avatar_skeleton,
 };
 
+/// Enum to describe if the avatar has loaded in or not
 pub enum AvatarState {
+    /// Avatar is fully loaded. All of the objects required are present.
     FullyLoaded,
+    /// Avatar is not fully loaded.
     Incomplete,
 }
 
+/// Enum to differentiate type of avatar.
+/// Since avatar handling happens very differently between user and non-user updates
 pub enum AvatarType {
+    /// Avatar is the current user
     User,
+    /// Avatar is some other player
     NonUser,
 }
 
+/// Add an object to the session's avatar object
+///
+/// # Parameters
+/// - `session`: A mutable reference to the global session
+/// - `agent_id`: The uuid of the avatar to add
+/// - `object`: The object to add to the session
+///
+/// # Errors
+/// - Returns an [`AvatarError`] on failure
 pub fn add_object_to_avatar<C, L, U, I, X>(
     session: &mut Session<C, Avatar, L, U, I, X>,
     agent_id: Uuid,
@@ -59,6 +80,23 @@ pub fn add_object_to_avatar<C, L, U, I, X>(
     }
 }
 
+/// Method for finalizing an avatar
+///
+/// This handles generating the full gltf for a player model, and modifying the parenting and global
+/// transforms of the skeleton to enable straightforward animation retargeting.
+///
+/// # Parameters
+/// - `agent_id`: ID of the agent to finalize
+/// - `skeleton`: The full skeleton of the agent
+/// - `used_joints`: List of joints with non-default overrides
+/// - `items`: OutfitObjects in the outfit to add to the final mesh
+/// - `out_dir`: Path to the avatar's generated dir, usually under ~/local/share/benthic
+///
+/// # Errors
+/// - Returns an [`AvatarError`] on failure
+///
+/// # Side Effects
+/// [Storage: Filesystem]
 pub async fn finalize_avatar(
     agent_id: Uuid,
     skeleton: Skeleton,
@@ -108,6 +146,7 @@ pub async fn finalize_avatar(
     Ok((glb_path, skeleton))
 }
 
+// finalize the skeleton and update the global transforms with its parent joint data
 fn finalize_skeleton(mut skeleton: Skeleton) -> Skeleton {
     let globals: IndexMap<SkinJoint, Mat4> = skeleton
         .joints

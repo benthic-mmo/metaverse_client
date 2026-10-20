@@ -53,17 +53,17 @@ Provides a straightforward way of handling incoming terrain information being se
 
 ### Inventory
 
-[![crates.io-inventory][crates.io-inventory-badge]][crates.io-inventory] [![docs.rs-inventory][docs.rs-badge]][docs.rs-inventory]
-Provides handling for the on-disk inventory database. Stored as SQL, this allows for lookup of all received objects, and handles storage and retrieval of the user's inventory.
+[![crates.io-store][crates.io-store-badge]][crates.io-store] [![docs.rs-store][docs.rs-badge]][docs.rs-store]
+Provides handling for the on-disk database. Stored as SQL, this allows for lookup of all received objects, and handles storage and retrieval of the user's inventory.
 
 ### Agent
 
-[![crates.io-agent][crates.io-agent-badge]][crates.io-inventory] [![docs.rs-agent][docs.rs-badge]][docs.rs-agent]
+[![crates.io-agent][crates.io-agent-badge]][crates.io-agent] [![docs.rs-agent][docs.rs-badge]][docs.rs-agent]
 Contains information on how to build skinned agents. This includes information like the agent struct, and functions for building agent skeletons.
 
 ### Ui
 
-[![crates.io-agent][crates.io-agent-badge]][crates.io-inventory] [![docs.rs-agent][docs.rs-badge]][docs.rs-agent]
+[![crates.io-ui][crates.io-ui-badge]][crates.io-ui] [![docs.rs-ui][docs.rs-badge]][docs.rs-ui]
 Both a debug UI and a bevy plugin. This allows for quick testing, and other bevy projects to implement the full viewer protocol using only a few lines of code.
 
 ## Getting Started
@@ -124,7 +124,7 @@ Will run the tests.
 [crates.io-messages]: https://crates.io/crates/metaverse_messages
 [docs.rs-messages]: https://docs.rs/metaverse_messages/latest/metaverse_messages/
 [last-commit-badge]: https://img.shields.io/github/last-commit/benthic-mmo/metaverse_client?logo=github&style=flat-square
-[crates.io-inventory-badge]: https://img.shields.io/crates/v/metaverse_cache?logo=rust&logoColor=white&style=flat-square
+[crates.io-store-badge]: https://img.shields.io/crates/v/metaverse_store?logo=rust&logoColor=white&style=flat-square
 [crates.io-inventory]: https://crates.io/crates/metaverse_cache
 [docs.rs-inventory]: https://docs.rs/crate/metaverse_cache/latest
 [crates.io-agent-badge]: https://img.shields.io/crates/v/metaverse_agent?logo=rust&logoColor=white&style=flat-square

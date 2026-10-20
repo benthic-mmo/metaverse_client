@@ -1,7 +1,7 @@
 use super::session::Mailbox;
 use crate::session::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
-use benthic_protocol::messages::ui::ui_messages::UIMessage;
+use benthic_protocol::messages::ui_protocol::UIMessage;
 use log::error;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::http::folder_request::FolderRequest;

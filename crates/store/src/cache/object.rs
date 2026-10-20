@@ -1,10 +1,9 @@
-use std::{collections::HashSet, path::PathBuf};
-
 use crate::{errors::InventoryError, initialize_sqlite::ObjectCache};
-use benthic_protocol::objects::ObjectInstanceInfo;
+use benthic_protocol::objects::objects::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
-use sqlx::{Row, SqlitePool};
+use sqlx::Row;
+use std::path::PathBuf;
 use uuid::Uuid;
 
 fn vec3_from_row(
@@ -36,6 +35,13 @@ fn quat_from_row(
 }
 
 impl ObjectCache {
+    /// Retrieve scale, rotation and position for an object using its scene-local ID
+    ///
+    /// # Parameters
+    /// - `object_id`: scene-local object ID
+    ///
+    /// # Errors
+    /// Returns [`InventoryError`] if the object is not in the cache
     pub async fn get_scale_rotation_position(
         &self,
         object_id: u32,
@@ -59,6 +65,17 @@ impl ObjectCache {
         Ok((scale, rotation, position))
     }
 
+    /// Updates object in cache with its generated GLB path
+    ///
+    /// # Parameters
+    /// - `full_id`: The ID of the object to update
+    /// - `glb_path`: The path on disk to the object's GLB
+    ///
+    /// # Errors
+    /// Returns [`InventoryError`] if the object cannot be updated
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn update_glb_path(
         &self,
         full_id: Uuid,
@@ -79,6 +96,18 @@ impl ObjectCache {
         Ok(())
     }
 
+    /// Updates object in cache with its generated JSON path
+    ///
+    /// # Parameters
+    /// - `full_id`: The ID of the object to update
+    /// - `asset_id`: The ID of the object's asset (Mesh UUID or something simliar)
+    /// - `json_path`: The path on disk to the object's JSON
+    ///
+    /// # Errors
+    /// Returns [`InventoryError`] if the update fails
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn update_json_path(
         &self,
         full_id: Uuid,
@@ -102,6 +131,17 @@ impl ObjectCache {
         Ok(())
     }
 
+    /// retrieve cache data for an object by its scene-local ID, CRC and region id.
+    /// Returns UUID of the object, its GLB path, and an ObjectInstanceInfo object containing the
+    /// information on where and what is being rendered
+    ///
+    /// # Parameters
+    /// - `id`: u32 scene-local ID
+    /// - `crc`: crc value to ensure cache is up to date
+    /// - `region_id`: region where the object was downloaded (to prevent collisions)
+    ///
+    /// # Errors
+    ///  Returns [`InventoryError`] if the object is not in cache
     pub async fn check_cache(
         &self,
         id: u32,
@@ -134,6 +174,17 @@ impl ObjectCache {
 
         self.build_cache_result(row).await
     }
+
+    /// Retrieve an object from the cache based on its asset_id
+    /// Asset IDs are unique to the actual mesh data of the object. Full IDs and Scene-local IDs are unique to the
+    /// object instance.
+    ///
+    /// # Parameters
+    /// - `asset_id`: Asset ID of the object to retrieve
+    /// - `full_id`: unique UUID of the object's instance
+    ///
+    /// # Errors
+    /// Returns [`InventoryError`] if the object is not in cache
     pub async fn check_cache_by_asset_id(
         &self,
         asset_id: Uuid,
@@ -194,6 +245,8 @@ impl ObjectCache {
         Ok((glb_path, generator))
     }
 
+    // convert a cache result to objects
+    // TODO: why is it returning the glb path twice
     async fn build_cache_result(
         &self,
         row: sqlx::sqlite::SqliteRow,
@@ -223,7 +276,14 @@ impl ObjectCache {
             generator,
         ))
     }
-    /// Get object update by id
+
+    /// Get object parent by ID
+    ///
+    /// # Parameters
+    /// - `object_id`: scene-local u32 ID of the object
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure
     pub async fn get_parent(&self, object_id: u32) -> Result<Option<u32>, InventoryError> {
         let row = sqlx::query("SELECT parent FROM object_updates WHERE id = ?")
             .bind(object_id as i64)
@@ -233,6 +293,22 @@ impl ObjectCache {
         Ok(row.try_get("parent")?)
     }
 
+    /// Add the full object update to the cache
+    ///
+    /// This ensures ObjecUpdates don't get lost if they fail to get handled, and should allow for
+    /// reprocessing.
+    ///
+    /// # Parameters
+    /// - `object`: [`ObjectInstanceInfo`] object. Contains ID information and position
+    /// - `crc`: crc of the object used elsewhere for cache validation
+    /// - `region_id`: Region where the object was downloaded
+    /// - `object_type`: Type of the object
+    ///
+    /// # Errors
+    /// Returns an [`InventoryError`] on failure
+    ///
+    /// # Side Effects
+    /// [Storage: SQLite]
     pub async fn update(
         &self,
         object: ObjectInstanceInfo,
@@ -293,89 +369,4 @@ impl ObjectCache {
 
         Ok(())
     }
-}
-
-async fn _set_object_transform_by_id(
-    pool: &SqlitePool,
-    object_id: u32,
-    position: Vec3,
-    rotation: Quat,
-    scale: Vec3,
-) -> Result<(), InventoryError> {
-    // Always normalize quaternions coming from the wire
-    let rotation = rotation.normalize();
-
-    sqlx::query(
-        r#"
-        UPDATE object_updates
-        SET
-            pos_x   = ?,
-            pos_y   = ?,
-            pos_z   = ?,
-
-            rot_x   = ?,
-            rot_y   = ?,
-            rot_z   = ?,
-            rot_w   = ?,
-
-            scale_x = ?,
-            scale_y = ?,
-            scale_z = ?
-        WHERE id = ?
-        "#,
-    )
-    // position
-    .bind(position.x)
-    .bind(position.y)
-    .bind(position.z)
-    // rotation (quat)
-    .bind(rotation.x)
-    .bind(rotation.y)
-    .bind(rotation.z)
-    .bind(rotation.w)
-    // scale
-    .bind(scale.x)
-    .bind(scale.y)
-    .bind(scale.z)
-    // id
-    .bind(object_id as i64)
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-async fn _get_missing_object_updates(
-    pool: &SqlitePool,
-    ids: &[Uuid],
-) -> Result<Vec<Uuid>, sqlx::Error> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut query = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
-        "SELECT full_id FROM object_updates WHERE full_id IN (",
-    );
-
-    let mut separated = query.separated(", ");
-
-    for id in ids {
-        separated.push_bind(id.to_string());
-    }
-
-    separated.push_unseparated(")");
-
-    let rows = query.build().fetch_all(pool).await?;
-
-    let existing_ids: HashSet<Uuid> = rows
-        .iter()
-        .filter_map(|row| row.try_get::<String, _>("full_id").ok())
-        .filter_map(|id| Uuid::parse_str(&id).ok())
-        .collect();
-
-    Ok(ids
-        .iter()
-        .copied()
-        .filter(|id| !existing_ids.contains(id))
-        .collect())
 }

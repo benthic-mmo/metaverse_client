@@ -1,4 +1,4 @@
-use benthic_protocol::errors::SessionError;
+use benthic_protocol::errors::ProtocolSessionError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -13,7 +13,7 @@ pub enum CredentialLoadError {
 #[derive(Debug, Error)]
 pub enum ShareDirError {
     #[error("Failed to create share dir:")]
-    SessionError(#[from] SessionError),
+    SessionError(#[from] ProtocolSessionError),
 }
 
 #[derive(Debug, Error)]

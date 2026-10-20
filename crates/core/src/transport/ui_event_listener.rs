@@ -1,5 +1,5 @@
 use crate::session::{HandleUIResponse, Mailbox};
-use benthic_protocol::messages::ui::ui_messages::UIResponse;
+use benthic_protocol::messages::ui_protocol::UIResponse;
 use log::warn;
 use tokio::net::UdpSocket;
 
