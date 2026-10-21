@@ -13,7 +13,7 @@ use benthic_protocol::messages::login::login_event::Login;
 use benthic_protocol::messages::login::login_response::LoginResponse;
 use benthic_protocol::messages::simulator::error_message::{
     CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
-    MailboxSessionError, UiErrorMessage,
+    MailboxSessionError,
 };
 use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
 use benthic_protocol::messages::world::water_update::WaterUpdate;

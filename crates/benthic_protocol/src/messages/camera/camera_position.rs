@@ -1,7 +1,6 @@
+use crate::messages::ui_protocol::UIMessage;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-
-use crate::messages::ui_protocol::UIMessage;
 
 /// this is the struct for sending camera position updates from the core to the UI. These are sent
 /// when the server wants to change the position of the camera manually

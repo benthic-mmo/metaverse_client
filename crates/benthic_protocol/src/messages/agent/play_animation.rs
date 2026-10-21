@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::messages::ui_protocol::UIMessage;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// A message for informing the UI of a new animation to play

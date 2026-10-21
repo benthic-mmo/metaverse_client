@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::messages::ui_protocol::UIResponse;
+use serde::{Deserialize, Serialize};
 
 /// The struct required for constructing a login
 #[derive(Debug, Clone, Serialize, Deserialize)]

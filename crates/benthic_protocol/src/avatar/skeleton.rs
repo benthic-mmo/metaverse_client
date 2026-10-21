@@ -53,11 +53,20 @@ pub struct Transform {
     pub rank: usize,
 }
 
+/// Enum to disambiguate deform and non-deform joints.
+/// Deform joints exist to enable users to stretch and squash parts of their models without changing
+/// how the skeleton is constructed.
+/// Deform joints are parented to the same root joints as their corresponding joints, allowing them
+/// to maintain consistent deforms without being affected by animations playing on the model.
+/// Joints are default joints that should have animations targeted to them normally.
 #[derive(Debug, Clone, Default, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum SkinJoint {
+    /// Not a valid joint
     #[default]
     None,
+    /// A deform joint, used for applying deforms to models without changing their underlying skeleton
     Deform(DeformName),
+    /// A joint, used for skinning an animation.
     Joint(JointName),
 }
 impl std::fmt::Display for SkinJoint {
@@ -108,6 +117,12 @@ impl std::str::FromStr for SkinJoint {
     }
 }
 
+/// All deform joints in the default skeleton.
+/// these are used to allow for applying specialized deforms to models without having those deforms
+/// be affected by certain types of animations.
+/// Deform joints are targeted by avatar appearance packets to set overrides and change an avatar's
+/// proportions without having to change the model itself.
+#[allow(missing_docs)]
 #[derive(
     Debug,
     Clone,
@@ -123,12 +138,9 @@ impl std::str::FromStr for SkinJoint {
     Ord,
     Display,
 )]
-/// This is used to separate out the collision entities from the skeleton.
-/// These get passed in as joints, despite not being joints in the default skeleton.
 pub enum DeformName {
     #[strum(serialize = "BUTT")]
     Butt,
-    // Root
     #[default]
     #[strum(serialize = "PELVIS")]
     Pelvis,
@@ -202,6 +214,7 @@ pub enum DeformName {
     AnkleRight,
 }
 
+/// Enum containing all valid joint names in the default skeleton
 #[allow(missing_docs)]
 #[repr(u16)]
 #[derive(
@@ -219,9 +232,6 @@ pub enum DeformName {
     Ord,
     PartialOrd,
 )]
-/// This is used to convert all of the joint strings into a usable enum. This is to allow for
-/// easier usage, potentially renaming joints on export, and avoid checking string equality
-/// the strum values are for the actual names of the Bento skeleton.
 pub enum JointName {
     #[default]
     #[strum(serialize = "mPelvis")]
@@ -663,6 +673,9 @@ static QUATERNIUS_JOINT_ALIASES: Lazy<HashMap<&'static str, SkinJoint>> = Lazy::
 });
 
 impl SkinJoint {
+    /// Resolve joint names for non-default models.
+    /// accepts a joint name from a non open metaverse skeleton and converts to its open metaverse
+    /// equivalent.
     pub fn resolve_joint_name(s: &str) -> Option<SkinJoint> {
         QUATERNIUS_JOINT_ALIASES
             .get(s)
@@ -670,6 +683,8 @@ impl SkinJoint {
             .or_else(|| JointName::from_str(s).ok().map(SkinJoint::Joint))
     }
 
+    /// Returns a SkinJoint from a string.
+    /// This resolves both joint names and deform joint names to their enum value.
     pub fn resolve_joint_and_deform(s: &str) -> Option<SkinJoint> {
         JointName::from_str(s)
             .ok()
@@ -677,6 +692,8 @@ impl SkinJoint {
             .or_else(|| DeformName::from_str(s).ok().map(SkinJoint::Deform))
     }
 
+    /// Resolves a joint name specifically for BVH joints.
+    /// TODO: rename or remove this
     pub fn from_str_non_bento(s: &str) -> Option<SkinJoint> {
         BVH_JOINT_ALIASES
             .get(s)

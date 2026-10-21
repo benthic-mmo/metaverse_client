@@ -1,7 +1,6 @@
+use crate::messages::{login::login_error::LoginError, ui_protocol::UIMessage};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::messages::{login::login_error::LoginError, ui_protocol::UIMessage};
 
 /// This represents errors that can arise from the mailbox failing to connect.
 /// The mailbox is part of the client that handles packet IO and other logic to pass to the UI.

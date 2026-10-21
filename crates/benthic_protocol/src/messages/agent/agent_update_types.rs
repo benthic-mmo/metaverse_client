@@ -8,72 +8,74 @@ const AGENT_STATE_TYPING: u8 = 0x04; // 00000100 in binary
 /// flag for setting editing state
 const AGENT_STATE_EDITING: u8 = 0x10; // 00010000 in binary
 
-/// undocumented
+/// Flag indicating movement in the positive forward direction.
 const AGENT_CONTROL_AT_POS: u32 = 0x00000001;
-/// undocumented
+/// Flag indicating movement in the negative backward direction.
 const AGENT_CONTROL_AT_NEG: u32 = 0x00000002;
-/// undocumented
+/// Flag indicating movement in the positive leftward direction.
 const AGENT_CONTROL_LEFT_POS: u32 = 0x00000004;
-/// undocumented
+/// Flag indicating movement in the negative rightward direction.
 const AGENT_CONTROL_LEFT_NEG: u32 = 0x00000008;
-/// undocumented
+/// Flag indicating movement in the positive upward direction.
 const AGENT_CONTROL_UP_POS: u32 = 0x00000010;
-/// undocumented
+/// Flag indicating movement in the negative downward direction.
 const AGENT_CONTROL_UP_NEG: u32 = 0x00000020;
-/// undocumented
+/// Flag indicating pitching in the positive direction.
 const AGENT_CONTROL_PITCH_POS: u32 = 0x00000040;
-/// undocumented
+/// Flag indicating pitching in the negative direction.
 const AGENT_CONTROL_PITCH_NEG: u32 = 0x00000080;
-/// undocumented
+/// Flag indicating yaw rotation in the positive direction.
 const AGENT_CONTROL_YAW_POS: u32 = 0x00000100;
-/// undocumented
+/// Flag indicating yaw rotation in the negative direction.
 const AGENT_CONTROL_YAW_NEG: u32 = 0x00000200;
-/// undocumented
+/// Flag indicating fast movement in the forward or backward direction.
 const AGENT_CONTROL_FAST_AT: u32 = 0x00000400;
-/// undocumented
+/// Flag indicating fast movement in the left or right direction.
 const AGENT_CONTROL_FAST_LEFT: u32 = 0x00000800;
-/// undocumented
+/// Flag indicating fast movement in the upward or downward direction.
 const AGENT_CONTROL_FAST_UP: u32 = 0x00001000;
-/// Set while flying
+/// Set while flying.
 const AGENT_CONTROL_FLY: u32 = 0x00002000;
-/// Soft freezes the avatar
+/// Flag that temporarily stops avatar movement.
 const AGENT_CONTROL_STOP: u32 = 0x00004000;
-/// undocumented
+/// Flag indicating that the current animation should be finished.
 const AGENT_CONTROL_FINISH_ANIM: u32 = 0x00008000;
-/// Set once to stand up from sitting
+/// Flag sent to request standing up from a seated position.
 const AGENT_CONTROL_STAND_UP: u32 = 0x00010000;
-/// set while sitting on the ground
+/// Set while sitting on the ground.
 const AGENT_CONTROL_SIT_ON_GROUND: u32 = 0x00020000;
-/// Set while in mouse look
+/// Set while the viewer is in mouse-look mode.
 const AGENT_CONTROL_MOUSELOOK: u32 = 0x00040000;
-/// undocumented
+/// Flag indicating an initial forward movement impulse.
 const AGENT_CONTROL_NUDGE_AT_POS: u32 = 0x00080000;
-/// undocumented
+/// Flag indicating an initial backward movement impulse.
 const AGENT_CONTROL_NUDGE_AT_NEG: u32 = 0x00100000;
-/// undocumented
+/// Flag indicating an initial leftward movement impulse.
 const AGENT_CONTROL_NUDGE_LEFT_POS: u32 = 0x00200000;
-/// undocumented
+/// Flag indicating an initial rightward movement impulse.
 const AGENT_CONTROL_NUDGE_LEFT_NEG: u32 = 0x00400000;
-/// undocumented
+/// Flag indicating an initial upward movement impulse.
 const AGENT_CONTROL_NUDGE_UP_POS: u32 = 0x00800000;
-/// undocumented
+/// Flag indicating an initial downward movement impulse.
 const AGENT_CONTROL_NUDGE_UP_NEG: u32 = 0x01000000;
-/// undocumented
+/// Set when the avatar is turning left.
 const AGENT_CONTROL_TURN_LEFT: u32 = 0x02000000;
-/// undocumented
+/// Set when the avatar is turning right.
 const AGENT_CONTROL_TURN_RIGHT: u32 = 0x04000000;
-/// Set while away
+/// Set while the avatar is marked as away.
 const AGENT_CONTROL_AWAY: u32 = 0x08000000;
-/// undocumented
+/// Flag indicating that the left mouse button was pressed outside mouse-look mode.
 const AGENT_CONTROL_LBUTTON_DOWN: u32 = 0x10000000;
-/// undocumented
+/// Flag indicating that the left mouse button was released outside mouse-look mode.
 const AGENT_CONTROL_LBUTTON_UP: u32 = 0x20000000;
-/// undocumented
+/// Flag indicating that the left mouse button was pressed in mouse-look mode.
 const AGENT_CONTROL_ML_LBUTTON_DOWN: u32 = 0x40000000;
-/// undocumented
+/// Flag indicating that the left mouse button was released in mouse-look mode.
 const AGENT_CONTROL_ML_LBUTTON_UP: u32 = 0x80000000;
 
+/// Bitmask indicating that no agent-update flags are set.
 const AU_FLAGS_NONE: u8 = 0x00;
+/// Flag indicating that the agent's title should be hidden.
 const AU_FLAGS_HIDETITLE: u8 = 0x01;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +148,7 @@ pub struct ControlFlags {
 }
 
 impl ControlFlags {
+    /// sets default values for controlflags
     pub fn default() -> Self {
         Self {
             at_pos: false,
@@ -332,6 +335,8 @@ pub struct State {
     pub editing: bool,
 }
 impl State {
+    /// sets default values for state.
+    /// Users are by default not typing or editing
     pub fn default() -> Self {
         Self {
             typing: false,
@@ -369,6 +374,8 @@ pub struct Flags {
 }
 #[allow(clippy::bad_bit_mask)]
 impl Flags {
+    /// sets default state for flags.
+    /// users are by default not hding their title
     pub fn default() -> Self {
         Self {
             none: false,

@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::messages::ui_protocol::UIResponse;
+use serde::{Deserialize, Serialize};
 
 /// A message to request a logout from the core
 #[derive(Serialize, Deserialize, Debug, Clone)]

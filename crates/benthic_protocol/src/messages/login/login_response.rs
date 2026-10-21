@@ -1,7 +1,6 @@
+use crate::messages::ui_protocol::UIMessage;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use crate::messages::ui_protocol::UIMessage;
 
 /// The struct required for constructing a login
 #[derive(Debug, Clone, Serialize, Deserialize)]

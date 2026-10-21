@@ -12,8 +12,9 @@ use crate::messages::ui_protocol::UIMessage;
 pub struct AvatarUpdate {
     /// path to the generated gtlf file that contains the avatar's gltf
     pub path: PathBuf,
-    /// Where to render the mesh
+    /// Rotation of the avatar
     pub rotation: Quat,
+    /// Position in world of the avatar
     pub position: Vec3,
     /// ID of the mesh. For agents, this will be the AgentID.
     pub id: Option<Uuid>,

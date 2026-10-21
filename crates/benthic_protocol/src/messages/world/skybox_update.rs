@@ -6,6 +6,7 @@ use crate::messages::ui_protocol::UIMessage;
 /// This is used for sending the height of the water, along with optional EEP values after load.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct SkyboxUpdate {
+    /// phase of the sun at current time
     pub sun_phase: f32,
 }
 

@@ -6,8 +6,8 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Implement UIMessage for ChatFromSimulator. Can be sent between the core and UI
 impl UIMessage {
+    /// Implement UIMessage for ChatFromSimulator. Can be sent between the core and UI
     pub fn new_chat_from_simulator(data: ChatFromSimulator) -> Self {
         UIMessage::ChatFromSimulator(data)
     }
