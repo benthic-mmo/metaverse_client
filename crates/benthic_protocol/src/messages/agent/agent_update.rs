@@ -1,11 +1,10 @@
-use glam::{Quat, Vec3};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-
 use crate::messages::{
     agent::agent_update_types::{ControlFlags, Flags, State},
     ui_protocol::UIResponse,
 };
+use glam::{Quat, Vec3};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// AgentUpdate struct. Regularly sent to the viewer in order to keep the viewer updated about the

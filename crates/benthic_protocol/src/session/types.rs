@@ -3,17 +3,10 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use glam::{U16Vec2, Vec2};
 use uuid::Uuid;
 
-/// Message and struct for the current user's session.
+/// Struct for the current user's session.
 ///
 /// This includes all data that will be used throughout the session, and much of it is populated by
-/// the LoginResponse packet. This sets the active session for the Mailbox, and ensures the UDP
-/// socket doesn't close.
-///
-/// # Cause
-/// - A login is triggered by the UI, and the handle_login function is called
-///
-/// # Effects
-/// - Starts UDP read between client and server
+/// the LoginResponse packet. This sets the active session for the Mailbox.
 #[derive(Debug)]
 pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     /// address of the server the client is connected to. formatted http://Url:Socket
@@ -44,15 +37,24 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
     pub inventory: Inventory,
+    /// connetion to the cache sqlite DB, (which is the same DB as the inventory DB)
+    /// This is used to store avatar and object data after download
     pub cache: Cache,
-
+    /// root of the benthic share dir.
+    /// Used by the project to determine the base directory for written files.
+    /// useful for creating mock sessions when testing.
     pub share_dir_root: PathBuf,
 }
 
+/// State of an object in the download queue.
+/// It can either be downloading, complete, or failed.
 #[derive(Clone, Debug)]
 pub enum DownloadState {
+    /// Object is still downloading
     Downloading,
+    /// Object has downloaded. Contains the PathBuf of the file's location on disk.
     Complete(PathBuf),
+    /// Object has failed to download.
     Failed,
 }
 
@@ -94,8 +96,9 @@ pub struct InventoryData {
     pub inventory_lib_owner: Uuid,
     /// boolean to signify the inventory has successfully loaded and is ready for use.
     pub inventory_init: bool,
-
+    /// UUID of the current outfit root. Used to request current outfit.
     pub current_outfit_root: Uuid,
+    /// Bool to gate if the avatar's current outfit has loaded and if the avatar is ready to render.
     pub current_outfit_init: bool,
 }
 

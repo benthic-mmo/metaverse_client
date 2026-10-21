@@ -11,35 +11,54 @@ use std::{
 };
 use thiserror::Error;
 
+/// Errors that can arise within the protocol crate
 #[derive(Error, Debug)]
 pub enum ProtocolSessionError {
+    /// Failed to create a director
     #[error("Failed to create directory {dir}: {error}")]
-    DirCreation { dir: PathBuf, error: Error },
+    DirCreation {
+        /// Dir that failed to create
+        dir: PathBuf,
+        /// Error for why it failed to create
+        error: Error,
+    },
 
+    /// Failed to find the benthic data directory
     #[error("Failed to find benthic data directory")]
     NotFound {},
 
+    /// Failed to write json
     #[error("Failed to write JSON: {error}")]
-    JsonWriteError { error: serde_json::Error },
+    JsonWriteError {
+        /// serde write failure
+        error: serde_json::Error,
+    },
 
+    /// Wrapper for IO errors
     #[error("IO Error: {0}")]
     IOError(#[from] std::io::Error),
 
+    /// Wrapper for mailbox session errors
     #[error("ClientConnectionError: {0}")]
     MailboxSession(#[from] MailboxSessionError),
 
+    /// Wrapper for login errors
     #[error("Login failed: {0}")]
     Login(#[from] LoginError),
 
+    /// Wrapper for feature errors
     #[error("Feature failed: {0}")]
     Feature(#[from] FeatureError),
 
+    /// Circuit code failure
     #[error("Circuit code error: {0}")]
     CircuitCode(#[from] CircuitCodeError),
 
+    /// Failed to complete agent movement
     #[error("Complete agent movement error: {0}")]
     CompleteAgentMovement(#[from] CompleteAgentMovementError),
 
+    /// Capability failure
     #[error("Capability error: {0}")]
     Capability(#[from] CapabilityError),
 }
@@ -47,6 +66,7 @@ pub enum ProtocolSessionError {
 #[derive(Debug, Error)]
 /// Error handling for parsing throughout the protocol crate
 pub enum ProtocolParseError {
+    /// Wrapper for parse errors from serde llsd benthic
     #[error("LLSD parse error: {0}")]
     Llsd(#[from] serde_llsd_benthic::errors::ParseError),
 
@@ -110,8 +130,14 @@ pub enum ProtocolParseError {
     /// wrapper for FromUTF8 errors
     UTF8Error(#[from] FromUtf8Error),
 
+    /// Home string had an unexpected format
     #[error("Unexpected home string format: {length}, {parts:?}")]
-    HomeStringError { length: usize, parts: Vec<String> },
+    HomeStringError {
+        /// length of the home string
+        length: usize,
+        /// Parts of the home string that failed
+        parts: Vec<String>,
+    },
 }
 
 impl From<ProtocolParseError> for LoginError {

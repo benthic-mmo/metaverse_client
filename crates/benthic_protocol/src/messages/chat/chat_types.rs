@@ -66,6 +66,7 @@ pub enum SourceType {
     Unknown,
 }
 impl SourceType {
+    /// convert from bytes to SourceType object
     pub fn from_bytes(bytes: u8) -> Self {
         match bytes {
             0 => SourceType::System,
@@ -74,6 +75,7 @@ impl SourceType {
             _ => SourceType::Unknown,
         }
     }
+    /// Convert from bytes to SourceType object
     pub fn to_bytes(&self) -> u8 {
         match self {
             SourceType::System => 0,
@@ -97,6 +99,7 @@ pub enum Audible {
     Unknown,
 }
 impl Audible {
+    /// Convert from bytes to Audible value
     pub fn from_bytes(bytes: u8) -> Self {
         match bytes {
             255 => Audible::Not,
@@ -105,6 +108,7 @@ impl Audible {
             _ => Audible::Unknown,
         }
     }
+    /// Convert to bytes from audible value
     pub fn to_bytes(&self) -> u8 {
         match self {
             Audible::Not => 255,

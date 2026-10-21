@@ -1,9 +1,7 @@
-use std::path::PathBuf;
-
+use crate::messages::ui_protocol::UIMessage;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-
-use crate::messages::ui_protocol::UIMessage;
+use std::path::PathBuf;
 
 /// Struct for sending land updates from the core to the UI.
 /// Land is stored as a JSON array of serialized LandData, which can be used by the UI to generate

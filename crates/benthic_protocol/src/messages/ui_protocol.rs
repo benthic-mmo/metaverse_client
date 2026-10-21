@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
     errors::ProtocolParseError,
     messages::{
@@ -18,11 +16,12 @@ use crate::{
         },
     },
 };
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", content = "data")] // for json simplicity
 /// The type of the message used to notify the UI .
 /// Some of these also implement PacketType, as they are part of the spec, but not all of them are.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type", content = "data")] // for json simplicity
 pub enum UIResponse {
     /// Custom login event for sending from the UI to the core
     Login(Login),
@@ -75,8 +74,9 @@ pub enum UIMessage {
     CameraPosition(CameraPosition),
     /// message for informing the UI of an animation that is currently playing
     PlayAnimation(PlayAnimation),
+    /// Message for informing the UI of a new avatar
     AvatarUpdate(AvatarUpdate),
-
+    /// Message for updating the UI with the downloaded inventory
     PopulateInventory(PopulateInventory),
 }
 

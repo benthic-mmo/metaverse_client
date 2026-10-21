@@ -6,7 +6,7 @@ use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::inventory::populate_inventory::PopulateInventory;
 use benthic_protocol::messages::login::login_error::LoginError;
 use benthic_protocol::messages::login::login_response::LoginResponse;
-use benthic_protocol::messages::simulator::error_message::{MailboxSessionError, UiErrorMessage};
+use benthic_protocol::messages::simulator::error_message::UiErrorMessage;
 use benthic_protocol::messages::ui_protocol::UIMessage;
 use benthic_protocol::messages::world::land_update::LandUpdate;
 use benthic_protocol::messages::world::mesh_update::MeshUpdate;

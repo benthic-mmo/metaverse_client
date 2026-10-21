@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// Defines locations of agent dots on the minimap.
 pub struct MinimapEntities {
+    /// the x location of the agent on the minimap
     x: u8,
+    /// the y location of the agent on the minimap
     y: u8,
+    /// the z location of the agent on the minmap
     z: u8,
 }
 

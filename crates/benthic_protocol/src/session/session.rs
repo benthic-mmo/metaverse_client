@@ -1,14 +1,12 @@
+use crate::errors::ProtocolSessionError;
+use serde::Serialize;
 use std::{
     fs::{File, create_dir_all},
     io::Write,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
-
-use serde::Serialize;
 use uuid::Uuid;
-
-use crate::errors::ProtocolSessionError;
 
 /// flag for setting if caching is allowed.
 pub static CACHE_ENABLED: AtomicBool = AtomicBool::new(true);
@@ -111,12 +109,17 @@ pub fn create_agent_animation_dir(
     create_sub_dir(&agent_dir, "animations")
 }
 
+/// Enum for determining what kind of write write_json is doing
 pub enum CacheDir {
+    /// write_json is writing an agent
     Agent(Uuid),
+    /// write_json is writing an object
     Object(Uuid),
+    /// write_json is writing land
     Land,
 }
 
+/// Serialize a rust object and write its json to the correct directory
 pub fn write_json<T: Serialize>(
     data: &T,
     filename: &str,

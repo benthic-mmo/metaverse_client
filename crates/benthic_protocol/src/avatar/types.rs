@@ -3,10 +3,15 @@ use glam::{Mat4, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
 
+/// Enum to handle all places an object could attach to.
+/// Could be a regular joint, a deform joint, or the HUD.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AttachmentTarget {
+    /// Attachment points to a regular animation joint
     Bone(JointName),
+    /// Attachment points to a deform joint
     DeformJoint(DeformName),
+    /// Attachment poitns to a slot on the HUD
     HUDAttachment(AttachPoint),
 }
 
@@ -22,11 +27,16 @@ pub struct JointWeight {
     pub joint_name: [SkinJoint; 4],
 }
 
+/// Information on where the object is attached
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct AttachmentData {
+    /// Point the object is attached to
     pub attach_point: AttachPoint,
+    /// Position the object is attached to
     pub position: Vec3,
+    /// Rotation of the attached object
     pub rotation: Quat,
+    /// Scale of the attached object
     pub scale: Vec3,
 }
 
@@ -53,6 +63,9 @@ pub struct AvatarObject {
     /// List of joints used by the avatar
     pub used_joints: BTreeSet<SkinJoint>,
 }
+
+/// Enum containing all of the attach points and their associated values
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum AttachPoint {
@@ -115,7 +128,6 @@ pub enum AttachPoint {
     HindFootRight = 55,
     Unknown = 99,
 }
-
 impl From<AttachPoint> for AttachmentTarget {
     fn from(point: AttachPoint) -> Self {
         match point {
@@ -180,6 +192,7 @@ impl From<AttachPoint> for AttachmentTarget {
     }
 }
 impl AttachPoint {
+    /// Converts from a i32 to an AttachPoint
     pub fn from_i32(value: i32) -> Self {
         match value {
             0 => Self::Default,
