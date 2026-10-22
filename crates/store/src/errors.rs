@@ -120,4 +120,8 @@ pub enum InventoryError {
     /// Object ws not found in cache
     #[error("Cache Miss Error: {0}")]
     CacheMiss(String),
+
+    /// Error thrown when the cache queue is closed
+    #[error("Cache operation queue is closed")]
+    CacheQueueClosed,
 }

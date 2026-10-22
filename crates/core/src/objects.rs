@@ -63,7 +63,6 @@ use uuid::Uuid;
 ///
 /// If the object exists on disk
 /// - [`RenderObjectMessage`]
-
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct MeshObjectUpdate(pub MeshObjectData);
@@ -74,7 +73,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
             return;
         };
 
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
         let downloads = self.downloads.clone();
@@ -156,7 +155,7 @@ impl Handler<DownloadMeshObject> for Mailbox {
         };
 
         let addr = ctx.address();
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let out_dir = session.share_dir_root.clone();
         let semaphore = self.max_concurrent_downloads.clone();
         let downloads = self.downloads.clone();
@@ -583,7 +582,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
             return;
         };
 
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let addr = ctx.address();
         let region_id = session.region_data.region_id.clone();
         let session_id = session.session_id;
@@ -650,11 +649,7 @@ pub struct GenerateMeshMessage(pub RenderObjectJSONData);
 impl Handler<GenerateMeshMessage> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: GenerateMeshMessage, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
-            return;
-        };
-
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let addr = ctx.address();
         let downloads = self.downloads.clone();
         ctx.spawn(
@@ -709,10 +704,6 @@ impl Handler<RenderObjectMessage> for Mailbox {
     type Result = ();
 
     fn handle(&mut self, msg: RenderObjectMessage, ctx: &mut Self::Context) -> Self::Result {
-        let Some(_session) = self.session.as_mut() else {
-            return;
-        };
-
         let addr = ctx.address();
 
         ctx.spawn(

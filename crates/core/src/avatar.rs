@@ -74,7 +74,7 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
                 }),
             });
             let agent_id = session.agent_id;
-            let cache = session.cache.clone();
+            let cache = self.cache.clone();
             let inventory = session.inventory.clone();
             ctx.spawn(
                 async move {
@@ -196,7 +196,7 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let object_type = msg.item_type;
         let asset_id = msg.asset_id;
         let agent_id = msg.agent_id;
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
         ctx.spawn(
@@ -302,7 +302,7 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let used_joints = avatar.used_joints.clone();
         let items = avatar.items.clone();
         let position = COORDINATE_CONVERSION.mul_vec3(avatar.position);
-        let cache = session.cache.clone();
+        let cache = self.cache.clone();
         let base_dir = session.share_dir_root.clone();
         let mut avatar = avatar.clone();
 
