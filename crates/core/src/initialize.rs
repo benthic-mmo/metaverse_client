@@ -4,13 +4,17 @@ use crate::transport::ui_event_listener::listen_for_ui_messages;
 use actix::Actor;
 use actix_rt::time;
 use benthic_protocol::errors::ProtocolSessionError;
+use benthic_protocol::messages::simulator::error_message::FeatureError;
 use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
 use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::DownloadState;
 use benthic_protocol::session::types::ServerState;
+use metaverse_store::initialize_sqlite::Cache;
+use metaverse_store::initialize_sqlite::init_sqlite;
 use portpicker::pick_unused_port;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -33,6 +37,11 @@ pub async fn initialize(
 
     let share_dir = initialize_share_dir()?;
     let db_path = share_dir.join("inventory.db");
+
+    let connection = init_sqlite(db_path.to_path_buf())
+        .await
+        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
+    let (cache, sqlite_queue) = Cache::new(connection.clone());
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
@@ -58,6 +67,9 @@ pub async fn initialize(
         pending_avatar_objects: Vec::new(),
         pending_capability_messages: HashMap::new(),
         pending_animations: HashMap::new(),
+        cache,
+        sqlite_queue,
+        pending_sqlite_batch: VecDeque::new(),
     }
     .start();
     // wait until the mailbox starts

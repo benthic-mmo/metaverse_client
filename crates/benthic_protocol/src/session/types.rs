@@ -1,6 +1,5 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-
 use glam::{U16Vec2, Vec2};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
 /// Struct for the current user's session.
@@ -8,7 +7,7 @@ use uuid::Uuid;
 /// This includes all data that will be used throughout the session, and much of it is populated by
 /// the LoginResponse packet. This sets the active session for the Mailbox.
 #[derive(Debug)]
-pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
+pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
     /// address of the server the client is connected to. formatted http://Url:Socket
     pub address: String,
     /// agent ID of the user
@@ -37,9 +36,6 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache> {
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
     pub inventory: Inventory,
-    /// connetion to the cache sqlite DB, (which is the same DB as the inventory DB)
-    /// This is used to store avatar and object data after download
-    pub cache: Cache,
     /// root of the benthic share dir.
     /// Used by the project to determine the base directory for written files.
     /// useful for creating mock sessions when testing.

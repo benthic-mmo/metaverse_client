@@ -1,3 +1,5 @@
+use crate::cache::avatar::{AvatarCache, QueuedAvatarCacheOperation};
+use crate::cache::object::{ObjectCache, QueuedObjectCacheOperation};
 use crate::errors::InventoryError;
 use sqlx::migrate::Migrator;
 use sqlx::{
@@ -5,6 +7,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use std::{path::PathBuf, str::FromStr};
+use tokio::sync::mpsc::{self, Sender};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
@@ -25,32 +28,42 @@ impl Inventory {
 /// this is used both for runtime handling and storing state between sessions.
 #[derive(Clone, Debug)]
 pub struct Cache {
-    /// cache object for storing avatar cache functions
+    /// Cache object for storing avatar cache functions.
     pub avatar: AvatarCache,
-    /// cache object for storing object cache functions
+    /// Cache object for storing object cache functions.
     pub object: ObjectCache,
+    /// Queue for cache operations.
+    /// this is used to prevent overloading the sqlite cache
+    pub queue: Sender<CacheOperation>,
 }
 impl Cache {
-    /// create a new cache
-    pub fn new(db: SqlitePool) -> Self {
-        Cache {
-            avatar: AvatarCache { db: db.clone() },
-            object: ObjectCache { db: db.clone() },
-        }
+    /// Creates both caches and the shared operation queue.
+    pub fn new(db: SqlitePool) -> (Self, mpsc::Receiver<CacheOperation>) {
+        let (queue, receiver) = mpsc::channel(4096);
+
+        let cache = Cache {
+            avatar: AvatarCache {
+                db: db.clone(),
+                queue: queue.clone(),
+            },
+            object: ObjectCache {
+                db,
+                queue: queue.clone(),
+            },
+            queue,
+        };
+
+        (cache, receiver)
     }
 }
-/// Sqlite pool connection for avatar cache functions
-#[derive(Clone, Debug)]
-pub struct AvatarCache {
-    /// the async pool of DB connections
-    pub db: SqlitePool,
-}
 
-/// Sqlite pool connection for object cache functions
-#[derive(Clone, Debug)]
-pub struct ObjectCache {
-    /// the async pool of db connections
-    pub db: SqlitePool,
+/// A queued write operation for either cache.
+#[derive(Debug)]
+pub enum CacheOperation {
+    /// An operation for the object cache.
+    Object(QueuedObjectCacheOperation),
+    /// An operation for the avatar cache.
+    Avatar(QueuedAvatarCacheOperation),
 }
 
 /// Handler for initializing the sqlite db on disk

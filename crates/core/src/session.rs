@@ -45,11 +45,13 @@ use metaverse_messages::{
         },
     },
 };
-use metaverse_store::initialize_sqlite::{Cache, Inventory, init_sqlite};
+use metaverse_store::cache::avatar::AvatarCache;
+use metaverse_store::cache::object::ObjectCache;
+use metaverse_store::initialize_sqlite::{Cache, CacheOperation, Inventory};
 use rand::RngExt;
 use rgb::Rgba;
 use std::any::type_name;
-use std::path::Path;
+use std::collections::VecDeque;
 use std::{
     collections::{HashMap, HashSet},
     net::UdpSocket as SyncUdpSocket,
@@ -58,11 +60,12 @@ use std::{
     thread::sleep,
 };
 use tokio::sync::watch::{self};
-use tokio::sync::{Mutex as tokioMutex, Semaphore};
+use tokio::sync::{Mutex as tokioMutex, Semaphore, mpsc};
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
 use uuid::Uuid;
 
-static DEFAULT_MAX_RETRIES: u32 = 20;
+const SQLITE_BATCH_SIZE: usize = 500;
+static DEFAULT_MAX_RETRIES: u32 = 50;
 type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
@@ -82,7 +85,7 @@ pub struct Mailbox {
     /// notify for etablishing when it begins running
     pub notify: Arc<Notify>,
     /// Session information for after login
-    pub session: Option<Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache>>,
+    pub session: Option<Session<Capability, Avatar, Land, UdpSocket, Inventory>>,
     /// the global number of packets that have been sent to the UI
     pub sent_packet_count: u16,
     /// the global ping information
@@ -101,6 +104,13 @@ pub struct Mailbox {
     pub pending_capability_messages: HashMap<Capability, Vec<PendingSend>>,
     /// animations that need an avatar to be rendered before sending
     pub pending_animations: HashMap<Uuid, Vec<HandleNewAvatarAnimation>>,
+    /// connetion to the cache sqlite DB, (which is the same DB as the inventory DB)
+    /// This is used to store avatar and object data after download
+    pub cache: Cache,
+    /// Queue of sqlite operations to perform on the cache
+    pub sqlite_queue: mpsc::Receiver<CacheOperation>,
+    /// Failed sqlite operations that get handled before the receiver queue
+    pub pending_sqlite_batch: VecDeque<CacheOperation>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -143,12 +153,142 @@ impl Mailbox {
             send(&addr);
         }
     }
+    /// Periodically flush the sqlite queue
+    /// This sends a flush cache queue every 100ms to ensure the queue stays current
+    pub fn start_sqlite_flush(&self, ctx: &mut Context<Self>) {
+        ctx.run_interval(std::time::Duration::from_millis(100), |_actor, ctx| {
+            ctx.address().do_send(FlushCacheQueue);
+        });
+    }
 }
 impl Actor for Mailbox {
     type Context = Context<Self>;
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Mailbox has started");
         self.set_state(ServerState::Running, ctx);
+        self.start_sqlite_flush(ctx);
+    }
+}
+
+/// Message used for flushing the sqlite cache
+///
+/// # Cause
+/// Registered loop triggered after the mailbox gets started
+///
+///
+/// # Effects
+/// Writes sqlite operations to disk in batches
+/// this ensures sqlite doesn't block on writes
+///
+/// # Side Effects
+/// [Storage: SQLite]
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct FlushCacheQueue;
+impl Handler<FlushCacheQueue> for Mailbox {
+    type Result = ResponseActFuture<Self, ()>;
+    fn handle(&mut self, _msg: FlushCacheQueue, _ctx: &mut Context<Self>) -> Self::Result {
+        if self.session.is_none() {
+            return Box::pin(async {}.into_actor(self));
+        }
+
+        // If the queue is empty, don't do any of this.
+        // just return early.
+        if self.pending_sqlite_batch.is_empty() && self.sqlite_queue.is_empty() {
+            return Box::pin(async {}.into_actor(self));
+        }
+
+        // Restore any operations retained after a previous failure.
+        let mut batch = std::mem::take(&mut self.pending_sqlite_batch);
+
+        // Drain at most SQLITE_BATCH_SIZE operations.
+        while batch.len() < SQLITE_BATCH_SIZE {
+            match self.sqlite_queue.try_recv() {
+                Ok(operation) => batch.push_back(operation),
+                Err(
+                    tokio::sync::mpsc::error::TryRecvError::Empty
+                    | tokio::sync::mpsc::error::TryRecvError::Disconnected,
+                ) => break,
+            }
+        }
+
+        if batch.is_empty() {
+            return Box::pin(async {}.into_actor(self));
+        }
+
+        let db = self.cache.object.db.clone();
+
+        Box::pin(
+            async move {
+                let mut object_batch = VecDeque::new();
+                let mut avatar_batch = VecDeque::new();
+
+                for operation in batch {
+                    match operation {
+                        CacheOperation::Object(operation) => {
+                            object_batch.push_back(operation);
+                        }
+                        CacheOperation::Avatar(operation) => {
+                            avatar_batch.push_back(operation);
+                        }
+                    }
+                }
+
+                // Flush the two caches independently.
+                let object_result =
+                    ObjectCache::flush_queue(&db, &mut object_batch).await;
+
+                let avatar_result =
+                    AvatarCache::flush_queue(&db, &mut avatar_batch).await;
+
+                (object_batch, avatar_batch, object_result, avatar_result)
+            }
+            .into_actor(self)
+            .map(
+                |(object_batch, avatar_batch, object_result, avatar_result), actor, _ctx| {
+                    match object_result {
+                        Ok(updated_object_ids) => {
+                            info!(
+                                "Applied {} object cache updates",
+                                updated_object_ids.len()
+                            );
+                        }
+                        Err(error) => {
+                            warn!(
+                                "Failed to flush object cache batch; retaining {} operations for retry: {}",
+                                object_batch.len(),
+                                error
+                            );
+
+                            actor.pending_sqlite_batch.extend(
+                                object_batch
+                                    .into_iter()
+                                    .map(CacheOperation::Object),
+                            );
+                        }
+                    }
+
+                    match avatar_result {
+                        Ok(count) => {
+                            info!("Applied {} avatar cache operations", count);
+                        }
+                        Err(error) => {
+                            warn!(
+                                "Failed to flush avatar cache batch; retaining {} operations for retry: {}",
+                                avatar_batch.len(),
+                                error
+                            );
+
+                            actor.pending_sqlite_batch.extend(
+                                avatar_batch
+                                    .into_iter()
+                                    .map(CacheOperation::Avatar),
+                            );
+                        }
+                    }
+                },
+            ),
+        )
     }
 }
 
@@ -163,7 +303,7 @@ impl Actor for Mailbox {
 #[rtype(result = "()")]
 pub struct StartSession {
     /// The session to start
-    pub session: Session<Capability, Avatar, Land, UdpSocket, Inventory, Cache>,
+    pub session: Session<Capability, Avatar, Land, UdpSocket, Inventory>,
 }
 impl Handler<StartSession> for Mailbox {
     type Result = ();
@@ -266,23 +406,24 @@ pub struct SendAckList {}
 impl Handler<SendAckList> for Mailbox {
     type Result = ();
     fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(ref session) = self.session {
-            // send ack directly to the server
-            if self.server_acks.is_empty() {
-                return;
-            }
-            let packet_ids: Vec<u32> = self.server_acks.drain().collect();
-
-            let addr = session.address.clone();
-            let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
-            let sock_clone = session.socket.clone().unwrap();
-            let ack_wait = async move {
-                if let Err(e) = sock_clone.send_to(&packet, addr).await {
-                    error!("Failed to send ack: {:?}", e)
-                };
-            };
-            ctx.spawn(ack_wait.into_actor(self));
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        // send ack directly to the server
+        if self.server_acks.is_empty() {
+            return;
         }
+        let packet_ids: Vec<u32> = self.server_acks.drain().collect();
+
+        let addr = session.address.clone();
+        let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
+        let sock_clone = session.socket.clone().unwrap();
+        let ack_wait = async move {
+            if let Err(e) = sock_clone.send_to(&packet, addr).await {
+                error!("Failed to send ack: {:?}", e)
+            };
+        };
+        ctx.spawn(ack_wait.into_actor(self));
     }
 }
 
@@ -354,32 +495,33 @@ pub struct OutgoingPacket {
 impl Handler<OutgoingPacket> for Mailbox {
     type Result = ();
     fn handle(&mut self, mut msg: OutgoingPacket, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = self.session.as_mut() {
-            let addr = session.address.clone();
-            if !msg.packet.header.resent {
-                msg.packet.header.sequence_number = session.sequence_number as u32;
-                session.sequence_number += 1;
-            }
-
-            let data = msg.packet.to_bytes().clone();
-            let socket_clone = session.socket.as_ref().unwrap().clone();
-            let fut = async move {
-                if let Err(e) = socket_clone.send_to(&data, &addr).await {
-                    error!("Failed to send data: {}", e);
-                }
-            };
-            ctx.spawn(fut.into_actor(self));
-
-            // if the header is reliable, resend the packet until the viewer_acks contains the key
-            if msg.packet.header.reliable {
-                self.viewer_acks.insert(msg.packet.header.sequence_number);
-                // give one second for the ack to come in.
-                // the ResendPacket message check if viewer_acks still contains the sequence
-                // number. if it doesn't, that means it's been removed by an ack. If it does,
-                // that means it should be resent with the resent flag
-                ctx.notify_later(ResendPacket { packet: msg.packet }, Duration::from_secs(1));
-            };
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        let addr = session.address.clone();
+        if !msg.packet.header.resent {
+            msg.packet.header.sequence_number = session.sequence_number as u32;
+            session.sequence_number += 1;
         }
+
+        let data = msg.packet.to_bytes().clone();
+        let socket_clone = session.socket.as_ref().unwrap().clone();
+        let fut = async move {
+            if let Err(e) = socket_clone.send_to(&data, &addr).await {
+                error!("Failed to send data: {}", e);
+            }
+        };
+        ctx.spawn(fut.into_actor(self));
+
+        // if the header is reliable, resend the packet until the viewer_acks contains the key
+        if msg.packet.header.reliable {
+            self.viewer_acks.insert(msg.packet.header.sequence_number);
+            // give one second for the ack to come in.
+            // the ResendPacket message check if viewer_acks still contains the sequence
+            // number. if it doesn't, that means it's been removed by an ack. If it does,
+            // that means it should be resent with the resent flag
+            ctx.notify_later(ResendPacket { packet: msg.packet }, Duration::from_secs(1));
+        };
     }
 }
 
@@ -401,24 +543,25 @@ pub struct HandleRegionHandshake {
 impl Handler<HandleRegionHandshake> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &mut self.session {
-            // set some region info
-            session.region_data.water_height = msg.region_handshake.water_height;
-            ctx.address().do_send(SendUIMessage {
-                ui_message: UIMessage::new_water_update(WaterUpdate {
-                    height: msg.region_handshake.water_height,
-                    color: Rgba::from((0.0f32, 94.0, 184.0, 0.5)),
-                }),
-            });
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
+        // set some region info
+        session.region_data.water_height = msg.region_handshake.water_height;
+        ctx.address().do_send(SendUIMessage {
+            ui_message: UIMessage::new_water_update(WaterUpdate {
+                height: msg.region_handshake.water_height,
+                color: Rgba::from((0.0f32, 94.0, 184.0, 0.5)),
+            }),
+        });
 
-            ctx.address().do_send(OutgoingPacket {
-                packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
-                    session_id: session.session_id,
-                    agent_id: session.agent_id,
-                    flags: 0,
-                }),
-            });
-        }
+        ctx.address().do_send(OutgoingPacket {
+            packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
+                session_id: session.session_id,
+                agent_id: session.agent_id,
+                flags: 0,
+            }),
+        });
     }
 }
 
@@ -461,9 +604,9 @@ impl Handler<HandleUIResponse> for Mailbox {
         if let UIResponse::Login(data) = &msg.ui_response {
             let ctx_addr = ctx.address().clone();
             let login_data = data.clone();
-            let db_location = self.inventory_db_location.clone();
+            let cache = self.cache.clone();
             actix::spawn(async move {
-                if let Err(e) = handle_login(login_data, &ctx_addr, &db_location).await {
+                if let Err(e) = handle_login(login_data, &ctx_addr, cache).await {
                     error!("Login Error:{:?}", e);
                 };
             });
@@ -542,7 +685,7 @@ impl Handler<SendUIMessage> for Mailbox {
 async fn handle_login(
     login_data: Login,
     mailbox_addr: &actix::Addr<Mailbox>,
-    db_path: &Path,
+    cache: Cache,
 ) -> Result<(), ProtocolSessionError> {
     let (login_response, local_ip) = match login_to_simulator(login_data).await {
         Ok((login_response, local_ip)) => {
@@ -585,15 +728,10 @@ async fn handle_login(
         })
         .unwrap_or(Uuid::nil());
 
-    let connection = init_sqlite(db_path.to_path_buf())
-        .await
-        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
-
     if let Err(e) = mailbox_addr
         .send(StartSession {
             session: Session {
-                inventory: Inventory::new(connection.clone()),
-                cache: Cache::new(connection.clone()),
+                inventory: Inventory::new(cache.object.db.clone()),
                 agent_id: login_response.agent_id,
                 session_id: login_response.session_id,
                 address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),

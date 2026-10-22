@@ -48,8 +48,8 @@ pub enum AvatarType {
 ///
 /// # Errors
 /// - Returns an [`AvatarError`] on failure
-pub fn add_object_to_avatar<C, L, U, I, X>(
-    session: &mut Session<C, Avatar, L, U, I, X>,
+pub fn add_object_to_avatar<C, L, U, I>(
+    session: &mut Session<C, Avatar, L, U, I>,
     agent_id: Uuid,
     object: OutfitObject,
 ) -> Result<AvatarState, AvatarError> {

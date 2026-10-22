@@ -60,22 +60,11 @@ pub fn handle_mesh_update(
     mut scene_id_map: ResMut<SceneIDMap>,
 ) {
     let mut received = 0;
-    let mut skipped = 0;
 
     for renderable in ev_mesh_update.read() {
         received += 1;
         let object = &renderable.value;
         let object_id = object.full_id.unwrap_or(Uuid::nil());
-
-        if let Some(&existing) = scene_id_map.spawned.get(&object_id) {
-            commands.entity(existing).insert(Transform {
-                translation: object.position,
-                rotation: object.rotation,
-                scale: Vec3::ONE,
-            });
-            skipped += 1;
-            continue;
-        }
 
         let scale = if object.scale.abs_diff_eq(Vec3::ZERO, f32::EPSILON) {
             Vec3::ONE
@@ -83,7 +72,7 @@ pub fn handle_mesh_update(
             object.scale
         };
 
-        // Spawn the mesh child WITHOUT a handle yet.
+        // Spawn a new mesh child for every object instance.
         let mesh_child = commands
             .spawn((
                 Transform::from_scale(scale),
@@ -110,18 +99,15 @@ pub fn handle_mesh_update(
                 parent: object.parent,
             },
         ));
+
         entity_commands.add_child(mesh_child);
         let entity = entity_commands.id();
-        scene_id_map.spawned.insert(object_id, entity);
 
-        // Queue the load instead of starting it.
+        // Queue the mesh load; multiple instances can share the same path.
         scene_id_map.load_queue.push_back(QueuedLoad {
             path: object.path.to_string_lossy().into_owned(),
             mesh_child,
         });
-
-        let entity = entity_commands.id();
-        scene_id_map.spawned.insert(object_id, entity);
 
         let Some(scene_id) = object.scene_id else {
             continue;
@@ -151,7 +137,7 @@ pub fn handle_mesh_update(
     }
 
     if received > 0 {
-        info!("Mesh updates: {received} received, {skipped} skipped as duplicates");
+        info!("Mesh updates: {received} received");
     }
 }
 
