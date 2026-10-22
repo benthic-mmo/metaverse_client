@@ -14,7 +14,7 @@ use actix_rt::System;
 use benthic_protocol::messages::agent::agent_update::AgentUpdate;
 use benthic_protocol::messages::login::login_response::LoginResponse;
 use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
-use benthic_protocol::session::session::initialize_share_dir;
+use benthic_protocol::session::storage::initialize_share_dir;
 use bevy::app::App;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;

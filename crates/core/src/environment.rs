@@ -105,6 +105,7 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
 ///
 /// # Effect
 /// - Dispatches a [`LandUpdate`] packet to the UI
+///
 /// TODO: should dispatch more than a land update
 #[derive(Message)]
 #[rtype(result = "()")]

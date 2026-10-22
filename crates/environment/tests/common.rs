@@ -1,16 +1,17 @@
+use benthic_protocol::session::{
+    storage::set_cache_enabled,
+    types::{EnvironmentCache, InventoryData, RegionData, Session},
+};
+use glam::Vec2;
+use metaverse_environment::land::Land;
 use std::{
     collections::HashMap,
     fs,
     net::{IpAddr, Ipv4Addr},
     path::PathBuf,
 };
-
-use benthic_protocol::session::{
-    EnvironmentCache, InventoryData, RegionData, Session, set_cache_enabled,
-};
-use glam::Vec2;
-use metaverse_environment::land::Land;
 use uuid::{Uuid, uuid};
+
 #[derive(Debug, Default)]
 pub struct MockInventory;
 

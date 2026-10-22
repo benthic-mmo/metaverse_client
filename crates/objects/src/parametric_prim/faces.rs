@@ -2,16 +2,13 @@ use super::{
     geometry::append_hollow_cap,
     profile::{MeshLayer, hollow_profile_shape, profile_face_ranges, profile_vertex_count},
 };
-use crate::errors::ObjectUpdateError;
+use crate::{errors::ObjectUpdateError, parametric_prim::handler::TextureContext};
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::objects::types::{
-    BlinnPhongMaterial, MaterialModel, RenderFace, TextureAnimation, TextureTransform,
+    BlinnPhongMaterial, MaterialModel, RenderFace, TextureTransform,
 };
 use glam::Vec3;
-use metaverse_messages::utils::{
-    path::{HollowShape, ProfileShape},
-    texture_entry::TextureEntries,
-};
+use metaverse_messages::utils::path::{PrimPath, ProfileShape};
 use std::{collections::HashMap, path::PathBuf};
 
 fn generate_normals(vertices: &[Vec3], indices: &[u32]) -> Vec<Vec3> {
@@ -48,16 +45,15 @@ fn make_face(
     vertices: Vec<Vec3>,
     indices: Vec<u32>,
     uv: Vec<[f32; 2]>,
-    texture_paths: &HashMap<u32, PathBuf>,
-    texture: &Option<TextureEntries>,
-    texture_animation: Option<TextureAnimation>,
+    texture_context: &TextureContext,
 ) -> RenderFace {
     let normals = generate_normals(&vertices, &indices);
 
-    let material = texture.as_ref().map(|entries| {
+    let material = texture_context.texture.as_ref().map(|entries| {
         let face = entries.faces.get(&face_index).unwrap_or(&entries.default);
 
-        let tex_animation = texture_animation
+        let tex_animation = texture_context
+            .texture_animation
             .as_ref()
             .and_then(|animation| match animation.face {
                 f if f == face_index as i8 || f == -1 => Some(animation.clone()),
@@ -65,7 +61,7 @@ fn make_face(
             });
 
         MaterialModel::BlinnPhong(BlinnPhongMaterial {
-            texture_path: face_texture(texture_paths, face_index)
+            texture_path: face_texture(texture_context.texture_paths, face_index)
                 .unwrap_or_else(default_texture_path),
             bump: face.bumpmap,
             color: face.rgba,
@@ -95,6 +91,149 @@ fn make_face(
     }
 }
 
+fn planar_uvs(vertices: &[Vec3]) -> Vec<[f32; 2]> {
+    if vertices.is_empty() {
+        return Vec::new();
+    }
+
+    let min_x = vertices.iter().map(|v| v.x).fold(f32::INFINITY, f32::min);
+    let max_x = vertices
+        .iter()
+        .map(|v| v.x)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let min_y = vertices.iter().map(|v| v.y).fold(f32::INFINITY, f32::min);
+    let max_y = vertices
+        .iter()
+        .map(|v| v.y)
+        .fold(f32::NEG_INFINITY, f32::max);
+
+    let width = (max_x - min_x).max(f32::EPSILON);
+    let height = (max_y - min_y).max(f32::EPSILON);
+
+    vertices
+        .iter()
+        .map(|v| [(v.x - min_x) / width, 1.0 - (v.y - min_y) / height])
+        .collect()
+}
+
+/// Splits path-generated geometry into separately textured faces.
+pub(super) fn split_faces(
+    layers: &[MeshLayer],
+    path_data: &PrimPath,
+    has_hollow: bool,
+    texture_context: &TextureContext,
+) -> Result<Vec<RenderFace>, ObjectUpdateError> {
+    if layers.len() < 2 {
+        return Ok(Vec::new());
+    }
+
+    let outer_count = profile_vertex_count(path_data.profile_shape);
+    let inner_profile = hollow_profile_shape(path_data.hollow_shape, path_data.profile_shape);
+    let inner_count = if has_hollow {
+        profile_vertex_count(inner_profile)
+    } else {
+        0
+    };
+
+    let expected_size = outer_count + inner_count;
+
+    for layer in layers {
+        if layer.0.len() != expected_size {
+            return Err(ObjectUpdateError::Unimplemented {
+                feature: format!(
+                    "Profile layer has {} vertices; expected {}",
+                    layer.0.len(),
+                    expected_size,
+                ),
+            });
+        }
+    }
+
+    // OpenSim face 0 is the top cap; side faces begin at 1.
+    let outer_face_count = profile_face_ranges(path_data.profile_shape, outer_count).len() as u32;
+    let inner_face_count = if has_hollow {
+        profile_face_ranges(inner_profile, inner_count).len() as u32
+    } else {
+        0
+    };
+
+    let is_round = matches!(
+        path_data.profile_shape,
+        ProfileShape::Circle | ProfileShape::HalfCircle
+    );
+    let hollow_gap = if has_hollow && is_round { 1 } else { 0 };
+
+    let outer_face_start = 1;
+    let inner_face_start = outer_face_start + outer_face_count + hollow_gap;
+    let bottom_face_index = inner_face_start + inner_face_count;
+
+    let mut faces = Vec::new();
+
+    append_ring_faces(
+        &mut faces,
+        layers,
+        path_data.profile_shape,
+        0,
+        outer_count,
+        outer_face_start,
+        texture_context,
+    );
+
+    if has_hollow {
+        append_ring_faces(
+            &mut faces,
+            layers,
+            inner_profile,
+            outer_count,
+            inner_count,
+            inner_face_start,
+            texture_context,
+        );
+    }
+
+    let bottom = &layers[0];
+    let top = &layers[layers.len() - 1];
+
+    for (layer, flip, face_index) in [(bottom, true, bottom_face_index), (top, false, 0)] {
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        if has_hollow {
+            append_hollow_cap(
+                layer,
+                outer_count,
+                inner_count,
+                flip,
+                &mut vertices,
+                &mut indices,
+            );
+        } else {
+            vertices.extend_from_slice(&layer.0[..outer_count]);
+
+            let count = outer_count as u32;
+            for i in 1..count.saturating_sub(1) {
+                if flip {
+                    indices.extend_from_slice(&[0, i + 1, i]);
+                } else {
+                    indices.extend_from_slice(&[0, i, i + 1]);
+                }
+            }
+        }
+
+        let uv = planar_uvs(&vertices);
+
+        faces.push(make_face(
+            face_index,
+            vertices,
+            indices,
+            uv,
+            texture_context,
+        ));
+    }
+
+    Ok(faces)
+}
+
 /// Extract one ring's faces from the path layers.
 fn append_ring_faces(
     faces: &mut Vec<RenderFace>,
@@ -103,9 +242,7 @@ fn append_ring_faces(
     ring_start: usize,
     ring_size: usize,
     texture_face_start: u32,
-    texture_paths: &HashMap<u32, PathBuf>,
-    texture: &Option<TextureEntries>,
-    texture_animation: &Option<TextureAnimation>,
+    texture_context: &TextureContext,
 ) {
     if layers.len() < 2 || ring_size < 2 {
         return;
@@ -165,158 +302,7 @@ fn append_ring_faces(
             vertices,
             indices,
             uv,
-            texture_paths,
-            texture,
-            texture_animation.clone(),
+            texture_context,
         ));
     }
-}
-
-fn planar_uvs(vertices: &[Vec3]) -> Vec<[f32; 2]> {
-    if vertices.is_empty() {
-        return Vec::new();
-    }
-
-    let min_x = vertices.iter().map(|v| v.x).fold(f32::INFINITY, f32::min);
-    let max_x = vertices
-        .iter()
-        .map(|v| v.x)
-        .fold(f32::NEG_INFINITY, f32::max);
-    let min_y = vertices.iter().map(|v| v.y).fold(f32::INFINITY, f32::min);
-    let max_y = vertices
-        .iter()
-        .map(|v| v.y)
-        .fold(f32::NEG_INFINITY, f32::max);
-
-    let width = (max_x - min_x).max(f32::EPSILON);
-    let height = (max_y - min_y).max(f32::EPSILON);
-
-    vertices
-        .iter()
-        .map(|v| [(v.x - min_x) / width, 1.0 - (v.y - min_y) / height])
-        .collect()
-}
-
-/// Splits path-generated geometry into separately textured faces.
-pub(super) fn split_faces(
-    layers: &[MeshLayer],
-    profile: ProfileShape,
-    hollow_shape: HollowShape,
-    has_hollow: bool,
-    texture_paths: &HashMap<u32, PathBuf>,
-    texture: &Option<TextureEntries>,
-    texture_animation: Option<TextureAnimation>,
-) -> Result<Vec<RenderFace>, ObjectUpdateError> {
-    if layers.len() < 2 {
-        return Ok(Vec::new());
-    }
-
-    let outer_count = profile_vertex_count(profile);
-    let inner_profile = hollow_profile_shape(hollow_shape, profile);
-    let inner_count = if has_hollow {
-        profile_vertex_count(inner_profile)
-    } else {
-        0
-    };
-
-    let expected_size = outer_count + inner_count;
-
-    for layer in layers {
-        if layer.0.len() != expected_size {
-            return Err(ObjectUpdateError::Unimplemented {
-                feature: format!(
-                    "Profile layer has {} vertices; expected {}",
-                    layer.0.len(),
-                    expected_size,
-                ),
-            });
-        }
-    }
-
-    // OpenSim face 0 is the top cap; side faces begin at 1.
-    let outer_face_count = profile_face_ranges(profile, outer_count).len() as u32;
-    let inner_face_count = if has_hollow {
-        profile_face_ranges(inner_profile, inner_count).len() as u32
-    } else {
-        0
-    };
-
-    let is_round = matches!(profile, ProfileShape::Circle | ProfileShape::HalfCircle);
-    let hollow_gap = if has_hollow && is_round { 1 } else { 0 };
-
-    let outer_face_start = 1;
-    let inner_face_start = outer_face_start + outer_face_count + hollow_gap;
-    let bottom_face_index = inner_face_start + inner_face_count;
-
-    let mut faces = Vec::new();
-
-    append_ring_faces(
-        &mut faces,
-        layers,
-        profile,
-        0,
-        outer_count,
-        outer_face_start,
-        texture_paths,
-        texture,
-        &texture_animation,
-    );
-
-    if has_hollow {
-        append_ring_faces(
-            &mut faces,
-            layers,
-            inner_profile,
-            outer_count,
-            inner_count,
-            inner_face_start,
-            texture_paths,
-            texture,
-            &texture_animation,
-        );
-    }
-
-    let bottom = &layers[0];
-    let top = &layers[layers.len() - 1];
-
-    for (layer, flip, face_index) in [(bottom, true, bottom_face_index), (top, false, 0)] {
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-
-        if has_hollow {
-            append_hollow_cap(
-                layer,
-                outer_count,
-                inner_count,
-                flip,
-                &mut vertices,
-                &mut indices,
-            );
-        } else {
-            vertices.extend_from_slice(&layer.0[..outer_count]);
-
-            let count = outer_count as u32;
-            for i in 1..count.saturating_sub(1) {
-                if flip {
-                    indices.extend_from_slice(&[0, i + 1, i]);
-                } else {
-                    indices.extend_from_slice(&[0, i, i + 1]);
-                }
-            }
-        }
-
-        let uv = planar_uvs(&vertices);
-
-        faces.push(make_face(
-            face_index,
-            vertices,
-            indices,
-            uv,
-            texture_paths,
-            texture,
-            texture_animation.clone(),
-        ));
-    }
-
-    Ok(faces)
 }

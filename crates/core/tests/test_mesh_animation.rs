@@ -1,5 +1,9 @@
-use benthic_protocol::default_animations::DefaultAnimation;
-use benthic_protocol::skeleton::{JointName, Skeleton, SkinJoint};
+use crate::common::bevy::{
+    DebugVisibility, draw_skeleton_debug, handle_ui_buttons, setup, update_mesh_visibility,
+};
+use crate::common::{AGENT_ID, mock_avatar_load};
+use benthic_protocol::animation::default_animations::DefaultAnimation;
+use benthic_protocol::avatar::skeleton::{JointName, Skeleton, SkinJoint};
 use bevy::app::Update;
 use bevy::asset::{AssetMode, AssetPlugin, UnapprovedPathMode};
 use bevy::camera::Camera3d;
@@ -29,11 +33,6 @@ use metaverse_avatar::errors::AnimationError;
 use metaverse_messages::udp::agent::avatar_animation::AnimationEntry;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-
-use crate::common::bevy::{
-    DebugVisibility, draw_skeleton_debug, handle_ui_buttons, setup, update_mesh_visibility,
-};
-use crate::common::{AGENT_ID, mock_avatar_load};
 mod common;
 
 lazy_static! {
@@ -186,7 +185,7 @@ async fn build_test_animation() {
     println!("Generated animations: {:?}", paths);
 }
 
-fn display_vertices(vertices_a: Vec<Vec3>, vertices_b: Vec<Vec3>) {
+fn _display_vertices(vertices_a: Vec<Vec3>, vertices_b: Vec<Vec3>) {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins.set(WinitPlugin {

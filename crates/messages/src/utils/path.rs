@@ -77,9 +77,9 @@ pub struct PrimPath {
     /// Profile shape
     pub profile_shape: ProfileShape,
 }
-impl PrimPath {
+impl Hash for PrimPath {
     /// Generate a hash for the prim path so generated objects can be cached by geometry
-    pub fn hash<H: Hasher>(&self, hasher: &mut H) {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.curve.hash(&mut *hasher);
         self.begin.to_bits().hash(&mut *hasher);
         self.end.to_bits().hash(&mut *hasher);
@@ -119,6 +119,13 @@ pub enum PathCurve {
     /// Linear extrusion + flexible prim (always paired with the Flexible extra param).
     Flexible = 128,
 }
+impl Hash for PathCurve {
+    /// Hash a PathCurve to allow objects to be cached by geometry
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as u8).hash(state);
+    }
+}
+
 impl PathCurve {
     /// Convert bytes to a PathCurve
     pub fn from_byte(byte: u8) -> Self {
@@ -142,11 +149,6 @@ impl PathCurve {
             "Flexible" => Some(Self::Flexible),
             _ => None,
         }
-    }
-
-    /// Hash a PathCurve to allow objects to be cached by geometry
-    pub fn hash(&self, hasher: &mut impl Hasher) {
-        (*self as u8).hash(hasher);
     }
 
     /// Steps in each path for high resolution
@@ -189,12 +191,13 @@ pub enum ProfileShape {
     /// profile is invalid
     Unknown = 255,
 }
-impl ProfileShape {
+impl Hash for ProfileShape {
     /// Hash the profileshape so the cache can be built from the geometry
-    pub fn hash(&self, hasher: &mut impl Hasher) {
-        (*self as u8).hash(hasher);
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as u8).hash(state);
     }
-
+}
+impl ProfileShape {
     /// Convert strings to ProfileShapes
     pub fn from_string(value: &str) -> Option<Self> {
         match value {
@@ -272,14 +275,14 @@ pub enum HollowShape {
     /// Unknown
     Unknown = 255,
 }
-
-impl HollowShape {
+impl Hash for HollowShape {
     /// Hasher for the hollow shape.
     /// this allows objects to be cached based on their actual geometry
-    pub fn hash(&self, hasher: &mut impl Hasher) {
-        (*self as u8).hash(hasher);
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (*self as u8).hash(state);
     }
-
+}
+impl HollowShape {
     /// converts string to hollow shape
     pub fn from_string(value: &str) -> Option<Self> {
         match value {

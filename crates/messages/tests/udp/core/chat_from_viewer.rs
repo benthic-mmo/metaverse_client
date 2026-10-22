@@ -1,4 +1,4 @@
-use benthic_protocol::messages::utils::chat_types::ChatType;
+use benthic_protocol::messages::chat::chat_types::ChatType;
 use metaverse_messages::{
     packet::{packet_protocol::Packet, packet_types::PacketType},
     udp::chat::chat_from_viewer::ChatFromViewer,

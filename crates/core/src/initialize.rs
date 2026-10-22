@@ -5,7 +5,7 @@ use actix::Actor;
 use actix_rt::time;
 use benthic_protocol::errors::ProtocolSessionError;
 use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
-use benthic_protocol::session::session::initialize_share_dir;
+use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::DownloadState;
 use benthic_protocol::session::types::ServerState;
 use portpicker::pick_unused_port;

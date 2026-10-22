@@ -9,7 +9,7 @@ use crate::{
 use benthic_protocol::{
     messages::world::land_update::LandData,
     session::{
-        session::{CacheDir, write_json},
+        storage::{CacheDir, write_json},
         types::Session,
     },
 };

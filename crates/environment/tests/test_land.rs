@@ -1,6 +1,5 @@
 mod common;
-
-use benthic_protocol::messages::ui::land_update::LandData;
+use benthic_protocol::messages::world::land_update::LandData;
 use bevy::{
     DefaultPlugins,
     app::{App, PluginGroup, Startup},
