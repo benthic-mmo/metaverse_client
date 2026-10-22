@@ -1,12 +1,11 @@
-use benthic_protocol::render_data::RenderObject;
+use benthic_protocol::objects::types::RenderObject;
 use criterion::{Criterion, criterion_group, criterion_main};
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::scene::SceneGroup;
-use metaverse_objects::object_handler::create_render_object;
+use metaverse_objects::utils::create_mesh_render_object;
 use std::collections::HashMap;
-use std::hint::black_box;
-
 use std::fs;
+use std::hint::black_box;
 use std::path::PathBuf;
 
 fn avatar_benchmarks(c: &mut Criterion) {
@@ -138,7 +137,7 @@ fn avatar_benchmarks(c: &mut Criterion) {
                 .zip(meshes.iter())
                 .zip(texture_paths.iter())
                 .map(|((part, mesh), texture_path)| {
-                    create_render_object(
+                    create_mesh_render_object(
                         black_box(mesh.clone()),
                         black_box(part.metadata.name.clone()),
                         texture_path.clone(),
@@ -160,7 +159,7 @@ fn avatar_benchmarks(c: &mut Criterion) {
         .zip(meshes)
         .zip(texture_paths.iter())
         .map(|((part, mesh), texture_path)| {
-            create_render_object(
+            create_mesh_render_object(
                 mesh,
                 part.metadata.name.clone(),
                 texture_path.clone(),

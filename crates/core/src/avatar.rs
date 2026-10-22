@@ -8,7 +8,7 @@ use benthic_protocol::messages::agent::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::agent::play_animation::PlayAnimation;
 use benthic_protocol::messages::camera::camera_position::CameraPosition;
 use benthic_protocol::messages::ui_protocol::UIMessage;
-use benthic_protocol::session::session::cache_enabled;
+use benthic_protocol::session::storage::cache_enabled;
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;

@@ -1,5 +1,11 @@
 use std::path::PathBuf;
 mod common;
+use crate::common::{
+    bevy::{
+        DebugVisibility, draw_skeleton_debug, handle_ui_buttons, setup, update_mesh_visibility,
+    },
+    mock_avatar_load,
+};
 use bevy::{
     DefaultPlugins,
     app::{App, Startup, Update},
@@ -8,13 +14,6 @@ use bevy::{
     winit::WinitPlugin,
 };
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
-
-use crate::common::{
-    bevy::{
-        DebugVisibility, draw_skeleton_debug, handle_ui_buttons, setup, update_mesh_visibility,
-    },
-    mock_avatar_load,
-};
 
 /// this test debugs the entire pipeline from the very beginning.
 /// Input data is the SceneObject and Mesh data coming directly from the server.

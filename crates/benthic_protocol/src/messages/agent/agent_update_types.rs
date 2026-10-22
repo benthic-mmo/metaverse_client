@@ -78,7 +78,7 @@ const AU_FLAGS_NONE: u8 = 0x00;
 /// Flag indicating that the agent's title should be hidden.
 const AU_FLAGS_HIDETITLE: u8 = 0x01;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 /// Defines the actions an Agent Update packet can take
 pub struct ControlFlags {
     /// undocumented
@@ -148,43 +148,6 @@ pub struct ControlFlags {
 }
 
 impl ControlFlags {
-    /// sets default values for controlflags
-    pub fn default() -> Self {
-        Self {
-            at_pos: false,
-            at_neg: false,
-            left_pos: false,
-            left_neg: false,
-            up_pos: false,
-            up_neg: false,
-            pitch_pos: false,
-            pitch_neg: false,
-            yaw_pos: false,
-            yaw_neg: false,
-            fast_at: false,
-            fast_left: false,
-            fast_up: false,
-            fly: false,
-            stop: false,
-            finish_anim: false,
-            stand_up: false,
-            sit_on_ground: false,
-            mouselook: false,
-            nudge_at_pos: false,
-            nudge_at_neg: false,
-            nudge_left_pos: false,
-            nudge_left_neg: false,
-            nudge_up_pos: false,
-            nudge_up_neg: false,
-            turn_left: false,
-            turn_right: false,
-            away: false,
-            l_button_down: false,
-            l_button_up: false,
-            ml_button_down: false,
-            ml_button_up: false,
-        }
-    }
     /// Converts control flags bits to bools using bitwise ands
     pub fn from_bytes(bits: u32) -> Self {
         Self {
@@ -325,7 +288,7 @@ impl ControlFlags {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 /// User states. Currently only typing and editing.
 /// used to display typing animations, and edit mode indicators.
 pub struct State {
@@ -335,14 +298,6 @@ pub struct State {
     pub editing: bool,
 }
 impl State {
-    /// sets default values for state.
-    /// Users are by default not typing or editing
-    pub fn default() -> Self {
-        Self {
-            typing: false,
-            editing: false,
-        }
-    }
     /// Converts the bits containing the state information to booleans using a bitwise and
     pub fn from_bytes(bits: u8) -> Self {
         Self {
@@ -364,7 +319,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 /// Struct for hide title flags.
 pub struct Flags {
     /// no flags at all
@@ -374,14 +329,6 @@ pub struct Flags {
 }
 #[allow(clippy::bad_bit_mask)]
 impl Flags {
-    /// sets default state for flags.
-    /// users are by default not hding their title
-    pub fn default() -> Self {
-        Self {
-            none: false,
-            hide_title: false,
-        }
-    }
     /// Converts from bits to boolean using bitwise and
     pub fn from_bytes(bits: u8) -> Self {
         Self {

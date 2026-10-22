@@ -10,7 +10,7 @@ use crate::session::{
 use actix::Addr;
 use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui_protocol::UIMessage;
-use benthic_protocol::objects::objects::{
+use benthic_protocol::objects::types::{
     AttachmentObjectData, ObjectInstanceInfo, ParametricPrimData, SculptObjectData,
 };
 use log::{error, warn};

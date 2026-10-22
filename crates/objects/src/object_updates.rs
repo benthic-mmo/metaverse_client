@@ -1,10 +1,10 @@
 use crate::errors::ObjectUpdateError;
 use benthic_protocol::{
     objects::{
-        objects::{AttachmentObjectData, ObjectInstanceInfo, RetriableData},
         types::TextureAnimation,
+        types::{AttachmentObjectData, ObjectInstanceInfo, RetriableData},
     },
-    session::{session::create_sub_object_dir, types::DownloadState},
+    session::{storage::create_sub_object_dir, types::DownloadState},
 };
 use log::warn;
 use metaverse_messages::{

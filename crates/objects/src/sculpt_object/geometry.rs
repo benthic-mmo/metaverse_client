@@ -62,10 +62,8 @@ pub(super) fn build_sculpt_geometry(
             let last = rows.len() - 1;
             let bottom_pole = rows[last][mid.min(row_width - 1)];
 
-            for x in 0..row_width {
-                rows[0][x] = top_pole;
-                rows[last][x] = bottom_pole;
-            }
+            rows[0].fill(top_pole);
+            rows[last].fill(bottom_pole);
         }
 
         SculptType::Torus => {

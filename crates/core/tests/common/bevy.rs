@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use bevy::{
     asset::AssetServer,
     camera::{Camera3d, visibility::Visibility},

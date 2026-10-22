@@ -4,8 +4,11 @@ use crate::{
     object_updates::{ObjectUpdateAction, RenderMeshData},
 };
 use benthic_protocol::{
-    objects::{objects::ParametricPrimData, types::RenderObject},
-    session::session::{cache_enabled, create_sub_object_dir},
+    objects::{
+        types::ParametricPrimData,
+        types::{RenderObject, TextureAnimation},
+    },
+    session::storage::{cache_enabled, create_sub_object_dir},
 };
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::utils::{path::PrimPath, texture_entry::TextureEntries};
@@ -15,6 +18,12 @@ use std::{
     path::{Path, PathBuf},
 };
 use uuid::Uuid;
+
+pub(crate) struct TextureContext<'a> {
+    pub(crate) texture_paths: &'a HashMap<u32, PathBuf>,
+    pub(crate) texture: &'a Option<TextureEntries>,
+    pub(crate) texture_animation: &'a Option<TextureAnimation>,
+}
 
 const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -77,14 +86,16 @@ fn build_render_object(
 
     let layers = path::follow_path(object.path_data.clone(), &profile)?;
 
+    let has_hollow = object.path_data.profile_hollow > 0.0;
     let faces = faces::split_faces(
         &layers,
-        object.path_data.profile_shape,
-        object.path_data.hollow_shape,
-        object.path_data.profile_hollow > 0.0,
-        texture_paths,
-        &object.texture,
-        object.texture_animation.clone(),
+        &object.path_data,
+        has_hollow,
+        &TextureContext {
+            texture_paths,
+            texture: &object.texture,
+            texture_animation: &object.texture_animation,
+        },
     )?;
 
     Ok(RenderObject {

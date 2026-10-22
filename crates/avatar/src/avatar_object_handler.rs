@@ -5,7 +5,7 @@ use benthic_protocol::{
     },
     objects::types::RenderObject,
     session::{
-        session::{CacheDir, cache_enabled, create_sub_agent_dir, write_json},
+        storage::{CacheDir, cache_enabled, create_sub_agent_dir, write_json},
         types::Session,
     },
 };

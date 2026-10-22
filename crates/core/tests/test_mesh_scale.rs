@@ -5,7 +5,6 @@ use bevy::{
     app::{App, Startup, Update},
     asset::{AssetMode, AssetPlugin, AssetServer, UnapprovedPathMode},
     ecs::{component::Component, system::Commands},
-    math::VectorSpace,
     prelude::*,
     winit::WinitPlugin,
 };

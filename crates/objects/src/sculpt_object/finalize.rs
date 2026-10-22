@@ -1,7 +1,7 @@
 use super::geometry::SculptGeometry;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::objects::{
-    objects::SculptObjectData,
+    types::SculptObjectData,
     types::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
 };
 use glam::Vec3;

@@ -1,5 +1,5 @@
 use crate::{errors::InventoryError, initialize_sqlite::ObjectCache};
-use benthic_protocol::objects::objects::ObjectInstanceInfo;
+use benthic_protocol::objects::types::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
 use sqlx::Row;

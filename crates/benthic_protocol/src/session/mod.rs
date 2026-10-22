@@ -1,4 +1,4 @@
 /// Defines session struct and session-wide utility functions
-pub mod session;
+pub mod storage;
 /// Session types
 pub mod types;

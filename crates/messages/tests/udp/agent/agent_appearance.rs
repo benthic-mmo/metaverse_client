@@ -42,20 +42,16 @@ const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
 /// ensures the AvatarAppearance packet parses correctly. The AvatarAppearance packet is currently
 /// unused.
 #[test]
-pub fn test_parse_avatar_appearance() {
+fn test_parse_avatar_appearance() {
     let default_user = Packet::from_bytes(&DEFAULT_USER_APPEARANCE).unwrap();
-    let test_user = Packet::from_bytes(&TEST_USER_APPEARANCE).unwrap();
-    match default_user.body {
-        PacketType::AvatarAppearance(avatar) => {
-            assert_eq!(avatar.id, DEFAULT_USER_ID);
-        }
-        _ => assert!(false),
-    }
+    let PacketType::AvatarAppearance(avatar) = default_user.body else {
+        panic!("Expected AvatarAppearance packet for DEFAULT_USER_APPEARANCE");
+    };
+    assert_eq!(avatar.id, DEFAULT_USER_ID);
 
-    match test_user.body {
-        PacketType::AvatarAppearance(avatar) => {
-            assert_eq!(avatar.id, TEST_USER_ID);
-        }
-        _ => assert!(false),
-    }
+    let test_user = Packet::from_bytes(&TEST_USER_APPEARANCE).unwrap();
+    let PacketType::AvatarAppearance(avatar) = test_user.body else {
+        panic!("Expected AvatarAppearance packet for TEST_USER_APPEARANCE");
+    };
+    assert_eq!(avatar.id, TEST_USER_ID);
 }

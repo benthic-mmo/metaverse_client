@@ -17,8 +17,8 @@ use benthic_protocol::messages::simulator::error_message::{
 };
 use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
 use benthic_protocol::messages::world::water_update::WaterUpdate;
-use benthic_protocol::objects::objects::RetriableData;
-use benthic_protocol::session::session::initialize_share_dir;
+use benthic_protocol::objects::types::RetriableData;
+use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::{
     DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
 };

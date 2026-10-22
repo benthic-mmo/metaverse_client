@@ -1,8 +1,13 @@
+#![allow(dead_code)]
+
 use ::bevy::ecs::resource::Resource;
 use benthic_default_asset_converter::generated::DEFAULT_SKELETON;
 use benthic_protocol::{
-    render_data::{AttachmentData, AvatarObject},
-    session::{EnvironmentCache, InventoryData, RegionData, Session, set_cache_enabled},
+    avatar::types::{AttachmentData, AvatarObject},
+    session::{
+        storage::set_cache_enabled,
+        types::{EnvironmentCache, InventoryData, RegionData, Session},
+    },
 };
 use glam::{Vec2, Vec3};
 use metaverse_avatar::{
@@ -10,7 +15,7 @@ use metaverse_avatar::{
     avatar_object_handler::{AvatarState, add_object_to_avatar, finalize_avatar},
 };
 use metaverse_messages::http::{mesh::Mesh, scene::SceneGroup};
-use metaverse_objects::object_handler::create_render_object;
+use metaverse_objects::utils::create_mesh_render_object;
 use metaverse_store::initialize_sqlite::{Cache, Inventory};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -126,7 +131,7 @@ fn mock_from_xml(
             let texture_path = texture_dir.join(format!("{}.png", face.texture_id));
             texture_paths.insert(*face_index, texture_path);
         }
-        let render_object = create_render_object(
+        let render_object = create_mesh_render_object(
             mesh,
             part.metadata.name.clone(),
             texture_paths,

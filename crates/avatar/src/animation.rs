@@ -3,7 +3,7 @@ use benthic_default_asset_converter::generated_animation_path;
 use benthic_protocol::{
     animation::default_animations::DefaultAnimation,
     avatar::skeleton::{Skeleton, SkinJoint},
-    session::session::{cache_enabled, create_agent_animation_dir, create_filtered_animation_dir},
+    session::storage::{cache_enabled, create_agent_animation_dir, create_filtered_animation_dir},
 };
 use metaverse_mesh::animation::{
     generate::{

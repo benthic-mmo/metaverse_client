@@ -28,7 +28,7 @@ const PACKET2: [u8; 160] = [
     32, 0, 101,
 ];
 
-const MORE_PACKET: [u8; 172] = [
+const _MORE_PACKET: [u8; 172] = [
     224, 0, 0, 0, 23, 0, 12, 0, 1, 66, 39, 0, 2, 162, 40, 0, 1, 255, 255, 1, 32, 89, 126, 29, 0, 1,
     186, 190, 2, 243, 77, 219, 64, 74, 143, 97, 248, 182, 3, 214, 214, 63, 156, 209, 87, 54, 9, 3,
     0, 2, 192, 188, 60, 0, 1, 38, 148, 63, 224, 226, 160, 63, 60, 57, 180, 236, 66, 213, 88, 2, 67,
@@ -131,36 +131,32 @@ const DEFAULT_USER_ID: Uuid = uuid!("9dc18bb1044f4c68906b2cb608b2e197");
 const TEST_FULL_ID: Uuid = uuid!("febd696e-83bc-466e-ab48-6384ea67becf");
 
 #[test]
-pub fn test_object_update() {
-    let object_update = Packet::from_bytes(&PACKET).unwrap();
+fn test_object_update() {
+    let packet = Packet::from_bytes(&PACKET).unwrap();
+    let PacketType::ObjectUpdate(object) = packet.body else {
+        panic!("Expected ObjectUpdate packet for PACKET");
+    };
+    assert_eq!(object.full_id, DEFAULT_USER_ID);
 
-    match object_update.body {
-        PacketType::ObjectUpdate(object) => {
-            assert_eq!(object.full_id, DEFAULT_USER_ID)
-        }
-        _ => assert!(false),
-    }
-    let object_update = Packet::from_bytes(&PACKET2).unwrap();
-    match object_update.body {
-        PacketType::ObjectUpdate(object) => {
-            assert_eq!(object.full_id, TEST_FULL_ID)
-        }
-        _ => assert!(false),
-    }
-    let _object_update = ObjectUpdate::from_bytes(&ATTACH_ITEM).unwrap();
-    let _object_update = ObjectUpdate::from_bytes(&NON_ATTACH).unwrap();
+    let packet = Packet::from_bytes(&PACKET2).unwrap();
+    let PacketType::ObjectUpdate(object) = packet.body else {
+        panic!("Expected ObjectUpdate packet for PACKET2");
+    };
+    assert_eq!(object.full_id, TEST_FULL_ID);
+
+    ObjectUpdate::from_bytes(&ATTACH_ITEM).unwrap();
+    ObjectUpdate::from_bytes(&NON_ATTACH).unwrap();
 }
 
 #[test]
-pub fn test_failing_object() {
-    let object_update = Packet::from_bytes(&PACKET_3).unwrap();
-    match object_update.body {
-        PacketType::ObjectUpdate(object) => {
-            assert_eq!(
-                object.full_id,
-                uuid!("a21e49ad-5c9b-474a-96d6-226db5b4bc5e")
-            )
-        }
-        _ => assert!(false),
-    }
+fn test_failing_object() {
+    let packet = Packet::from_bytes(&PACKET_3).unwrap();
+    let PacketType::ObjectUpdate(object) = packet.body else {
+        panic!("Expected ObjectUpdate packet for PACKET_3");
+    };
+
+    assert_eq!(
+        object.full_id,
+        uuid!("a21e49ad-5c9b-474a-96d6-226db5b4bc5e")
+    );
 }

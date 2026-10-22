@@ -5,7 +5,7 @@
 //!
 //! ## Goals
 //! - Represent avatar objects in an easy to use way, and build straightforward interfaces for
-//! managing them
+//!   managing them
 //!
 //!## Current Status
 //! <div class="warning">Work In Progress</div>
