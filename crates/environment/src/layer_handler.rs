@@ -51,31 +51,58 @@ pub fn handle_layer<C, A, U, I>(
     match patch_data {
         PatchLayer::Land(patches) => {
             let mut paths = Vec::new();
+
             for land in patches {
                 session
                     .environment_cache
                     .patch_cache
                     .insert(land.terrain_header.location, land.clone());
-                let mut layer_meshes = Vec::new();
-                if let Some(mesh) = land.clone().generate_mesh(
+
+                // (terrain_header fields needed for writing, mesh, coordinate)
+                // Each entry is tied to the Land that produced it, so queued
+                // lands are written under their OWN filename and scale.
+                let mut to_write: Vec<(String, usize, _, _)> = Vec::new();
+
+                if let Some((mesh, coordinate)) = land.clone().generate_mesh(
                     &mut session.environment_cache.patch_queue,
                     &session.environment_cache.patch_cache,
                 ) {
-                    layer_meshes.push(mesh);
+                    to_write.push((
+                        land.terrain_header.filename.clone(),
+                        land.terrain_header.patch_size,
+                        mesh,
+                        coordinate,
+                    ));
                 }
 
-                let queue_save = session.environment_cache.patch_queue.clone();
-                for (_location, land) in queue_save {
-                    if let Some(mesh) = land.generate_mesh(
+                // Drain a snapshot of the patch queue
+                let queue_save: Vec<Land> = session
+                    .environment_cache
+                    .patch_queue
+                    .values()
+                    .cloned()
+                    .collect();
+
+                for queued_land in queue_save {
+                    let filename = queued_land.terrain_header.filename.clone();
+                    let patch_size = queued_land.terrain_header.patch_size;
+                    let location = queued_land.terrain_header.location;
+
+                    if let Some((mesh, coordinate)) = queued_land.generate_mesh(
                         &mut session.environment_cache.patch_queue,
                         &session.environment_cache.patch_cache,
                     ) {
-                        layer_meshes.push(mesh);
+                        to_write.push((filename, patch_size, mesh, coordinate));
+                    } else {
+                        warn!(
+                            "generate_mesh returned None for queued land at {:?}",
+                            location
+                        );
                     }
                 }
 
-                for (mesh, coordinate) in layer_meshes {
-                    let scale = land.terrain_header.patch_size as f32;
+                for (filename, patch_size, mesh, coordinate) in to_write {
+                    let scale = patch_size as f32;
                     let json_path = write_json(
                         &LandData {
                             vertices: mesh.faces[0].vertices.clone(),
@@ -86,7 +113,7 @@ pub fn handle_layer<C, A, U, I>(
                                 z: 0.0,
                             },
                         },
-                        &land.terrain_header.filename,
+                        &filename,
                         CacheDir::Land,
                         &session.share_dir_root,
                     )?;
@@ -154,7 +181,7 @@ pub struct TerrainHeader {
     /// This is used to determine if we have reached the end of patches, along with determining the
     /// world_bits.
     pub quantized_world_bits: u8,
-    /// this scales the decompressed data back to a real-world value  
+    /// this scales the decompressed data back to a real-world value
     pub dc_offset: f32,
     /// a multiplioer used for decompression
     pub range: u16,

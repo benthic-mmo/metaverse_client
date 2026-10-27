@@ -6,7 +6,7 @@
 
 [![crates.io-environment][crates.io-environment-badge]][crates.io-environment] [![docs.rs-environment][docs.rs-badge]][docs.rs-environment]
 
-This crate is for handling the 3d environment of opensimulator worlds. This will contain the logic for handling LayerData, objects, and other components related to the 3d world.
+This crate is for handling the land, sky and other non-object elements of opensimulator worlds. This will contain the logic for handling patch data, objects, and other components related to the 3d world.
 
 ## Getting Started
 
