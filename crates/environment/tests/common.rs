@@ -15,11 +15,8 @@ use uuid::{Uuid, uuid};
 #[derive(Debug, Default)]
 pub struct MockInventory;
 
-#[derive(Debug, Default)]
-pub struct MockCache;
-
 pub const AGENT_ID: Uuid = uuid!("96ce3a85-273b-4a1a-b300-78bce703c325");
-pub fn mock_session() -> Session<(), (), Land, (), MockInventory, MockCache> {
+pub fn mock_session() -> Session<(), (), Land, (), MockInventory> {
     set_cache_enabled(false);
 
     let generated_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/generated");
@@ -27,7 +24,6 @@ pub fn mock_session() -> Session<(), (), Land, (), MockInventory, MockCache> {
 
     Session {
         inventory: MockInventory,
-        cache: MockCache,
         agent_id: AGENT_ID,
         session_id: Uuid::nil(),
         address: String::new(),
