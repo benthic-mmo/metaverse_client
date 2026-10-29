@@ -1,5 +1,6 @@
 use crate::errors::DownloadError;
 use crate::utils::create_mesh_render_object;
+use awc::Client;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::avatar::types::AttachmentData;
 use benthic_protocol::objects::types::RenderObject;
@@ -18,6 +19,8 @@ use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_store::initialize_sqlite::Cache;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object
@@ -38,8 +41,14 @@ pub async fn download_asset(
     asset_type: String,
     asset_id: Uuid,
     server_endpoint: &str,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<bytes::Bytes, DownloadError> {
-    let client = awc::Client::default();
+    let _permit = semaphore
+        .acquire()
+        .await
+        .map_err(|_| DownloadError::DownloaderClosed)?;
+
     let url = format!(
         "{}/?{}_id={}",
         server_endpoint.trim_end_matches('/'),
@@ -93,12 +102,14 @@ pub async fn download_texture(
     asset_id: Uuid,
     server_endpoint: &str,
     out_path: &PathBuf,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<(), DownloadError> {
     if out_path.exists() && cache_enabled() {
         return Ok(());
     }
     let item_type = ObjectType::Texture.to_string();
-    let tex = &download_asset(item_type, asset_id, server_endpoint).await?;
+    let tex = &download_asset(item_type, asset_id, server_endpoint, client, semaphore).await?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 
@@ -149,6 +160,8 @@ pub async fn download_face_textures(
     out_dir: &Path,
     texture: &Option<TextureEntries>,
     server_endpoint: &str,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<HashMap<u32, PathBuf>, DownloadError> {
     let mut paths = HashMap::new();
 
@@ -160,9 +173,19 @@ pub async fn download_face_textures(
     let download = |texture_id: Uuid| {
         let texture_path = out_dir.join(format!("{:?}.png", texture_id));
         let server_endpoint = server_endpoint.to_owned();
+        let client = client.clone();
+        let semaphore = semaphore.clone();
 
         async move {
-            match download_texture(texture_id, &server_endpoint, &texture_path).await {
+            match download_texture(
+                texture_id,
+                &server_endpoint,
+                &texture_path,
+                client,
+                semaphore,
+            )
+            .await
+            {
                 Ok(()) => Ok(texture_path),
                 Err(DownloadError::NotFound { .. }) => Ok(default_texture_path()),
                 Err(e) => Err(e),
@@ -194,11 +217,15 @@ pub async fn download_face_textures(
 pub async fn download_pbr_material(
     material_id: Uuid,
     server_endpoint: &str,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<(), DownloadError> {
     let _material_bytes = download_asset(
         ObjectType::Material.to_string(),
         material_id,
         server_endpoint,
+        client,
+        semaphore,
     )
     .await?;
 
@@ -232,9 +259,18 @@ pub async fn download_avatar_assets(
     agent_id: Uuid,
     cache: Cache,
     out_dir: PathBuf,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<PathBuf, DownloadError> {
     let scene_group = SceneGroup::from_xml(
-        &download_asset(object_type.to_string(), asset_id, server_endpoint).await?,
+        &download_asset(
+            object_type.to_string(),
+            asset_id,
+            server_endpoint,
+            client.clone(),
+            semaphore.clone(),
+        )
+        .await?,
     )?;
     let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
 
@@ -243,6 +279,8 @@ pub async fn download_avatar_assets(
         server_endpoint,
         &base_dir,
         server_endpoint.to_string(),
+        client.clone(),
+        semaphore.clone(),
     )
     .await?;
 
@@ -279,6 +317,8 @@ async fn download_scene_group_assets(
     url: &str,
     out_dir: &Path,
     server_endpoint: String,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Result<Vec<RenderObject>, DownloadError> {
     let mut render_objects = Vec::new();
 
@@ -287,12 +327,21 @@ async fn download_scene_group_assets(
             out_dir,
             &Some(scene.shape.texture.clone()),
             &server_endpoint,
+            client.clone(),
+            semaphore.clone(),
         )
         .await?;
 
         if scene.sculpt.sculpt_type == SculptType::Mesh {
             let mesh = Mesh::from_bytes(
-                &download_asset(ObjectType::Mesh.to_string(), scene.sculpt.texture, url).await?,
+                &download_asset(
+                    ObjectType::Mesh.to_string(),
+                    scene.sculpt.texture,
+                    url,
+                    client.clone(),
+                    semaphore.clone(),
+                )
+                .await?,
             )?;
 
             render_objects.push(create_mesh_render_object(

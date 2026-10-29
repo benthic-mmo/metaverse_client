@@ -199,6 +199,8 @@ impl Handler<DownloadAgentAsset> for Mailbox {
         let cache = self.cache.clone();
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+        let http_client = self.http_client.clone();
+        let semaphore = self.max_concurrent_downloads.clone();
         ctx.spawn(
             async move {
                 match download_avatar_assets(
@@ -208,6 +210,8 @@ impl Handler<DownloadAgentAsset> for Mailbox {
                     agent_id,
                     cache,
                     out_dir,
+                    http_client,
+                    semaphore,
                 )
                 .await
                 {

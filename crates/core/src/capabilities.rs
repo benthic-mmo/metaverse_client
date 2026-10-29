@@ -1,6 +1,7 @@
 use super::session::Mailbox;
 use crate::errors::CapabilityError;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
+use awc::Client;
 use log::error;
 use metaverse_messages::http::capabilities::{Capability, CapabilityRequest};
 use std::collections::HashMap;
@@ -26,9 +27,10 @@ impl Handler<SendCapabilityRequest> for Mailbox {
             let seed_capability_url = session.seed_capability_url.clone();
             let address = ctx.address().clone();
             let caps = msg.capability_request.capabilities;
+            let client = self.http_client.clone();
             ctx.spawn(
                 async move {
-                    match send_cap_request(seed_capability_url, caps).await {
+                    match send_cap_request(seed_capability_url, caps, client).await {
                         Ok(capability_urls) => {
                             address.do_send(SetCapabilityUrls { capability_urls });
                         }
@@ -72,8 +74,8 @@ impl Handler<SetCapabilityUrls> for Mailbox {
 async fn send_cap_request(
     seed_capability_url: String,
     capabilities: String,
+    client: Client,
 ) -> Result<HashMap<Capability, String>, CapabilityError> {
-    let client = awc::Client::default();
     let body = client
         .post(seed_capability_url)
         .insert_header(("Content-Type", "application/llsd+xml"))

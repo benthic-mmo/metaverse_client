@@ -42,6 +42,7 @@ pub async fn initialize(
         .await
         .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
     let (cache, sqlite_queue) = Cache::new(connection.clone());
+    let http_client = awc::Client::default();
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
@@ -70,6 +71,7 @@ pub async fn initialize(
         cache,
         sqlite_queue,
         pending_sqlite_batch: VecDeque::new(),
+        http_client,
     }
     .start();
     // wait until the mailbox starts
