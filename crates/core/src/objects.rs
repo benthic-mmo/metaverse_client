@@ -7,6 +7,7 @@ use actix::Addr;
 use actix::AsyncContext;
 use actix::WrapFuture;
 use actix::{Handler, Message};
+use awc::Client;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_default_asset_converter::no_geometry_mesh_path;
 use benthic_protocol::messages::ui_protocol::UIMessage;
@@ -48,6 +49,8 @@ use metaverse_objects::sculpt_object::handle_sculpt_object;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 /// Message for handling object updates of type mesh
@@ -159,7 +162,7 @@ impl Handler<DownloadMeshObject> for Mailbox {
         let out_dir = session.share_dir_root.clone();
         let semaphore = self.max_concurrent_downloads.clone();
         let downloads = self.downloads.clone();
-
+        let http_client = self.http_client.clone();
         ctx.spawn(
             async move {
                 // Download material textures.
@@ -170,18 +173,12 @@ impl Handler<DownloadMeshObject> for Mailbox {
                     &server_endpoint,
                     &mut msg,
                     "Parametric prim",
+                    http_client.clone(),
+                    semaphore.clone(),
                 )
                 .await
                 else {
                     return;
-                };
-                // only allow a certain number of concurrent downloads to prevent flooding the server
-                let _permit = match semaphore.acquire_owned().await {
-                    Ok(permit) => permit,
-                    Err(e) => {
-                        error!("Failed to acquire download semaphore: {e}");
-                        return;
-                    }
                 };
 
                 // Download the mesh .
@@ -189,6 +186,8 @@ impl Handler<DownloadMeshObject> for Mailbox {
                     ObjectType::Mesh.to_string(),
                     msg.0.sculpt_id,
                     &server_endpoint,
+                    http_client,
+                    semaphore,
                 )
                 .await
                 {
@@ -235,7 +234,15 @@ impl Handler<DownloadMeshObject> for Mailbox {
                         }
                     };
 
-                if let ObjectUpdateAction::Render(action) = action {
+                if let ObjectUpdateAction::Render(mut action) = action {
+                    if let Some(mesh_path) = action.mesh_path.clone() {
+                        let mut downloads = downloads.lock().await;
+
+                        if let Some(tx) = downloads.remove(&msg.0.sculpt_id) {
+                            let _ = tx.send(DownloadState::Complete(mesh_path));
+                        }
+                    }
+                    action.download = None;
                     addr.do_send(RenderObjectMessage(action));
                 }
             }
@@ -301,6 +308,10 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 
         let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+
+        let http_client = self.http_client.clone();
+
+        let semaphore = self.max_concurrent_downloads.clone();
         ctx.spawn(
             async move {
                 // retrieve textures, or requeue this message if the failure was retryable
@@ -311,6 +322,8 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                     &server_endpoint,
                     &mut msg,
                     "Parametric prim",
+                    http_client,
+                    semaphore,
                 )
                 .await
                 else {
@@ -427,6 +440,8 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 return;
             }
         };
+        let http_client = self.http_client.clone();
+        let semaphore = self.max_concurrent_downloads.clone();
         ctx.spawn(
             async move {
                 let Some(texture_paths) = face_textures_or_fallback(
@@ -436,6 +451,8 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     &server_endpoint,
                     &mut msg,
                     "Sculpt object",
+                    http_client.clone(),
+                    semaphore.clone(),
                 )
                 .await
                 else {
@@ -443,7 +460,15 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 };
                 // retrieve sculpt texture from endpoint
                 let texture_path = base_dir.join(format!("{:?}.png", sculpt_id));
-                if let Err(e) = download_texture(sculpt_id, &server_endpoint, &texture_path).await {
+                if let Err(e) = download_texture(
+                    sculpt_id,
+                    &server_endpoint,
+                    &texture_path,
+                    http_client,
+                    semaphore,
+                )
+                .await
+                {
                     match e {
                         e @ DownloadError::Retryable { .. } => {
                             addr.do_send(RetryMessage {
@@ -813,6 +838,8 @@ async fn face_textures_or_fallback<D, M>(
     endpoint: &str,
     msg: &mut M,
     label: &'static str,
+    client: Client,
+    semaphore: Arc<Semaphore>,
 ) -> Option<HashMap<u32, PathBuf>>
 where
     M: AsMut<D> + Message<Result = ()> + Send + Clone + 'static,
@@ -828,7 +855,7 @@ where
         }
     };
 
-    match download_face_textures(&textures_dir, texture, endpoint).await {
+    match download_face_textures(&textures_dir, texture, endpoint, client, semaphore).await {
         Ok(paths) => Some(paths),
         Err(e @ DownloadError::Retryable { .. }) => {
             msg.as_mut().inc_retry_count();

@@ -151,6 +151,9 @@ pub enum DownloadError {
     /// Errors coming from the metaverse mesh crate
     #[error("Metaverse Mesh Error: {0}")]
     MetaverseMeshError(#[from] MetaverseMeshError),
+
+    #[error("Downloader closed")]
+    DownloaderClosed,
 }
 /// This converts SendRequestErrors to REtryable or Unrecoverable errors.
 /// If it is a connect error, or a timeout error, it is retryable. re-queue, and try again.

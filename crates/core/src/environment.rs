@@ -81,10 +81,11 @@ impl Handler<FetchEnvironmentEvent> for Mailbox {
         let Some(_session) = self.session.as_ref() else {
             return;
         };
+        let client = self.http_client.clone();
 
         ctx.spawn(
             async move {
-                match fetch_environment_time(&server_endpoint).await {
+                match fetch_environment_time(&server_endpoint, client).await {
                     Ok(_) => {}
                     Err(e) => error!("{:?}", e),
                 }

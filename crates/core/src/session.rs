@@ -8,6 +8,7 @@ use crate::{
 };
 use actix::prelude::*;
 use actix_rt::time;
+use awc::Client;
 use benthic_protocol::errors::ProtocolSessionError;
 use benthic_protocol::messages::login::login_event::Login;
 use benthic_protocol::messages::login::login_response::LoginResponse;
@@ -111,6 +112,8 @@ pub struct Mailbox {
     pub sqlite_queue: mpsc::Receiver<CacheOperation>,
     /// Failed sqlite operations that get handled before the receiver queue
     pub pending_sqlite_batch: VecDeque<CacheOperation>,
+
+    pub http_client: Client,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -946,8 +949,8 @@ where
     }
 }
 fn backoff_ms(retry: u32) -> u64 {
-    let base_ms = 50;
-    let max_ms = 10_000;
+    let base_ms = 5000;
+    let max_ms = 100_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
