@@ -18,6 +18,7 @@ use benthic_protocol::objects::types::ObjectInstanceInfo;
 use benthic_protocol::objects::types::ParametricPrimData;
 use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::objects::types::SculptObjectData;
+use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::create_sub_object_dir;
 use benthic_protocol::session::storage::create_textures_dir;
 use benthic_protocol::session::types::DownloadState;
@@ -50,7 +51,6 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 /// Message for handling object updates of type mesh
@@ -160,7 +160,7 @@ impl Handler<DownloadMeshObject> for Mailbox {
         let addr = ctx.address();
         let cache = self.cache.clone();
         let out_dir = session.share_dir_root.clone();
-        let semaphore = self.max_concurrent_downloads.clone();
+        let rate_limiter = self.rate_limiter.clone();
         let downloads = self.downloads.clone();
         let http_client = self.http_client.clone();
         ctx.spawn(
@@ -174,7 +174,7 @@ impl Handler<DownloadMeshObject> for Mailbox {
                     &mut msg,
                     "Parametric prim",
                     http_client.clone(),
-                    semaphore.clone(),
+                    rate_limiter.clone(),
                 )
                 .await
                 else {
@@ -187,17 +187,22 @@ impl Handler<DownloadMeshObject> for Mailbox {
                     msg.0.sculpt_id,
                     &server_endpoint,
                     http_client,
-                    semaphore,
+                    rate_limiter,
                 )
                 .await
                 {
                     Ok(bytes) => bytes,
-                    Err(e @ DownloadError::Retryable { .. }) => {
+                    Err(
+                        e @ DownloadError::Retryable {
+                            network_overloaded, ..
+                        },
+                    ) => {
                         addr.do_send(RetryMessage {
                             message: msg,
                             info_message: format!(
                                 "Mesh download failed: {e}. Retrying object download..."
                             ),
+                            network_overloaded,
                         });
                         return;
                     }
@@ -311,7 +316,7 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 
         let http_client = self.http_client.clone();
 
-        let semaphore = self.max_concurrent_downloads.clone();
+        let rate_limiter = self.rate_limiter.clone();
         ctx.spawn(
             async move {
                 // retrieve textures, or requeue this message if the failure was retryable
@@ -323,7 +328,7 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                     &mut msg,
                     "Parametric prim",
                     http_client,
-                    semaphore,
+                    rate_limiter,
                 )
                 .await
                 else {
@@ -340,12 +345,17 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                 .await
                 {
                     Ok(actions) => actions,
-                    Err(ObjectUpdateError::DownloadError(e @ DownloadError::Retryable { .. })) => {
+                    Err(ObjectUpdateError::DownloadError(
+                        e @ DownloadError::Retryable {
+                            network_overloaded, ..
+                        },
+                    )) => {
                         addr.do_send(RetryMessage {
                             message: msg,
                             info_message: format!(
                                 "Parametric prim processing failed: {e}. Retrying..."
                             ),
+                            network_overloaded,
                         });
                         return;
                     }
@@ -441,7 +451,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
             }
         };
         let http_client = self.http_client.clone();
-        let semaphore = self.max_concurrent_downloads.clone();
+        let rate_limiter = self.rate_limiter.clone();
         ctx.spawn(
             async move {
                 let Some(texture_paths) = face_textures_or_fallback(
@@ -452,7 +462,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     &mut msg,
                     "Sculpt object",
                     http_client.clone(),
-                    semaphore.clone(),
+                    rate_limiter.clone(),
                 )
                 .await
                 else {
@@ -465,17 +475,20 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     &server_endpoint,
                     &texture_path,
                     http_client,
-                    semaphore,
+                    rate_limiter,
                 )
                 .await
                 {
                     match e {
-                        e @ DownloadError::Retryable { .. } => {
+                        e @ DownloadError::Retryable {
+                            network_overloaded, ..
+                        } => {
                             addr.do_send(RetryMessage {
                                 message: msg,
                                 info_message: format!(
                                     "Sculpt texture download failed: {e}. Retrying..."
                                 ),
+                                network_overloaded,
                             });
                         }
                         e => {
@@ -507,12 +520,17 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 .await
                 {
                     Ok(actions) => actions,
-                    Err(ObjectUpdateError::DownloadError(e @ DownloadError::Retryable { .. })) => {
+                    Err(ObjectUpdateError::DownloadError(
+                        e @ DownloadError::Retryable {
+                            network_overloaded, ..
+                        },
+                    )) => {
                         addr.do_send(RetryMessage {
                             message: msg,
                             info_message: format!(
                                 "Sculpt object processing failed: {e}. Retrying..."
                             ),
+                            network_overloaded,
                         });
                         return;
                     }
@@ -839,7 +857,7 @@ async fn face_textures_or_fallback<D, M>(
     msg: &mut M,
     label: &'static str,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Option<HashMap<u32, PathBuf>>
 where
     M: AsMut<D> + Message<Result = ()> + Send + Clone + 'static,
@@ -855,13 +873,18 @@ where
         }
     };
 
-    match download_face_textures(&textures_dir, texture, endpoint, client, semaphore).await {
+    match download_face_textures(&textures_dir, texture, endpoint, client, rate_limiter).await {
         Ok(paths) => Some(paths),
-        Err(e @ DownloadError::Retryable { .. }) => {
+        Err(
+            e @ DownloadError::Retryable {
+                network_overloaded, ..
+            },
+        ) => {
             msg.as_mut().inc_retry_count();
             addr.do_send(RetryMessage {
                 message: msg.clone(),
                 info_message: format!("{label} texture download failed: {e}. Retrying..."),
+                network_overloaded,
             });
             None
         }

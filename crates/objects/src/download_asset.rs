@@ -4,6 +4,7 @@ use awc::Client;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::avatar::types::AttachmentData;
 use benthic_protocol::objects::types::RenderObject;
+use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::CacheDir;
 use benthic_protocol::session::storage::cache_enabled;
 use benthic_protocol::session::storage::create_sub_agent_dir;
@@ -20,7 +21,6 @@ use metaverse_store::initialize_sqlite::Cache;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 /// Sends a call to the ViewerAsset endpoint to retrieve the object
@@ -42,12 +42,9 @@ pub async fn download_asset(
     asset_id: Uuid,
     server_endpoint: &str,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<bytes::Bytes, DownloadError> {
-    let _permit = semaphore
-        .acquire()
-        .await
-        .map_err(|_| DownloadError::DownloaderClosed)?;
+    rate_limiter.acquire().await;
 
     let url = format!(
         "{}/?{}_id={}",
@@ -103,13 +100,13 @@ pub async fn download_texture(
     server_endpoint: &str,
     out_path: &PathBuf,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<(), DownloadError> {
     if out_path.exists() && cache_enabled() {
         return Ok(());
     }
     let item_type = ObjectType::Texture.to_string();
-    let tex = &download_asset(item_type, asset_id, server_endpoint, client, semaphore).await?;
+    let tex = &download_asset(item_type, asset_id, server_endpoint, client, rate_limiter).await?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 
@@ -161,7 +158,7 @@ pub async fn download_face_textures(
     texture: &Option<TextureEntries>,
     server_endpoint: &str,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<HashMap<u32, PathBuf>, DownloadError> {
     let mut paths = HashMap::new();
 
@@ -174,7 +171,7 @@ pub async fn download_face_textures(
         let texture_path = out_dir.join(format!("{:?}.png", texture_id));
         let server_endpoint = server_endpoint.to_owned();
         let client = client.clone();
-        let semaphore = semaphore.clone();
+        let rate_limiter = rate_limiter.clone();
 
         async move {
             match download_texture(
@@ -182,7 +179,7 @@ pub async fn download_face_textures(
                 &server_endpoint,
                 &texture_path,
                 client,
-                semaphore,
+                rate_limiter,
             )
             .await
             {
@@ -218,14 +215,14 @@ pub async fn download_pbr_material(
     material_id: Uuid,
     server_endpoint: &str,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<(), DownloadError> {
     let _material_bytes = download_asset(
         ObjectType::Material.to_string(),
         material_id,
         server_endpoint,
         client,
-        semaphore,
+        rate_limiter,
     )
     .await?;
 
@@ -260,7 +257,7 @@ pub async fn download_avatar_assets(
     cache: Cache,
     out_dir: PathBuf,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<PathBuf, DownloadError> {
     let scene_group = SceneGroup::from_xml(
         &download_asset(
@@ -268,7 +265,7 @@ pub async fn download_avatar_assets(
             asset_id,
             server_endpoint,
             client.clone(),
-            semaphore.clone(),
+            rate_limiter.clone(),
         )
         .await?,
     )?;
@@ -280,7 +277,7 @@ pub async fn download_avatar_assets(
         &base_dir,
         server_endpoint.to_string(),
         client.clone(),
-        semaphore.clone(),
+        rate_limiter.clone(),
     )
     .await?;
 
@@ -318,7 +315,7 @@ async fn download_scene_group_assets(
     out_dir: &Path,
     server_endpoint: String,
     client: Client,
-    semaphore: Arc<Semaphore>,
+    rate_limiter: Arc<RateLimiter>,
 ) -> Result<Vec<RenderObject>, DownloadError> {
     let mut render_objects = Vec::new();
 
@@ -328,7 +325,7 @@ async fn download_scene_group_assets(
             &Some(scene.shape.texture.clone()),
             &server_endpoint,
             client.clone(),
-            semaphore.clone(),
+            rate_limiter.clone(),
         )
         .await?;
 
@@ -339,7 +336,7 @@ async fn download_scene_group_assets(
                     scene.sculpt.texture,
                     url,
                     client.clone(),
-                    semaphore.clone(),
+                    rate_limiter.clone(),
                 )
                 .await?,
             )?;
