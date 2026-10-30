@@ -6,6 +6,7 @@ use actix_rt::time;
 use benthic_protocol::errors::ProtocolSessionError;
 use benthic_protocol::messages::simulator::error_message::FeatureError;
 use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
+use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::DownloadState;
 use benthic_protocol::session::types::ServerState;
@@ -20,7 +21,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::Mutex as tokioMutex;
 use tokio::sync::Notify;
-use tokio::sync::Semaphore;
 use tokio::sync::watch::Sender;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
@@ -60,7 +60,7 @@ pub async fn initialize(
             ping_latency: Duration::new(0, 0),
             last_ping: time::Instant::now(),
         },
-        max_concurrent_downloads: Arc::new(Semaphore::new(3)),
+        rate_limiter: Arc::new(RateLimiter::new(5, 5)),
         downloads: Arc::new(tokioMutex::new(
             HashMap::<Uuid, Sender<DownloadState>>::new(),
         )),

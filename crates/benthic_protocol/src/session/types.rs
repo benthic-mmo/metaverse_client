@@ -54,8 +54,8 @@ pub enum DownloadState {
     Failed,
 }
 
-#[derive(Debug, Default)]
 /// Information about the current region the user is in
+#[derive(Debug, Default)]
 pub struct RegionData {
     /// The region global height of the water. This is used to render a flat plane of water over
     /// the entire region.

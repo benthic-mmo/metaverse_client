@@ -112,6 +112,10 @@ pub enum DownloadError {
         #[source]
         /// The error that can be retried
         error: Box<DownloadError>,
+
+        /// A specific clag to classify this failure as a local network overload error, instead of a
+        /// network error happening on the wire, from the server.
+        network_overloaded: bool,
     },
 
     /// Objects that fail to download permanently (like a 404) get handled as unrecoverable downlod
@@ -151,9 +155,6 @@ pub enum DownloadError {
     /// Errors coming from the metaverse mesh crate
     #[error("Metaverse Mesh Error: {0}")]
     MetaverseMeshError(#[from] MetaverseMeshError),
-
-    #[error("Downloader closed")]
-    DownloaderClosed,
 }
 /// This converts SendRequestErrors to REtryable or Unrecoverable errors.
 /// If it is a connect error, or a timeout error, it is retryable. re-queue, and try again.
@@ -161,11 +162,24 @@ pub enum DownloadError {
 impl From<awc::error::SendRequestError> for DownloadError {
     fn from(error: awc::error::SendRequestError) -> Self {
         match &error {
-            awc::error::SendRequestError::Connect(_) => DownloadError::Retryable {
-                error: Box::new(DownloadError::ObjectError { error }),
-            },
+            awc::error::SendRequestError::Connect(connect_error) => {
+                // this appears when the network is flooded.
+                // these retries should be handled differently.
+                let network_overloaded = matches!(
+                    connect_error,
+                    awc::error::ConnectError::Io(io_error)
+                        if io_error.kind() == std::io::ErrorKind::HostUnreachable
+                );
+
+                DownloadError::Retryable {
+                    error: Box::new(DownloadError::ObjectError { error }),
+                    network_overloaded,
+                }
+            }
+
             awc::error::SendRequestError::Timeout => DownloadError::Retryable {
                 error: Box::new(DownloadError::ObjectError { error }),
+                network_overloaded: false,
             },
 
             _ => DownloadError::Unrecoverable { error },

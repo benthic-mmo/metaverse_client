@@ -19,6 +19,7 @@ use benthic_protocol::messages::simulator::error_message::{
 use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
 use benthic_protocol::messages::world::water_update::WaterUpdate;
 use benthic_protocol::objects::types::RetriableData;
+use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::{
     DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
@@ -61,7 +62,7 @@ use std::{
     thread::sleep,
 };
 use tokio::sync::watch::{self};
-use tokio::sync::{Mutex as tokioMutex, Semaphore, mpsc};
+use tokio::sync::{Mutex as tokioMutex, mpsc};
 use tokio::{net::UdpSocket, sync::Notify, time::Duration};
 use uuid::Uuid;
 
@@ -91,8 +92,9 @@ pub struct Mailbox {
     pub sent_packet_count: u16,
     /// the global ping information
     pub ping_info: PingInfo,
-    /// Maximum amount of mesh downloads that can happen concurrently
-    pub max_concurrent_downloads: Arc<Semaphore>,
+    /// Global rate limiter. This internally is a semaphore with a timer to prevent flooding the
+    /// network with requests.
+    pub rate_limiter: Arc<RateLimiter>,
     /// The list of currently downloading objects.
     /// this contains a UUID of the object downloading, along with a receiver that other
     /// objectupdats can subscribe to, in order to wake up when the download is complete.
@@ -112,7 +114,7 @@ pub struct Mailbox {
     pub sqlite_queue: mpsc::Receiver<CacheOperation>,
     /// Failed sqlite operations that get handled before the receiver queue
     pub pending_sqlite_batch: VecDeque<CacheOperation>,
-
+    /// Global awc client for requests. This allows connection pooling.
     pub http_client: Client,
 }
 impl Mailbox {
@@ -898,6 +900,10 @@ where
     pub message: Retriable,
     /// Info message to dislpay upon retry
     pub info_message: String,
+
+    /// Flag set when the local network is overloaded.
+    /// this should be handled differently than a network error.
+    pub network_overloaded: bool,
 }
 impl<Retriable> Handler<RetryMessage<Retriable>> for Mailbox
 where
@@ -915,6 +921,14 @@ where
         let retries = msg.message.retry_count();
 
         let (max_retries, delay) = (DEFAULT_MAX_RETRIES, backoff_ms(retries));
+
+        // if the error is no route to host, that means the network is probably exhausted.
+        // wait an extra 60s for the ports to clear, to avoid flooding
+        if msg.network_overloaded {
+            warn!(
+                "Messages are failing because your network may be overloaded. This is likely a bug! Please report it!"
+            )
+        }
 
         if retries >= max_retries {
             error!(
@@ -949,8 +963,8 @@ where
     }
 }
 fn backoff_ms(retry: u32) -> u64 {
-    let base_ms = 5000;
-    let max_ms = 100_000;
+    let base_ms = 10_000;
+    let max_ms = 1_000_000;
 
     let max = (base_ms * 2_u64.saturating_pow(retry)).min(max_ms);
 
