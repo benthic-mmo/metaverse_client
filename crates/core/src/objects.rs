@@ -5,9 +5,9 @@ use crate::session::RetryMessage;
 use crate::session::SendUIMessage;
 use actix::Addr;
 use actix::AsyncContext;
+use actix::ResponseFuture;
 use actix::WrapFuture;
 use actix::{Handler, Message};
-use awc::Client;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_default_asset_converter::no_geometry_mesh_path;
 use benthic_protocol::messages::ui_protocol::UIMessage;
@@ -18,10 +18,11 @@ use benthic_protocol::objects::types::ObjectInstanceInfo;
 use benthic_protocol::objects::types::ParametricPrimData;
 use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::objects::types::SculptObjectData;
-use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::create_sub_object_dir;
 use benthic_protocol::session::storage::create_textures_dir;
+use benthic_protocol::session::types::AssetKey;
 use benthic_protocol::session::types::DownloadState;
+use futures::future::join_all;
 use log::{error, info};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
@@ -29,28 +30,23 @@ use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerse
 use metaverse_messages::udp::object::object_update::SculptData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
-use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::path::PrimPath;
 use metaverse_messages::utils::texture_entry::TextureEntries;
-use metaverse_objects::download_asset::download_asset;
-use metaverse_objects::download_asset::download_face_textures;
+use metaverse_objects::download_asset::download_mesh;
 use metaverse_objects::download_asset::download_texture;
 use metaverse_objects::errors::DownloadError;
-use metaverse_objects::errors::ObjectUpdateError;
 use metaverse_objects::mesh::handle_mesh_object;
 use metaverse_objects::mesh::mesh_from_json;
 use metaverse_objects::object_updates::MeshObjectData;
 use metaverse_objects::object_updates::ObjectUpdateAction;
 use metaverse_objects::object_updates::RenderMeshData;
 use metaverse_objects::object_updates::RenderObjectJSONData;
-use metaverse_objects::object_updates::mesh_update;
 use metaverse_objects::object_updates::object_update_cached;
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim;
 use metaverse_objects::sculpt_object::handle_sculpt_object;
 use std::collections::HashMap;
-use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
+use tokio::sync::watch;
 use uuid::Uuid;
 
 /// Message for handling object updates of type mesh
@@ -66,154 +62,36 @@ use uuid::Uuid;
 ///
 /// If the object exists on disk
 /// - [`RenderObjectMessage`]
-#[derive(Message)]
+
+#[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct MeshObjectUpdate(pub MeshObjectData);
 impl Handler<MeshObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: MeshObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+
+    fn handle(&mut self, msg: MeshObjectUpdate, ctx: &mut Self::Context) {
+        let Some(session) = self.session.as_ref() else {
             return;
         };
 
         let cache = self.cache.clone();
-        let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
-        let downloads = self.downloads.clone();
+        let addr = ctx.address();
+
         ctx.spawn(
             async move {
-                match mesh_update(cache, msg.0, out_dir, downloads).await {
-                    Ok(actions) => {
-                        for action in actions {
-                            match action {
-                                ObjectUpdateAction::DownloadMesh(data) => {
-                                    addr.do_send(DownloadMeshObject(data));
-                                }
-                                ObjectUpdateAction::Render(data) => {
-                                    addr.do_send(RenderObjectMessage(data));
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
+                // Request the mesh and face textures concurrently.
+                let mesh_future = resolve_asset(addr.clone(), AssetKey::Mesh(msg.0.sculpt_id));
+
+                let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
+
+                let (mesh_result, texture_paths) = tokio::join!(mesh_future, texture_future,);
+
+                // Resolve the mesh path.
+                let mesh_path = match mesh_result {
+                    Ok(path) => path,
                     Err(e) => {
-                        error!("HandleObjectUpdate error: {:?}", e)
-                    }
-                }
-            }
-            .into_actor(self),
-        );
-    }
-}
-
-/// Message for downloading object update from its capability endpoint
-///
-/// This downloads the object data, writes the object to disk as json, triggers the metaverse-mesh
-/// library to generate its finalized file, and then triggers a MeshUpdate
-///  
-/// # Cause
-/// - [`MeshObjectUpdate`]
-///
-/// # Effect
-/// If the downloads fail and the failure is recoverable
-/// [`RetryMessage`]
-///
-/// If the mesh generation was successful
-/// [`RenderObjectMessage`]
-///
-/// If the mesh generation permanently failed
-/// [`RenderBlankMeshMessage`]
-#[derive(Debug, Message, Clone)]
-#[rtype(result = "()")]
-pub struct DownloadMeshObject(MeshObjectData);
-impl AsMut<MeshObjectData> for DownloadMeshObject {
-    fn as_mut(&mut self) -> &mut MeshObjectData {
-        &mut self.0
-    }
-}
-impl RetriableData for DownloadMeshObject {
-    fn retry_count(&self) -> u32 {
-        self.0.retry_count
-    }
-    fn inc_retry_count(&mut self) {
-        self.0.retry_count += 1
-    }
-}
-impl Handler<DownloadMeshObject> for Mailbox {
-    type Result = ();
-
-    fn handle(&mut self, mut msg: DownloadMeshObject, ctx: &mut Self::Context) {
-        let server_endpoint = self.session.as_mut().and_then(|session| {
-            session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .cloned()
-        });
-        let Some(server_endpoint) = server_endpoint else {
-            self.queue_for_capability(Capability::ViewerAsset, msg);
-            return;
-        };
-        let Some(session) = self.session.as_mut() else {
-            return;
-        };
-
-        let addr = ctx.address();
-        let cache = self.cache.clone();
-        let out_dir = session.share_dir_root.clone();
-        let rate_limiter = self.rate_limiter.clone();
-        let downloads = self.downloads.clone();
-        let http_client = self.http_client.clone();
-        ctx.spawn(
-            async move {
-                // Download material textures.
-                let Some(texture_paths) = face_textures_or_fallback(
-                    &addr,
-                    &out_dir,
-                    &msg.0.texture.clone(),
-                    &server_endpoint,
-                    &mut msg,
-                    "Parametric prim",
-                    http_client.clone(),
-                    rate_limiter.clone(),
-                )
-                .await
-                else {
-                    return;
-                };
-
-                // Download the mesh .
-                let mesh_bytes = match download_asset(
-                    ObjectType::Mesh.to_string(),
-                    msg.0.sculpt_id,
-                    &server_endpoint,
-                    http_client,
-                    rate_limiter,
-                )
-                .await
-                {
-                    Ok(bytes) => bytes,
-                    Err(
-                        e @ DownloadError::Retryable {
-                            network_overloaded, ..
-                        },
-                    ) => {
-                        addr.do_send(RetryMessage {
-                            message: msg,
-                            info_message: format!(
-                                "Mesh download failed: {e}. Retrying object download..."
-                            ),
-                            network_overloaded,
-                        });
-                        return;
-                    }
-                    Err(e) => {
-                        error!("Mesh download failed: {:?}", e);
-                        // remove the mesh from the pending downloads list
-                        let mut downloads = downloads.lock().await;
-                        if let Some(tx) = downloads.remove(&msg.0.sculpt_id) {
-                            let _ = tx.send(DownloadState::Failed);
-                        }
-                        error!("Mesh download error: {:?}, rendering empty object", e);
+                        error!("Mesh download failed: {e}");
 
                         addr.do_send(RenderBlankMeshMessage {
                             out_dir,
@@ -224,29 +102,28 @@ impl Handler<DownloadMeshObject> for Mailbox {
                     }
                 };
 
+                // Read the downloaded raw mesh.
+                let mesh_bytes = match tokio::fs::read(&mesh_path).await {
+                    Ok(bytes) => bytes.into(),
+                    Err(e) => {
+                        error!("Failed to read mesh {}: {e}", msg.0.sculpt_id);
+                        return;
+                    }
+                };
+
+                // Build the GLTF.
                 let action =
                     match handle_mesh_object(cache, &msg.0, out_dir, mesh_bytes, texture_paths)
                         .await
                     {
                         Ok(action) => action,
                         Err(e) => {
-                            error!("Mesh object processing failed: {:?}", e);
-                            let mut downloads = downloads.lock().await;
-                            if let Some(tx) = downloads.remove(&msg.0.sculpt_id) {
-                                let _ = tx.send(DownloadState::Failed);
-                            }
+                            error!("Mesh object processing failed: {e:?}");
                             return;
                         }
                     };
 
                 if let ObjectUpdateAction::Render(mut action) = action {
-                    if let Some(mesh_path) = action.mesh_path.clone() {
-                        let mut downloads = downloads.lock().await;
-
-                        if let Some(tx) = downloads.remove(&msg.0.sculpt_id) {
-                            let _ = tx.send(DownloadState::Complete(mesh_path));
-                        }
-                    }
                     action.download = None;
                     addr.do_send(RenderObjectMessage(action));
                 }
@@ -276,66 +153,23 @@ impl Handler<DownloadMeshObject> for Mailbox {
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
-impl AsMut<ParametricPrimData<TextureEntries, PrimPath>> for ParametricPrimObjectUpdate {
-    fn as_mut(&mut self) -> &mut ParametricPrimData<TextureEntries, PrimPath> {
-        &mut self.0
-    }
-}
-impl RetriableData for ParametricPrimObjectUpdate {
-    fn retry_count(&self) -> u32 {
-        self.0.retry_count
-    }
-    fn inc_retry_count(&mut self) {
-        self.0.retry_count += 1
-    }
-}
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(
-        &mut self,
-        mut msg: ParametricPrimObjectUpdate,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
-        let server_endpoint = self.session.as_mut().and_then(|session| {
-            session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .cloned()
-        });
 
-        let Some(server_endpoint) = server_endpoint else {
-            self.queue_for_capability(Capability::ViewerAsset, msg);
-            return;
-        };
-        let Some(session) = self.session.as_mut() else {
+    fn handle(&mut self, msg: ParametricPrimObjectUpdate, ctx: &mut Self::Context) {
+        let Some(session) = self.session.as_ref() else {
             return;
         };
 
-        let addr = ctx.address();
         let out_dir = session.share_dir_root.clone();
+        let addr = ctx.address();
 
-        let http_client = self.http_client.clone();
-
-        let rate_limiter = self.rate_limiter.clone();
         ctx.spawn(
             async move {
-                // retrieve textures, or requeue this message if the failure was retryable
-                let Some(texture_paths) = face_textures_or_fallback(
-                    &addr,
-                    &out_dir,
-                    &msg.0.texture.clone(),
-                    &server_endpoint,
-                    &mut msg,
-                    "Parametric prim",
-                    http_client,
-                    rate_limiter,
-                )
-                .await
-                else {
-                    // message is already requeued, simply return
-                    return;
-                };
+                // Resolve all face textures.
+                let texture_paths = face_textures_or_fallback(&addr, &msg.0.texture).await;
 
+                // Build the parametric prim.
                 let actions = match handle_parametric_prim(
                     &out_dir,
                     &msg.0,
@@ -345,31 +179,15 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                 .await
                 {
                     Ok(actions) => actions,
-                    Err(ObjectUpdateError::DownloadError(
-                        e @ DownloadError::Retryable {
-                            network_overloaded, ..
-                        },
-                    )) => {
-                        addr.do_send(RetryMessage {
-                            message: msg,
-                            info_message: format!(
-                                "Parametric prim processing failed: {e}. Retrying..."
-                            ),
-                            network_overloaded,
-                        });
-                        return;
-                    }
                     Err(e) => {
-                        error!(
-                            "Handle parametric prim error: {:?}, rendering empty object",
-                            e
-                        );
+                        error!("Parametric prim processing failed: {e:?}");
 
                         addr.do_send(RenderBlankMeshMessage {
                             out_dir,
                             asset_id: msg.0.object_info.full_id,
                             object: msg.0.object_info,
                         });
+
                         return;
                     }
                 };
@@ -405,111 +223,46 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
-impl AsMut<SculptObjectData<TextureEntries, SculptData>> for SculptObjectUpdate {
-    fn as_mut(&mut self) -> &mut SculptObjectData<TextureEntries, SculptData> {
-        &mut self.0
-    }
-}
-impl RetriableData for SculptObjectUpdate {
-    fn retry_count(&self) -> u32 {
-        self.0.retry_count
-    }
-    fn inc_retry_count(&mut self) {
-        self.0.retry_count += 1
-    }
-}
 impl Handler<SculptObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, mut msg: SculptObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
-        let server_endpoint = self.session.as_mut().and_then(|session| {
-            session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .cloned()
-        });
 
-        let Some(server_endpoint) = server_endpoint else {
-            self.queue_for_capability(Capability::ViewerAsset, msg);
-            return;
-        };
-        let Some(session) = self.session.as_mut() else {
+    fn handle(&mut self, msg: SculptObjectUpdate, ctx: &mut Self::Context) {
+        let Some(session) = self.session.as_ref() else {
             return;
         };
 
         let out_dir = session.share_dir_root.clone();
-        let sculpt_id = msg.0.data.texture_id;
-
         let addr = ctx.address();
-        let base_dir = match create_sub_object_dir(&out_dir, &sculpt_id.to_string()) {
-            Ok(path) => path,
-            Err(e) => {
-                error!(
-                    "Failed to create sub-object directory for sculpt {}: {}",
-                    sculpt_id, e
-                );
-                return;
-            }
-        };
-        let http_client = self.http_client.clone();
-        let rate_limiter = self.rate_limiter.clone();
+
         ctx.spawn(
             async move {
-                let Some(texture_paths) = face_textures_or_fallback(
-                    &addr,
-                    &out_dir,
-                    &msg.0.texture.clone(),
-                    &server_endpoint,
-                    &mut msg,
-                    "Sculpt object",
-                    http_client.clone(),
-                    rate_limiter.clone(),
-                )
-                .await
-                else {
-                    return;
-                };
-                // retrieve sculpt texture from endpoint
-                let texture_path = base_dir.join(format!("{:?}.png", sculpt_id));
-                if let Err(e) = download_texture(
-                    sculpt_id,
-                    &server_endpoint,
-                    &texture_path,
-                    http_client,
-                    rate_limiter,
-                )
-                .await
-                {
-                    match e {
-                        e @ DownloadError::Retryable {
-                            network_overloaded, ..
-                        } => {
-                            addr.do_send(RetryMessage {
-                                message: msg,
-                                info_message: format!(
-                                    "Sculpt texture download failed: {e}. Retrying..."
-                                ),
-                                network_overloaded,
-                            });
-                        }
-                        e => {
-                            // if the SculpTexture download gets an unrecoverable error, render an empty
-                            // mesh and return early.
-                            error!("Sculpt texture  error: {:?}, rendering empty object", e);
+                let sculpt_id = msg.0.data.texture_id;
 
-                            addr.do_send(RenderBlankMeshMessage {
-                                out_dir,
-                                asset_id: sculpt_id,
-                                object: msg.0.object_info,
-                            });
-                            return;
-                        }
+                // Request the sculpt texture and face textures concurrently.
+                let sculpt_future = resolve_asset(addr.clone(), AssetKey::Texture(sculpt_id));
+
+                let face_textures_future = face_textures_or_fallback(&addr, &msg.0.texture);
+
+                let (sculpt_result, texture_paths) =
+                    tokio::join!(sculpt_future, face_textures_future,);
+
+                // Resolve the sculpt texture.
+                let sculpt_path = match sculpt_result {
+                    Ok(path) => path,
+                    Err(e) => {
+                        error!("Sculpt texture download failed: {e}");
+
+                        addr.do_send(RenderBlankMeshMessage {
+                            out_dir,
+                            asset_id: sculpt_id,
+                            object: msg.0.object_info,
+                        });
+
+                        return;
                     }
-                    return;
-                }
+                };
 
-                let sculpt_path = texture_path;
-
-                // build the sculpt object
+                // Build the sculpt object.
                 let actions = match handle_sculpt_object(
                     &out_dir,
                     &sculpt_path,
@@ -520,32 +273,20 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 .await
                 {
                     Ok(actions) => actions,
-                    Err(ObjectUpdateError::DownloadError(
-                        e @ DownloadError::Retryable {
-                            network_overloaded, ..
-                        },
-                    )) => {
-                        addr.do_send(RetryMessage {
-                            message: msg,
-                            info_message: format!(
-                                "Sculpt object processing failed: {e}. Retrying..."
-                            ),
-                            network_overloaded,
-                        });
-                        return;
-                    }
                     Err(e) => {
-                        error!("Sculpt texture  error: {:?}, rendering empty object", e);
+                        error!("Sculpt object processing failed: {e:?}");
+
                         addr.do_send(RenderBlankMeshMessage {
                             out_dir,
                             asset_id: sculpt_id,
                             object: msg.0.object_info,
                         });
+
                         return;
                     }
                 };
 
-                // render the generated sculpt object
+                // Render the generated sculpt object.
                 for action in actions {
                     if let ObjectUpdateAction::Render(data) = action {
                         addr.do_send(RenderObjectMessage(data));
@@ -707,7 +448,7 @@ impl Handler<GenerateMeshMessage> for Mailbox {
 
                             let mut downloads = downloads.lock().await;
 
-                            if let Some(tx) = downloads.remove(&action.asset_id) {
+                            if let Some(tx) = downloads.remove(&AssetKey::Mesh(action.asset_id)) {
                                 let _ = tx.send(DownloadState::Complete(mesh_path));
                             }
 
@@ -747,61 +488,36 @@ impl Handler<RenderObjectMessage> for Mailbox {
     type Result = ();
 
     fn handle(&mut self, msg: RenderObjectMessage, ctx: &mut Self::Context) -> Self::Result {
-        let addr = ctx.address();
+        let msg = msg.0;
 
-        ctx.spawn(
-            async move {
-                let mut msg = msg.0;
+        let Some(mesh_path) = msg.mesh_path else {
+            error!("No mesh path available for object {}", msg.object.full_id);
+            return;
+        };
 
-                if let Some(mut download) = msg.download.take() {
-                    if download.changed().await.is_err() {
-                        return;
-                    }
+        let (position, rotation) = if msg.object.parent_id.is_none_or(|id| id == 0) {
+            (
+                COORDINATE_CONVERSION.mul_vec3(msg.object.position),
+                COORDINATE_CONVERSION * msg.object.rotation,
+            )
+        } else {
+            (msg.object.position, msg.object.rotation)
+        };
 
-                    match download.borrow().clone() {
-                        DownloadState::Complete(path) => {
-                            msg.mesh_path = Some(path);
-                        }
-                        DownloadState::Failed => {
-                            error!("Download failed for object {}", msg.object.full_id);
-                            return;
-                        }
-                        DownloadState::Downloading => {
-                            return;
-                        }
-                    }
-                }
+        info!("Rendering object {:?}", msg.asset_id);
 
-                let Some(ref mesh_path) = msg.mesh_path else {
-                    error!("No mesh path available for object {}", msg.object.full_id);
-                    return;
-                };
-
-                let (position, rotation) = if msg.object.parent_id.is_none_or(|id| id == 0) {
-                    (
-                        COORDINATE_CONVERSION.mul_vec3(msg.object.position),
-                        COORDINATE_CONVERSION * msg.object.rotation,
-                    )
-                } else {
-                    (msg.object.position, msg.object.rotation)
-                };
-
-                info!("Rendering object {:?}", msg.asset_id);
-                addr.do_send(SendUIMessage {
-                    ui_message: UIMessage::new_mesh_update(MeshUpdate {
-                        position,
-                        scale: msg.object.scale,
-                        rotation,
-                        parent: msg.object.parent_id,
-                        scene_id: Some(msg.object.local_id),
-                        path: mesh_path.clone(),
-                        mesh_type: MeshType::Object,
-                        full_id: Some(msg.object.full_id),
-                    }),
-                });
-            }
-            .into_actor(self),
-        );
+        ctx.address().do_send(SendUIMessage {
+            ui_message: UIMessage::new_mesh_update(MeshUpdate {
+                position,
+                scale: msg.object.scale,
+                rotation,
+                parent: msg.object.parent_id,
+                scene_id: Some(msg.object.local_id),
+                path: mesh_path,
+                mesh_type: MeshType::Object,
+                full_id: Some(msg.object.full_id),
+            }),
+        });
     }
 }
 
@@ -847,52 +563,255 @@ impl Handler<RenderBlankMeshMessage> for Mailbox {
     }
 }
 
-/// handler for face textures.
-/// this also retries failed downloads.
-async fn face_textures_or_fallback<D, M>(
+// creates something to await on
+async fn resolve_asset(addr: Addr<Mailbox>, key: AssetKey) -> Result<PathBuf, String> {
+    let request = addr
+        .send(GetAsset(key))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+
+    match request {
+        AssetRequest::Ready(path) => Ok(path),
+
+        AssetRequest::Pending(mut rx) => loop {
+            match rx.borrow_and_update().clone() {
+                DownloadState::Complete(path) => return Ok(path),
+
+                DownloadState::Failed { error } => {
+                    return Err(error);
+                }
+
+                DownloadState::Downloading => {}
+            }
+
+            if rx.changed().await.is_err() {
+                return Err("Asset download channel closed".into());
+            }
+        },
+    }
+}
+
+pub enum AssetRequest {
+    Ready(PathBuf),
+    Pending(watch::Receiver<DownloadState>),
+}
+#[derive(Message)]
+#[rtype(result = "Result<AssetRequest, String>")]
+pub struct GetAsset(pub AssetKey);
+impl Handler<GetAsset> for Mailbox {
+    type Result = ResponseFuture<Result<AssetRequest, String>>;
+
+    fn handle(&mut self, msg: GetAsset, ctx: &mut Self::Context) -> Self::Result {
+        let downloads = self.downloads.clone();
+        let addr = ctx.address();
+
+        let Some(session) = self.session.as_ref() else {
+            return Box::pin(async { Err(DownloadError::SenderFailure.to_string()) });
+        };
+        let out_dir = session.share_dir_root.clone();
+        let asset_key = msg.0.clone();
+
+        Box::pin(async move {
+            let asset_path = match asset_key {
+                AssetKey::Mesh(mesh_id) => {
+                    let base_dir = create_sub_object_dir(&out_dir, &mesh_id.to_string())
+                        .map_err(|e| e.to_string())?;
+                    let glb_path = base_dir.join(format!("{:?}_high.bin", mesh_id));
+                    glb_path
+                }
+                AssetKey::Texture(texture_id) => {
+                    let textures_dir = create_textures_dir(&out_dir)
+                        .map_err(|_| DownloadError::SenderFailure.to_string())?;
+                    let texture_path = textures_dir.join(format!("{texture_id}.png"));
+                    texture_path
+                }
+                AssetKey::Material(material_id) => PathBuf::new(),
+            };
+
+            // Already downloaded: return immediately.
+            if tokio::fs::try_exists(&asset_path)
+                .await
+                .map_err(|_| DownloadError::SenderFailure.to_string())?
+            {
+                return Ok(AssetRequest::Ready(asset_path));
+            }
+
+            // Subscribe to an existing download or claim a new one.
+            let (rx, start_download) = {
+                let mut downloads = downloads.lock().await;
+
+                if let Some(tx) = downloads.get(&msg.0) {
+                    (tx.subscribe(), false)
+                } else {
+                    let (tx, rx) = watch::channel(DownloadState::Downloading);
+
+                    downloads.insert(msg.0, tx);
+
+                    (rx, true)
+                }
+            };
+
+            // Start the download outside the registry lock.
+            if start_download {
+                addr.do_send(DownloadAsset {
+                    key: asset_key,
+                    retry_count: 0,
+                    asset_path,
+                });
+            }
+            Ok(AssetRequest::Pending(rx))
+        })
+    }
+}
+
+#[derive(Message, Clone)]
+#[rtype(result = "()")]
+pub struct DownloadAsset {
+    pub key: AssetKey,
+    pub retry_count: u32,
+    pub asset_path: PathBuf,
+}
+impl AsMut<DownloadAsset> for DownloadAsset {
+    fn as_mut(&mut self) -> &mut DownloadAsset {
+        self
+    }
+}
+impl RetriableData for DownloadAsset {
+    fn retry_count(&self) -> u32 {
+        self.retry_count
+    }
+    fn inc_retry_count(&mut self) {
+        self.retry_count += 1
+    }
+}
+impl Handler<DownloadAsset> for Mailbox {
+    type Result = ResponseFuture<()>;
+    fn handle(&mut self, msg: DownloadAsset, ctx: &mut Self::Context) -> Self::Result {
+        let downloads = self.downloads.clone();
+        let client = self.http_client.clone();
+        let rate_limiter = self.rate_limiter.clone();
+        let addr = ctx.address();
+
+        let endpoint = self.session.as_ref().and_then(|session| {
+            session
+                .capability_urls
+                .get(&Capability::ViewerAsset)
+                .cloned()
+        });
+        let http_client = self.http_client.clone();
+
+        Box::pin(async move {
+            let Some(tx) = downloads.lock().await.get(&msg.key).cloned() else {
+                // The request is no longer registered.
+                return;
+            };
+
+            match async {
+                let endpoint = endpoint.ok_or(DownloadError::SenderFailure)?;
+                match msg.key {
+                    AssetKey::Mesh(mesh_id) => {
+                        download_mesh(
+                            mesh_id,
+                            &endpoint,
+                            &msg.asset_path,
+                            http_client,
+                            rate_limiter,
+                        )
+                        .await?;
+                    }
+                    AssetKey::Texture(texture_id) => {
+                        download_texture(
+                            texture_id,
+                            &endpoint,
+                            &msg.asset_path,
+                            client,
+                            rate_limiter,
+                        )
+                        .await?;
+                    }
+                    AssetKey::Material(_) => {}
+                }
+                Ok::<PathBuf, DownloadError>(msg.asset_path.clone())
+            }
+            .await
+            {
+                Ok(path) => {
+                    // if it has a path, then the download is complete
+                    tx.send_replace(DownloadState::Complete(path));
+                    downloads.lock().await.remove(&msg.key);
+                }
+                Err(
+                    e @ DownloadError::Retryable {
+                        network_overloaded, ..
+                    },
+                ) => {
+                    // if the error is retryable, re-trigger this download
+                    addr.do_send(RetryMessage {
+                        message: msg.clone(),
+                        info_message: format!("texture download failed: {e}. Retrying..."),
+                        network_overloaded,
+                    });
+                }
+                // if the error is not retryable, set the download state to failed
+                Err(e) => {
+                    error!("Texture {} download failed permanently: {e}", msg.key);
+
+                    tx.send_replace(DownloadState::Failed {
+                        error: e.to_string(),
+                    });
+
+                    downloads.lock().await.remove(&msg.key);
+                }
+            }
+        })
+    }
+}
+
+async fn face_textures_or_fallback(
     addr: &Addr<Mailbox>,
-    out_dir: &Path,
-    texture: &Option<TextureEntries>,
-    endpoint: &str,
-    msg: &mut M,
-    label: &'static str,
-    client: Client,
-    rate_limiter: Arc<RateLimiter>,
-) -> Option<HashMap<u32, PathBuf>>
-where
-    M: AsMut<D> + Message<Result = ()> + Send + Clone + 'static,
-    D: RetriableData,
-    Mailbox: Handler<M> + Handler<RetryMessage<M>>,
-    M: Message<Result = ()> + Send + 'static,
-{
-    let textures_dir = match create_textures_dir(out_dir) {
-        Ok(p) => p,
-        Err(_) => {
-            error!("Failed to create textures dir");
-            return None;
-        }
+    textures: &Option<TextureEntries>,
+) -> HashMap<u32, PathBuf> {
+    let Some(textures) = textures else {
+        return HashMap::from([(u32::MAX, default_texture_path())]);
     };
 
-    match download_face_textures(&textures_dir, texture, endpoint, client, rate_limiter).await {
-        Ok(paths) => Some(paths),
-        Err(
-            e @ DownloadError::Retryable {
-                network_overloaded, ..
-            },
-        ) => {
-            msg.as_mut().inc_retry_count();
-            addr.do_send(RetryMessage {
-                message: msg.clone(),
-                info_message: format!("{label} texture download failed: {e}. Retrying..."),
-                network_overloaded,
-            });
-            None
+    let mut entries = Vec::with_capacity(textures.faces.len() + 1);
+
+    // Default texture.
+    entries.push((u32::MAX, textures.default.texture_id));
+
+    // Per-face overrides.
+    entries.extend(
+        textures
+            .faces
+            .iter()
+            .map(|(&face, entry)| (face, entry.texture_id)),
+    );
+
+    let futures = entries.into_iter().map(|(face, texture_id)| {
+        let addr = addr.clone();
+
+        async move {
+            let result = resolve_asset(addr, AssetKey::Texture(texture_id)).await;
+            (face, result)
         }
-        Err(e) => {
-            error!("{label} texture download failed: {e:?}. using default texture");
-            let mut paths = HashMap::new();
-            paths.insert(u32::MAX, default_texture_path());
-            Some(paths)
+    });
+
+    let results = join_all(futures).await;
+    let mut paths = HashMap::new();
+
+    for (face, result) in results {
+        match result {
+            Ok(path) => {
+                paths.insert(face, path);
+            }
+            Err(e) => {
+                error!("Texture download failed for face {face}: {e}");
+                paths.insert(face, default_texture_path());
+            }
         }
     }
+
+    paths
 }

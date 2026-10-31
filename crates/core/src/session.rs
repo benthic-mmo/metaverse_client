@@ -22,7 +22,7 @@ use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::{
-    DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
+    AssetKey, DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
 };
 use glam::Vec2;
 use log::{error, info, warn};
@@ -98,7 +98,7 @@ pub struct Mailbox {
     /// The list of currently downloading objects.
     /// this contains a UUID of the object downloading, along with a receiver that other
     /// objectupdats can subscribe to, in order to wake up when the download is complete.
-    pub downloads: Arc<tokioMutex<HashMap<Uuid, watch::Sender<DownloadState>>>>,
+    pub downloads: Arc<tokioMutex<HashMap<AssetKey, watch::Sender<DownloadState>>>>,
     /// RenderObjectMessages pending their parent to load in. The u32 is the local ID of the parent.
     pub pending_children: Arc<tokioMutex<HashMap<u32, Vec<RenderObjectMessage>>>>,
     /// Avatar objects pending because the current outfit is not loaded yet.
