@@ -8,6 +8,7 @@ use benthic_protocol::messages::simulator::error_message::FeatureError;
 use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
 use benthic_protocol::session::rate_limiter::RateLimiter;
 use benthic_protocol::session::storage::initialize_share_dir;
+use benthic_protocol::session::types::AssetKey;
 use benthic_protocol::session::types::DownloadState;
 use benthic_protocol::session::types::ServerState;
 use metaverse_store::initialize_sqlite::Cache;
@@ -23,7 +24,6 @@ use tokio::sync::Mutex as tokioMutex;
 use tokio::sync::Notify;
 use tokio::sync::watch::Sender;
 use tokio::task::JoinHandle;
-use uuid::Uuid;
 
 /// This starts the mailbox, and blocks forever.
 /// This should be run in its own thread, so as not to block anything else.
@@ -62,7 +62,7 @@ pub async fn initialize(
         },
         rate_limiter: Arc::new(RateLimiter::new(5, 5)),
         downloads: Arc::new(tokioMutex::new(
-            HashMap::<Uuid, Sender<DownloadState>>::new(),
+            HashMap::<AssetKey, Sender<DownloadState>>::new(),
         )),
         pending_children: Arc::new(tokioMutex::new(HashMap::new())),
         pending_avatar_objects: Vec::new(),

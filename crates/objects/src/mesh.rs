@@ -34,6 +34,33 @@ pub async fn handle_mesh_object(
     mesh_bytes: Bytes,
     texture_paths: HashMap<u32, PathBuf>,
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
+    cache
+        .object
+        .update(
+            data.object_info.clone(),
+            data.crc,
+            data.region_id.clone(),
+            data.object_type,
+        )
+        .await?;
+
+    // 1. Check whether the generated GLB already exists.
+    if let Ok((glb_path, generator)) = cache
+        .object
+        .check_cache_by_asset_id(data.sculpt_id, data.object_info.full_id)
+        .await
+    {
+        let base_dir = create_sub_object_dir(&out_dir, &data.object_info.full_id.to_string())?;
+
+        return Ok(ObjectUpdateAction::Render(RenderMeshData {
+            mesh_path: Some(glb_path),
+            base_dir,
+            asset_id: data.object_info.full_id,
+            object: generator,
+            retry_count: 0,
+            download: None,
+        }));
+    }
     let base_dir = create_sub_object_dir(&out_dir, &data.sculpt_id.to_string())?;
 
     let mesh = Mesh::from_bytes(&mesh_bytes)?;

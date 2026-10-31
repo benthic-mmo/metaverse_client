@@ -80,6 +80,28 @@ pub async fn download_asset(
     Ok(body)
 }
 
+pub async fn download_mesh(
+    asset_id: Uuid,
+    server_endpoint: &str,
+    out_path: &PathBuf,
+    client: Client,
+    rate_limiter: Arc<RateLimiter>,
+) -> Result<(), DownloadError> {
+    let bytes = download_asset(
+        ObjectType::Mesh.to_string(),
+        asset_id,
+        server_endpoint,
+        client,
+        rate_limiter,
+    )
+    .await?;
+
+    tokio::fs::write(&out_path, bytes)
+        .await
+        .map_err(|_| DownloadError::SenderFailure)?;
+    Ok(())
+}
+
 /// Retrieves and parses a texture from the capability endpoint.
 ///
 /// This converts the retrieved JPEG2000 data into a regular PNG. This is necessary due to extremely

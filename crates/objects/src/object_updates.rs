@@ -41,7 +41,7 @@ pub struct RenderMeshData {
     /// Number of downlod attempts made so far
     pub retry_count: u32,
     /// Receiver for the asset's download state, if it is in progress.
-    pub download: Option<watch::Receiver<DownloadState>>,
+    pub download: Option<Vec<watch::Receiver<DownloadState>>>,
 }
 
 /// Information required to render an instance of an object from its RenderObject JSON on disk.
@@ -184,69 +184,69 @@ pub async fn object_update_cached(
 ///
 /// # Side Effects
 /// [Storage: Filesystem + SQLite]
-pub async fn mesh_update(
-    cache: Cache,
-    object: MeshObjectData,
-    out_dir: PathBuf,
-    downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
-) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-    cache
-        .object
-        .update(
-            object.object_info.clone(),
-            object.crc,
-            object.region_id.clone(),
-            object.object_type,
-        )
-        .await?;
-    let mut actions = Vec::new();
-    match cache
-        .object
-        .check_cache_by_asset_id(object.sculpt_id, object.object_info.full_id)
-        .await
-    {
-        // If we have the glb path already, render it right away.
-        Ok((glb_path, generator)) => {
-            let base_dir =
-                create_sub_object_dir(&out_dir, &object.object_info.full_id.to_string())?;
-
-            actions.push(ObjectUpdateAction::Render(RenderMeshData {
-                mesh_path: Some(glb_path),
-                base_dir,
-                asset_id: object.object_info.full_id,
-                object: generator,
-                retry_count: 0,
-                download: None,
-            }));
-        }
-
-        Err(_) => {
-            // check to see if the download is in progress
-            let mut downloads = downloads.lock().await;
-            if let Some(tx) = downloads.get(&object.sculpt_id) {
-                // there is a download in progress.
-                // Create a RenderObject with a subscriber.
-                actions.push(ObjectUpdateAction::Render(RenderMeshData {
-                    mesh_path: None,
-                    base_dir: out_dir.clone(),
-                    asset_id: object.object_info.full_id,
-                    object: object.object_info,
-                    retry_count: 0,
-                    download: Some(tx.subscribe()),
-                }));
-            } else {
-                // This is the first request for the asset.
-                // create a DownloadObject with a sender.
-                let (tx, _rx) = tokio::sync::watch::channel(DownloadState::Downloading);
-                downloads.insert(object.sculpt_id, tx);
-                drop(downloads);
-
-                actions.push(ObjectUpdateAction::DownloadMesh(object));
-            }
-        }
-    };
-    Ok(actions)
-}
+//pub async fn mesh_update(
+//    cache: Cache,
+//    object: MeshObjectData,
+//    out_dir: PathBuf,
+//    downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
+//) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
+//    cache
+//        .object
+//        .update(
+//            object.object_info.clone(),
+//            object.crc,
+//            object.region_id.clone(),
+//            object.object_type,
+//        )
+//        .await?;
+//    let mut actions = Vec::new();
+//    match cache
+//        .object
+//        .check_cache_by_asset_id(object.sculpt_id, object.object_info.full_id)
+//        .await
+//    {
+//        // If we have the glb path already, render it right away.
+//        Ok((glb_path, generator)) => {
+//            let base_dir =
+//                create_sub_object_dir(&out_dir, &object.object_info.full_id.to_string())?;
+//
+//            actions.push(ObjectUpdateAction::Render(RenderMeshData {
+//                mesh_path: Some(glb_path),
+//                base_dir,
+//                asset_id: object.object_info.full_id,
+//                object: generator,
+//                retry_count: 0,
+//                download: None,
+//            }));
+//        }
+//
+//        Err(_) => {
+//            // check to see if the download is in progress
+//            let mut downloads = downloads.lock().await;
+//            if let Some(tx) = downloads.get(&object.sculpt_id) {
+//                // there is a download in progress.
+//                // Create a RenderObject with a subscriber.
+//                actions.push(ObjectUpdateAction::Render(RenderMeshData {
+//                    mesh_path: None,
+//                    base_dir: out_dir.clone(),
+//                    asset_id: object.object_info.full_id,
+//                    object: object.object_info,
+//                    retry_count: 0,
+//                    download: Some(tx.subscribe()),
+//                }));
+//            } else {
+//                // This is the first request for the asset.
+//                // create a DownloadObject with a sender.
+//                let (tx, _rx) = tokio::sync::watch::channel(DownloadState::Downloading);
+//                downloads.insert(object.sculpt_id, tx);
+//                drop(downloads);
+//
+//                actions.push(ObjectUpdateAction::DownloadMesh(object));
+//            }
+//        }
+//    };
+//    Ok(actions)
+//}
 
 /// TODO: currently a stub
 pub async fn handle_attachment(

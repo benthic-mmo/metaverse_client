@@ -1,5 +1,6 @@
 use glam::{U16Vec2, Vec2};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use strum_macros::Display;
 use uuid::Uuid;
 
 /// Struct for the current user's session.
@@ -42,6 +43,13 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
     pub share_dir_root: PathBuf,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Display)]
+pub enum AssetKey {
+    Mesh(Uuid),
+    Texture(Uuid),
+    Material(Uuid),
+}
+
 /// State of an object in the download queue.
 /// It can either be downloading, complete, or failed.
 #[derive(Clone, Debug)]
@@ -51,7 +59,7 @@ pub enum DownloadState {
     /// Object has downloaded. Contains the PathBuf of the file's location on disk.
     Complete(PathBuf),
     /// Object has failed to download.
-    Failed,
+    Failed { error: String },
 }
 
 /// Information about the current region the user is in
