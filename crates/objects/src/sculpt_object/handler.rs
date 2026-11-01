@@ -1,16 +1,10 @@
 use super::{finalize::finalize_sculpt_object, geometry::build_sculpt_geometry};
 use crate::{
     errors::ObjectUpdateError,
-    object_updates::{ObjectUpdateAction, RenderMeshData},
+    object_updates::{ObjectUpdateAction, RenderMeshData, SculptObjectData},
 };
-use benthic_protocol::{
-    objects::types::SculptObjectData,
-    session::storage::{cache_enabled, create_sub_object_dir},
-};
+use benthic_protocol::session::storage::{cache_enabled, create_sub_object_dir};
 use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::{
-    udp::object::object_update::SculptData, utils::texture_entry::TextureEntries,
-};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -35,8 +29,9 @@ use uuid::Uuid;
 pub async fn handle_sculpt_object(
     out_dir: &Path,
     texture_path: &Path,
-    object: &SculptObjectData<TextureEntries, SculptData>,
+    object: &SculptObjectData,
     texture_paths: HashMap<u32, PathBuf>,
+    material_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let base_dir = create_sub_object_dir(out_dir, &object.data.texture_id.to_string())?;

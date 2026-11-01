@@ -110,6 +110,36 @@ pub async fn download_mesh(
     Ok(())
 }
 
+/// Downloads a material and writes the raw bytes to disk
+///
+/// this is meant to mirror the way textures are downloaded.
+///
+/// Parameters
+/// - `asset_id`: The asset ID of the mesh to receive
+/// - `server_endpoint`: the server endpoint URL to send the request to
+/// - `out_path`: The path to store the resulting bytes
+pub async fn download_material(
+    asset_id: Uuid,
+    server_endpoint: &str,
+    out_path: &PathBuf,
+    client: Client,
+    rate_limiter: Arc<RateLimiter>,
+) -> Result<(), DownloadError> {
+    let bytes = download_asset(
+        ObjectType::Material.to_string(),
+        asset_id,
+        server_endpoint,
+        client,
+        rate_limiter,
+    )
+    .await?;
+
+    tokio::fs::write(&out_path, bytes)
+        .await
+        .map_err(|_| DownloadError::SenderFailure)?;
+    Ok(())
+}
+
 /// Retrieves and parses a texture from the capability endpoint.
 ///
 /// This converts the retrieved JPEG2000 data into a regular PNG. This is necessary due to extremely
@@ -229,34 +259,6 @@ pub async fn download_face_textures(
     }
 
     Ok(paths)
-}
-
-/// Retrieves and parses a pbr material from the capability endpoint
-///
-/// TODO: this is a stub
-///
-///# Parameters
-///- `material_id`: The ID to retrieve from the server
-///- `server_endpoint`: the capability endpoint to retrieve from
-///
-/// #Errors
-/// - returns [`DownloadError`] if downloads fail
-pub async fn download_pbr_material(
-    material_id: Uuid,
-    server_endpoint: &str,
-    client: Client,
-    rate_limiter: Arc<RateLimiter>,
-) -> Result<(), DownloadError> {
-    let _material_bytes = download_asset(
-        ObjectType::Material.to_string(),
-        material_id,
-        server_endpoint,
-        client,
-        rate_limiter,
-    )
-    .await?;
-
-    Ok(())
 }
 
 /// Retrieves and parses an asset in an avatar's outfit

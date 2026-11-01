@@ -31,58 +31,6 @@ pub struct ObjectInstanceInfo {
     pub rotation: Quat,
 }
 
-/// Data object for rendering parametric prims
-#[derive(Clone, Debug)]
-pub struct ParametricPrimData<TextureEntries, PrimPath> {
-    /// Common values for object's instance
-    pub object_info: ObjectInstanceInfo,
-    /// per-face texture data
-    pub texture: Option<TextureEntries>,
-    /// Texture animation data
-    pub texture_animation: Option<TextureAnimation>,
-    /// Path data for drawing the parametric prim's path
-    pub path_data: PrimPath,
-    /// How many times this object has been retried
-    pub retry_count: u32,
-}
-impl<T, P> RetriableData for ParametricPrimData<T, P> {
-    fn retry_count(&self) -> u32 {
-        self.retry_count
-    }
-
-    fn inc_retry_count(&mut self) {
-        self.retry_count += 1;
-    }
-}
-
-/// Data object for rendering sculpt objects
-#[derive(Debug, Clone)]
-pub struct SculptObjectData<TextureEntries, SculptData> {
-    /// Common values for the object's instance
-    pub object_info: ObjectInstanceInfo,
-    /// data for building the sculpt object
-    pub data: SculptData,
-    /// per-face texture data
-    pub texture: Option<TextureEntries>,
-    /// texture animation data
-    pub texture_animation: Option<TextureAnimation>,
-    /// crc of the sculpt for cache invalidation
-    pub crc: u32,
-    /// region id where the sculpt was downloaded
-    pub region_id: String,
-    /// how many times this object has been retried
-    pub retry_count: u32,
-}
-impl<T, P> RetriableData for SculptObjectData<T, P> {
-    fn retry_count(&self) -> u32 {
-        self.retry_count
-    }
-
-    fn inc_retry_count(&mut self) {
-        self.retry_count += 1;
-    }
-}
-
 ///TODO: unimplemeted
 pub struct AttachmentObjectData {
     /// ID of the object this is attached to

@@ -11,7 +11,7 @@ use crate::packet::{
     packet_types::PacketType,
 };
 use crate::parse;
-use crate::udp::object::object_update::ExtraParams;
+use crate::udp::object::object_update::{ExtraParams, MaterialsData};
 use crate::udp::object::util::ObjectUpdateData;
 use crate::utils::material::MaterialType;
 use crate::utils::object_types::ObjectType;
@@ -201,6 +201,15 @@ impl ObjectUpdateData for ObjectDataCompressed {
     }
     fn texture_animation(&self) -> Option<TextureAnimation> {
         self.texture_animation.clone()
+    }
+    fn pbr_materials(&self) -> Option<MaterialsData> {
+        self.extra_params
+            .as_ref()?
+            .iter()
+            .find_map(|param| match param {
+                ExtraParams::Materials(data) => Some(data.clone()),
+                _ => None,
+            })
     }
 }
 
