@@ -43,10 +43,15 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
     pub share_dir_root: PathBuf,
 }
 
+/// Key type for asset downloads.
+/// this contains both the type of the download, and the asset ID of the requested download.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Display)]
 pub enum AssetKey {
+    /// The download is of type Mesh
     Mesh(Uuid),
+    /// The download is of type Texture
     Texture(Uuid),
+    /// the download is of type Material, used for PBR materials
     Material(Uuid),
 }
 
@@ -59,7 +64,7 @@ pub enum DownloadState {
     /// Object has downloaded. Contains the PathBuf of the file's location on disk.
     Complete(PathBuf),
     /// Object has failed to download.
-    Failed { error: String },
+    Failed(String),
 }
 
 /// Information about the current region the user is in

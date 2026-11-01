@@ -51,18 +51,17 @@ use uuid::Uuid;
 
 /// Message for handling object updates of type mesh
 ///
-/// This handles object update information relevant only to mesh objects.
+/// This message handles the whole process of resolving the assets required to build a mesh.
+/// This message waits on each download using the async await, only re-awakening after all of the
+/// required objects have fully downloaded.
 ///
 /// # Cause
 /// - Object update with type Mesh comes in from the udp packet reader
 ///
 /// # Effect
-/// If the object is not currently downloaded
-/// - [`DownloadMeshObject`]
-///
-/// If the object exists on disk
-/// - [`RenderObjectMessage`]
-
+/// [`GetAsset`] via [`resolve_asset`]
+/// [`RenderBlankMeshMessage`] if the mesh download fails
+/// [`RenderObjectMessage`]
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct MeshObjectUpdate(pub MeshObjectData);
@@ -135,21 +134,17 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 
 /// Message for handling object updates of type parametric prim
 ///
-/// This handles object update information relevant only to parametric prim objects.
-/// This begins the process of generating mesh from path information sent in the packet.
+/// This message handles the whole process of resolving the assets required to build a parametric prim.
+/// This message waits on each download using the async await, only re-awakening after all of the
+/// required objects have fully downloaded.
 ///
 /// # Cause
-/// - Object update with type parametric prim comes in from the udp packet reader
+/// - Object update with type Parametric Prim comes in from the udp packet reader
 ///
 /// # Effect
-/// If the downloads fail and the failure is recoverable
-/// [`RetryMessage`]
-///
-/// If the mesh generation was successful
+/// [`GetAsset`] via [`resolve_asset`]
+/// [`RenderBlankMeshMessage`] if the mesh download fails
 /// [`RenderObjectMessage`]
-///
-/// If the mesh generation permanently failed
-/// [`RenderBlankMeshMessage`]
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
@@ -205,21 +200,17 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 
 /// Message for handling object updates of type sculpt object
 ///
-/// This handles object update information relevant only to sculpt objects.
-/// This begins the process of generating mesh from downloaded sculpt texture data.
+/// This message handles the whole process of resolving the assets required to build a sculpt object.
+/// This message waits on each download using the async await, only re-awakening after all of the
+/// required objects have fully downloaded.
 ///
 /// # Cause
-/// - Object update with type sculpt object comes in from the udp packet reader
+/// - Object update with type Sculpt Object comes in from the udp packet reader
 ///
 /// # Effect
-/// If the downloads fail and the failure is recoverable
-/// [`RetryMessage`]
-///
-/// If the mesh generation was successful
+/// [`GetAsset`] via [`resolve_asset`]
+/// [`RenderBlankMeshMessage`] if the mesh download fails
 /// [`RenderObjectMessage`]
-///
-/// If the mesh generation permanently failed
-/// [`RenderBlankMeshMessage`]
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
@@ -534,13 +525,13 @@ impl Handler<RenderObjectMessage> for Mailbox {
 /// [`SculptObjectUpdate`]
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct RenderBlankMeshMessage {
+struct RenderBlankMeshMessage {
     /// base dir of the session. usually ~/.local/share/benthic
-    pub out_dir: PathBuf,
+    out_dir: PathBuf,
     /// ID of the object that failed
-    pub asset_id: Uuid,
+    asset_id: Uuid,
     /// common instance information such as location, scale, etc.
-    pub object: ObjectInstanceInfo,
+    object: ObjectInstanceInfo,
 }
 impl Handler<RenderBlankMeshMessage> for Mailbox {
     type Result = ();
@@ -578,7 +569,7 @@ async fn resolve_asset(addr: Addr<Mailbox>, key: AssetKey) -> Result<PathBuf, St
             match rx.borrow_and_update().clone() {
                 DownloadState::Complete(path) => return Ok(path),
 
-                DownloadState::Failed { error } => {
+                DownloadState::Failed(error) => {
                     return Err(error);
                 }
 
@@ -592,13 +583,31 @@ async fn resolve_asset(addr: Addr<Mailbox>, key: AssetKey) -> Result<PathBuf, St
     }
 }
 
-pub enum AssetRequest {
+/// the values an assetrequest can return.
+/// Assets can either be ready, or pending.
+enum AssetRequest {
+    /// the path to the asset on disk
     Ready(PathBuf),
+    /// the receiver of the download
     Pending(watch::Receiver<DownloadState>),
 }
+
+/// Message for retrieving assets from the server
+///
+/// This orchestrates pending downloads for all asset objects. This is called and awaited by
+/// resolve_asset, which is itself called by any object update that requests an object.
+/// This is responsible for
+/// - checking the disk to see if the asset is already there,
+/// - if the object is not there, subscribe to an existing download, or trigger a new one.
+///
+/// # Causes
+/// [`resolve_asset`] function
+///
+/// # Effects
+/// [`DownloadAsset`]
 #[derive(Message)]
 #[rtype(result = "Result<AssetRequest, String>")]
-pub struct GetAsset(pub AssetKey);
+struct GetAsset(AssetKey);
 impl Handler<GetAsset> for Mailbox {
     type Result = ResponseFuture<Result<AssetRequest, String>>;
 
@@ -621,14 +630,12 @@ impl Handler<GetAsset> for Mailbox {
                 AssetKey::Mesh(mesh_id) => {
                     let base_dir = create_sub_object_dir(&out_dir, &mesh_id.to_string())
                         .map_err(|e| e.to_string())?;
-                    let glb_path = base_dir.join(format!("{:?}_high.bin", mesh_id));
-                    glb_path
+                    base_dir.join(format!("{:?}_high.bin", mesh_id))
                 }
                 AssetKey::Texture(texture_id) => {
                     let textures_dir = create_textures_dir(&out_dir)
                         .map_err(|_| DownloadError::SenderFailure.to_string())?;
-                    let texture_path = textures_dir.join(format!("{texture_id}.png"));
-                    texture_path
+                    textures_dir.join(format!("{texture_id}.png"))
                 }
                 AssetKey::Material(material_id) => PathBuf::new(),
             };
@@ -669,12 +676,25 @@ impl Handler<GetAsset> for Mailbox {
     }
 }
 
+/// This handles the downloading of assets from the server
+///
+/// If the asset is not cached on the disk, this is what downloads it.
+/// This handles the retrying and handling errors.
+///
+/// # Causes
+/// [`GetAsset`]
+///
+/// # Side Effects
+/// [Storage: Filesystem]
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
-pub struct DownloadAsset {
-    pub key: AssetKey,
-    pub retry_count: u32,
-    pub asset_path: PathBuf,
+struct DownloadAsset {
+    /// the UUID and type of the asset to download
+    key: AssetKey,
+    /// how many retries this download has attempted
+    retry_count: u32,
+    /// the path where the asset will be written once downloaded
+    asset_path: PathBuf,
 }
 impl AsMut<DownloadAsset> for DownloadAsset {
     fn as_mut(&mut self) -> &mut DownloadAsset {
@@ -759,12 +779,10 @@ impl Handler<DownloadAsset> for Mailbox {
                 }
                 // if the error is not retryable, set the download state to failed
                 Err(e) => {
-                    error!("Texture {} download failed permanently: {e}", &msg.key);
+                    error!("Texture {} download failed permanently: {e}", msg.key);
                     addr.do_send(RegisterPermanentFailure(msg.key.clone()));
 
-                    tx.send_replace(DownloadState::Failed {
-                        error: e.to_string(),
-                    });
+                    tx.send_replace(DownloadState::Failed(e.to_string()));
 
                     downloads.lock().await.remove(&msg.key);
                 }
@@ -773,12 +791,20 @@ impl Handler<DownloadAsset> for Mailbox {
     }
 }
 
+/// Simple wrapper function to mark an object as permanently failed
+///
+/// This prevents re-requests of objects that will never resolve, such as 404s.
+/// If a permanent download failure is recorded, this is triggered to add it to the list of failures
+/// that should not be reattempted.
+///
+/// # Causes
+/// [`DownloadAsset`]
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
-pub struct RegisterPermanentFailure(AssetKey);
+struct RegisterPermanentFailure(AssetKey);
 impl Handler<RegisterPermanentFailure> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: RegisterPermanentFailure, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RegisterPermanentFailure, _ctx: &mut Self::Context) -> Self::Result {
         self.permanent_failures.insert(msg.0);
     }
 }

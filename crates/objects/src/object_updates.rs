@@ -15,11 +15,8 @@ use metaverse_messages::{
     utils::{object_types::ObjectType, texture_entry::TextureEntries},
 };
 use metaverse_store::initialize_sqlite::Cache;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-use tokio::sync::{
-    Mutex,
-    watch::{self, Sender},
-};
+use std::path::PathBuf;
+use tokio::sync::watch::{self};
 use uuid::Uuid;
 
 /// Data required to render a mesh for an instance of an object

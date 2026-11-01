@@ -116,7 +116,9 @@ pub struct Mailbox {
     pub pending_sqlite_batch: VecDeque<CacheOperation>,
     /// Global awc client for requests. This allows connection pooling.
     pub http_client: Client,
-
+    /// Storage for assets that should not be retried.
+    /// this prevents sending new requests for assets that permanently failed on a different
+    /// download attempt.
     pub permanent_failures: HashSet<AssetKey>,
 }
 impl Mailbox {
