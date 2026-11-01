@@ -40,6 +40,10 @@ pub enum DownloadError {
         capability: Capability,
     },
 
+    #[error("Material parse failed: {0}")]
+    MaterialParse(#[from] benthic_protocol::errors::ProtocolParseError),
+    #[error("Asset dependency resolution failed: {0}")]
+    DependencyFailure(String),
     /// Response body was empty
     #[error("Empty response body: status={status}, url={url}, headers={headers:?}")]
     EmptyBody {
@@ -89,6 +93,9 @@ pub enum DownloadError {
     /// An asset failed to parse
     #[error("Parse Error: {0}")]
     ParseError(#[from] ParseError),
+
+    #[error("Parse Error:{0}")]
+    BenthicLLSDParseError(#[from] serde_llsd_benthic::errors::ParseError),
 
     /// An image failed to parse beacuse of an unknown pixel
     #[error("Unknown Pixel Format")]

@@ -15,6 +15,7 @@ use log::info;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::http::scene::SculptType;
+use metaverse_messages::udp::object::util::PBRMaterial;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_store::initialize_sqlite::Cache;
@@ -82,12 +83,12 @@ pub async fn download_asset(
 
 /// Downloads a mesh and writes the raw bytes to disk
 ///
-/// this is meant to mirror the way textures are downloaded.
-///
 /// Parameters
 /// - `asset_id`: The asset ID of the mesh to receive
 /// - `server_endpoint`: the server endpoint URL to send the request to
 /// - `out_path`: The path to store the resulting bytes
+///
+/// TODO: move the handle_mesh into here so what gets written is the json of the mesh, not the bytes
 pub async fn download_mesh(
     asset_id: Uuid,
     server_endpoint: &str,
@@ -104,15 +105,11 @@ pub async fn download_mesh(
     )
     .await?;
 
-    tokio::fs::write(&out_path, bytes)
-        .await
-        .map_err(|_| DownloadError::SenderFailure)?;
+    tokio::fs::write(&out_path, bytes).await?;
     Ok(())
 }
 
 /// Downloads a material and writes the raw bytes to disk
-///
-/// this is meant to mirror the way textures are downloaded.
 ///
 /// Parameters
 /// - `asset_id`: The asset ID of the mesh to receive
@@ -134,9 +131,7 @@ pub async fn download_material(
     )
     .await?;
 
-    tokio::fs::write(&out_path, bytes)
-        .await
-        .map_err(|_| DownloadError::SenderFailure)?;
+    tokio::fs::write(&out_path, bytes).await?;
     Ok(())
 }
 

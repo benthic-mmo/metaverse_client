@@ -29,6 +29,7 @@ use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerse
 use metaverse_messages::udp::object::object_update::MaterialsData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
+use metaverse_messages::udp::object::util::PBRMaterial;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::download_asset::download_material;
 use metaverse_objects::download_asset::download_mesh;
@@ -46,6 +47,7 @@ use metaverse_objects::object_updates::object_update_cached;
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim;
 use metaverse_objects::sculpt_object::handle_sculpt_object;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use tokio::sync::watch;
 use uuid::Uuid;
@@ -772,14 +774,37 @@ impl Handler<DownloadAsset> for Mailbox {
                         .await?;
                     }
                     AssetKey::Material(material_id) => {
+                        // Download and cache the raw LLSD material.
                         download_material(
                             material_id,
                             &endpoint,
                             &msg.asset_path,
-                            client,
-                            rate_limiter,
+                            client.clone(),
+                            rate_limiter.clone(),
                         )
                         .await?;
+
+                        /// Material objects can contain their own textures which need to be
+                        /// downloaded seperately.
+                        /// Read the material, and await its texture downloads before continuing
+                        let bytes = tokio::fs::read(&msg.asset_path).await?;
+                        let material_data = serde_llsd_benthic::auto_from_bytes(&bytes)?;
+                        let material = PBRMaterial::from_llsd(material_data)?;
+
+                        let texture_ids: HashSet<Uuid> = material
+                            .image_uris()
+                            .filter_map(|uri| Uuid::parse_str(uri).ok())
+                            .collect();
+
+                        let futures = texture_ids.into_iter().map(|texture_id| {
+                            let addr = addr.clone();
+
+                            async move { resolve_asset(addr, AssetKey::Texture(texture_id)).await }
+                        });
+
+                        for result in join_all(futures).await {
+                            result.map_err(DownloadError::DependencyFailure)?;
+                        }
                     }
                 }
                 Ok::<PathBuf, DownloadError>(msg.asset_path.clone())

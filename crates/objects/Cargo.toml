@@ -9,18 +9,18 @@ repository = "https://github.com/benthic-mmo/metaverse_client/tree/main/crates/o
 edition = "2024"
 
 [dependencies]
-benthic_protocol.workspace = true 
+benthic_protocol.workspace = true
+serde-llsd-benthic.workspace = true
 metaverse_messages.workspace = true 
 metaverse_avatar.workspace = true 
 metaverse_store.workspace = true 
 benthic_default_asset_converter.workspace = true 
 metaverse_mesh.workspace = true 
-
 bytes.workspace = true
 thiserror.workspace =true 
 image.workspace = true 
 jpeg2k.workspace = true 
-uuid.workspace = true 
+uuid = { workspace = true, features = ["serde"] }
 awc.workspace = true 
 sqlx.workspace = true 
 glam.workspace = true
@@ -29,3 +29,8 @@ serde_json.workspace = true
 indexmap.workspace = true 
 tokio.workspace=true
 rgb.workspace = true
+
+[dev-dependencies]
+axum = "0.8"
+actix-rt = "2"
+serde.workspace = true
