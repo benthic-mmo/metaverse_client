@@ -603,6 +603,10 @@ impl Handler<GetAsset> for Mailbox {
     type Result = ResponseFuture<Result<AssetRequest, String>>;
 
     fn handle(&mut self, msg: GetAsset, ctx: &mut Self::Context) -> Self::Result {
+        if self.permanent_failures.contains(&msg.0) {
+            return Box::pin(async { Err("Asset is in permanent failures list".to_string()) });
+        }
+
         let downloads = self.downloads.clone();
         let addr = ctx.address();
 
@@ -755,7 +759,8 @@ impl Handler<DownloadAsset> for Mailbox {
                 }
                 // if the error is not retryable, set the download state to failed
                 Err(e) => {
-                    error!("Texture {} download failed permanently: {e}", msg.key);
+                    error!("Texture {} download failed permanently: {e}", &msg.key);
+                    addr.do_send(RegisterPermanentFailure(msg.key.clone()));
 
                     tx.send_replace(DownloadState::Failed {
                         error: e.to_string(),
@@ -765,6 +770,16 @@ impl Handler<DownloadAsset> for Mailbox {
                 }
             }
         })
+    }
+}
+
+#[derive(Message, Clone)]
+#[rtype(result = "()")]
+pub struct RegisterPermanentFailure(AssetKey);
+impl Handler<RegisterPermanentFailure> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: RegisterPermanentFailure, ctx: &mut Self::Context) -> Self::Result {
+        self.permanent_failures.insert(msg.0);
     }
 }
 
