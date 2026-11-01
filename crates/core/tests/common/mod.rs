@@ -50,7 +50,7 @@ impl CreationArtifacts {
 
 pub const AGENT_ID: Uuid = uuid!("96ce3a85-273b-4a1a-b300-78bce703c325");
 
-pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inventory, Cache> {
+pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (), Inventory> {
     let inventory_db_connection = sqlx::SqlitePool::connect(":memory:").await.unwrap();
 
     let inventory = Inventory::new(inventory_db_connection.clone());
@@ -58,7 +58,6 @@ pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (),
 
     Session {
         inventory,
-        cache,
         agent_id: AGENT_ID,
         session_id: Uuid::nil(),
         address: String::new(),
@@ -95,7 +94,7 @@ pub async fn mock_session(generated_dir: PathBuf) -> Session<(), Avatar, (), (),
 }
 
 fn mock_from_xml(
-    session: &mut Session<(), Avatar, (), (), Inventory, Cache>,
+    session: &mut Session<(), Avatar, (), (), Inventory>,
     scene_group_path: &Path,
     base_dir: &Path,
 ) -> Result<AvatarState, Box<dyn std::error::Error>> {
@@ -174,7 +173,7 @@ fn mock_from_xml(
 }
 
 async fn mock_finalize_avatar(
-    session: &mut Session<(), Avatar, (), (), Inventory, Cache>,
+    session: &mut Session<(), Avatar, (), (), Inventory>,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let avatar = session.avatars.get_mut(&AGENT_ID).unwrap();
 

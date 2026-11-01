@@ -1,5 +1,5 @@
 use crate::{
-    udp::object::object_update::ExtraParams,
+    udp::object::object_update::{ExtraParams, MaterialsData},
     utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
 use benthic_protocol::objects::types::TextureAnimation;
@@ -41,4 +41,6 @@ pub trait ObjectUpdateData {
     /// Returns the texture animation data of the object
     /// Objects without texture animation data will return None
     fn texture_animation(&self) -> Option<TextureAnimation>;
+
+    fn pbr_materials(&self) -> Option<MaterialsData>;
 }

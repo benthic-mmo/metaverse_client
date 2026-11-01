@@ -15,9 +15,8 @@ use benthic_protocol::messages::world::mesh_update::MeshType;
 use benthic_protocol::messages::world::mesh_update::MeshUpdate;
 use benthic_protocol::objects::types::AttachmentObjectData;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
-use benthic_protocol::objects::types::ParametricPrimData;
 use benthic_protocol::objects::types::RetriableData;
-use benthic_protocol::objects::types::SculptObjectData;
+use benthic_protocol::session::storage::create_materials_dir;
 use benthic_protocol::session::storage::create_sub_object_dir;
 use benthic_protocol::session::storage::create_textures_dir;
 use benthic_protocol::session::types::AssetKey;
@@ -27,11 +26,11 @@ use log::{error, info};
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
-use metaverse_messages::udp::object::object_update::SculptData;
+use metaverse_messages::udp::object::object_update::MaterialsData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
-use metaverse_messages::utils::path::PrimPath;
 use metaverse_messages::utils::texture_entry::TextureEntries;
+use metaverse_objects::download_asset::download_material;
 use metaverse_objects::download_asset::download_mesh;
 use metaverse_objects::download_asset::download_texture;
 use metaverse_objects::errors::DownloadError;
@@ -39,8 +38,10 @@ use metaverse_objects::mesh::handle_mesh_object;
 use metaverse_objects::mesh::mesh_from_json;
 use metaverse_objects::object_updates::MeshObjectData;
 use metaverse_objects::object_updates::ObjectUpdateAction;
+use metaverse_objects::object_updates::ParametricPrimData;
 use metaverse_objects::object_updates::RenderMeshData;
 use metaverse_objects::object_updates::RenderObjectJSONData;
+use metaverse_objects::object_updates::SculptObjectData;
 use metaverse_objects::object_updates::object_update_cached;
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim;
 use metaverse_objects::sculpt_object::handle_sculpt_object;
@@ -81,10 +82,11 @@ impl Handler<MeshObjectUpdate> for Mailbox {
             async move {
                 // Request the mesh and face textures concurrently.
                 let mesh_future = resolve_asset(addr.clone(), AssetKey::Mesh(msg.0.sculpt_id));
-
                 let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
+                let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
 
-                let (mesh_result, texture_paths) = tokio::join!(mesh_future, texture_future,);
+                let (mesh_result, texture_paths, material_paths) =
+                    tokio::join!(mesh_future, texture_future, materials_future);
 
                 // Resolve the mesh path.
                 let mesh_path = match mesh_result {
@@ -111,16 +113,22 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                 };
 
                 // Build the GLTF.
-                let action =
-                    match handle_mesh_object(cache, &msg.0, out_dir, mesh_bytes, texture_paths)
-                        .await
-                    {
-                        Ok(action) => action,
-                        Err(e) => {
-                            error!("Mesh object processing failed: {e:?}");
-                            return;
-                        }
-                    };
+                let action = match handle_mesh_object(
+                    cache,
+                    &msg.0,
+                    out_dir,
+                    mesh_bytes,
+                    texture_paths,
+                    material_paths,
+                )
+                .await
+                {
+                    Ok(action) => action,
+                    Err(e) => {
+                        error!("Mesh object processing failed: {e:?}");
+                        return;
+                    }
+                };
 
                 if let ObjectUpdateAction::Render(mut action) = action {
                     action.download = None;
@@ -147,7 +155,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 /// [`RenderObjectMessage`]
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
-pub struct ParametricPrimObjectUpdate(pub ParametricPrimData<TextureEntries, PrimPath>);
+pub struct ParametricPrimObjectUpdate(pub ParametricPrimData);
 impl Handler<ParametricPrimObjectUpdate> for Mailbox {
     type Result = ();
 
@@ -162,13 +170,17 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         ctx.spawn(
             async move {
                 // Resolve all face textures.
-                let texture_paths = face_textures_or_fallback(&addr, &msg.0.texture).await;
+                let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
+                let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
+                let (texture_paths, material_paths) =
+                    tokio::join!(texture_future, materials_future);
 
                 // Build the parametric prim.
                 let actions = match handle_parametric_prim(
                     &out_dir,
                     &msg.0,
                     texture_paths,
+                    material_paths,
                     msg.0.object_info.full_id,
                 )
                 .await
@@ -213,7 +225,7 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 /// [`RenderObjectMessage`]
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
-pub struct SculptObjectUpdate(pub SculptObjectData<TextureEntries, SculptData>);
+pub struct SculptObjectUpdate(pub SculptObjectData);
 impl Handler<SculptObjectUpdate> for Mailbox {
     type Result = ();
 
@@ -231,11 +243,11 @@ impl Handler<SculptObjectUpdate> for Mailbox {
 
                 // Request the sculpt texture and face textures concurrently.
                 let sculpt_future = resolve_asset(addr.clone(), AssetKey::Texture(sculpt_id));
-
+                let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
                 let face_textures_future = face_textures_or_fallback(&addr, &msg.0.texture);
 
-                let (sculpt_result, texture_paths) =
-                    tokio::join!(sculpt_future, face_textures_future,);
+                let (sculpt_result, texture_paths, material_paths) =
+                    tokio::join!(sculpt_future, face_textures_future, materials_future);
 
                 // Resolve the sculpt texture.
                 let sculpt_path = match sculpt_result {
@@ -259,6 +271,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     &sculpt_path,
                     &msg.0,
                     texture_paths,
+                    material_paths,
                     sculpt_id,
                 )
                 .await
@@ -637,7 +650,11 @@ impl Handler<GetAsset> for Mailbox {
                         .map_err(|_| DownloadError::SenderFailure.to_string())?;
                     textures_dir.join(format!("{texture_id}.png"))
                 }
-                AssetKey::Material(material_id) => PathBuf::new(),
+                AssetKey::Material(material_id) => {
+                    let materials_dir = create_materials_dir(&out_dir)
+                        .map_err(|_| DownloadError::SenderFailure.to_string())?;
+                    materials_dir.join(format!("{material_id}.json"))
+                }
             };
 
             // Already downloaded: return immediately.
@@ -754,7 +771,16 @@ impl Handler<DownloadAsset> for Mailbox {
                         )
                         .await?;
                     }
-                    AssetKey::Material(_) => {}
+                    AssetKey::Material(material_id) => {
+                        download_material(
+                            material_id,
+                            &endpoint,
+                            &msg.asset_path,
+                            client,
+                            rate_limiter,
+                        )
+                        .await?;
+                    }
                 }
                 Ok::<PathBuf, DownloadError>(msg.asset_path.clone())
             }
@@ -836,6 +862,42 @@ async fn face_textures_or_fallback(
         async move {
             let result = resolve_asset(addr, AssetKey::Texture(texture_id)).await;
             (face, result)
+        }
+    });
+
+    let results = join_all(futures).await;
+    let mut paths = HashMap::new();
+
+    for (face, result) in results {
+        match result {
+            Ok(path) => {
+                paths.insert(face, path);
+            }
+            Err(e) => {
+                error!("Texture download failed for face {face}: {e}");
+                paths.insert(face, default_texture_path());
+            }
+        }
+    }
+
+    paths
+}
+
+async fn face_pbr_materials(
+    addr: &Addr<Mailbox>,
+    materials: &Option<MaterialsData>,
+) -> HashMap<u32, PathBuf> {
+    let Some(materials) = materials else {
+        return HashMap::new();
+    };
+    let futures = materials.faces.iter().map(|(face, material_id)| {
+        let addr = addr.clone();
+        let face = *face;
+        let material_id = *material_id;
+
+        async move {
+            let result = resolve_asset(addr, AssetKey::Material(material_id)).await;
+            (face as u32, result)
         }
     });
 

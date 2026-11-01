@@ -86,18 +86,12 @@ pub fn handle_layer<C, A, U, I>(
                 for queued_land in queue_save {
                     let filename = queued_land.terrain_header.filename.clone();
                     let patch_size = queued_land.terrain_header.patch_size;
-                    let location = queued_land.terrain_header.location;
 
                     if let Some((mesh, coordinate)) = queued_land.generate_mesh(
                         &mut session.environment_cache.patch_queue,
                         &session.environment_cache.patch_cache,
                     ) {
                         to_write.push((filename, patch_size, mesh, coordinate));
-                    } else {
-                        warn!(
-                            "generate_mesh returned None for queued land at {:?}",
-                            location
-                        );
                     }
                 }
 

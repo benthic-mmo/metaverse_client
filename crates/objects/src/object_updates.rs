@@ -2,17 +2,18 @@ use crate::errors::ObjectUpdateError;
 use benthic_protocol::{
     objects::{
         types::TextureAnimation,
-        types::{AttachmentObjectData, ObjectInstanceInfo, RetriableData},
+        types::{AttachmentObjectData, ObjectInstanceInfo},
     },
     session::{storage::create_sub_object_dir, types::DownloadState},
 };
 use log::warn;
 use metaverse_messages::{
     udp::object::{
-        object_update::AttachItem, object_update_cached::CachedObjectData,
+        object_update::{AttachItem, MaterialsData, SculptData},
+        object_update_cached::CachedObjectData,
         request_multiple_objects::CacheMissType,
     },
-    utils::{object_types::ObjectType, texture_entry::TextureEntries},
+    utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
 use metaverse_store::initialize_sqlite::Cache;
 use std::path::PathBuf;
@@ -74,14 +75,46 @@ pub struct MeshObjectData {
     pub texture_animation: Option<TextureAnimation>,
     /// Number of times this object has failed to download
     pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
 }
-impl RetriableData for MeshObjectData {
-    fn retry_count(&self) -> u32 {
-        self.retry_count
-    }
-    fn inc_retry_count(&mut self) {
-        self.retry_count += 1
-    }
+
+/// Data object for rendering parametric prims
+#[derive(Clone, Debug)]
+pub struct ParametricPrimData {
+    /// Common values for object's instance
+    pub object_info: ObjectInstanceInfo,
+    /// per-face texture data
+    pub texture: Option<TextureEntries>,
+    /// Texture animation data
+    pub texture_animation: Option<TextureAnimation>,
+    /// Path data for drawing the parametric prim's path
+    pub path_data: PrimPath,
+    /// How many times this object has been retried
+    pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
+}
+
+/// Data object for rendering sculpt objects
+#[derive(Debug, Clone)]
+pub struct SculptObjectData {
+    /// Common values for the object's instance
+    pub object_info: ObjectInstanceInfo,
+    /// data for building the sculpt object
+    pub data: SculptData,
+    /// per-face texture data
+    pub texture: Option<TextureEntries>,
+    /// texture animation data
+    pub texture_animation: Option<TextureAnimation>,
+    /// crc of the sculpt for cache invalidation
+    pub crc: u32,
+    /// region id where the sculpt was downloaded
+    pub region_id: String,
+    /// how many times this object has been retried
+    pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
 }
 
 /// Actions that can result from handling an object update packet
@@ -164,86 +197,6 @@ pub async fn object_update_cached(
     }
     Ok(cache_results)
 }
-
-/// Determines which actions to take when receiving a mesh update
-///
-/// If the mesh's data is already cached, render directly.
-/// Check if the download is in progress, and queue the render mesh data objects behind it.
-/// If no download is in progress, create a new download to run in the background
-///
-/// # Parameters
-/// - `cache`: The session's db cache
-/// - `object`: data required for determining the state of the mesh object's download
-/// - `out_dir`: Root dir for the mesh's gltf and JSON data
-///
-/// # Errors
-/// Returns [`ObjectUpdateError`] when the base dir fails to create, or the cache fails to update
-///
-/// # Side Effects
-/// [Storage: Filesystem + SQLite]
-//pub async fn mesh_update(
-//    cache: Cache,
-//    object: MeshObjectData,
-//    out_dir: PathBuf,
-//    downloads: Arc<Mutex<HashMap<Uuid, Sender<DownloadState>>>>,
-//) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-//    cache
-//        .object
-//        .update(
-//            object.object_info.clone(),
-//            object.crc,
-//            object.region_id.clone(),
-//            object.object_type,
-//        )
-//        .await?;
-//    let mut actions = Vec::new();
-//    match cache
-//        .object
-//        .check_cache_by_asset_id(object.sculpt_id, object.object_info.full_id)
-//        .await
-//    {
-//        // If we have the glb path already, render it right away.
-//        Ok((glb_path, generator)) => {
-//            let base_dir =
-//                create_sub_object_dir(&out_dir, &object.object_info.full_id.to_string())?;
-//
-//            actions.push(ObjectUpdateAction::Render(RenderMeshData {
-//                mesh_path: Some(glb_path),
-//                base_dir,
-//                asset_id: object.object_info.full_id,
-//                object: generator,
-//                retry_count: 0,
-//                download: None,
-//            }));
-//        }
-//
-//        Err(_) => {
-//            // check to see if the download is in progress
-//            let mut downloads = downloads.lock().await;
-//            if let Some(tx) = downloads.get(&object.sculpt_id) {
-//                // there is a download in progress.
-//                // Create a RenderObject with a subscriber.
-//                actions.push(ObjectUpdateAction::Render(RenderMeshData {
-//                    mesh_path: None,
-//                    base_dir: out_dir.clone(),
-//                    asset_id: object.object_info.full_id,
-//                    object: object.object_info,
-//                    retry_count: 0,
-//                    download: Some(tx.subscribe()),
-//                }));
-//            } else {
-//                // This is the first request for the asset.
-//                // create a DownloadObject with a sender.
-//                let (tx, _rx) = tokio::sync::watch::channel(DownloadState::Downloading);
-//                downloads.insert(object.sculpt_id, tx);
-//                drop(downloads);
-//
-//                actions.push(ObjectUpdateAction::DownloadMesh(object));
-//            }
-//        }
-//    };
-//    Ok(actions)
-//}
 
 /// TODO: currently a stub
 pub async fn handle_attachment(

@@ -33,6 +33,7 @@ pub async fn handle_mesh_object(
     out_dir: PathBuf,
     mesh_bytes: Bytes,
     texture_paths: HashMap<u32, PathBuf>,
+    material_paths: HashMap<u32, PathBuf>,
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
     cache
         .object
@@ -44,7 +45,7 @@ pub async fn handle_mesh_object(
         )
         .await?;
 
-    // 1. Check whether the generated GLB already exists.
+    // Check whether the generated GLB already exists.
     if let Ok((glb_path, generator)) = cache
         .object
         .check_cache_by_asset_id(data.sculpt_id, data.object_info.full_id)

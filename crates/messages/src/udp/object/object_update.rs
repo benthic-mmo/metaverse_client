@@ -139,6 +139,15 @@ impl ObjectUpdateData for ObjectUpdate {
     fn texture_animation(&self) -> Option<TextureAnimation> {
         self.texture_animation.clone()
     }
+    fn pbr_materials(&self) -> Option<MaterialsData> {
+        self.extra_params
+            .as_ref()?
+            .iter()
+            .find_map(|param| match param {
+                ExtraParams::Materials(data) => Some(data.clone()),
+                _ => None,
+            })
+    }
 }
 
 impl PacketData for ObjectUpdate {
@@ -614,6 +623,31 @@ impl SculptData {
         })
     }
 }
+
+/// This contains the GLTF override per-face material data.
+/// This UUID is used to retrieve PBR material data from an endpoint.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MaterialsData {
+    /// (texture entry faceID , asset_id) pairs  
+    pub faces: Vec<(u8, Uuid)>,
+}
+
+impl MaterialsData {
+    /// Parse material data from incoming bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
+        let mut cursor = Cursor::new(bytes);
+        let count = parse!(cursor.read_u8())?;
+        let mut faces = Vec::with_capacity(count as usize);
+        for _ in 0..count {
+            let te_idx = parse!(cursor.read_u8())?;
+            let mut id_bytes = [0u8; 16];
+            parse!(cursor.read_exact(&mut id_bytes))?;
+            faces.push((te_idx, Uuid::from_bytes(id_bytes)));
+        }
+        Ok(MaterialsData { faces })
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 ///TODO: UNIMPLEMENTED
 pub struct FlexiData {
@@ -628,6 +662,7 @@ impl FlexiData {
         })
     }
 }
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 ///TODO: UNIMPLEMENTED
 pub struct LightData {
@@ -642,6 +677,7 @@ impl LightData {
         })
     }
 }
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 ///TODO: UNIMPLEMENTED
 pub struct ProjectionData {
@@ -656,6 +692,7 @@ impl ProjectionData {
         })
     }
 }
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 ///TODO: UNIMPLEMENTED
 pub struct MeshFlagsData {
@@ -670,20 +707,7 @@ impl MeshFlagsData {
         })
     }
 }
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-///TODO: UNIMPLEMENTED
-pub struct MaterialsData {
-    ///TODO: UNIMPLEMENTED
-    pub bytes: Vec<u8>,
-}
-impl MaterialsData {
-    ///TODO: UNIMPLEMENTED
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ParseError> {
-        Ok(MaterialsData {
-            bytes: bytes.to_vec(),
-        })
-    }
-}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 ///TODO: UNIMPLEMENTED
 pub struct ReflectionProbeData {

@@ -1,17 +1,14 @@
 use super::{faces, path, profile};
 use crate::{
     errors::ObjectUpdateError,
-    object_updates::{ObjectUpdateAction, RenderMeshData},
+    object_updates::{ObjectUpdateAction, ParametricPrimData, RenderMeshData},
 };
 use benthic_protocol::{
-    objects::{
-        types::ParametricPrimData,
-        types::{RenderObject, TextureAnimation},
-    },
+    objects::types::{RenderObject, TextureAnimation},
     session::storage::{cache_enabled, create_sub_object_dir},
 };
 use metaverse_mesh::mesh::generate::generate_object_mesh;
-use metaverse_messages::utils::{path::PrimPath, texture_entry::TextureEntries};
+use metaverse_messages::utils::texture_entry::TextureEntries;
 use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
@@ -43,8 +40,9 @@ const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// [Storage: Filesystem]
 pub async fn handle_parametric_prim(
     out_dir: &Path,
-    object: &ParametricPrimData<TextureEntries, PrimPath>,
+    object: &ParametricPrimData,
     texture_paths: HashMap<u32, PathBuf>,
+    material_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let cache_key = create_cache_key(object);
@@ -74,7 +72,7 @@ pub async fn handle_parametric_prim(
 }
 
 fn build_render_object(
-    object: &ParametricPrimData<TextureEntries, PrimPath>,
+    object: &ParametricPrimData,
     texture_paths: &HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<RenderObject, ObjectUpdateError> {
@@ -107,7 +105,7 @@ fn build_render_object(
     })
 }
 
-fn create_cache_key(object: &ParametricPrimData<TextureEntries, PrimPath>) -> u64 {
+fn create_cache_key(object: &ParametricPrimData) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
     object.path_data.hash(&mut hasher);

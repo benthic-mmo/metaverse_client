@@ -1,19 +1,17 @@
+use crate::object_updates::SculptObjectData;
+
 use super::geometry::SculptGeometry;
 use benthic_default_asset_converter::default_texture_path;
-use benthic_protocol::objects::{
-    types::SculptObjectData,
-    types::{BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform},
+use benthic_protocol::objects::types::{
+    BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform,
 };
 use glam::Vec3;
-use metaverse_messages::{
-    http::scene::SculptType, udp::object::object_update::SculptData,
-    utils::texture_entry::TextureEntries,
-};
+use metaverse_messages::http::scene::SculptType;
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
 pub(super) fn finalize_sculpt_object(
-    object: &SculptObjectData<TextureEntries, SculptData>,
+    object: &SculptObjectData,
     texture_paths: &HashMap<u32, PathBuf>,
     geometry: SculptGeometry,
     asset_id: Uuid,
@@ -159,7 +157,7 @@ fn smooth_sculpt_normals(normals: &mut [Vec3], w: usize, h: usize, sculpt_type: 
 }
 
 fn build_sculpt_material(
-    object: &SculptObjectData<TextureEntries, SculptData>,
+    object: &SculptObjectData,
     texture_paths: &HashMap<u32, PathBuf>,
 ) -> Option<MaterialModel> {
     let face = &object.texture.as_ref()?.default;
