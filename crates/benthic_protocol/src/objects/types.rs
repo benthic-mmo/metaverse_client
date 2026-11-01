@@ -1,7 +1,11 @@
-use crate::avatar::types::{AttachmentData, JointWeight, SkinData};
+use crate::{
+    avatar::types::{AttachmentData, JointWeight, SkinData},
+    errors::{ProtocolParseError, ProtocolSessionError},
+};
 use glam::{Quat, Vec3};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
+use serde_llsd_benthic::LLSDValue;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -125,10 +129,7 @@ pub struct TextureTransform {
 
 /// TODO: unimplemented
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct PBRMaterial {
-    /// path on disk to the texture
-    pub texture_path: PathBuf,
-}
+pub struct PBRMaterial {}
 
 /// This contains required data that will be used for rendering.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
