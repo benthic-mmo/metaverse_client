@@ -60,7 +60,7 @@ pub async fn initialize(
             ping_latency: Duration::new(0, 0),
             last_ping: time::Instant::now(),
         },
-        rate_limiter: Arc::new(RateLimiter::new(5, 5)),
+        rate_limiter: Arc::new(RateLimiter::new(500, 50)),
         downloads: Arc::new(tokioMutex::new(
             HashMap::<AssetKey, Sender<DownloadState>>::new(),
         )),
@@ -72,6 +72,7 @@ pub async fn initialize(
         sqlite_queue,
         pending_sqlite_batch: VecDeque::new(),
         http_client,
+        permanent_failures: HashSet::new(),
     }
     .start();
     // wait until the mailbox starts
