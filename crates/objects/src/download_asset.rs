@@ -80,6 +80,14 @@ pub async fn download_asset(
     Ok(body)
 }
 
+/// Downloads a mesh and writes the raw bytes to disk
+///
+/// this is meant to mirror the way textures are downloaded.
+///
+/// Parameters
+/// - `asset_id`: The asset ID of the mesh to receive
+/// - `server_endpoint`: the server endpoint URL to send the request to
+/// - `out_path`: The path to store the resulting bytes
 pub async fn download_mesh(
     asset_id: Uuid,
     server_endpoint: &str,

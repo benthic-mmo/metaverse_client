@@ -156,6 +156,7 @@ pub enum DownloadError {
     #[error("Metaverse Mesh Error: {0}")]
     MetaverseMeshError(#[from] MetaverseMeshError),
 
+    /// this failure is trigered when a download is in progress, but the sender has disappeared.
     #[error("Sender disappeared without publishing a result")]
     SenderFailure,
 }
