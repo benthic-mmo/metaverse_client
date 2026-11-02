@@ -13,11 +13,13 @@ use crate::{
         sound::AttachedSound, texture_entry::TextureEntries,
     },
 };
-use benthic_protocol::objects::types::TextureAnimation;
+use base64::Engine;
+use benthic_protocol::{avatar::types::AttachPoint, objects::types::TextureAnimation};
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3, Vec4};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
+use serde_llsd_benthic::LLSDValue;
 use std::io::{Cursor, Read};
 use uuid::Uuid;
 
@@ -47,7 +49,7 @@ pub struct ObjectUpdate {
     pub time_dilation: f32,
     /// The region local ID of the tasks. Used for most operations in lieu of the task's full UUID
     pub id: u32,
-    /// unused except by grass. Used to determine species of grass.
+    /// Used to determine species of grass, and overloaded by avatar object updates to determine attachment point.
     pub state: u8,
     /// Full UUID of the object
     pub full_id: Uuid,
@@ -112,8 +114,8 @@ impl ObjectUpdateData for ObjectUpdate {
     fn local_id(&self) -> u32 {
         self.id
     }
-    fn name_value(&self) -> &Option<String> {
-        &self.name_value
+    fn name_value(&self) -> Option<String> {
+        self.name_value.clone()
     }
     fn position(&self) -> Vec3 {
         self.motion_data.position
@@ -130,8 +132,8 @@ impl ObjectUpdateData for ObjectUpdate {
     fn crc(&self) -> u32 {
         self.crc
     }
-    fn extra_params(&self) -> Option<&[ExtraParams]> {
-        self.extra_params.as_deref()
+    fn extra_params(&self) -> Option<Vec<ExtraParams>> {
+        self.extra_params.clone()
     }
     fn sculpt_path(&self) -> Option<PrimPath> {
         Some(self.primitive_geometry.clone())
@@ -147,6 +149,9 @@ impl ObjectUpdateData for ObjectUpdate {
                 ExtraParams::Materials(data) => Some(data.clone()),
                 _ => None,
             })
+    }
+    fn attachment_state(&self) -> AttachPoint {
+        AttachPoint::from_u8(self.state)
     }
 }
 
@@ -751,6 +756,7 @@ impl ExtraParams {
         let start = cursor.position();
         let extra_params_count = parse!(cursor.read_u8())?;
         let mut extra_params = Vec::new();
+
         for _ in 0..extra_params_count {
             let param_type = parse!(cursor.read_u16::<LittleEndian>())?;
             let param_type_tag = ParamTypeTag::from_bytes(&param_type);
@@ -783,6 +789,37 @@ impl ExtraParams {
         }
 
         Ok((extra_params, cursor.position() - start))
+    }
+
+    pub fn from_llsd(val: &LLSDValue) -> Result<Vec<Self>, ParseError> {
+        let bytes = match val {
+            LLSDValue::Binary(b) => b.clone(),
+
+            LLSDValue::String(s) => {
+                let s = s.trim();
+
+                if let Some(hex) = s.strip_prefix("b16") {
+                    parse!(hex::decode(hex.trim_matches('"')))?
+                } else if let Some(b64) = s.strip_prefix("b64") {
+                    parse!(base64::engine::general_purpose::STANDARD.decode(b64.trim_matches('"')))?
+                } else if s.starts_with("b(") {
+                    let start = s
+                        .find('"')
+                        .ok_or_else(|| ParseError::message("Malformed b(len) binary"))?
+                        + 1;
+
+                    let end = s.rfind('"').unwrap_or(s.len());
+                    s[start..end].as_bytes().to_vec()
+                } else {
+                    parse!(base64::engine::general_purpose::STANDARD.decode(s))?
+                }
+            }
+
+            _ => return Err(ParseError::message("ExtraParams is not binary")),
+        };
+
+        let (extra_params, _) = Self::from_bytes(&bytes)?;
+        Ok(extra_params)
     }
 }
 

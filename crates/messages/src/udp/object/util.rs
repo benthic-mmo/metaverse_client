@@ -2,9 +2,10 @@ use crate::{
     udp::object::object_update::{ExtraParams, MaterialsData},
     utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
-use benthic_protocol::{errors::ProtocolParseError, objects::types::TextureAnimation};
+use benthic_protocol::{
+    avatar::types::AttachPoint, errors::ProtocolParseError, objects::types::TextureAnimation,
+};
 use glam::{Quat, Vec3};
-use rgb::Rgba;
 use serde::{Deserialize, Serialize};
 use serde_llsd_benthic::LLSDValue;
 use uuid::Uuid;
@@ -23,7 +24,7 @@ pub trait ObjectUpdateData {
     fn local_id(&self) -> u32;
     /// Returns the name value string of the object.
     /// Not necessarily a name. This string can contain extra parameters used for attachments.
-    fn name_value(&self) -> &Option<String>;
+    fn name_value(&self) -> Option<String>;
     /// Returns the position of the object in space
     fn position(&self) -> Vec3;
     /// Returns the rotation of the object
@@ -37,7 +38,7 @@ pub trait ObjectUpdateData {
     fn crc(&self) -> u32;
     /// Returns the extra parameter data of the object
     /// Objects without extra params will return None
-    fn extra_params(&self) -> Option<&[ExtraParams]>;
+    fn extra_params(&self) -> Option<Vec<ExtraParams>>;
     /// Returns the sculpt path of the object
     /// Objects without sculpt information will return None
     fn sculpt_path(&self) -> Option<PrimPath>;
@@ -46,6 +47,8 @@ pub trait ObjectUpdateData {
     fn texture_animation(&self) -> Option<TextureAnimation>;
 
     fn pbr_materials(&self) -> Option<MaterialsData>;
+
+    fn attachment_state(&self) -> AttachPoint;
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

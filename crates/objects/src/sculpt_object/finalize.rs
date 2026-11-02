@@ -3,7 +3,7 @@ use crate::object_updates::SculptObjectData;
 use super::geometry::SculptGeometry;
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::objects::types::{
-    BlinnPhongMaterial, MaterialModel, RenderFace, RenderObject, TextureTransform,
+    BlinnPhongMaterial, MaterialModel, PBRMaterial, RenderFace, RenderObject, TextureTransform,
 };
 use glam::Vec3;
 use metaverse_messages::http::scene::SculptType;
@@ -13,6 +13,7 @@ use uuid::Uuid;
 pub(super) fn finalize_sculpt_object(
     object: &SculptObjectData,
     texture_paths: &HashMap<u32, PathBuf>,
+    material_paths: &HashMap<u32, PathBuf>,
     geometry: SculptGeometry,
     asset_id: Uuid,
 ) -> RenderObject {
@@ -31,7 +32,7 @@ pub(super) fn finalize_sculpt_object(
 
     smooth_sculpt_normals(&mut normals, row_width, row_count, &object.data.sculpt_type);
 
-    let material = build_sculpt_material(object, texture_paths);
+    let material = build_sculpt_material(object, texture_paths, material_paths);
 
     RenderObject {
         name: "Prim".to_string(),
@@ -159,14 +160,18 @@ fn smooth_sculpt_normals(normals: &mut [Vec3], w: usize, h: usize, sculpt_type: 
 fn build_sculpt_material(
     object: &SculptObjectData,
     texture_paths: &HashMap<u32, PathBuf>,
+    material_paths: &HashMap<u32, PathBuf>,
 ) -> Option<MaterialModel> {
-    let face = &object.texture.as_ref()?.default;
+    if let Some(path) = material_paths.get(&u32::MAX) {
+        return Some(MaterialModel::PBR(PBRMaterial { path: path.clone() }));
+    }
 
+    let face = &object.texture.as_ref()?.default;
     Some(MaterialModel::BlinnPhong(BlinnPhongMaterial {
         texture_path: texture_paths
             .get(&u32::MAX)
-            .unwrap_or(&default_texture_path())
-            .clone(),
+            .cloned()
+            .unwrap_or_else(default_texture_path),
         bump: face.bumpmap,
         color: face.rgba,
         fullbright: face.fullbright,

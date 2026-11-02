@@ -351,6 +351,46 @@ impl ObjectCache {
         self.build_cache_result(row).await
     }
 
+    pub async fn update_avatar(&self, local_id: u32, full_id: Uuid) -> Result<(), InventoryError> {
+        sqlx::query(
+            r#"
+        INSERT INTO object_updates (
+            full_id, id,
+        )
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(full_id) DO UPDATE SET
+            id = excluded.id,
+        "#,
+        )
+        .bind(full_id.to_string())
+        .bind(local_id as i64)
+        .execute(&self.db)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_full_id(&self, object_id: u32) -> Result<Uuid, InventoryError> {
+        let row = sqlx::query(
+            r#"
+        SELECT full_id
+        FROM object_updates
+        WHERE id = ?
+        "#,
+        )
+        .bind(object_id as i64)
+        .fetch_one(&self.db)
+        .await?;
+
+        let full_id: String = row.try_get("full_id")?;
+
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FULL ID: {:?}",
+            full_id
+        );
+        Ok(Uuid::parse_str(&full_id)?)
+    }
+
     /// Retrieve an object from the cache based on its asset_id
     /// Asset IDs are unique to the actual mesh data of the object. Full IDs and Scene-local IDs are unique to the
     /// object instance.

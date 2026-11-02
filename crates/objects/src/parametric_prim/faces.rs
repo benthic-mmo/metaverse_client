@@ -5,7 +5,7 @@ use super::{
 use crate::{errors::ObjectUpdateError, parametric_prim::handler::TextureContext};
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::objects::types::{
-    BlinnPhongMaterial, MaterialModel, RenderFace, TextureTransform,
+    BlinnPhongMaterial, MaterialModel, PBRMaterial, RenderFace, TextureTransform,
 };
 use glam::Vec3;
 use metaverse_messages::utils::path::{PrimPath, ProfileShape};
@@ -48,38 +48,41 @@ fn make_face(
     texture_context: &TextureContext,
 ) -> RenderFace {
     let normals = generate_normals(&vertices, &indices);
+    let material = if let Some(pbr_material) = texture_context.material_paths.get(&face_index) {
+        Some(MaterialModel::PBR(PBRMaterial {
+            path: pbr_material.clone(),
+        }))
+    } else {
+        texture_context.texture.as_ref().map(|entries| {
+            let face = entries.faces.get(&face_index).unwrap_or(&entries.default);
+            let tex_animation = texture_context
+                .texture_animation
+                .as_ref()
+                .and_then(|animation| match animation.face {
+                    f if f == face_index as i8 || f == -1 => Some(animation.clone()),
+                    _ => None,
+                });
 
-    let material = texture_context.texture.as_ref().map(|entries| {
-        let face = entries.faces.get(&face_index).unwrap_or(&entries.default);
-
-        let tex_animation = texture_context
-            .texture_animation
-            .as_ref()
-            .and_then(|animation| match animation.face {
-                f if f == face_index as i8 || f == -1 => Some(animation.clone()),
-                _ => None,
-            });
-
-        MaterialModel::BlinnPhong(BlinnPhongMaterial {
-            texture_path: face_texture(texture_context.texture_paths, face_index)
-                .unwrap_or_else(default_texture_path),
-            bump: face.bumpmap,
-            color: face.rgba,
-            fullbright: face.fullbright,
-            glow: face.glow,
-            shiny: face.shiny,
-            tex_gen: face.tex_gen,
-            texture_transform: TextureTransform {
-                repeat_u: face.repeat_u,
-                repeat_v: face.repeat_v,
-                offset_u: face.offset_u,
-                offset_v: face.offset_v,
-                rotation: face.rotation,
-            },
-            texture_animation: tex_animation,
+            MaterialModel::BlinnPhong(BlinnPhongMaterial {
+                texture_path: face_texture(texture_context.texture_paths, face_index)
+                    .unwrap_or_else(default_texture_path),
+                bump: face.bumpmap,
+                color: face.rgba,
+                fullbright: face.fullbright,
+                glow: face.glow,
+                shiny: face.shiny,
+                tex_gen: face.tex_gen,
+                texture_transform: TextureTransform {
+                    repeat_u: face.repeat_u,
+                    repeat_v: face.repeat_v,
+                    offset_u: face.offset_u,
+                    offset_v: face.offset_v,
+                    rotation: face.rotation,
+                },
+                texture_animation: tex_animation,
+            })
         })
-    });
-
+    };
     RenderFace {
         face_index,
         vertices,

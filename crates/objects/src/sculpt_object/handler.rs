@@ -50,7 +50,8 @@ pub async fn handle_sculpt_object(
                 object.data.invert,
             )?;
 
-            let render_object = finalize_sculpt_object(object, &texture_paths, geometry, asset_id);
+            let render_object =
+                finalize_sculpt_object(object, &texture_paths, &material_paths, geometry, asset_id);
 
             std::fs::write(&file_path, serde_json::to_vec_pretty(&render_object)?)?;
         }
@@ -67,3 +68,5 @@ pub async fn handle_sculpt_object(
         retry_count: 0,
     })])
 }
+
+pub async fn handle_sculpt_avatar_object() {}

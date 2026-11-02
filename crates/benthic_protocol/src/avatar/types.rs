@@ -192,6 +192,10 @@ impl From<AttachPoint> for AttachmentTarget {
     }
 }
 impl AttachPoint {
+    /// Converts from a u8 to an AttachPoint.
+    pub fn from_u8(value: u8) -> Self {
+        Self::from_i32(value as i32)
+    }
     /// Converts from a i32 to an AttachPoint
     pub fn from_i32(value: i32) -> Self {
         match value {

@@ -3,6 +3,7 @@ use benthic_protocol::errors::ProtocolSessionError;
 use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
 use metaverse_store::errors::InventoryError;
+use uuid::Uuid;
 
 use crate::errors;
 
@@ -28,6 +29,12 @@ pub enum MeshBuildError {
     /// An object failed to download
     #[error("Failed to download: {0}")]
     DownloadError(#[from] DownloadError),
+
+    #[error("Avatar data is empty. This should never happen and is a bug.")]
+    EmptyAvatarData,
+
+    #[error("Avatar: {agent} not found in session. This should never happen.")]
+    AvatarNotFound { agent: Uuid },
 }
 
 /// Errors that can occur when downloading assets from the endpoint  
@@ -42,8 +49,10 @@ pub enum DownloadError {
 
     #[error("Material parse failed: {0}")]
     MaterialParse(#[from] benthic_protocol::errors::ProtocolParseError),
+
     #[error("Asset dependency resolution failed: {0}")]
     DependencyFailure(String),
+
     /// Response body was empty
     #[error("Empty response body: status={status}, url={url}, headers={headers:?}")]
     EmptyBody {

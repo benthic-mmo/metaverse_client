@@ -1,5 +1,9 @@
-use benthic_protocol::session::storage::{CacheDir, create_sub_object_dir, write_json};
+use benthic_protocol::session::{
+    storage::{CacheDir, create_sub_agent_dir, create_sub_object_dir, write_json},
+    types::Session,
+};
 use bytes::Bytes;
+use metaverse_avatar::{avatar::Avatar, skeleton::update_global_avatar_skeleton};
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_store::initialize_sqlite::Cache;
@@ -7,7 +11,10 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     errors::MeshBuildError,
-    object_updates::{MeshObjectData, ObjectUpdateAction, RenderMeshData, RenderObjectJSONData},
+    object_updates::{
+        AvatarAttachment, AvatarObjectData, MeshObjectData, ObjectUpdateAction, RenderMeshData,
+        RenderObjectJSONData,
+    },
     utils::create_mesh_render_object,
 };
 
@@ -70,9 +77,10 @@ pub async fn handle_mesh_object(
         mesh,
         "name".to_string(),
         texture_paths,
+        material_paths,
         data.sculpt_id,
         &data.texture,
-        None,
+        &data.avatar_attachment,
         data.texture_animation.clone(),
     )?;
 
@@ -113,8 +121,78 @@ pub async fn handle_mesh_object(
         asset_id: data.sculpt_id,
         object: data.object_info.clone(),
         retry_count: 0,
-
         download: None,
+    }))
+}
+
+pub async fn handle_mesh_avatar_object(
+    cache: Cache,
+    data: &MeshObjectData,
+    out_dir: PathBuf,
+    mesh_bytes: Bytes,
+    texture_paths: HashMap<u32, PathBuf>,
+    material_paths: HashMap<u32, PathBuf>,
+) -> Result<ObjectUpdateAction, MeshBuildError> {
+    let Some(attachment) = data.avatar_attachment.clone() else {
+        return Err(MeshBuildError::EmptyAvatarData);
+    };
+
+    cache
+        .object
+        .update(
+            data.object_info.clone(),
+            data.crc,
+            data.region_id.clone(),
+            data.object_type,
+        )
+        .await?;
+
+    let mesh = Mesh::from_bytes(&mesh_bytes)?;
+
+    let render_object = create_mesh_render_object(
+        mesh,
+        "name".to_string(),
+        texture_paths,
+        material_paths,
+        data.sculpt_id,
+        &data.texture,
+        &data.avatar_attachment,
+        data.texture_animation.clone(),
+    )?;
+
+    // cahche generated render object on the filesystem
+    let json_path = write_json(
+        &render_object,
+        &data.sculpt_id.to_string(),
+        CacheDir::Agent(attachment.agent_id),
+        &out_dir,
+    )?;
+
+    // Include the skeleton in the update data, to be handled on the add object without having to
+    // reread the file.
+    let skeleton = if let Some(skin) = render_object.skin {
+        Some(skin.skeleton)
+    } else {
+        None
+    };
+
+    // update the generated render object in the sqlite db
+    cache
+        .object
+        .update_json_path(
+            data.object_info.full_id,
+            data.sculpt_id,
+            &json_path.to_string_lossy(),
+        )
+        .await?;
+
+    // return a render mesh data action from the generated mesh
+    Ok(ObjectUpdateAction::AvatarObject(AvatarObjectData {
+        json_path,
+        asset_id: data.sculpt_id,
+        agent_id: attachment.agent_id,
+        object_info: data.object_info.clone(),
+        skeleton_update: skeleton,
     }))
 }
 

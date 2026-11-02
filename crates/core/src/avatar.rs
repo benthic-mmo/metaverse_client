@@ -1,230 +1,242 @@
 use super::session::Mailbox;
 use crate::COORDINATE_CONVERSION;
 use crate::session::SendUIMessage;
+use crate::transport::udp_handler::classify_object_update;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::avatar::skeleton::Skeleton;
 use benthic_protocol::avatar::skeleton::SkinJoint;
+use benthic_protocol::avatar::types::AttachmentData;
 use benthic_protocol::messages::agent::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::agent::play_animation::PlayAnimation;
 use benthic_protocol::messages::camera::camera_position::CameraPosition;
 use benthic_protocol::messages::ui_protocol::UIMessage;
 use benthic_protocol::session::storage::cache_enabled;
+use benthic_protocol::session::storage::create_sub_agent_dir;
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;
 use metaverse_avatar::avatar::Avatar;
-use metaverse_avatar::avatar::OutfitObject;
-use metaverse_avatar::avatar_object_handler::AvatarState::FullyLoaded;
-use metaverse_avatar::avatar_object_handler::{add_object_to_avatar, finalize_avatar};
+use metaverse_avatar::avatar_object_handler::finalize_avatar;
+use metaverse_avatar::skeleton::update_global_avatar_skeleton;
 use metaverse_messages::http::capabilities::Capability;
+use metaverse_messages::http::scene::SceneGroup;
 use metaverse_messages::udp::agent::avatar_animation::AvatarAnimation;
 use metaverse_messages::udp::agent::avatar_appearance::AvatarAppearance;
 use metaverse_messages::utils::object_types::ObjectType;
-use metaverse_objects::download_asset::download_avatar_assets;
+use metaverse_objects::download_asset::download_object;
+use metaverse_objects::object_updates::AvatarAttachment;
+use metaverse_objects::object_updates::AvatarObjectData;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use uuid::Uuid;
 
-/// Message to initalize a new avatar to the session.
-///
-/// # Cause
-/// - UDP handler receives an ObjectUpdate packet of type Avatar
-///
-/// # Effects
-/// If the avatar is the user's avatar:
-/// - [`CameraPosition`] is sent to the UI, updating the camera position
-/// - [`SetOutfitSize`] message is sent, updating the current avatar's outfit size
-///
-/// If the user avatar's GLTF already exists on disk
-/// - [`LoadFromCache`] message is sent, loading the avatar from the disk
-///
-/// If the user avatar's GLTF does not exist on disk
-/// - [`DownloadAgentAsset`] message is sent for objects that have renderable assets
-/// - [`AddObjectToAvatar`] message is sent for objects that do not
 #[derive(Message, Clone, Debug)]
 #[rtype(result = "()")]
 pub struct AvatarObjectUpdate {
     /// ID of the avatar
     pub id: Uuid,
+
+    pub local_id: u32,
     /// Position in space of the avatar
     pub position: Vec3,
 }
 impl Handler<AvatarObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: AvatarObjectUpdate, ctx: &mut Self::Context) -> Self::Result {
+
+    fn handle(&mut self, msg: AvatarObjectUpdate, ctx: &mut Self::Context) {
         let Some(session) = self.session.as_mut() else {
             return;
         };
 
-        if !session.inventory_data.current_outfit_init {
-            info!("Current outfit not initialized. Adding object update to queue");
-            self.pending_avatar_objects.push(msg);
+        // If this is the user's avatar, use the special handler.
+        if session.agent_id == msg.id {
+            ctx.address().do_send(UserAvatarObjectUpdate(msg));
             return;
         }
 
         let avatar = Avatar::new(msg.id, msg.position);
-        session.avatars.insert(msg.id, avatar.clone());
-        let addr = ctx.address();
-        let current_outfit_id = session.inventory_data.current_outfit_root;
+        session.avatars.insert(msg.id, avatar);
+        self.pending_avatars.insert(msg.id);
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!! PENDING AVATARS {:?}:",
+            self.pending_avatars
+        );
 
-        if msg.id == session.agent_id {
-            addr.do_send(SendUIMessage {
-                ui_message: UIMessage::new_camera_position(CameraPosition {
-                    position: COORDINATE_CONVERSION.mul_vec3(msg.position),
-                }),
-            });
-            let agent_id = session.agent_id;
-            let cache = self.cache.clone();
-            let inventory = session.inventory.clone();
-            ctx.spawn(
-                async move {
-                    let (avatar, outfit_items) = if cache_enabled() {
-                        match cache
-                            .avatar
-                            .current_outfit(agent_id, inventory, current_outfit_id)
-                            .await
-                        {
-                            Ok(result) => result,
-                            Err(e) => {
-                                error!("HandleNewAvatar error: {:?}", e);
-                                return;
-                            }
-                        }
-                    } else {
-                        match inventory.get_current_outfit(current_outfit_id).await {
-                            Ok(outfit_items) => (None, outfit_items),
-                            Err(e) => {
-                                error!("HandleNewAvatarError {:?}", e);
-                                return;
-                            }
-                        }
-                    };
-
-                    if addr
-                        .send(SetOutfitSize {
-                            agent_id,
-                            outfit_size: outfit_items.len(),
-                        })
-                        .await
-                        .is_err()
-                    {
-                        error!("Failed to set outfit size for {:?}", agent_id);
-                        return;
-                    }
-
-                    if let Some(avatar) = avatar {
-                        addr.do_send(LoadFromCache { avatar });
-                        return;
-                    }
-
-                    for item in outfit_items {
-                        match item.item_type {
-                            ObjectType::Object => {
-                                addr.do_send(DownloadAgentAsset {
-                                    asset_id: item.asset_id,
-                                    item_type: item.item_type,
-                                    agent_id,
-                                });
-                            }
-                            ObjectType::Bodypart => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Bodypart,
-                                    agent_id,
-                                });
-                            }
-                            ObjectType::Clothing => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Clothing,
-                                    agent_id,
-                                });
-                            }
-                            _ => {
-                                addr.do_send(AddObjectToAvatar {
-                                    object: OutfitObject::Other,
-                                    agent_id,
-                                });
-                            }
-                        }
-                    }
+        let cache = self.cache.clone();
+        ctx.spawn(
+            async move {
+                if let Err(e) = cache.object.update_avatar(msg.local_id, msg.id).await {
+                    error!("Failed to cache avatar update: {e}");
                 }
-                .into_actor(self),
-            );
-        } else {
-            // TODO: HANDLE NON USER UPDATES
-        }
+            }
+            .into_actor(self),
+        );
     }
 }
 
-/// Requests Agent data from the ViewerAsset capability endpoint
-///
-/// These are requested from inventory objects, and not ObjectUpdate packets.
-///
-/// # Cause
-/// - [`AvatarObjectUpdate`]
-///
-/// # Effects
-///  - Dispatches an [`AddObjectToAvatar`] message on successful download
-#[derive(Debug, Message)]
+#[derive(Message, Clone, Debug)]
 #[rtype(result = "()")]
-pub struct DownloadAgentAsset {
-    /// the asset of the object to request
-    pub asset_id: Uuid,
-    /// the ID of the agent the asset belongs to
-    pub agent_id: Uuid,
-    /// the object type, used to retrieve from the capability endpoint
-    pub item_type: ObjectType,
-}
-impl Handler<DownloadAgentAsset> for Mailbox {
+pub struct UserAvatarObjectUpdate(AvatarObjectUpdate);
+impl Handler<UserAvatarObjectUpdate> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: DownloadAgentAsset, ctx: &mut Self::Context) -> Self::Result {
-        let server_endpoint = self.session.as_mut().and_then(|session| {
-            session
-                .capability_urls
-                .get(&Capability::ViewerAsset)
-                .cloned()
-        });
-
-        let Some(server_endpoint) = server_endpoint else {
-            self.queue_for_capability(Capability::ViewerAsset, msg);
-            return;
-        };
-
+    fn handle(&mut self, msg: UserAvatarObjectUpdate, ctx: &mut Self::Context) {
         let Some(session) = self.session.as_mut() else {
             return;
         };
+        let Some(endpoint) = session
+            .capability_urls
+            .get(&Capability::ViewerAsset)
+            .cloned()
+        else {
+            info!("ViewerAsset capability unavailable. Queuing avatar update.");
+            self.pending_avatar_objects.push(msg.0);
+            return;
+        };
 
-        let object_type = msg.item_type;
-        let asset_id = msg.asset_id;
-        let agent_id = msg.agent_id;
-        let cache = self.cache.clone();
+        if !session.inventory_data.current_outfit_init {
+            info!("Current outfit not initialized. Adding avatar update to queue");
+            self.pending_avatar_objects.push(msg.0);
+            return;
+        }
+
+        let avatar = Avatar::new(msg.0.id, msg.0.position);
+        session.avatars.insert(msg.0.id, avatar);
+
         let addr = ctx.address();
+        addr.do_send(SendUIMessage {
+            ui_message: UIMessage::new_camera_position(CameraPosition {
+                position: COORDINATE_CONVERSION.mul_vec3(msg.0.position),
+            }),
+        });
+
+        let agent_id = session.agent_id;
+        let current_outfit_id = session.inventory_data.current_outfit_root;
+        let cache = self.cache.clone();
+        let inventory = session.inventory.clone();
         let out_dir = session.share_dir_root.clone();
-        let http_client = self.http_client.clone();
+        let client = self.http_client.clone();
         let rate_limiter = self.rate_limiter.clone();
+
         ctx.spawn(
             async move {
-                match download_avatar_assets(
-                    &server_endpoint,
-                    object_type,
-                    asset_id,
-                    agent_id,
-                    cache,
-                    out_dir,
-                    http_client,
-                    rate_limiter,
-                )
-                .await
-                {
-                    Ok(json_path) => {
-                        addr.do_send(AddObjectToAvatar {
-                            object: OutfitObject::MeshObject(json_path),
-                            agent_id,
-                        });
+                let (cached_avatar, outfit_items) = if cache_enabled() {
+                    match cache
+                        .avatar
+                        .current_outfit(agent_id, inventory.clone(), current_outfit_id)
+                        .await
+                    {
+                        Ok(result) => result,
+                        Err(e) => {
+                            error!("Failed to retrieve current outfit from cache: {e:?}");
+                            return;
+                        }
                     }
-                    Err(e) => {
-                        error!("DownloadAgentAsset error: {:?}", e)
+                } else {
+                    match inventory.get_current_outfit(current_outfit_id).await {
+                        Ok(items) => (None, items),
+                        Err(e) => {
+                            error!("Failed to retrieve current outfit: {e:?}");
+                            return;
+                        }
                     }
                 };
+
+                if let Some(avatar) = cached_avatar {
+                    addr.do_send(LoadFromCache { avatar });
+                    return;
+                }
+
+                let asset_dir = match create_sub_agent_dir(&out_dir, &agent_id.to_string()) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        error!("Failed to create avatar asset directory: {e}");
+                        return;
+                    }
+                };
+
+                let mut scenes = Vec::new();
+                for item in outfit_items {
+                    match item.item_type {
+                        ObjectType::Object => {
+                            let object_path = asset_dir.join(format!("{}.xml", item.asset_id));
+
+                            if let Err(e) = download_object(
+                                item.asset_id,
+                                &endpoint,
+                                &object_path,
+                                client.clone(),
+                                rate_limiter.clone(),
+                            )
+                            .await
+                            {
+                                error!(
+                                    "Failed to download inventory object {}: {e}",
+                                    item.asset_id
+                                );
+                                continue;
+                            }
+
+                            let bytes = match tokio::fs::read(&object_path).await {
+                                Ok(bytes) => bytes,
+                                Err(e) => {
+                                    error!(
+                                        "Failed to read inventory object {}: {e}",
+                                        item.asset_id
+                                    );
+                                    continue;
+                                }
+                            };
+
+                            match SceneGroup::from_xml(&bytes) {
+                                Ok(group) => scenes.extend(group.parts),
+                                Err(e) => {
+                                    error!(
+                                        "Failed to parse inventory object {}: {e}",
+                                        item.asset_id
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            addr.do_send(AddNonMeshToAvatar {
+                                agent_id,
+                                object_type: item.item_type,
+                            });
+                        }
+                    }
+                }
+
+                let outfit_size = scenes.len();
+                if addr
+                    .send(SetOutfitSize {
+                        agent_id,
+                        outfit_size,
+                    })
+                    .await
+                    .is_err()
+                {
+                    error!("Failed to set outfit size for {agent_id:?}");
+                    return;
+                }
+
+                for scene in scenes {
+                    let attachment = AvatarAttachment {
+                        agent_id,
+                        attachment: AttachmentData {
+                            attach_point: scene.shape.last_attach_point,
+                            position: scene.attached_pos,
+                            rotation: scene.rotation_offset,
+                            scale: scene.scale,
+                        },
+                    };
+
+                    if let Err(e) =
+                        classify_object_update(scene, addr.clone(), Some(attachment)).await
+                    {
+                        error!("Failed to classify avatar attachment: {e}");
+                    }
+                }
             }
             .into_actor(self),
         );
@@ -245,29 +257,44 @@ impl Handler<DownloadAgentAsset> for Mailbox {
 /// - Dispatches a [`FinalizeAvatar`] message if the avatar's outfit has all items
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-pub struct AddObjectToAvatar {
-    /// ID of the agent to add the object to
-    pub agent_id: Uuid,
-    /// Object to add
-    pub object: OutfitObject,
-}
+pub struct AddObjectToAvatar(pub AvatarObjectData);
 impl Handler<AddObjectToAvatar> for Mailbox {
     type Result = ();
-    fn handle(&mut self, msg: AddObjectToAvatar, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: AddObjectToAvatar, ctx: &mut Self::Context) {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        match add_object_to_avatar(session, msg.agent_id, msg.object) {
-            Ok(FullyLoaded) => {
-                ctx.address().do_send(FinalizeAvatar {
-                    agent_id: msg.agent_id,
-                });
-            }
-            Ok(_) => {}
-            Err(e) => {
-                error!("AddObjectToAvatar error {:?}", e);
-            }
+        let Some(avatar) = session.avatars.get_mut(&msg.0.agent_id) else {
+            error!("Avatar not present in session. Aborting.");
+            return;
         };
+
+        // Update the global skeleton before adding to the items list.
+        if let Some(skeleton) = msg.0.skeleton_update {
+            update_global_avatar_skeleton(avatar, &skeleton);
+        }
+
+        avatar.items.push(msg.0.json_path);
+        avatar.last_update = SystemTime::now();
+
+        if avatar.items.len() == avatar.outfit_size {
+            ctx.address().do_send(FinalizeAvatar {
+                agent_id: msg.0.agent_id,
+            });
+        }
+    }
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct AddNonMeshToAvatar {
+    object_type: ObjectType,
+    agent_id: Uuid,
+}
+impl Handler<AddNonMeshToAvatar> for Mailbox {
+    type Result = ();
+    fn handle(&mut self, msg: AddNonMeshToAvatar, ctx: &mut Self::Context) {
+        //TODO: hande this.
     }
 }
 
@@ -344,7 +371,7 @@ impl Handler<FinalizeAvatar> for Mailbox {
                         });
                     }
                     Err(e) => {
-                        error!("{:?}", e)
+                        error!("Finalize avatar error: {:?}", e)
                     }
                 };
             }

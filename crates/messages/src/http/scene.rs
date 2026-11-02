@@ -1,5 +1,7 @@
 use crate::errors::SceneObjectParseError;
 use crate::parse;
+use crate::udp::object::object_update::{ExtraParams, MaterialsData, SculptData};
+use crate::udp::object::util::ObjectUpdateData;
 use crate::utils::path::{HollowShape, PathCurve, ProfileShape};
 use crate::utils::prim_flags::PrimFlags;
 use crate::utils::texture_entry::TextureEntries;
@@ -23,6 +25,7 @@ use quick_xml::{
 };
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
+use serde_llsd_benthic::LLSDValue;
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -137,7 +140,7 @@ pub struct Shape {
     /// Path information, used for drawing paths
     pub path: PrimPath,
     /// TODO: Unknown
-    pub extra_params: Vec<u8>,
+    pub extra_params: Vec<ExtraParams>,
     /// The type of the object
     pub pcode: ObjectType,
     /// The state of the object
@@ -156,7 +159,7 @@ pub struct Shape {
     /// Contains information about how the object emits lights.
     pub light: Light,
     /// Informaiton about the shape's texture
-    pub texture: TextureEntries,
+    pub texture: Option<TextureEntries>,
     /// Information about animations for the shape's textures
     pub texture_animation: Option<TextureAnimation>,
     /// TODO: not handled yet
@@ -322,6 +325,74 @@ pub struct SceneObject {
     /// legacy
     pub legacy_parent_id: u32,
 }
+impl ObjectUpdateData for SceneObject {
+    fn object_type(&self) -> ObjectType {
+        self.shape.pcode
+    }
+
+    fn full_id(&self) -> Uuid {
+        self.metadata.id
+    }
+
+    fn parent_id(&self) -> Option<u32> {
+        (self.legacy_parent_id != 0).then_some(self.legacy_parent_id)
+    }
+
+    fn local_id(&self) -> u32 {
+        self.legacy_local_id
+    }
+
+    fn name_value(&self) -> Option<String> {
+        Some(self.metadata.name.clone())
+    }
+
+    fn position(&self) -> Vec3 {
+        self.offset_position
+    }
+
+    fn rotation(&self) -> Quat {
+        self.rotation_offset
+    }
+
+    fn scale(&self) -> Vec3 {
+        self.scale
+    }
+
+    fn texture(&self) -> &Option<TextureEntries> {
+        &self.shape.texture
+    }
+
+    // there is no CRC for scene objects
+    fn crc(&self) -> u32 {
+        0
+    }
+
+    /// align the SceneObject's extra params to the object update extra_params
+    fn extra_params(&self) -> Option<Vec<ExtraParams>> {
+        Some(self.shape.extra_params.clone())
+    }
+
+    fn sculpt_path(&self) -> Option<PrimPath> {
+        Some(self.shape.path.clone())
+    }
+
+    fn texture_animation(&self) -> Option<TextureAnimation> {
+        self.shape.texture_animation.clone()
+    }
+
+    fn pbr_materials(&self) -> Option<MaterialsData> {
+        self.shape
+            .extra_params
+            .iter()
+            .find_map(|param| match param {
+                ExtraParams::Materials(data) => Some(data.clone()),
+                _ => None,
+            })
+    }
+    fn attachment_state(&self) -> AttachPoint {
+        self.shape.last_attach_point
+    }
+}
 
 impl SceneObject {
     /// This is used for reading the bytes after the root object has been parsed.
@@ -416,13 +487,18 @@ impl SceneObject {
         macro_rules! parse_texture_entry {
             ($value:expr) => {{
                 let value = &$value;
-                TextureEntries::from_b64(value.as_bytes()).map_err(|e| {
-                    ParseError::SceneObjectParse(SceneObjectParseError::new(
-                        "TextureEntry",
-                        value,
-                        e.to_string(),
-                    ))
-                })?
+
+                if value.is_empty() {
+                    None
+                } else {
+                    Some(TextureEntries::from_b64(value.as_bytes()).map_err(|e| {
+                        ParseError::SceneObjectParse(SceneObjectParseError::new(
+                            "TextureEntry",
+                            value,
+                            e.to_string(),
+                        ))
+                    })?)
+                }
             }};
         }
 
@@ -599,9 +675,9 @@ impl SceneObject {
                 ["TextureEntry"] => {
                     scene_object.shape.texture = parse_texture_entry!(val);
                 }
-
                 ["ExtraParams"] => {
-                    scene_object.shape.extra_params = val.as_bytes().to_vec();
+                    scene_object.shape.extra_params =
+                        ExtraParams::from_llsd(&LLSDValue::String(val.clone()))?;
                 }
 
                 ["PathBegin"] => {

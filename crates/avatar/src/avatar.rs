@@ -19,7 +19,7 @@ pub struct Avatar {
     pub agent_id: Uuid,
     /// The items in the outfit. Contains mesh and other data that will be used to construct the
     /// gltf file.
-    pub items: Vec<OutfitObject>,
+    pub items: Vec<PathBuf>,
     /// The position of the agent in the world
     pub position: Vec3,
     /// The global skeleton of the agent
@@ -32,7 +32,7 @@ pub struct Avatar {
     pub fully_loaded: bool,
     /// number of obects in the full outfit. Used to determine if the avatar is fully loaded.
     pub outfit_size: usize,
-    /// Last time the avatar was updated. Useful for non-user avatar updates.
+    /// Last time the avatar was updated. Used by non-user avatar updates.
     pub last_update: SystemTime,
 }
 impl Avatar {
@@ -54,18 +54,4 @@ impl Avatar {
             used_joints: BTreeSet::new(),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// The items that can be stored in an outfit. It can contain generic Items, or SceneGroups, which
-/// contain mesh data.
-pub enum OutfitObject {
-    /// A MeshObject, containing a json containing mesh data that can be rendered
-    MeshObject(PathBuf),
-    /// A generic bodypart, part of the original SL spec
-    Bodypart,
-    /// A generic clothing object, part of the original SL spec
-    Clothing,
-    /// Other
-    Other,
 }

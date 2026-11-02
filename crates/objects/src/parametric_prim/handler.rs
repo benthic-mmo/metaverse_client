@@ -20,6 +20,7 @@ pub(crate) struct TextureContext<'a> {
     pub(crate) texture_paths: &'a HashMap<u32, PathBuf>,
     pub(crate) texture: &'a Option<TextureEntries>,
     pub(crate) texture_animation: &'a Option<TextureAnimation>,
+    pub(crate) material_paths: &'a HashMap<u32, PathBuf>,
 }
 
 const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -38,7 +39,7 @@ const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Side Effects
 /// [Storage: Filesystem]
-pub async fn handle_parametric_prim(
+pub async fn handle_parametric_prim_object(
     out_dir: &Path,
     object: &ParametricPrimData,
     texture_paths: HashMap<u32, PathBuf>,
@@ -55,7 +56,8 @@ pub async fn handle_parametric_prim(
     // check to see if the json path exists. if it doesn't, then build the render object
     if !glb_path.exists() || !cache_enabled() {
         if !json_path.exists() || !cache_enabled() {
-            let render_object = build_render_object(object, &texture_paths, asset_id)?;
+            let render_object =
+                build_render_object(object, &texture_paths, &material_paths, asset_id)?;
             std::fs::write(&json_path, serde_json::to_vec_pretty(&render_object)?)?;
         }
         generate_object_mesh(&json_path, &glb_path)?;
@@ -71,9 +73,12 @@ pub async fn handle_parametric_prim(
     })])
 }
 
+pub async fn handle_parametric_prim_avatar_object() {}
+
 fn build_render_object(
     object: &ParametricPrimData,
     texture_paths: &HashMap<u32, PathBuf>,
+    material_paths: &HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<RenderObject, ObjectUpdateError> {
     let profile = profile::build_profile(
@@ -93,6 +98,7 @@ fn build_render_object(
             texture_paths,
             texture: &object.texture,
             texture_animation: &object.texture_animation,
+            material_paths,
         },
     )?;
 
