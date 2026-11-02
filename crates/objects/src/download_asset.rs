@@ -87,8 +87,6 @@ pub async fn download_asset(
 /// - `asset_id`: The asset ID of the mesh to receive
 /// - `server_endpoint`: the server endpoint URL to send the request to
 /// - `out_path`: The path to store the resulting bytes
-///
-/// TODO: move the handle_mesh into here so what gets written is the json of the mesh, not the bytes
 pub async fn download_mesh(
     asset_id: Uuid,
     server_endpoint: &str,
@@ -124,6 +122,26 @@ pub async fn download_material(
 ) -> Result<(), DownloadError> {
     let bytes = download_asset(
         ObjectType::Material.to_string(),
+        asset_id,
+        server_endpoint,
+        client,
+        rate_limiter,
+    )
+    .await?;
+
+    tokio::fs::write(&out_path, bytes).await?;
+    Ok(())
+}
+
+pub async fn download_object(
+    asset_id: Uuid,
+    server_endpoint: &str,
+    out_path: &PathBuf,
+    client: Client,
+    rate_limiter: Arc<RateLimiter>,
+) -> Result<(), DownloadError> {
+    let bytes = download_asset(
+        ObjectType::Object.to_string(),
         asset_id,
         server_endpoint,
         client,
@@ -254,138 +272,4 @@ pub async fn download_face_textures(
     }
 
     Ok(paths)
-}
-
-/// Retrieves and parses an asset in an avatar's outfit
-///
-/// TODO: currently only supports mesh objects. This needs to be generalized to handle other types of
-/// prims.
-///
-/// - Writes render objects generated from the scene group to disk cache
-/// - Updates sqlite cache with asset's JSON path.
-///
-/// # Parameters
-/// - `server_endpoint`: URL of the capability endpoint to retrieve from
-/// - `object_type`: Type of the object being retrieved from the server
-/// - `asset_id`: ID of asset being retrieved from the server
-/// - `cache`: session-wide cache object, containing the sqlite db connection and useful functions
-/// - `out_dir`: root dir where output JSON will be written
-///
-/// # Errors
-/// - returns [`DownloadError`] if downloads fail
-///
-/// # Side Effects
-/// [Storage: Filesystem + SQLite]
-pub async fn download_avatar_assets(
-    server_endpoint: &str,
-    object_type: ObjectType,
-    asset_id: Uuid,
-    agent_id: Uuid,
-    cache: Cache,
-    out_dir: PathBuf,
-    client: Client,
-    rate_limiter: Arc<RateLimiter>,
-) -> Result<PathBuf, DownloadError> {
-    let scene_group = SceneGroup::from_xml(
-        &download_asset(
-            object_type.to_string(),
-            asset_id,
-            server_endpoint,
-            client.clone(),
-            rate_limiter.clone(),
-        )
-        .await?,
-    )?;
-    let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
-
-    let render_objects = download_scene_group_assets(
-        &scene_group,
-        server_endpoint,
-        &base_dir,
-        server_endpoint.to_string(),
-        client.clone(),
-        rate_limiter.clone(),
-    )
-    .await?;
-
-    let json_path = format!(
-        "{:?}_{}",
-        scene_group.parts[0].sculpt.texture, scene_group.parts[0].metadata.name
-    );
-
-    let json = if std::path::Path::new(&json_path).exists() || !cache_enabled() {
-        PathBuf::from(json_path.clone())
-    } else {
-        write_json(
-            &render_objects,
-            &json_path,
-            CacheDir::Agent(agent_id),
-            &out_dir,
-        )?
-    };
-    if cache_enabled()
-        && let Err(e) = cache
-            .avatar
-            .update_outfit_item_json_path(asset_id, &json_path)
-            .await
-    {
-        Err(e)?;
-    }
-    Ok(json)
-}
-
-/// Handles downloading scene group assets.
-/// TODO: Needs to handle non-mesh assets.
-async fn download_scene_group_assets(
-    scene_group: &SceneGroup,
-    url: &str,
-    out_dir: &Path,
-    server_endpoint: String,
-    client: Client,
-    rate_limiter: Arc<RateLimiter>,
-) -> Result<Vec<RenderObject>, DownloadError> {
-    let mut render_objects = Vec::new();
-
-    for scene in &scene_group.parts {
-        let texture_paths = download_face_textures(
-            out_dir,
-            &Some(scene.shape.texture.clone()),
-            &server_endpoint,
-            client.clone(),
-            rate_limiter.clone(),
-        )
-        .await?;
-
-        if scene.sculpt.sculpt_type == SculptType::Mesh {
-            let mesh = Mesh::from_bytes(
-                &download_asset(
-                    ObjectType::Mesh.to_string(),
-                    scene.sculpt.texture,
-                    url,
-                    client.clone(),
-                    rate_limiter.clone(),
-                )
-                .await?,
-            )?;
-
-            render_objects.push(create_mesh_render_object(
-                mesh,
-                scene.metadata.name.clone(),
-                texture_paths,
-                scene.sculpt.texture,
-                &Some(scene.shape.texture.clone()),
-                Some(AttachmentData {
-                    attach_point: scene.shape.last_attach_point,
-                    position: scene.attached_pos,
-                    rotation: scene.rotation_offset,
-                    scale: scene.scale,
-                }),
-                scene.shape.texture_animation.clone(),
-            )?)
-        } else {
-            // TODO: handle non-mesh assets here
-            info!("Non-mesh scene group")
-        };
-    }
-    Ok(render_objects)
 }

@@ -1,4 +1,4 @@
-use crate::avatar::{AvatarObjectUpdate, HandleNewAvatarAnimation};
+use crate::avatar::{AvatarObjectUpdate, FinalizeAvatar, HandleNewAvatarAnimation};
 use crate::environment::FetchEnvironmentEvent;
 use crate::inventory::FetchCurrentOutfit;
 use crate::objects::RenderObjectMessage;
@@ -68,6 +68,7 @@ use uuid::Uuid;
 
 const SQLITE_BATCH_SIZE: usize = 500;
 static DEFAULT_MAX_RETRIES: u32 = 50;
+static AVATAR_RENDER_TIMEOUT: u64 = 60;
 type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
@@ -120,6 +121,8 @@ pub struct Mailbox {
     /// this prevents sending new requests for assets that permanently failed on a different
     /// download attempt.
     pub permanent_failures: HashSet<AssetKey>,
+
+    pub pending_avatars: HashSet<Uuid>,
 }
 impl Mailbox {
     /// Set the state of the mailbox.
@@ -167,6 +170,37 @@ impl Mailbox {
     pub fn start_sqlite_flush(&self, ctx: &mut Context<Self>) {
         ctx.run_interval(std::time::Duration::from_millis(100), |_actor, ctx| {
             ctx.address().do_send(FlushCacheQueue);
+        });
+    }
+
+    /// Periodically check for avatars that have not received an object update in a while.
+    /// when the timer runs out, render them.
+    pub fn avatar_finished_loading(&self, ctx: &mut Context<Self>) {
+        ctx.run_interval(std::time::Duration::from_millis(100), |actor, ctx| {
+            let finished: Vec<Uuid> = {
+                let Some(session) = actor.session.as_ref() else {
+                    return;
+                };
+
+                actor
+                    .pending_avatars
+                    .iter()
+                    .filter(|id| {
+                        session.avatars.get(id).is_some_and(|avatar| {
+                            avatar.last_update.elapsed().is_ok_and(|elapsed| {
+                                elapsed >= std::time::Duration::from_secs(AVATAR_RENDER_TIMEOUT)
+                            })
+                        })
+                    })
+                    .copied()
+                    .collect()
+            };
+
+            for agent_id in finished {
+                actor.pending_avatars.remove(&agent_id);
+
+                ctx.address().do_send(FinalizeAvatar { agent_id });
+            }
         });
     }
 }

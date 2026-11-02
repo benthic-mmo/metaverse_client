@@ -1,5 +1,5 @@
 mod common;
-use benthic_protocol::objects::types::{ObjectInstanceInfo, SculptObjectData};
+use benthic_protocol::objects::types::ObjectInstanceInfo;
 use bevy::{
     DefaultPlugins,
     app::{App, Startup, Update},
@@ -14,7 +14,10 @@ use metaverse_messages::{
     packet::{packet_protocol::Packet, packet_types::PacketType},
     udp::object::{object_update::ExtraParams, util::ObjectUpdateData},
 };
-use metaverse_objects::{object_updates::ObjectUpdateAction, sculpt_object::handle_sculpt_object};
+use metaverse_objects::{
+    object_updates::{ObjectUpdateAction, SculptObjectData},
+    sculpt_object::handle_sculpt_object,
+};
 use std::{collections::HashMap, path::PathBuf};
 use uuid::Uuid;
 
@@ -95,6 +98,7 @@ async fn test_sculpys() {
                     region_id: "".to_string(),
                     retry_count: 0,
                     texture_animation: None,
+                    pbr_materials: None,
                 };
 
                 let texture_paths: HashMap<u32, PathBuf> = sculpt_object
@@ -115,6 +119,7 @@ async fn test_sculpys() {
                     &texture_path,
                     &sculpt_object,
                     texture_paths,
+                    HashMap::new(),
                     Uuid::nil(),
                 )
                 .await

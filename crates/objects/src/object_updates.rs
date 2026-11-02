@@ -1,12 +1,14 @@
 use crate::errors::ObjectUpdateError;
 use benthic_protocol::{
-    objects::{
-        types::TextureAnimation,
-        types::{AttachmentObjectData, ObjectInstanceInfo},
+    avatar::{
+        skeleton::Skeleton,
+        types::{AttachPoint, AttachmentData},
     },
+    objects::types::{AttachmentObjectData, ObjectInstanceInfo, TextureAnimation},
     session::{storage::create_sub_object_dir, types::DownloadState},
 };
 use log::warn;
+use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
     udp::object::{
         object_update::{AttachItem, MaterialsData, SculptData},
@@ -77,6 +79,16 @@ pub struct MeshObjectData {
     pub retry_count: u32,
 
     pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
+}
+
+#[derive(Clone, Debug)]
+pub struct AvatarAttachment {
+    pub agent_id: Uuid,
+    pub attachment: AttachmentData,
 }
 
 /// Data object for rendering parametric prims
@@ -94,6 +106,10 @@ pub struct ParametricPrimData {
     pub retry_count: u32,
 
     pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
 }
 
 /// Data object for rendering sculpt objects
@@ -115,6 +131,10 @@ pub struct SculptObjectData {
     pub retry_count: u32,
 
     pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
 }
 
 /// Actions that can result from handling an object update packet
@@ -128,6 +148,17 @@ pub enum ObjectUpdateAction {
     GenerateFromRenderObject(RenderObjectJSONData),
     /// Handle an object not in the cache
     HandleCacheMiss((CacheMissType, u32)),
+
+    AvatarObject(AvatarObjectData),
+}
+
+#[derive(Debug, Clone)]
+pub struct AvatarObjectData {
+    pub json_path: PathBuf,
+    pub asset_id: Uuid,
+    pub agent_id: Uuid,
+    pub object_info: ObjectInstanceInfo,
+    pub skeleton_update: Option<Skeleton>,
 }
 
 /// Handles object update cached.

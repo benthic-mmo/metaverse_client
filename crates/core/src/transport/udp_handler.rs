@@ -1,8 +1,8 @@
 use crate::avatar::{AvatarObjectUpdate, HandleNewAvatarAnimation, HandleNewAvatarAppearance};
 use crate::environment::{HandleLayerData, HandleSimulatorViewerTimeMessage};
 use crate::objects::{
-    AttachmentObjectUpdate, HandleImprovedTerseObjectUpdate, HandleObjectUpdateCached,
-    MeshObjectUpdate, ParametricPrimObjectUpdate, SculptObjectUpdate,
+    HandleImprovedTerseObjectUpdate, HandleObjectUpdateCached, MeshObjectUpdate,
+    ParametricPrimObjectUpdate, SculptObjectUpdate,
 };
 use crate::session::{
     AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
@@ -10,16 +10,17 @@ use crate::session::{
 use actix::Addr;
 use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui_protocol::UIMessage;
-use benthic_protocol::objects::types::{AttachmentObjectData, ObjectInstanceInfo};
+use benthic_protocol::objects::types::ObjectInstanceInfo;
 use log::{error, warn};
 use metaverse_messages::http::scene::SculptType;
 use metaverse_messages::packet::{packet_protocol::Packet, packet_types::PacketType};
-use metaverse_messages::udp::object::object_update::AttachItem;
 use metaverse_messages::udp::object::object_update::ExtraParams::{self};
 use metaverse_messages::udp::object::util::ObjectUpdateData;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::errors::ObjectUpdateError;
-use metaverse_objects::object_updates::{MeshObjectData, ParametricPrimData, SculptObjectData};
+use metaverse_objects::object_updates::{
+    AvatarAttachment, MeshObjectData, ParametricPrimData, SculptObjectData,
+};
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use uuid::Uuid;
@@ -99,7 +100,8 @@ impl Mailbox {
                         }
                         PacketType::ObjectUpdate(data) => {
                             if let Err(e) =
-                                classify_object_update(*data.clone(), mailbox_address.clone()).await
+                                classify_object_update(*data.clone(), mailbox_address.clone(), None)
+                                    .await
                             {
                                 error!("Failed to handle object update: {:?}", e);
                             }
@@ -127,7 +129,8 @@ impl Mailbox {
                         PacketType::ObjectUpdateCompressed(data) => {
                             for object in data.object_data.clone() {
                                 if let Err(e) =
-                                    classify_object_update(object, mailbox_address.clone()).await
+                                    classify_object_update(object, mailbox_address.clone(), None)
+                                        .await
                                 {
                                     error!("Failed to handle object update compressed: {:?}", e);
                                 }
@@ -211,24 +214,18 @@ impl Mailbox {
         }
     }
 }
-
-async fn classify_object_update(
+/// If this object update is attached to an avatar, this agent_id is set, and used to prevent
+/// rendering it as a regular object.
+pub async fn classify_object_update(
     object: impl ObjectUpdateData,
     addr: Addr<Mailbox>,
+    avatar_attachment: Option<AvatarAttachment>,
 ) -> Result<(), ObjectUpdateError> {
     match object.object_type() {
         ObjectType::Prim => {
-            if let Some(name) = object.name_value().as_ref()
-                && AttachItem::parse_attach_item(name).is_ok()
-            {
-                addr.do_send(AttachmentObjectUpdate(AttachmentObjectData {
-                    parent_id: object.parent_id(),
-                }));
-            }
-
             let sculpt = object.extra_params().and_then(|params| {
                 params.iter().find_map(|param| match param {
-                    ExtraParams::Sculpt(sculpt) => Some(sculpt),
+                    ExtraParams::Sculpt(sculpt) => Some(sculpt.clone()),
                     _ => None,
                 })
             });
@@ -255,6 +252,10 @@ async fn classify_object_update(
                         region_id: String::new(),
                         texture_animation: object.texture_animation(),
                         retry_count: 0,
+                        avatar_attachment,
+                        // this is used only by avatar object updates.
+                        // ignored all other times.
+                        attach_point: object.attachment_state(),
                     }));
                 }
 
@@ -285,6 +286,10 @@ async fn classify_object_update(
                         region_id: String::new(),
                         retry_count: 0,
                         texture_animation: object.texture_animation(),
+                        avatar_attachment,
+                        // this is used only by avatar object updates.
+                        // ignored all other times.
+                        attach_point: object.attachment_state(),
                     }));
                 }
 
@@ -305,6 +310,10 @@ async fn classify_object_update(
                             path_data: path,
                             retry_count: 0,
                             texture_animation: object.texture_animation(),
+                            avatar_attachment,
+                            // this is used only by avatar object updates.
+                            // ignored all other times.
+                            attach_point: object.attachment_state(),
                         }));
                     } else {
                         error!("No path data found for parametric prim.");
@@ -316,6 +325,7 @@ async fn classify_object_update(
         ObjectType::Avatar => {
             addr.do_send(AvatarObjectUpdate {
                 id: object.full_id(),
+                local_id: object.local_id(),
                 position: object.position(),
             });
         }

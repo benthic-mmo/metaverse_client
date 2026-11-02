@@ -73,6 +73,7 @@ pub async fn initialize(
         pending_sqlite_batch: VecDeque::new(),
         http_client,
         permanent_failures: HashSet::new(),
+        pending_avatars: HashSet::new(),
     }
     .start();
     // wait until the mailbox starts

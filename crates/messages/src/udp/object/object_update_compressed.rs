@@ -1,3 +1,4 @@
+use benthic_protocol::avatar::types::AttachPoint;
 use benthic_protocol::objects::types::TextureAnimation;
 use byteorder::{LittleEndian, ReadBytesExt};
 use glam::{Quat, Vec3};
@@ -175,14 +176,14 @@ impl ObjectUpdateData for ObjectDataCompressed {
     fn local_id(&self) -> u32 {
         self.local_id
     }
-    fn name_value(&self) -> &Option<String> {
-        &self.name_values
+    fn name_value(&self) -> Option<String> {
+        self.name_values.clone()
     }
     fn position(&self) -> Vec3 {
         self.position
     }
-    fn extra_params(&self) -> Option<&[ExtraParams]> {
-        self.extra_params.as_deref()
+    fn extra_params(&self) -> Option<Vec<ExtraParams>> {
+        self.extra_params.clone()
     }
     fn rotation(&self) -> Quat {
         self.rotation
@@ -210,6 +211,9 @@ impl ObjectUpdateData for ObjectDataCompressed {
                 ExtraParams::Materials(data) => Some(data.clone()),
                 _ => None,
             })
+    }
+    fn attachment_state(&self) -> AttachPoint {
+        AttachPoint::from_u8(self.state)
     }
 }
 

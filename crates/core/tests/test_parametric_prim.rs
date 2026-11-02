@@ -1,6 +1,6 @@
 mod common;
 use crate::common::mock_session;
-use benthic_protocol::objects::types::{ObjectInstanceInfo, ParametricPrimData};
+use benthic_protocol::objects::types::ObjectInstanceInfo;
 use bevy::asset::UnapprovedPathMode;
 use bevy::prelude::*;
 use bevy::winit::WinitPlugin;
@@ -19,7 +19,7 @@ use metaverse_messages::{
     packet::{packet_protocol::Packet, packet_types::PacketType},
     udp::object::{object_update::ExtraParams, util::ObjectUpdateData},
 };
-use metaverse_objects::object_updates::ObjectUpdateAction;
+use metaverse_objects::object_updates::{ObjectUpdateAction, ParametricPrimData};
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -84,6 +84,7 @@ async fn test_parametric_prims() {
                 path_data,
                 retry_count: 0,
                 texture_animation: None,
+                pbr_materials: None,
             };
             let texture_paths: HashMap<u32, PathBuf> = parametric_prim
                 .texture
@@ -102,6 +103,7 @@ async fn test_parametric_prims() {
                 &generated_dir,
                 &parametric_prim,
                 texture_paths,
+                HashMap::new(),
                 Uuid::nil(),
             )
             .await
