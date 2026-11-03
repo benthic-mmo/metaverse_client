@@ -1,8 +1,7 @@
 use crate::{errors::InventoryError, initialize_sqlite::CacheOperation};
-use benthic_protocol::objects::types::{ObjectInstanceInfo, ObjectUpdateType};
+use benthic_protocol::objects::types::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
-use serde::de::DeserializeOwned;
 use sqlx::{Row, SqlitePool};
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::sync::mpsc;
@@ -31,9 +30,7 @@ pub enum QueuedObjectCacheOperation {
         /// type of the object
         object_type: ObjectType,
 
-        update_type: ObjectUpdateType,
-
-        update_packet: Vec<u8>,
+        update_path: PathBuf,
     },
 
     /// Update the transform of an object
@@ -89,8 +86,7 @@ impl ObjectCache {
                     crc,
                     region_id,
                     object_type,
-                    update_type,
-                    update_packet,
+                    update_path,
                 } => {
                     let parent_id = object.parent_id.unwrap_or(0);
                     let rotation = object.rotation.normalize();
@@ -102,9 +98,9 @@ impl ObjectCache {
                             pos_x, pos_y, pos_z,
                             rot_x, rot_y, rot_z, rot_w,
                             scale_x, scale_y, scale_z,
-                            update_type, update_packet
+                            update_path
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(full_id) DO UPDATE SET
                             id = excluded.id,
                             parent = excluded.parent,
@@ -121,8 +117,7 @@ impl ObjectCache {
                             scale_x = excluded.scale_x,
                             scale_y = excluded.scale_y,
                             scale_z = excluded.scale_z,
-                            update_type = excluded.update_type,
-                            update_packet = excluded.update_packet
+                            update_path = excluded.update_path
                         "#,
                     )
                     .bind(object.local_id as i64)
@@ -141,8 +136,7 @@ impl ObjectCache {
                     .bind(object.scale.x)
                     .bind(object.scale.y)
                     .bind(object.scale.z)
-                    .bind(update_type.to_string())
-                    .bind(update_packet)
+                    .bind(update_path.to_string_lossy().into_owned())
                     .execute(&mut *tx)
                     .await?;
 
@@ -414,13 +408,10 @@ impl ObjectCache {
         Ok(Uuid::parse_str(&agent_id)?)
     }
 
-    pub async fn get_update(
-        &self,
-        object_id: u32,
-    ) -> Result<(ObjectUpdateType, Vec<u8>), InventoryError> {
+    pub async fn get_update(&self, object_id: u32) -> Result<PathBuf, InventoryError> {
         let row = sqlx::query(
             r#"
-        SELECT update_type, update_packet
+        SELECT update_path
         FROM object_updates
         WHERE id = ?
         "#,
@@ -429,21 +420,9 @@ impl ObjectCache {
         .fetch_one(&self.db)
         .await?;
 
-        let update_type: String = row.try_get("update_type")?;
-        let update_packet: Vec<u8> = row.try_get("update_packet")?;
+        let update_path: String = row.try_get("update_path")?;
 
-        let update_type = match update_type.as_str() {
-            "MeshObjectUpdate" => ObjectUpdateType::MeshObjectUpdate,
-            "SculptObjectUpdate" => ObjectUpdateType::SculptObjectUpdate,
-            "ParametricPrimObjectUpdate" => ObjectUpdateType::ParametricPrimObjectUpdate,
-            _ => {
-                return Err(InventoryError::CacheMiss(format!(
-                    "Unknown object update type: {update_type}"
-                )));
-            }
-        };
-
-        Ok((update_type, update_packet))
+        Ok(PathBuf::from(update_path))
     }
 
     /// Retrieve an object from the cache based on its asset_id
@@ -586,8 +565,7 @@ impl ObjectCache {
         crc: u32,
         region_id: String,
         object_type: ObjectType,
-        update_type: ObjectUpdateType,
-        update_packet: Vec<u8>,
+        update_path: PathBuf,
     ) -> Result<(), InventoryError> {
         self.queue
             .send(CacheOperation::Object(
@@ -596,8 +574,7 @@ impl ObjectCache {
                     crc,
                     region_id,
                     object_type,
-                    update_type,
-                    update_packet,
+                    update_path,
                 },
             ))
             .await

@@ -8,6 +8,7 @@ use metaverse_avatar::avatar::Avatar;
 use sqlx::{Row, SqlitePool};
 use std::{
     collections::VecDeque,
+    path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::mpsc;
@@ -31,8 +32,8 @@ pub enum QueuedAvatarCacheOperation {
         agent_id: Uuid,
         /// The current time of the update
         updated_at: i64,
-        /// The byte data to populate the update with
-        data: Vec<u8>,
+
+        path: String,
     },
     /// Ensure an avatar cache row exists.
     Ensure {
@@ -52,20 +53,17 @@ pub enum QueuedAvatarCacheOperation {
 
 impl AvatarCache {
     /// Queue an update to the cached avatar.
-    pub async fn update(&self, avatar: Avatar) -> Result<(), InventoryError> {
+    pub async fn update(&self, avatar: &Avatar, path: PathBuf) -> Result<(), InventoryError> {
         let updated_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
 
-        let agent_id = avatar.agent_id;
-        let data = serde_json::to_vec(&avatar)?;
-
         self.queue
             .send(CacheOperation::Avatar(QueuedAvatarCacheOperation::Update {
-                agent_id,
+                agent_id: avatar.agent_id,
                 updated_at,
-                data,
+                path: path.to_string_lossy().into_owned(),
             }))
             .await
             .map_err(|_| InventoryError::CacheQueueClosed)?;
@@ -111,18 +109,18 @@ impl AvatarCache {
                 QueuedAvatarCacheOperation::Update {
                     agent_id,
                     updated_at,
-                    data,
+                    path,
                 } => {
                     sqlx::query(
                         r#"
                         UPDATE agents
                         SET last_update = ?,
-                            data = ?
+                            path = ?
                         WHERE agent_id = ?
                         "#,
                     )
                     .bind(updated_at)
-                    .bind(data)
+                    .bind(path)
                     .bind(agent_id.to_string())
                     .execute(&mut *tx)
                     .await?;

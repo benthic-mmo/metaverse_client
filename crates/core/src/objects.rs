@@ -11,14 +11,12 @@ use actix::WrapFuture;
 use actix::{Handler, Message};
 use benthic_default_asset_converter::default_texture_path;
 use benthic_default_asset_converter::no_geometry_mesh_path;
-use benthic_protocol::avatar::types::AttachPoint;
 use benthic_protocol::avatar::types::AttachmentData;
 use benthic_protocol::messages::simulator::orphan_objects::OrphanedObject;
 use benthic_protocol::messages::ui_protocol::UIMessage;
 use benthic_protocol::messages::world::mesh_update::MeshType;
 use benthic_protocol::messages::world::mesh_update::MeshUpdate;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
-use benthic_protocol::objects::types::ObjectUpdateType;
 use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::session::storage::create_materials_dir;
 use benthic_protocol::session::storage::create_sub_object_dir;
@@ -36,7 +34,6 @@ use metaverse_messages::udp::object::object_update::MaterialsData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::udp::object::util::PBRMaterial;
-use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::download_asset::download_material;
 use metaverse_objects::download_asset::download_mesh;
@@ -58,6 +55,7 @@ use metaverse_objects::parametric_prim::handler::handle_parametric_prim_avatar_o
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim_object;
 use metaverse_objects::sculpt_object::handle_sculpt_object;
 use metaverse_store::cache::object::ObjectCache;
+use metaverse_store::errors::InventoryError;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -88,7 +86,6 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         };
 
         let cache = self.cache.clone();
-
         let out_dir = session.share_dir_root.clone();
         let addr = ctx.address();
         let avatars = session.avatars.clone();
@@ -98,7 +95,6 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
-                        msg.0.object_info.local_id,
                         parent_id,
                         &CachedObjectUpdateType::Mesh(msg.0.clone()),
                         &avatars,
@@ -108,25 +104,14 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     msg.0.avatar_attachment = Some(attachment);
                 }
 
-                if let Ok(update_packet) =
-                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                if let Err(err) = cache_object_update(
+                    &cache.object,
+                    CachedObjectUpdateType::Mesh(msg.0.clone()),
+                    &out_dir,
+                )
+                .await
                 {
-                    if let Err(err) = cache
-                        .object
-                        .update(
-                            msg.0.object_info.clone(),
-                            msg.0.crc,
-                            msg.0.region_id.clone(),
-                            msg.0.object_type,
-                            ObjectUpdateType::MeshObjectUpdate,
-                            update_packet,
-                        )
-                        .await
-                    {
-                        warn!("Object update was not saved to cache: {err}");
-                    }
-                } else {
-                    warn!("Failed to serialize mesh object update; skipping cache update");
+                    error!("Failed to cache object update: {err}");
                 }
 
                 // Request the mesh and face textures concurrently.
@@ -241,14 +226,12 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         let addr = ctx.address();
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
-        let region_id = session.region_data.region_id.clone();
         ctx.spawn(
             async move {
                 // check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
-                        msg.0.object_info.local_id,
                         parent_id,
                         &CachedObjectUpdateType::Prim(msg.0.clone()),
                         &avatars,
@@ -258,25 +241,14 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                     msg.0.avatar_attachment = Some(attachment);
                 }
 
-                if let Ok(update_packet) =
-                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                if let Err(err) = cache_object_update(
+                    &cache.object,
+                    CachedObjectUpdateType::Prim(msg.0.clone()),
+                    &out_dir,
+                )
+                .await
                 {
-                    if let Err(err) = cache
-                        .object
-                        .update(
-                            msg.0.object_info.clone(),
-                            0,
-                            region_id,
-                            ObjectType::Prim,
-                            ObjectUpdateType::ParametricPrimObjectUpdate,
-                            update_packet,
-                        )
-                        .await
-                    {
-                        warn!("Object update was not saved to cache: {err}");
-                    }
-                } else {
-                    warn!("Failed to serialize mesh object update; skipping cache update");
+                    error!("Failed to cache object update: {err}");
                 }
 
                 // Resolve all face textures.
@@ -353,15 +325,12 @@ impl Handler<SculptObjectUpdate> for Mailbox {
 
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
-        let region_id = session.region_data.region_id.clone();
-
         ctx.spawn(
             async move {
                 // Check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
-                        msg.0.object_info.local_id,
                         parent_id,
                         &CachedObjectUpdateType::Sculpt(msg.0.clone()),
                         &avatars,
@@ -371,25 +340,14 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     msg.0.avatar_attachment = Some(attachment);
                 }
 
-                if let Ok(update_packet) =
-                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                if let Err(err) = cache_object_update(
+                    &cache.object,
+                    CachedObjectUpdateType::Sculpt(msg.0.clone()),
+                    &out_dir,
+                )
+                .await
                 {
-                    if let Err(err) = cache
-                        .object
-                        .update(
-                            msg.0.object_info.clone(),
-                            0,
-                            region_id,
-                            ObjectType::Prim,
-                            ObjectUpdateType::SculptObjectUpdate,
-                            update_packet,
-                        )
-                        .await
-                    {
-                        warn!("Object update was not saved to cache: {err}");
-                    }
-                } else {
-                    warn!("Failed to serialize mesh object update; skipping cache update");
+                    error!("Failed to cache object update: {err}");
                 }
 
                 let sculpt_id = msg.0.data.texture_id;
@@ -713,9 +671,33 @@ impl Handler<RenderBlankMeshMessage> for Mailbox {
     }
 }
 
+async fn cache_object_update(
+    cache: &ObjectCache,
+    object: CachedObjectUpdateType,
+    base_dir: &PathBuf,
+) -> Result<(), InventoryError> {
+    let object_info = object.object_info().clone();
+    let crc = object.crc();
+    let region_id = object.region_id().to_owned();
+    let object_type = object.object_type();
+
+    let json = serde_json::to_string_pretty(&object)?;
+    let base_path = create_sub_object_dir(&base_dir, &object.object_info().full_id.to_string())?;
+    let path = base_path.join(format!(
+        "{}_ObjectUpdate.json",
+        object.object_info().full_id
+    ));
+    tokio::fs::write(&path, json).await?;
+
+    cache
+        .update(object_info, crc, region_id, object_type, path)
+        .await?;
+
+    Ok(())
+}
+
 async fn try_attach_to_avatar(
     cache: &ObjectCache,
-    object_id: u32,
     parent_id: u32,
     update: &CachedObjectUpdateType,
     avatars: &HashMap<Uuid, Avatar>,
@@ -747,14 +729,14 @@ async fn try_attach_to_avatar(
         _ => return None,
     };
 
-    // Parent is the attachment root; use its attach point.
     let attach_point = match cache.get_update(parent_id).await {
-        Ok((update_type, packet)) => {
-            match CachedObjectUpdateType::deserialize(update_type, &packet) {
+        Ok(path) => match tokio::fs::read(&path).await {
+            Ok(bytes) => match serde_json::from_slice::<CachedObjectUpdateType>(&bytes) {
                 Ok(parent_update) => parent_update.attach_point(),
                 Err(_) => update.attach_point(),
-            }
-        }
+            },
+            Err(_) => update.attach_point(),
+        },
         Err(_) => update.attach_point(),
     };
 
@@ -789,24 +771,29 @@ impl Handler<HandleOrphanedObject> for Mailbox {
                 let orphan_id = msg.0.local_id;
                 let parent_id = msg.0.parent_id;
 
-                let Ok((update_type, update_packet)) = cache.object.get_update(orphan_id).await
-                else {
+                let Ok(update_path) = cache.object.get_update(orphan_id).await else {
                     warn!("Orphan {orphan_id}: failed to retrieve cached update");
                     return;
                 };
 
-                let update = match CachedObjectUpdateType::deserialize(update_type, &update_packet)
-                {
+                let update_bytes = match tokio::fs::read(&update_path).await {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        warn!("Orphan {orphan_id}: failed to read cached update: {err}");
+                        return;
+                    }
+                };
+
+                let update = match serde_json::from_slice::<CachedObjectUpdateType>(&update_bytes) {
                     Ok(update) => update,
                     Err(err) => {
-                        warn!("Orphan {orphan_id}: failed to deserialize: {err:?}");
+                        warn!("Orphan {orphan_id}: failed to deserialize: {err}");
                         return;
                     }
                 };
 
                 let Some(attachment) =
-                    try_attach_to_avatar(&cache.object, orphan_id, parent_id, &update, &avatars)
-                        .await
+                    try_attach_to_avatar(&cache.object, parent_id, &update, &avatars).await
                 else {
                     // TODO: Handle non-avatar orphan.
                     return;
@@ -1172,7 +1159,6 @@ async fn face_textures_or_fallback(
                 paths.insert(face, path);
             }
             Err(e) => {
-                error!("Texture download failed for face {face}: {e}");
                 paths.insert(face, default_texture_path());
             }
         }

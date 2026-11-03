@@ -194,10 +194,6 @@ pub fn check_orphaned_objects(mut scene_id_map: ResMut<SceneIDMap>, sockets: Res
                 match send_packet_to_core(&packet, &sockets) {
                     Ok(()) => {
                         child.last_reported = Some(Instant::now());
-                        warn!(
-                            "Orphaned object: scene ID {}, missing parent {}",
-                            child.scene_id, parent_id
-                        );
                     }
                     Err(err) => {
                         error!("Failed to send OrphanedObject response: {err}");

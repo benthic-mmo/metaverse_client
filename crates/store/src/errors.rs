@@ -1,6 +1,7 @@
 use std::time::SystemTimeError;
 
 use awc::error::{PayloadError, SendRequestError};
+use benthic_protocol::errors::ProtocolSessionError;
 use metaverse_messages::errors::ParseError;
 use sqlx::migrate::MigrateError;
 use thiserror::Error;
@@ -57,6 +58,9 @@ pub enum OutfitError {
 /// Errors that can arise fom sqlite inventory handling issues
 #[derive(Error, Debug)]
 pub enum InventoryError {
+    #[error("Session Error: {0}")]
+    SessionError(#[from] ProtocolSessionError),
+
     /// Folder or Item LLSD failed to parse
     #[error("LLSD Error: {0}")]
     LLSDError(#[from] serde_llsd_benthic::errors::ParseError),

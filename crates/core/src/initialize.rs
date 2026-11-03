@@ -74,6 +74,7 @@ pub async fn initialize(
         http_client,
         permanent_failures: HashSet::new(),
         pending_avatars: HashSet::new(),
+        flush_in_progress: false,
     }
     .start();
     // wait until the mailbox starts
