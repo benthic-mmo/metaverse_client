@@ -45,29 +45,27 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
     type Result = ();
 
     fn handle(&mut self, msg: AvatarObjectUpdate, ctx: &mut Self::Context) {
+        // Always cache the avatar mapping first.
+        let cache = self.cache.clone();
+        let local_id = msg.local_id;
+        let agent_id = msg.id;
+
         let Some(session) = self.session.as_mut() else {
             return;
         };
-
-        // If this is the user's avatar, use the special handler.
+        // If this is the user's avatar, use the special handler, and don't add it to the cache.
         if session.agent_id == msg.id {
             ctx.address().do_send(UserAvatarObjectUpdate(msg));
             return;
         }
-
         let avatar = Avatar::new(msg.id, msg.position);
         session.avatars.insert(msg.id, avatar);
         self.pending_avatars.insert(msg.id);
-        println!(
-            "!!!!!!!!!!!!!!!!!!!!!!! PENDING AVATARS {:?}:",
-            self.pending_avatars
-        );
 
-        let cache = self.cache.clone();
         ctx.spawn(
             async move {
-                if let Err(e) = cache.object.update_avatar(msg.local_id, msg.id).await {
-                    error!("Failed to cache avatar update: {e}");
+                if let Err(err) = cache.object.update_avatar(local_id, agent_id).await {
+                    error!("Failed to cache avatar {agent_id} (local_id={local_id}): {err}");
                 }
             }
             .into_actor(self),
@@ -483,7 +481,6 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
                 {
                     Ok(mesh_paths) => {
                         for path in mesh_paths {
-                            println!("PLAYING ANIMATION AT PATH: {:?}", path);
                             addr.do_send(SendUIMessage {
                                 ui_message: UIMessage::new_play_animation(PlayAnimation {
                                     player_id: sender_id,

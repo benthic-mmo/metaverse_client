@@ -21,5 +21,8 @@ CREATE TABLE object_updates (
     
     asset_id    TEXT,
     json        TEXT,
-    glb         TEXT
+    glb         TEXT, 
+
+    update_type TEXT,
+    update_packet BLOB
 );

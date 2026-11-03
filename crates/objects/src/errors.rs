@@ -40,6 +40,9 @@ pub enum MeshBuildError {
 /// Errors that can occur when downloading assets from the endpoint  
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
+    #[error("Deserialize error {0}")]
+    Deserialize(String),
+
     /// Capability isn't present to download from
     #[error("Capbility missing: {capability}")]
     CapabilityNotPresent {
@@ -213,6 +216,9 @@ pub enum ObjectUpdateError {
     /// An inventory operation failed
     #[error("Inventory error: {0}")]
     InventoryError(#[from] InventoryError),
+
+    #[error("Bincode error: {0}")]
+    BincodeError(#[from] bincode::error::DecodeError),
 
     /// A session operation failed
     #[error("Session error: {0}")]

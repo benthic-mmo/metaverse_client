@@ -11,11 +11,14 @@ use actix::WrapFuture;
 use actix::{Handler, Message};
 use benthic_default_asset_converter::default_texture_path;
 use benthic_default_asset_converter::no_geometry_mesh_path;
+use benthic_protocol::avatar::types::AttachPoint;
 use benthic_protocol::avatar::types::AttachmentData;
+use benthic_protocol::messages::simulator::orphan_objects::OrphanedObject;
 use benthic_protocol::messages::ui_protocol::UIMessage;
 use benthic_protocol::messages::world::mesh_update::MeshType;
 use benthic_protocol::messages::world::mesh_update::MeshUpdate;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
+use benthic_protocol::objects::types::ObjectUpdateType;
 use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::session::storage::create_materials_dir;
 use benthic_protocol::session::storage::create_sub_object_dir;
@@ -23,7 +26,9 @@ use benthic_protocol::session::storage::create_textures_dir;
 use benthic_protocol::session::types::AssetKey;
 use benthic_protocol::session::types::DownloadState;
 use futures::future::join_all;
+use log::warn;
 use log::{error, info};
+use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::http::capabilities::Capability;
 use metaverse_messages::packet::packet_protocol::Packet;
 use metaverse_messages::udp::object::improved_terse_object_update::ImprovedTerseObjectUpdate;
@@ -31,6 +36,7 @@ use metaverse_messages::udp::object::object_update::MaterialsData;
 use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::udp::object::util::PBRMaterial;
+use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use metaverse_objects::download_asset::download_material;
 use metaverse_objects::download_asset::download_mesh;
@@ -40,6 +46,7 @@ use metaverse_objects::mesh::handle_mesh_avatar_object;
 use metaverse_objects::mesh::handle_mesh_object;
 use metaverse_objects::mesh::mesh_from_json;
 use metaverse_objects::object_updates::AvatarAttachment;
+use metaverse_objects::object_updates::CachedObjectUpdateType;
 use metaverse_objects::object_updates::MeshObjectData;
 use metaverse_objects::object_updates::ObjectUpdateAction;
 use metaverse_objects::object_updates::ParametricPrimData;
@@ -50,6 +57,7 @@ use metaverse_objects::object_updates::object_update_cached;
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim_avatar_object;
 use metaverse_objects::parametric_prim::handler::handle_parametric_prim_object;
 use metaverse_objects::sculpt_object::handle_sculpt_object;
+use metaverse_store::cache::object::ObjectCache;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -80,47 +88,45 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         };
 
         let cache = self.cache.clone();
+
         let out_dir = session.share_dir_root.clone();
         let addr = ctx.address();
         let avatars = session.avatars.clone();
-
         ctx.spawn(
             async move {
-                if msg.0.avatar_attachment.is_none()
-                    && let Some(parent_id) = msg.0.object_info.parent_id
-                    && let Ok(full_id) = cache.object.get_full_id(parent_id).await
+                // Check if the object belongs to an avatar. if it does, treat it like one.
+                if let Some(parent_id) = msg.0.object_info.parent_id
+                    && let Some(attachment) = try_attach_to_avatar(
+                        &cache.object,
+                        msg.0.object_info.local_id,
+                        parent_id,
+                        &CachedObjectUpdateType::Mesh(msg.0.clone()),
+                        &avatars,
+                    )
+                    .await
                 {
-                    if avatars.contains_key(&full_id) {
-                     println!("AVATAR ATTACHMENT RECEIVED, PARENT IS THE AVATAR !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                        // Hop 1: parent IS the avatar (attachment root prim)
-                        msg.0.avatar_attachment = Some(AvatarAttachment {
-                            agent_id: full_id,
-                            attachment: AttachmentData {
-                                position: msg.0.object_info.position,
-                                rotation: msg.0.object_info.rotation,
-                                scale: msg.0.object_info.scale,
-                                attach_point: msg.0.attach_point,
-                            },
-                        });
-                    } else if let Ok(Some(grandparent_id)) =
-                        cache.object.get_parent(parent_id).await
-                        && let Ok(gp_full_id) = cache.object.get_full_id(grandparent_id).await
-                        && avatars.contains_key(&gp_full_id)
-                    {
+                    msg.0.avatar_attachment = Some(attachment);
+                }
 
-                     println!("AVATAR ATTACHMENT RECEIVED, CHILD IS THE AVATAR !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-                        // Hop 2: parent is the linkset root; grandparent is the avatar.
-                        // Attach point should come from the root's attach point
-                        msg.0.avatar_attachment = Some(AvatarAttachment {
-                            agent_id: gp_full_id,
-                            attachment: AttachmentData {
-                                position: msg.0.object_info.position,
-                                rotation: msg.0.object_info.rotation,
-                                scale: msg.0.object_info.scale,
-                                attach_point: msg.0.attach_point,
-                            },
-                        });
+                if let Ok(update_packet) =
+                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                {
+                    if let Err(err) = cache
+                        .object
+                        .update(
+                            msg.0.object_info.clone(),
+                            msg.0.crc,
+                            msg.0.region_id.clone(),
+                            msg.0.object_type,
+                            ObjectUpdateType::MeshObjectUpdate,
+                            update_packet,
+                        )
+                        .await
+                    {
+                        warn!("Object update was not saved to cache: {err}");
                     }
+                } else {
+                    warn!("Failed to serialize mesh object update; skipping cache update");
                 }
 
                 // Request the mesh and face textures concurrently.
@@ -235,23 +241,44 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
         let addr = ctx.address();
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
+        let region_id = session.region_data.region_id.clone();
         ctx.spawn(
             async move {
-                if msg.0.avatar_attachment.is_none()
-                    && let Ok(full_id) = cache.object.get_full_id(msg.0.object_info.local_id).await
-                    && avatars.contains_key(&full_id)
+                // check if the object belongs to an avatar. if it does, treat it like one.
+                if let Some(parent_id) = msg.0.object_info.parent_id
+                    && let Some(attachment) = try_attach_to_avatar(
+                        &cache.object,
+                        msg.0.object_info.local_id,
+                        parent_id,
+                        &CachedObjectUpdateType::Prim(msg.0.clone()),
+                        &avatars,
+                    )
+                    .await
                 {
-                    // this object belongs to an avatar. Handle it as one.
-                    msg.0.avatar_attachment = Some(AvatarAttachment {
-                        agent_id: full_id,
-                        attachment: AttachmentData {
-                            position: msg.0.object_info.position,
-                            rotation: msg.0.object_info.rotation,
-                            scale: msg.0.object_info.scale,
-                            attach_point: msg.0.attach_point,
-                        },
-                    });
+                    msg.0.avatar_attachment = Some(attachment);
                 }
+
+                if let Ok(update_packet) =
+                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                {
+                    if let Err(err) = cache
+                        .object
+                        .update(
+                            msg.0.object_info.clone(),
+                            0,
+                            region_id,
+                            ObjectType::Prim,
+                            ObjectUpdateType::ParametricPrimObjectUpdate,
+                            update_packet,
+                        )
+                        .await
+                    {
+                        warn!("Object update was not saved to cache: {err}");
+                    }
+                } else {
+                    warn!("Failed to serialize mesh object update; skipping cache update");
+                }
+
                 // Resolve all face textures.
                 let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
                 let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
@@ -326,22 +353,43 @@ impl Handler<SculptObjectUpdate> for Mailbox {
 
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
+        let region_id = session.region_data.region_id.clone();
+
         ctx.spawn(
             async move {
-                if msg.0.avatar_attachment.is_none()
-                    && let Ok(full_id) = cache.object.get_full_id(msg.0.object_info.local_id).await
-                    && avatars.contains_key(&full_id)
+                // Check if the object belongs to an avatar. if it does, treat it like one.
+                if let Some(parent_id) = msg.0.object_info.parent_id
+                    && let Some(attachment) = try_attach_to_avatar(
+                        &cache.object,
+                        msg.0.object_info.local_id,
+                        parent_id,
+                        &CachedObjectUpdateType::Sculpt(msg.0.clone()),
+                        &avatars,
+                    )
+                    .await
                 {
-                    // this object belongs to an avatar. Handle it as one.
-                    msg.0.avatar_attachment = Some(AvatarAttachment {
-                        agent_id: full_id,
-                        attachment: AttachmentData {
-                            position: msg.0.object_info.position,
-                            rotation: msg.0.object_info.rotation,
-                            scale: msg.0.object_info.scale,
-                            attach_point: msg.0.attach_point,
-                        },
-                    });
+                    msg.0.avatar_attachment = Some(attachment);
+                }
+
+                if let Ok(update_packet) =
+                    bincode::serde::encode_to_vec(&msg.0, bincode::config::standard())
+                {
+                    if let Err(err) = cache
+                        .object
+                        .update(
+                            msg.0.object_info.clone(),
+                            0,
+                            region_id,
+                            ObjectType::Prim,
+                            ObjectUpdateType::SculptObjectUpdate,
+                            update_packet,
+                        )
+                        .await
+                    {
+                        warn!("Object update was not saved to cache: {err}");
+                    }
+                } else {
+                    warn!("Failed to serialize mesh object update; skipping cache update");
                 }
 
                 let sculpt_id = msg.0.data.texture_id;
@@ -643,7 +691,7 @@ struct RenderBlankMeshMessage {
 impl Handler<RenderBlankMeshMessage> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: RenderBlankMeshMessage, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(attachment_info) = msg.avatar_attachment {
+        if let Some(_attachment_info) = msg.avatar_attachment {
             return;
         }
 
@@ -663,6 +711,135 @@ impl Handler<RenderBlankMeshMessage> for Mailbox {
             download: None,
         }));
     }
+}
+
+async fn try_attach_to_avatar(
+    cache: &ObjectCache,
+    object_id: u32,
+    parent_id: u32,
+    update: &CachedObjectUpdateType,
+    avatars: &HashMap<Uuid, Avatar>,
+) -> Option<AvatarAttachment> {
+    // Hop 1: Parent is an avatar.
+    match cache.get_avatar_agent_id(parent_id).await {
+        Ok(agent_id) if avatars.contains_key(&agent_id) => {
+            return Some(AvatarAttachment {
+                agent_id,
+                attachment: AttachmentData {
+                    position: update.position(),
+                    rotation: update.rotation(),
+                    scale: update.scale(),
+                    attach_point: update.attach_point(),
+                },
+            });
+        }
+        _ => {}
+    }
+
+    // Hop 2: Grandparent is an avatar.
+    let grandparent_id = match cache.get_parent(parent_id).await {
+        Ok(Some(id)) => id,
+        _ => return None,
+    };
+
+    let agent_id = match cache.get_avatar_agent_id(grandparent_id).await {
+        Ok(id) if avatars.contains_key(&id) => id,
+        _ => return None,
+    };
+
+    // Parent is the attachment root; use its attach point.
+    let attach_point = match cache.get_update(parent_id).await {
+        Ok((update_type, packet)) => {
+            match CachedObjectUpdateType::deserialize(update_type, &packet) {
+                Ok(parent_update) => parent_update.attach_point(),
+                Err(_) => update.attach_point(),
+            }
+        }
+        Err(_) => update.attach_point(),
+    };
+
+    Some(AvatarAttachment {
+        agent_id,
+        attachment: AttachmentData {
+            position: update.position(),
+            rotation: update.rotation(),
+            scale: update.scale(),
+            attach_point,
+        },
+    })
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct HandleOrphanedObject(pub OrphanedObject);
+impl Handler<HandleOrphanedObject> for Mailbox {
+    type Result = ();
+
+    fn handle(&mut self, msg: HandleOrphanedObject, ctx: &mut Self::Context) {
+        let Some(session) = self.session.as_ref() else {
+            return;
+        };
+
+        let cache = self.cache.clone();
+        let avatars = session.avatars.clone();
+        let addr = ctx.address();
+
+        ctx.spawn(
+            async move {
+                let orphan_id = msg.0.local_id;
+                let parent_id = msg.0.parent_id;
+
+                let Ok((update_type, update_packet)) = cache.object.get_update(orphan_id).await
+                else {
+                    warn!("Orphan {orphan_id}: failed to retrieve cached update");
+                    return;
+                };
+
+                let update = match CachedObjectUpdateType::deserialize(update_type, &update_packet)
+                {
+                    Ok(update) => update,
+                    Err(err) => {
+                        warn!("Orphan {orphan_id}: failed to deserialize: {err:?}");
+                        return;
+                    }
+                };
+
+                let Some(attachment) =
+                    try_attach_to_avatar(&cache.object, orphan_id, parent_id, &update, &avatars)
+                        .await
+                else {
+                    // TODO: Handle non-avatar orphan.
+                    return;
+                };
+
+                reschedule_orphan(&addr, orphan_id, update, attachment);
+            }
+            .into_actor(self),
+        );
+    }
+}
+
+fn reschedule_orphan(
+    addr: &Addr<Mailbox>,
+    orphan_id: u32,
+    update: CachedObjectUpdateType,
+    attachment: AvatarAttachment,
+) {
+    match update {
+        CachedObjectUpdateType::Mesh(mut u) => {
+            u.avatar_attachment = Some(attachment);
+            addr.do_send(MeshObjectUpdate(u));
+        }
+        CachedObjectUpdateType::Sculpt(mut u) => {
+            u.avatar_attachment = Some(attachment);
+            addr.do_send(SculptObjectUpdate(u));
+        }
+        CachedObjectUpdateType::Prim(mut u) => {
+            u.avatar_attachment = Some(attachment);
+            addr.do_send(ParametricPrimObjectUpdate(u));
+        }
+    }
+    println!("Rescheduled orphan {orphan_id}");
 }
 
 // creates something to await on

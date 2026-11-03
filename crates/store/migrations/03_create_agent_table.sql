@@ -1,5 +1,6 @@
 CREATE TABLE agents (
-    agent_id TEXT PRIMARY KEY NOT NULL, 
+    agent_id TEXT PRIMARY KEY NOT NULL,
+    local_id INGEGER,
     last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INTEGER,
     data TEXT
