@@ -3,3 +3,5 @@
 pub mod disable_simulator;
 /// Error messages sent to the UI
 pub mod error_message;
+
+pub mod orphan_objects;

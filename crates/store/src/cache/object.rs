@@ -1,7 +1,8 @@
 use crate::{errors::InventoryError, initialize_sqlite::CacheOperation};
-use benthic_protocol::objects::types::ObjectInstanceInfo;
+use benthic_protocol::objects::types::{ObjectInstanceInfo, ObjectUpdateType};
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
+use serde::de::DeserializeOwned;
 use sqlx::{Row, SqlitePool};
 use std::{collections::VecDeque, path::PathBuf};
 use tokio::sync::mpsc;
@@ -29,6 +30,10 @@ pub enum QueuedObjectCacheOperation {
         region_id: String,
         /// type of the object
         object_type: ObjectType,
+
+        update_type: ObjectUpdateType,
+
+        update_packet: Vec<u8>,
     },
 
     /// Update the transform of an object
@@ -84,36 +89,41 @@ impl ObjectCache {
                     crc,
                     region_id,
                     object_type,
+                    update_type,
+                    update_packet,
                 } => {
                     let parent_id = object.parent_id.unwrap_or(0);
                     let rotation = object.rotation.normalize();
 
                     sqlx::query(
                         r#"
-                    INSERT INTO object_updates (
-                        id, full_id, crc, region_id, parent, pcode,
-                        pos_x, pos_y, pos_z,
-                        rot_x, rot_y, rot_z, rot_w,
-                        scale_x, scale_y, scale_z
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(full_id) DO UPDATE SET
-                        id = excluded.id,
-                        parent = excluded.parent,
-                        crc = excluded.crc,
-                        region_id = excluded.region_id,
-                        pcode = excluded.pcode,
-                        pos_x = excluded.pos_x,
-                        pos_y = excluded.pos_y,
-                        pos_z = excluded.pos_z,
-                        rot_x = excluded.rot_x,
-                        rot_y = excluded.rot_y,
-                        rot_z = excluded.rot_z,
-                        rot_w = excluded.rot_w,
-                        scale_x = excluded.scale_x,
-                        scale_y = excluded.scale_y,
-                        scale_z = excluded.scale_z
-                    "#,
+                        INSERT INTO object_updates (
+                            id, full_id, crc, region_id, parent, pcode,
+                            pos_x, pos_y, pos_z,
+                            rot_x, rot_y, rot_z, rot_w,
+                            scale_x, scale_y, scale_z,
+                            update_type, update_packet
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(full_id) DO UPDATE SET
+                            id = excluded.id,
+                            parent = excluded.parent,
+                            crc = excluded.crc,
+                            region_id = excluded.region_id,
+                            pcode = excluded.pcode,
+                            pos_x = excluded.pos_x,
+                            pos_y = excluded.pos_y,
+                            pos_z = excluded.pos_z,
+                            rot_x = excluded.rot_x,
+                            rot_y = excluded.rot_y,
+                            rot_z = excluded.rot_z,
+                            rot_w = excluded.rot_w,
+                            scale_x = excluded.scale_x,
+                            scale_y = excluded.scale_y,
+                            scale_z = excluded.scale_z,
+                            update_type = excluded.update_type,
+                            update_packet = excluded.update_packet
+                        "#,
                     )
                     .bind(object.local_id as i64)
                     .bind(object.full_id.to_string())
@@ -131,12 +141,13 @@ impl ObjectCache {
                     .bind(object.scale.x)
                     .bind(object.scale.y)
                     .bind(object.scale.z)
+                    .bind(update_type.to_string())
+                    .bind(update_packet)
                     .execute(&mut *tx)
                     .await?;
 
                     updated_object_ids.push(object.local_id);
                 }
-
                 QueuedObjectCacheOperation::UpdateTransform {
                     full_id,
                     position,
@@ -351,18 +362,17 @@ impl ObjectCache {
         self.build_cache_result(row).await
     }
 
-    pub async fn update_avatar(&self, local_id: u32, full_id: Uuid) -> Result<(), InventoryError> {
+    pub async fn update_avatar(&self, local_id: u32, agent_id: Uuid) -> Result<(), InventoryError> {
         sqlx::query(
             r#"
-        INSERT INTO object_updates (
-            full_id, id,
-        )
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(full_id) DO UPDATE SET
-            id = excluded.id,
+        INSERT INTO agents (agent_id, local_id)
+        VALUES (?, ?)
+        ON CONFLICT(agent_id) DO UPDATE SET
+            local_id = excluded.local_id,
+            last_update = CURRENT_TIMESTAMP
         "#,
         )
-        .bind(full_id.to_string())
+        .bind(agent_id.to_string())
         .bind(local_id as i64)
         .execute(&self.db)
         .await?;
@@ -384,11 +394,56 @@ impl ObjectCache {
 
         let full_id: String = row.try_get("full_id")?;
 
-        println!(
-            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FULL ID: {:?}",
-            full_id
-        );
         Ok(Uuid::parse_str(&full_id)?)
+    }
+
+    pub async fn get_avatar_agent_id(&self, local_id: u32) -> Result<Uuid, InventoryError> {
+        let row = sqlx::query(
+            r#"
+        SELECT agent_id
+        FROM agents
+        WHERE local_id = ?
+        "#,
+        )
+        .bind(local_id as i64)
+        .fetch_one(&self.db)
+        .await?;
+
+        let agent_id: String = row.try_get("agent_id")?;
+
+        Ok(Uuid::parse_str(&agent_id)?)
+    }
+
+    pub async fn get_update(
+        &self,
+        object_id: u32,
+    ) -> Result<(ObjectUpdateType, Vec<u8>), InventoryError> {
+        let row = sqlx::query(
+            r#"
+        SELECT update_type, update_packet
+        FROM object_updates
+        WHERE id = ?
+        "#,
+        )
+        .bind(object_id as i64)
+        .fetch_one(&self.db)
+        .await?;
+
+        let update_type: String = row.try_get("update_type")?;
+        let update_packet: Vec<u8> = row.try_get("update_packet")?;
+
+        let update_type = match update_type.as_str() {
+            "MeshObjectUpdate" => ObjectUpdateType::MeshObjectUpdate,
+            "SculptObjectUpdate" => ObjectUpdateType::SculptObjectUpdate,
+            "ParametricPrimObjectUpdate" => ObjectUpdateType::ParametricPrimObjectUpdate,
+            _ => {
+                return Err(InventoryError::CacheMiss(format!(
+                    "Unknown object update type: {update_type}"
+                )));
+            }
+        };
+
+        Ok((update_type, update_packet))
     }
 
     /// Retrieve an object from the cache based on its asset_id
@@ -531,6 +586,8 @@ impl ObjectCache {
         crc: u32,
         region_id: String,
         object_type: ObjectType,
+        update_type: ObjectUpdateType,
+        update_packet: Vec<u8>,
     ) -> Result<(), InventoryError> {
         self.queue
             .send(CacheOperation::Object(
@@ -539,6 +596,8 @@ impl ObjectCache {
                     crc,
                     region_id,
                     object_type,
+                    update_type,
+                    update_packet,
                 },
             ))
             .await

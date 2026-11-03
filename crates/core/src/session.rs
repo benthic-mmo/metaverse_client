@@ -1,7 +1,7 @@
 use crate::avatar::{AvatarObjectUpdate, FinalizeAvatar, HandleNewAvatarAnimation};
 use crate::environment::FetchEnvironmentEvent;
 use crate::inventory::FetchCurrentOutfit;
-use crate::objects::RenderObjectMessage;
+use crate::objects::{HandleOrphanedObject, RenderObjectMessage};
 use crate::{
     capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
     transport::http_handler::login_to_simulator,
@@ -68,7 +68,7 @@ use uuid::Uuid;
 
 const SQLITE_BATCH_SIZE: usize = 500;
 static DEFAULT_MAX_RETRIES: u32 = 50;
-static AVATAR_RENDER_TIMEOUT: u64 = 60;
+static AVATAR_RENDER_TIMEOUT: u64 = 10;
 type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
 
 /// Central Actix actor responsible for all client actix message handling within the session.
@@ -198,7 +198,6 @@ impl Mailbox {
 
             for agent_id in finished {
                 actor.pending_avatars.remove(&agent_id);
-
                 ctx.address().do_send(FinalizeAvatar { agent_id });
             }
         });
@@ -210,6 +209,7 @@ impl Actor for Mailbox {
         info!("Actix Mailbox has started");
         self.set_state(ServerState::Running, ctx);
         self.start_sqlite_flush(ctx);
+        self.avatar_finished_loading(ctx);
     }
 }
 
@@ -695,6 +695,9 @@ impl Handler<HandleUIResponse> for Mailbox {
                             flags: data.flags,
                         }),
                     });
+                }
+                UIResponse::OrphanedObject(data) => {
+                    ctx.address().do_send(HandleOrphanedObject(data));
                 }
                 data => {
                     error!("Unrecognized UIMessage: {:?}", data)

@@ -1,4 +1,4 @@
-use crate::avatar::types::{AttachPoint, AttachmentData, JointWeight, SkinData};
+use crate::avatar::types::{AttachmentData, JointWeight, SkinData};
 use glam::{Quat, Vec3};
 use rgb::Rgba;
 use serde::{Deserialize, Serialize};
@@ -13,8 +13,21 @@ pub trait RetriableData {
     fn inc_retry_count(&mut self);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "TEXT")]
+pub enum ObjectUpdateType {
+    SculptObjectUpdate,
+    ParametricPrimObjectUpdate,
+    MeshObjectUpdate,
+}
+impl std::fmt::Display for ObjectUpdateType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 /// Common values for object instances
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObjectInstanceInfo {
     /// full, globally unique UUID of the object's instance
     pub full_id: Uuid,

@@ -1,9 +1,5 @@
-use benthic_protocol::session::{
-    storage::{CacheDir, create_sub_agent_dir, create_sub_object_dir, write_json},
-    types::Session,
-};
+use benthic_protocol::session::storage::{CacheDir, create_sub_object_dir, write_json};
 use bytes::Bytes;
-use metaverse_avatar::{avatar::Avatar, skeleton::update_global_avatar_skeleton};
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_store::initialize_sqlite::Cache;
@@ -12,8 +8,7 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::{
     errors::MeshBuildError,
     object_updates::{
-        AvatarAttachment, AvatarObjectData, MeshObjectData, ObjectUpdateAction, RenderMeshData,
-        RenderObjectJSONData,
+        AvatarObjectData, MeshObjectData, ObjectUpdateAction, RenderMeshData, RenderObjectJSONData,
     },
     utils::create_mesh_render_object,
 };
@@ -42,16 +37,6 @@ pub async fn handle_mesh_object(
     texture_paths: HashMap<u32, PathBuf>,
     material_paths: HashMap<u32, PathBuf>,
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
-    cache
-        .object
-        .update(
-            data.object_info.clone(),
-            data.crc,
-            data.region_id.clone(),
-            data.object_type,
-        )
-        .await?;
-
     // Check whether the generated GLB already exists.
     if let Ok((glb_path, generator)) = cache
         .object
@@ -136,16 +121,6 @@ pub async fn handle_mesh_avatar_object(
     let Some(attachment) = data.avatar_attachment.clone() else {
         return Err(MeshBuildError::EmptyAvatarData);
     };
-
-    cache
-        .object
-        .update(
-            data.object_info.clone(),
-            data.crc,
-            data.region_id.clone(),
-            data.object_type,
-        )
-        .await?;
 
     let mesh = Mesh::from_bytes(&mesh_bytes)?;
 

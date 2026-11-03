@@ -9,7 +9,10 @@ use crate::{
         chat::{chat_from_simulator::ChatFromSimulator, chat_from_viewer::ChatFromUI},
         inventory::populate_inventory::PopulateInventory,
         login::{login_event::Login, login_response::LoginResponse, logout::Logout},
-        simulator::{disable_simulator::DisableSimulator, error_message::UiErrorMessage},
+        simulator::{
+            disable_simulator::DisableSimulator, error_message::UiErrorMessage,
+            orphan_objects::OrphanedObject,
+        },
         world::{
             land_update::LandUpdate, mesh_update::MeshUpdate, skybox_update::SkyboxUpdate,
             water_update::WaterUpdate,
@@ -33,6 +36,8 @@ pub enum UIResponse {
     /// Message for informing the server of updates to the agent, like head position, motion, and
     /// FOV.
     AgentUpdate(AgentUpdate),
+
+    OrphanedObject(OrphanedObject),
 }
 impl UIResponse {
     /// converts a UiEvent object to bytes using serde.

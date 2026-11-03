@@ -4,20 +4,21 @@ use benthic_protocol::{
         skeleton::Skeleton,
         types::{AttachPoint, AttachmentData},
     },
-    objects::types::{AttachmentObjectData, ObjectInstanceInfo, TextureAnimation},
+    objects::types::{ObjectInstanceInfo, ObjectUpdateType, TextureAnimation},
     session::{storage::create_sub_object_dir, types::DownloadState},
 };
+use glam::Vec3;
 use log::warn;
-use metaverse_avatar::avatar::Avatar;
 use metaverse_messages::{
     udp::object::{
-        object_update::{AttachItem, MaterialsData, SculptData},
+        object_update::{MaterialsData, SculptData},
         object_update_cached::CachedObjectData,
         request_multiple_objects::CacheMissType,
     },
     utils::{object_types::ObjectType, path::PrimPath, texture_entry::TextureEntries},
 };
 use metaverse_store::initialize_sqlite::Cache;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::sync::watch::{self};
 use uuid::Uuid;
@@ -59,7 +60,7 @@ pub struct RenderObjectJSONData {
 }
 
 /// Information required to render a mesh object.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MeshObjectData {
     /// Common metadata containing parent ID, transforms, etc.
     pub object_info: ObjectInstanceInfo,
@@ -85,14 +86,14 @@ pub struct MeshObjectData {
     pub attach_point: AttachPoint,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AvatarAttachment {
     pub agent_id: Uuid,
     pub attachment: AttachmentData,
 }
 
 /// Data object for rendering parametric prims
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParametricPrimData {
     /// Common values for object's instance
     pub object_info: ObjectInstanceInfo,
@@ -113,7 +114,7 @@ pub struct ParametricPrimData {
 }
 
 /// Data object for rendering sculpt objects
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SculptObjectData {
     /// Common values for the object's instance
     pub object_info: ObjectInstanceInfo,
@@ -229,39 +230,76 @@ pub async fn object_update_cached(
     Ok(cache_results)
 }
 
-/// TODO: currently a stub
-pub async fn handle_attachment(
-    _attachment: AttachItem,
-    object: AttachmentObjectData,
-    cache: Cache,
-) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
-    let actions: Vec<ObjectUpdateAction> = Vec::new();
-    let mut current_id = match object.parent_id {
-        Some(id) => id,
-        None => return Ok(actions),
-    };
+#[derive(Debug)]
+pub enum CachedObjectUpdateType {
+    Mesh(MeshObjectData),
+    Sculpt(SculptObjectData),
+    Prim(ParametricPrimData),
+}
 
-    let mut visited = std::collections::HashSet::new();
-
-    loop {
-        if !visited.insert(current_id) {
-            break;
+impl CachedObjectUpdateType {
+    pub fn attach_point(&self) -> AttachPoint {
+        match self {
+            Self::Mesh(u) => u.attach_point,
+            Self::Sculpt(u) => u.attach_point,
+            Self::Prim(u) => u.attach_point,
         }
-
-        let parent = match cache.object.get_parent(current_id).await {
-            Ok(p) => p,
-            Err(_) => return Ok(actions),
-        };
-
-        match parent {
-            Some(p) => {
-                current_id = p;
-            }
-            None => break,
+    }
+    pub fn position(&self) -> Vec3 {
+        match self {
+            Self::Mesh(update) => update.object_info.position,
+            Self::Sculpt(update) => update.object_info.position,
+            Self::Prim(update) => update.object_info.position,
         }
     }
 
-    Err(ObjectUpdateError::Unimplemented {
-        feature: "Attach Items".to_string(),
-    })
+    pub fn rotation(&self) -> glam::Quat {
+        match self {
+            Self::Mesh(update) => update.object_info.rotation,
+            Self::Sculpt(update) => update.object_info.rotation,
+            Self::Prim(update) => update.object_info.rotation,
+        }
+    }
+
+    pub fn scale(&self) -> Vec3 {
+        match self {
+            Self::Mesh(update) => update.object_info.scale,
+            Self::Sculpt(update) => update.object_info.scale,
+            Self::Prim(update) => update.object_info.scale,
+        }
+    }
+
+    pub fn deserialize(
+        update_type: ObjectUpdateType,
+        update_packet: &[u8],
+    ) -> Result<Self, ObjectUpdateError> {
+        let config = bincode::config::standard();
+
+        match update_type {
+            ObjectUpdateType::MeshObjectUpdate => {
+                let (update, _) =
+                    bincode::serde::decode_from_slice::<MeshObjectData, _>(update_packet, config)?;
+
+                Ok(Self::Mesh(update))
+            }
+
+            ObjectUpdateType::SculptObjectUpdate => {
+                let (update, _) = bincode::serde::decode_from_slice::<SculptObjectData, _>(
+                    update_packet,
+                    config,
+                )?;
+
+                Ok(Self::Sculpt(update))
+            }
+
+            ObjectUpdateType::ParametricPrimObjectUpdate => {
+                let (update, _) = bincode::serde::decode_from_slice::<ParametricPrimData, _>(
+                    update_packet,
+                    config,
+                )?;
+
+                Ok(Self::Prim(update))
+            }
+        }
+    }
 }

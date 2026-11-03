@@ -1,4 +1,7 @@
-use crate::{errors::DownloadError, object_updates::AvatarAttachment};
+use crate::{
+    errors::DownloadError,
+    object_updates::{AvatarAttachment, MeshObjectData, ParametricPrimData, SculptObjectData},
+};
 use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::{
     avatar::{skeleton::Skeleton, types::SkinData},

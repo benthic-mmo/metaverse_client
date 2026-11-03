@@ -1,7 +1,11 @@
 use std::collections::VecDeque;
 
-use crate::core_plugin::MeshUpdateEvent;
 use crate::mesh::BenthicMeshPlugin;
+use crate::plugin::Sockets;
+use crate::{core_plugin::MeshUpdateEvent, plugin::send_packet_to_core};
+use benthic_protocol::messages::{
+    simulator::orphan_objects::OrphanedObject, ui_protocol::UIResponse,
+};
 use bevy::asset::LoadState;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::platform::collections::HashMap;
@@ -24,10 +28,19 @@ pub struct ObjectData {
 
 const MAX_IN_FLIGHT: usize = 3;
 
+use std::time::{Duration, Instant};
+
+pub struct PendingChild {
+    pub entity: Entity,
+    pub scene_id: u32,
+    pub since: Instant,
+    pub last_reported: Option<Instant>,
+}
+
 #[derive(Resource)]
 pub struct SceneIDMap {
     pub entities: HashMap<u32, Entity>,
-    pub pending_children: HashMap<u32, Vec<Entity>>,
+    pub pending_children: HashMap<u32, Vec<PendingChild>>,
     pub spawned: HashMap<Uuid, Entity>,
     pub in_flight: Vec<(Handle<WorldAsset>, Entity)>,
     pub load_queue: VecDeque<QueuedLoad>,
@@ -50,7 +63,10 @@ impl Plugin for BenthicObjectPlugin {
             in_flight: Vec::new(),
             load_queue: VecDeque::new(),
         })
-        .add_systems(Update, (handle_mesh_update, drain_load_queue));
+        .add_systems(
+            Update,
+            (handle_mesh_update, drain_load_queue, check_orphaned_objects),
+        );
     }
 }
 
@@ -125,13 +141,18 @@ pub fn handle_mesh_update(
                     .pending_children
                     .entry(parent_id)
                     .or_default()
-                    .push(entity);
+                    .push(PendingChild {
+                        entity,
+                        scene_id,
+                        since: Instant::now(),
+                        last_reported: None,
+                    });
             }
         }
 
         if let Some(children) = scene_id_map.pending_children.remove(&scene_id) {
             for child in children {
-                commands.entity(child).insert(ChildOf(entity));
+                commands.entity(child.entity).insert(ChildOf(entity));
             }
         }
     }
@@ -139,6 +160,58 @@ pub fn handle_mesh_update(
     if received > 0 {
         info!("Mesh updates: {received} received");
     }
+}
+
+pub fn check_orphaned_objects(mut scene_id_map: ResMut<SceneIDMap>, sockets: Res<Sockets>) {
+    let timeout = Duration::from_secs(20 * 60);
+    let report_interval = Duration::from_secs(10);
+
+    for (parent_id, children) in &mut scene_id_map.pending_children {
+        children.retain_mut(|child| {
+            let elapsed = child.since.elapsed();
+
+            // Permanently remove objects pending for 20 minutes.
+            if elapsed >= timeout {
+                warn!(
+                    "Removing expired orphan: scene ID {}, missing parent {}",
+                    child.scene_id, parent_id
+                );
+                return false;
+            }
+
+            // Report after 10 seconds, then every 10 seconds.
+            if elapsed >= report_interval
+                && child
+                    .last_reported
+                    .is_none_or(|last| last.elapsed() >= report_interval)
+            {
+                let packet = UIResponse::new_orphaned_object(OrphanedObject {
+                    local_id: child.scene_id,
+                    parent_id: *parent_id,
+                })
+                .to_bytes();
+
+                match send_packet_to_core(&packet, &sockets) {
+                    Ok(()) => {
+                        child.last_reported = Some(Instant::now());
+                        warn!(
+                            "Orphaned object: scene ID {}, missing parent {}",
+                            child.scene_id, parent_id
+                        );
+                    }
+                    Err(err) => {
+                        error!("Failed to send OrphanedObject response: {err}");
+                    }
+                }
+            }
+
+            true
+        });
+    }
+
+    scene_id_map
+        .pending_children
+        .retain(|_, children| !children.is_empty());
 }
 
 // this needs to be done this way because of a bug that deadlocks bevy if too many multi-texture
@@ -169,34 +242,4 @@ fn drain_load_queue(
             .insert(WorldAssetRoot(handle.clone()));
         scene_id_map.in_flight.push((handle, req.mesh_child));
     }
-}
-
-// used to debug throughput issues
-fn _io_throughput(
-    asset_server: Res<AssetServer>,
-    scene_id_map: Res<SceneIDMap>,
-    diagnostics: Res<DiagnosticsStore>,
-) {
-    let started = diagnostics
-        .get(&AssetServer::STARTED_LOAD_COUNT)
-        .and_then(|d| d.smoothed())
-        .unwrap_or(0.0);
-
-    let mut loading = 0;
-    let mut loaded = 0;
-    let mut failed = 0;
-    for (handle, _) in &scene_id_map.in_flight {
-        match asset_server.get_load_state(handle.id()) {
-            Some(LoadState::Loading) | Some(LoadState::NotLoaded) => loading += 1,
-            Some(LoadState::Loaded) => loaded += 1,
-            Some(LoadState::Failed(_)) => failed += 1,
-            None => {}
-        }
-    }
-    let queued = scene_id_map.load_queue.len();
-
-    info!(
-        "started={started} in_flight={} queued={queued} loading={loading} loaded={loaded} failed={failed}",
-        scene_id_map.in_flight.len()
-    );
 }
