@@ -3,7 +3,7 @@ CREATE TABLE agents (
     local_id INGEGER,
     last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INTEGER,
-    data TEXT
+    path TEXT
 );
 
 

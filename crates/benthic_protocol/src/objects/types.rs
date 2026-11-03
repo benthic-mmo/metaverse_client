@@ -13,19 +13,6 @@ pub trait RetriableData {
     fn inc_retry_count(&mut self);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
-pub enum ObjectUpdateType {
-    SculptObjectUpdate,
-    ParametricPrimObjectUpdate,
-    MeshObjectUpdate,
-}
-impl std::fmt::Display for ObjectUpdateType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-
 /// Common values for object instances
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ObjectInstanceInfo {

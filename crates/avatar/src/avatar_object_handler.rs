@@ -9,7 +9,10 @@ use benthic_protocol::{
 use glam::Mat4;
 use indexmap::IndexMap;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
 /// Enum to differentiate type of avatar.
@@ -43,7 +46,7 @@ pub async fn finalize_avatar(
     skeleton: Skeleton,
     used_joints: BTreeSet<SkinJoint>,
     items: Vec<PathBuf>,
-    out_dir: PathBuf,
+    out_dir: &Path,
 ) -> Result<(PathBuf, Skeleton), AvatarError> {
     let skeleton = finalize_skeleton(skeleton);
 
@@ -59,10 +62,10 @@ pub async fn finalize_avatar(
         &avatar_object,
         &json_path_str,
         CacheDir::Agent(agent_id),
-        &out_dir,
+        out_dir,
     )?;
 
-    let base_dir = create_sub_agent_dir(&out_dir, &agent_id.to_string())?;
+    let base_dir = create_sub_agent_dir(out_dir, &agent_id.to_string())?;
     let glb_path = base_dir.join(format!("{:?}_high.glb", agent_id));
 
     if !glb_path.exists() || !cache_enabled() {

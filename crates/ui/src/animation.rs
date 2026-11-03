@@ -10,6 +10,7 @@ use bevy::ecs::observer::On;
 use bevy::ecs::query::With;
 use bevy::gltf::Gltf;
 use bevy::prelude::Res;
+use bevy::time::{Time, Timer, TimerMode};
 use bevy::{
     animation::{
         AnimationPlayer,
@@ -35,6 +36,7 @@ impl Plugin for BenthicAnimationPlugin {
             .add_systems(Update, handle_animation_update)
             .insert_resource(AnimationQueue {
                 pending: HashMap::new(),
+                retry_timer: Timer::from_seconds(5.0, TimerMode::Repeating),
             });
     }
 }
@@ -42,6 +44,7 @@ impl Plugin for BenthicAnimationPlugin {
 #[derive(Resource)]
 pub struct AnimationQueue {
     pub pending: HashMap<Uuid, AnimationPath>,
+    retry_timer: Timer,
 }
 
 pub struct AnimationPath {
@@ -120,45 +123,68 @@ pub fn handle_animation_update(
 }
 
 pub fn update_animations(
+    time: Res<Time>,
     mut animation_queue: ResMut<AnimationQueue>,
     gltf_assets: Res<Assets<Gltf>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut commands: Commands,
     mut players: Query<(Entity, &mut AnimationPlayer, &AgentAnimationPlayer)>,
 ) {
+    if animation_queue.pending.is_empty() {
+        return;
+    }
+
+    animation_queue.retry_timer.tick(time.delta());
+
+    if !animation_queue.retry_timer.just_finished() {
+        return;
+    }
+
     let mut done = vec![];
 
     for (agent_id, animation_data) in animation_queue.pending.iter() {
+        let mut found_player = false;
+
         for (player_entity, mut player, agent_animation) in players.iter_mut() {
-            if agent_animation.agent_id == *agent_id {
-                let Some(gltf) = gltf_assets.get(&animation_data.gltf_handle) else {
-                    warn!("GLTF not loaded yet: {:?}", animation_data.gltf_handle);
-                    continue;
-                };
-
-                let Some(anim_handle) = gltf.animations.first() else {
-                    warn!("No animations in GLTF: {:?}", animation_data.gltf_handle);
-                    continue;
-                };
-
-                let (graph, node_index) = AnimationGraph::from_clip(anim_handle.clone());
-                let graph_handle = graphs.add(graph);
-
-                commands
-                    .entity(player_entity)
-                    .insert(AnimationGraphHandle(graph_handle));
-                player.play(node_index).repeat();
-
-                info!(
-                    "Playing animation for {:?} at node {:?}",
-                    agent_id, node_index
-                );
-                done.push(*agent_id);
-            } else {
-                warn!("Failed to find player entity for animation");
+            if agent_animation.agent_id != *agent_id {
+                continue;
             }
+
+            found_player = true;
+
+            let Some(gltf) = gltf_assets.get(&animation_data.gltf_handle) else {
+                warn!("GLTF not loaded yet: {:?}", animation_data.gltf_handle);
+                continue;
+            };
+
+            let Some(anim_handle) = gltf.animations.first() else {
+                warn!("No animations in GLTF: {:?}", animation_data.gltf_handle);
+                done.push(*agent_id);
+                continue;
+            };
+
+            let (graph, node_index) = AnimationGraph::from_clip(anim_handle.clone());
+            let graph_handle = graphs.add(graph);
+
+            commands
+                .entity(player_entity)
+                .insert(AnimationGraphHandle(graph_handle));
+
+            player.play(node_index).repeat();
+
+            info!(
+                "Playing animation for {:?} at node {:?}",
+                agent_id, node_index
+            );
+
+            done.push(*agent_id);
+        }
+
+        if !found_player {
+            //warn!("No animation player found for {:?}", agent_id);
         }
     }
+
     for id in done {
         animation_queue.pending.remove(&id);
     }

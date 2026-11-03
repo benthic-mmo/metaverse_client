@@ -2,6 +2,7 @@ use crate::cache::avatar::{AvatarCache, QueuedAvatarCacheOperation};
 use crate::cache::object::{ObjectCache, QueuedObjectCacheOperation};
 use crate::errors::InventoryError;
 use sqlx::migrate::Migrator;
+use sqlx::sqlite::{SqliteJournalMode, SqliteSynchronous};
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -85,9 +86,12 @@ pub async fn init_sqlite(path: PathBuf) -> Result<SqlitePool, InventoryError> {
 
     let database_url = format!("sqlite:{}", path.display());
 
-    let options = SqliteConnectOptions::from_str(&database_url)?.create_if_missing(true);
+    let options = SqliteConnectOptions::from_str(&database_url)?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal);
 
-    let pool: SqlitePool = SqlitePoolOptions::new()
+    let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(options)
         .await?;

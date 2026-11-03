@@ -23,6 +23,5 @@ CREATE TABLE object_updates (
     json        TEXT,
     glb         TEXT, 
 
-    update_type TEXT,
-    update_packet BLOB
+    update_path TEXT
 );

@@ -275,7 +275,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
         avatar.items.push(msg.0.json_path);
         avatar.last_update = SystemTime::now();
 
-        if avatar.items.len() == avatar.outfit_size {
+        if session.agent_id == msg.0.agent_id && avatar.items.len() == avatar.outfit_size {
             ctx.address().do_send(FinalizeAvatar {
                 agent_id: msg.0.agent_id,
             });
@@ -338,7 +338,7 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items, base_dir)
+                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items, &base_dir)
                     .await
                 {
                     Ok((glb_path, skeleton)) => {
@@ -352,11 +352,33 @@ impl Handler<FinalizeAvatar> for Mailbox {
                         });
                         // edit the temp avatar for the sqlite update.
                         avatar.path = Some(glb_path.clone());
-                        if cache_enabled()
-                            && let Err(e) = cache.avatar.update(avatar).await
-                        {
-                            error!("FinalizeAvatar error: {:?}", e);
+
+                        if cache_enabled() {
+                            match serde_json::to_string_pretty(&avatar) {
+                                Ok(json) => {
+                                    match create_sub_agent_dir(&base_dir, &agent_id.to_string()) {
+                                        Ok(dir) => {
+                                            let avatar_path =
+                                                dir.join(format!("{agent_id}_finalized.json"));
+                                            if let Err(e) =
+                                                tokio::fs::write(&avatar_path, json).await
+                                            {
+                                                error!("Failed to write avatar cache file: {e}");
+                                            } else if let Err(e) =
+                                                cache.avatar.update(&avatar, avatar_path).await
+                                            {
+                                                error!("FinalizeAvatar cache error: {e}");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Failed to create avatar cache directory: {e}")
+                                        }
+                                    }
+                                }
+                                Err(e) => error!("Failed to serialize avatar: {e}"),
+                            }
                         }
+
                         addr.do_send(RenderAvatar {
                             message: AvatarUpdate {
                                 position,
@@ -436,11 +458,6 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        if msg.0.sender_id != session.agent_id {
-            //TODO: IMPLEMENT NON-USER ANIMATIONS
-            warn!("Non-user animation triggered. Currently unimplemented. Dropping animaiton");
-            return;
-        }
 
         let avatar = match session.avatars.get(&msg.0.sender_id) {
             Some(avatar) => {

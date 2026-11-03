@@ -4,7 +4,7 @@ use benthic_protocol::{
         skeleton::Skeleton,
         types::{AttachPoint, AttachmentData},
     },
-    objects::types::{ObjectInstanceInfo, ObjectUpdateType, TextureAnimation},
+    objects::types::{ObjectInstanceInfo, TextureAnimation},
     session::{storage::create_sub_object_dir, types::DownloadState},
 };
 use glam::Vec3;
@@ -57,85 +57,6 @@ pub struct RenderObjectJSONData {
     pub base_dir: PathBuf,
     /// UUID of the render object
     pub asset_id: Uuid,
-}
-
-/// Information required to render a mesh object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MeshObjectData {
-    /// Common metadata containing parent ID, transforms, etc.
-    pub object_info: ObjectInstanceInfo,
-    /// Type required to retrieve full data from the capability endpoint.
-    pub object_type: ObjectType,
-    /// Object's texture data.
-    pub texture: Option<TextureEntries>,
-    /// ID of the mesh/sculpt asset.
-    pub sculpt_id: Uuid,
-    /// CRC to enable cache invalidation.
-    pub crc: u32,
-    /// Region ID where the mesh belongs
-    pub region_id: String,
-    /// Information about texture animations
-    pub texture_animation: Option<TextureAnimation>,
-    /// Number of times this object has failed to download
-    pub retry_count: u32,
-
-    pub pbr_materials: Option<MaterialsData>,
-
-    pub avatar_attachment: Option<AvatarAttachment>,
-
-    pub attach_point: AttachPoint,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AvatarAttachment {
-    pub agent_id: Uuid,
-    pub attachment: AttachmentData,
-}
-
-/// Data object for rendering parametric prims
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ParametricPrimData {
-    /// Common values for object's instance
-    pub object_info: ObjectInstanceInfo,
-    /// per-face texture data
-    pub texture: Option<TextureEntries>,
-    /// Texture animation data
-    pub texture_animation: Option<TextureAnimation>,
-    /// Path data for drawing the parametric prim's path
-    pub path_data: PrimPath,
-    /// How many times this object has been retried
-    pub retry_count: u32,
-
-    pub pbr_materials: Option<MaterialsData>,
-
-    pub avatar_attachment: Option<AvatarAttachment>,
-
-    pub attach_point: AttachPoint,
-}
-
-/// Data object for rendering sculpt objects
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SculptObjectData {
-    /// Common values for the object's instance
-    pub object_info: ObjectInstanceInfo,
-    /// data for building the sculpt object
-    pub data: SculptData,
-    /// per-face texture data
-    pub texture: Option<TextureEntries>,
-    /// texture animation data
-    pub texture_animation: Option<TextureAnimation>,
-    /// crc of the sculpt for cache invalidation
-    pub crc: u32,
-    /// region id where the sculpt was downloaded
-    pub region_id: String,
-    /// how many times this object has been retried
-    pub retry_count: u32,
-
-    pub pbr_materials: Option<MaterialsData>,
-
-    pub avatar_attachment: Option<AvatarAttachment>,
-
-    pub attach_point: AttachPoint,
 }
 
 /// Actions that can result from handling an object update packet
@@ -230,7 +151,108 @@ pub async fn object_update_cached(
     Ok(cache_results)
 }
 
-#[derive(Debug)]
+pub trait UpdateData: Serialize {
+    fn object_info(&self) -> &ObjectInstanceInfo;
+    fn crc(&self) -> u32;
+    fn region_id(&self) -> &str;
+    fn object_type(&self) -> ObjectType;
+
+    fn attach_point(&self) -> AttachPoint;
+    fn avatar_attachment(&self) -> Option<&AvatarAttachment>;
+
+    fn position(&self) -> Vec3 {
+        self.object_info().position
+    }
+
+    fn rotation(&self) -> glam::Quat {
+        self.object_info().rotation
+    }
+
+    fn scale(&self) -> Vec3 {
+        self.object_info().scale
+    }
+}
+
+/// Information required to render a mesh object.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MeshObjectData {
+    /// Common metadata containing parent ID, transforms, etc.
+    pub object_info: ObjectInstanceInfo,
+    /// Type required to retrieve full data from the capability endpoint.
+    pub object_type: ObjectType,
+    /// Object's texture data.
+    pub texture: Option<TextureEntries>,
+    /// ID of the mesh/sculpt asset.
+    pub sculpt_id: Uuid,
+    /// CRC to enable cache invalidation.
+    pub crc: u32,
+    /// Region ID where the mesh belongs
+    pub region_id: String,
+    /// Information about texture animations
+    pub texture_animation: Option<TextureAnimation>,
+    /// Number of times this object has failed to download
+    pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
+}
+
+/// Data object for rendering parametric prims
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ParametricPrimData {
+    /// Common values for object's instance
+    pub object_info: ObjectInstanceInfo,
+    /// per-face texture data
+    pub texture: Option<TextureEntries>,
+    /// Texture animation data
+    pub texture_animation: Option<TextureAnimation>,
+    /// Path data for drawing the parametric prim's path
+    pub path_data: PrimPath,
+    /// How many times this object has been retried
+    pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
+}
+
+/// Data object for rendering sculpt objects
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SculptObjectData {
+    /// Common values for the object's instance
+    pub object_info: ObjectInstanceInfo,
+    /// data for building the sculpt object
+    pub data: SculptData,
+    /// per-face texture data
+    pub texture: Option<TextureEntries>,
+    /// texture animation data
+    pub texture_animation: Option<TextureAnimation>,
+    /// crc of the sculpt for cache invalidation
+    pub crc: u32,
+    /// region id where the sculpt was downloaded
+    pub region_id: String,
+    /// how many times this object has been retried
+    pub retry_count: u32,
+
+    pub pbr_materials: Option<MaterialsData>,
+
+    pub avatar_attachment: Option<AvatarAttachment>,
+
+    pub attach_point: AttachPoint,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AvatarAttachment {
+    pub agent_id: Uuid,
+    pub attachment: AttachmentData,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum CachedObjectUpdateType {
     Mesh(MeshObjectData),
     Sculpt(SculptObjectData),
@@ -269,37 +291,35 @@ impl CachedObjectUpdateType {
         }
     }
 
-    pub fn deserialize(
-        update_type: ObjectUpdateType,
-        update_packet: &[u8],
-    ) -> Result<Self, ObjectUpdateError> {
-        let config = bincode::config::standard();
+    pub fn object_info(&self) -> &ObjectInstanceInfo {
+        match self {
+            Self::Mesh(update) => &update.object_info,
+            Self::Sculpt(update) => &update.object_info,
+            Self::Prim(update) => &update.object_info,
+        }
+    }
 
-        match update_type {
-            ObjectUpdateType::MeshObjectUpdate => {
-                let (update, _) =
-                    bincode::serde::decode_from_slice::<MeshObjectData, _>(update_packet, config)?;
+    pub fn crc(&self) -> u32 {
+        match self {
+            Self::Mesh(update) => update.crc,
+            Self::Sculpt(_update) => 0,
+            Self::Prim(_update) => 0,
+        }
+    }
 
-                Ok(Self::Mesh(update))
-            }
+    pub fn region_id(&self) -> String {
+        match self {
+            Self::Mesh(update) => update.region_id.clone(),
+            Self::Sculpt(update) => update.region_id.clone(),
+            Self::Prim(_update) => "".to_string(),
+        }
+    }
 
-            ObjectUpdateType::SculptObjectUpdate => {
-                let (update, _) = bincode::serde::decode_from_slice::<SculptObjectData, _>(
-                    update_packet,
-                    config,
-                )?;
-
-                Ok(Self::Sculpt(update))
-            }
-
-            ObjectUpdateType::ParametricPrimObjectUpdate => {
-                let (update, _) = bincode::serde::decode_from_slice::<ParametricPrimData, _>(
-                    update_packet,
-                    config,
-                )?;
-
-                Ok(Self::Prim(update))
-            }
+    pub fn object_type(&self) -> ObjectType {
+        match self {
+            Self::Mesh(update) => update.object_type,
+            Self::Sculpt(_update) => ObjectType::Prim,
+            Self::Prim(_update) => ObjectType::Prim,
         }
     }
 }
