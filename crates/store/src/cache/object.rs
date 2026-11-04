@@ -1,460 +1,301 @@
-use crate::{errors::InventoryError, initialize_sqlite::CacheOperation};
+use crate::errors::InventoryError;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
-use sqlx::{Row, SqlitePool};
-use std::{collections::VecDeque, path::PathBuf};
-use tokio::sync::mpsc;
+use serde::Deserialize;
+use std::path::PathBuf;
+use surrealdb::{
+    Surreal,
+    engine::local::Db,
+    types::{SurrealValue, Value},
+};
 use uuid::Uuid;
 
-/// Sqlite pool connection for object cache functions
-#[derive(Clone, Debug)]
-pub struct ObjectCache {
-    /// the async pool of db connections
-    pub db: SqlitePool,
-    /// Queue of unprocessed cache operations
-    pub queue: mpsc::Sender<CacheOperation>,
+pub(crate) const OBJECT_CACHE_SCHEMA: &str = r#"
+DEFINE TABLE object_updates SCHEMAFULL;
+
+DEFINE FIELD local_id    ON object_updates TYPE int;
+DEFINE FIELD full_id     ON object_updates TYPE string;
+DEFINE FIELD crc         ON object_updates TYPE int;
+DEFINE FIELD region_id   ON object_updates TYPE string;
+DEFINE FIELD parent      ON object_updates TYPE option<int>;
+DEFINE FIELD pcode       ON object_updates TYPE option<string>;
+
+DEFINE FIELD pos_x ON object_updates TYPE float;
+DEFINE FIELD pos_y ON object_updates TYPE float;
+DEFINE FIELD pos_z ON object_updates TYPE float;
+
+DEFINE FIELD rot_x ON object_updates TYPE float;
+DEFINE FIELD rot_y ON object_updates TYPE float;
+DEFINE FIELD rot_z ON object_updates TYPE float;
+DEFINE FIELD rot_w ON object_updates TYPE float;
+
+DEFINE FIELD scale_x ON object_updates TYPE float;
+DEFINE FIELD scale_y ON object_updates TYPE float;
+DEFINE FIELD scale_z ON object_updates TYPE float;
+
+DEFINE FIELD asset_id    ON object_updates TYPE option<string>;
+DEFINE FIELD json        ON object_updates TYPE option<string>;
+DEFINE FIELD glb         ON object_updates TYPE option<string>;
+DEFINE FIELD update_path ON object_updates TYPE option<string>;
+
+DEFINE INDEX object_updates_full_id ON object_updates FIELDS full_id UNIQUE CONCURRENTLY;
+DEFINE INDEX object_updates_local_id ON object_updates FIELDS local_id CONCURRENTLY;
+DEFINE INDEX object_updates_parent ON object_updates FIELDS parent CONCURRENTLY;
+DEFINE INDEX object_updates_asset_id ON object_updates FIELDS asset_id CONCURRENTLY;
+DEFINE INDEX object_updates_region_crc ON object_updates FIELDS region_id, crc CONCURRENTLY;
+"#;
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct AvatarAgentRow {
+    agent_id: String,
 }
 
-/// Defines cache operations for objects.
+#[derive(Debug, Deserialize, SurrealValue)]
+struct ObjectUpdateRow {
+    full_id: String,
+    local_id: u32,
+    parent: Option<i64>,
+    pos_x: f32,
+    pos_y: f32,
+    pos_z: f32,
+    rot_x: f32,
+    rot_y: f32,
+    rot_z: f32,
+    rot_w: f32,
+    scale_x: f32,
+    scale_y: f32,
+    scale_z: f32,
+    asset_id: Option<String>,
+    glb: Option<String>,
+    json: Option<String>,
+    update_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct GlbRow {
+    glb: Option<String>,
+}
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct UpdatePathRow {
+    update_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct ParentRow {
+    parent: Option<i64>,
+}
+
+/// SurrealDB cache for object data.
 #[derive(Clone, Debug)]
-pub enum QueuedObjectCacheOperation {
-    /// Add a new instance of an object to the queue
-    UpdateObject {
-        /// Common information about an object's instance such as location, parent ID, full id, etc.
-        object: ObjectInstanceInfo,
-        /// crc for cache invalidation
-        crc: u32,
-        /// region where the object was updated
-        region_id: String,
-        /// type of the object
-        object_type: ObjectType,
-
-        update_path: PathBuf,
-    },
-
-    /// Update the transform of an object
-    UpdateTransform {
-        /// Full ID of the object to update the transform of
-        full_id: Uuid,
-        /// Position of the object
-        position: Vec3,
-        /// Rotation of the object
-        rotation: Quat,
-        /// Scale of the object
-        scale: Vec3,
-    },
-
-    /// Update an object's render object json path
-    /// this can be referenced if the glb fails to generate
-    UpdateJsonPath {
-        /// globally unique identifier of the object
-        full_id: Uuid,
-        /// asset ID of the mesh object
-        asset_id: Uuid,
-        /// path of the JSON file
-        json_path: PathBuf,
-    },
-
-    /// Update an objects' glb path
-    /// this ensures the cache knows about already-generated mesh files for renderable objects.
-    UpdateGlbPath {
-        /// Globally unique identifier of the object
-        full_id: Uuid,
-        /// path to generated glb
-        glb_path: PathBuf,
-    },
+pub struct ObjectCache {
+    pub db: Surreal<Db>,
 }
 
 impl ObjectCache {
-    /// flush the object's cache of all pending sqlite operations
-    pub async fn flush_queue(
-        db: &SqlitePool,
-        batch: &mut VecDeque<QueuedObjectCacheOperation>,
-    ) -> Result<Vec<u32>, InventoryError> {
-        if batch.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut tx = db.begin().await?;
-        let mut updated_object_ids = Vec::new();
-
-        for operation in batch.iter() {
-            match operation {
-                QueuedObjectCacheOperation::UpdateObject {
-                    object,
-                    crc,
-                    region_id,
-                    object_type,
-                    update_path,
-                } => {
-                    let parent_id = object.parent_id.unwrap_or(0);
-                    let rotation = object.rotation.normalize();
-
-                    sqlx::query(
-                        r#"
-                        INSERT INTO object_updates (
-                            id, full_id, crc, region_id, parent, pcode,
-                            pos_x, pos_y, pos_z,
-                            rot_x, rot_y, rot_z, rot_w,
-                            scale_x, scale_y, scale_z,
-                            update_path
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(full_id) DO UPDATE SET
-                            id = excluded.id,
-                            parent = excluded.parent,
-                            crc = excluded.crc,
-                            region_id = excluded.region_id,
-                            pcode = excluded.pcode,
-                            pos_x = excluded.pos_x,
-                            pos_y = excluded.pos_y,
-                            pos_z = excluded.pos_z,
-                            rot_x = excluded.rot_x,
-                            rot_y = excluded.rot_y,
-                            rot_z = excluded.rot_z,
-                            rot_w = excluded.rot_w,
-                            scale_x = excluded.scale_x,
-                            scale_y = excluded.scale_y,
-                            scale_z = excluded.scale_z,
-                            update_path = excluded.update_path
-                        "#,
-                    )
-                    .bind(object.local_id as i64)
-                    .bind(object.full_id.to_string())
-                    .bind(*crc)
-                    .bind(region_id)
-                    .bind(parent_id as i64)
-                    .bind(object_type.to_string())
-                    .bind(object.position.x)
-                    .bind(object.position.y)
-                    .bind(object.position.z)
-                    .bind(rotation.x)
-                    .bind(rotation.y)
-                    .bind(rotation.z)
-                    .bind(rotation.w)
-                    .bind(object.scale.x)
-                    .bind(object.scale.y)
-                    .bind(object.scale.z)
-                    .bind(update_path.to_string_lossy().into_owned())
-                    .execute(&mut *tx)
-                    .await?;
-
-                    updated_object_ids.push(object.local_id);
-                }
-                QueuedObjectCacheOperation::UpdateTransform {
-                    full_id,
-                    position,
-                    rotation,
-                    scale,
-                } => {
-                    let rotation = rotation.normalize();
-
-                    sqlx::query(
-                        r#"
-                    UPDATE object_updates
-                    SET pos_x = ?, pos_y = ?, pos_z = ?,
-                        rot_x = ?, rot_y = ?, rot_z = ?, rot_w = ?,
-                        scale_x = ?, scale_y = ?, scale_z = ?
-                    WHERE full_id = ?
-                    "#,
-                    )
-                    .bind(position.x)
-                    .bind(position.y)
-                    .bind(position.z)
-                    .bind(rotation.x)
-                    .bind(rotation.y)
-                    .bind(rotation.z)
-                    .bind(rotation.w)
-                    .bind(scale.x)
-                    .bind(scale.y)
-                    .bind(scale.z)
-                    .bind(full_id.to_string())
-                    .execute(&mut *tx)
-                    .await?;
-                }
-
-                QueuedObjectCacheOperation::UpdateJsonPath {
-                    full_id,
-                    asset_id,
-                    json_path,
-                } => {
-                    sqlx::query(
-                        r#"
-                    UPDATE object_updates
-                    SET asset_id = ?, json = ?
-                    WHERE full_id = ?
-                    "#,
-                    )
-                    .bind(asset_id.to_string())
-                    .bind(json_path.to_string_lossy().as_ref())
-                    .bind(full_id.to_string())
-                    .execute(&mut *tx)
-                    .await?;
-                }
-
-                QueuedObjectCacheOperation::UpdateGlbPath { full_id, glb_path } => {
-                    sqlx::query(
-                        r#"
-                    UPDATE object_updates
-                    SET glb = ?
-                    WHERE full_id = ?
-                    "#,
-                    )
-                    .bind(glb_path.to_string_lossy().as_ref())
-                    .bind(full_id.to_string())
-                    .execute(&mut *tx)
-                    .await?;
-                }
-            }
-        }
-
-        tx.commit().await?;
-
-        // Clear only after a successful commit.
-        batch.clear();
-
-        Ok(updated_object_ids)
-    }
-
-    /// Retrieve scale, rotation and position for an object using its scene-local ID
-    ///
-    /// # Parameters
-    /// - `object_id`: scene-local object ID
-    ///
-    /// # Errors
-    /// Returns [`InventoryError`] if the object is not in the cache
+    /// Retrieve scale, rotation and position using the scene-local ID.
     pub async fn get_scale_rotation_position(
         &self,
-        object_id: u32,
+        local_id: u32,
     ) -> Result<(Vec3, Quat, Vec3), InventoryError> {
-        let row = sqlx::query(
-            r#"
-        SELECT
-            pos_x, pos_y, pos_z,
-            rot_x, rot_y, rot_z, rot_w,
-            scale_x, scale_y, scale_z
-        FROM object_updates
-        WHERE id = ?
-        "#,
-        )
-        .bind(object_id as i64)
-        .fetch_one(&self.db)
-        .await?;
-        let position = vec3_from_row(&row, "pos_x", "pos_y", "pos_z")?;
-        let scale = vec3_from_row(&row, "scale_x", "scale_y", "scale_z")?;
-        let rotation = quat_from_row(&row, "rot_x", "rot_y", "rot_z", "rot_w")?;
+        let mut response = self
+            .db
+            .query("SELECT * FROM object_updates WHERE local_id = $local_id LIMIT 1")
+            .bind(("local_id", local_id as i64))
+            .await?;
+
+        let mut rows: Vec<ObjectUpdateRow> = response.check()?.take(0)?;
+
+        let row = rows
+            .pop()
+            .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+
+        let position = Vec3::new(row.pos_x, row.pos_y, row.pos_z);
+        let rotation = Quat::from_xyzw(row.rot_x, row.rot_y, row.rot_z, row.rot_w);
+        let scale = Vec3::new(row.scale_x, row.scale_y, row.scale_z);
+
         Ok((scale, rotation, position))
     }
 
-    /// Updates object in cache with its generated GLB path
-    ///
-    /// # Parameters
-    /// - `full_id`: The ID of the object to update
-    /// - `glb_path`: The path on disk to the object's GLB
-    ///
-    /// # Errors
-    /// Returns [`InventoryError`] if the object cannot be updated
-    ///
-    /// # Side Effects
-    /// [Storage: SQLite]
+    /// Update an object's generated GLB path.
     pub async fn update_glb_path(
         &self,
         full_id: Uuid,
         glb_path: &str,
     ) -> Result<(), InventoryError> {
-        self.queue
-            .send(CacheOperation::Object(
-                QueuedObjectCacheOperation::UpdateGlbPath {
-                    full_id,
-                    glb_path: PathBuf::from(glb_path),
-                },
-            ))
-            .await
-            .map_err(|_| {
-                InventoryError::CacheMiss("SQLite cache writer has stopped".to_string())
-            })?;
+        let mut response = self
+            .db
+            .query(
+                r#"
+                UPDATE object_updates
+                SET glb = $glb_path
+                WHERE full_id = $full_id;
+                "#,
+            )
+            .bind(("full_id", full_id.to_string()))
+            .bind(("glb_path", glb_path.to_owned()))
+            .await?;
+
+        response.check()?;
 
         Ok(())
     }
 
-    /// Updates object in cache with its generated JSON path
-    ///
-    /// # Parameters
-    /// - `full_id`: The ID of the object to update
-    /// - `asset_id`: The ID of the object's asset (Mesh UUID or something simliar)
-    /// - `json_path`: The path on disk to the object's JSON
-    ///
-    /// # Errors
-    /// Returns [`InventoryError`] if the update fails
-    ///
-    /// # Side Effects
-    /// [Storage: SQLite]
+    /// Update an object's generated JSON path and asset ID.
     pub async fn update_json_path(
         &self,
         full_id: Uuid,
         asset_id: Uuid,
         json_path: &str,
     ) -> Result<(), InventoryError> {
-        self.queue
-            .send(CacheOperation::Object(
-                QueuedObjectCacheOperation::UpdateJsonPath {
-                    full_id,
-                    asset_id,
-                    json_path: PathBuf::from(json_path),
-                },
-            ))
-            .await
-            .map_err(|_| {
-                InventoryError::CacheMiss("SQLite cache writer has stopped".to_string())
-            })?;
+        let mut response = self
+            .db
+            .query(
+                r#"
+                UPDATE object_updates
+                SET
+                    asset_id = $asset_id,
+                    json = $json_path
+                WHERE full_id = $full_id;
+                "#,
+            )
+            .bind(("full_id", full_id.to_string()))
+            .bind(("asset_id", asset_id.to_string()))
+            .bind(("json_path", json_path.to_owned()))
+            .await?;
+
+        response.check()?;
 
         Ok(())
     }
 
-    /// retrieve cache data for an object by its scene-local ID, CRC and region id.
-    /// Returns UUID of the object, its GLB path, and an ObjectInstanceInfo object containing the
-    /// information on where and what is being rendered
-    ///
-    /// # Parameters
-    /// - `id`: u32 scene-local ID
-    /// - `crc`: crc value to ensure cache is up to date
-    /// - `region_id`: region where the object was downloaded (to prevent collisions)
-    ///
-    /// # Errors
-    ///  Returns [`InventoryError`] if the object is not in cache
+    /// Retrieve an object by scene-local ID, CRC and region ID.
     pub async fn check_cache(
         &self,
-        id: u32,
+        local_id: u32,
         crc: u32,
         region_id: String,
     ) -> Result<(Uuid, PathBuf, Option<PathBuf>, ObjectInstanceInfo), InventoryError> {
-        let row = sqlx::query(
-            r#"
-        SELECT
-            asset_id,
-            glb,
-            full_id,
-            id,
-            parent,
-            scale_x, scale_y, scale_z,
-            rot_x, rot_y, rot_z, rot_w,
-            pos_x, pos_y, pos_z
-        FROM object_updates
-        WHERE id = ?
-          AND crc = ?
-          AND region_id = ?
-        "#,
-        )
-        .bind(id)
-        .bind(crc)
-        .bind(region_id)
-        .fetch_optional(&self.db)
-        .await?
-        .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+        let mut response = self
+            .db
+            .query(
+                r#"
+                SELECT * FROM object_updates
+                WHERE local_id = $local_id
+                  AND crc = $crc
+                  AND region_id = $region_id
+                LIMIT 1;
+                "#,
+            )
+            .bind(("local_id", local_id as i64))
+            .bind(("crc", crc as i64))
+            .bind(("region_id", region_id))
+            .await?;
 
-        self.build_cache_result(row).await
+        let mut rows: Vec<ObjectUpdateRow> = response.check()?.take(0)?;
+
+        let row = rows
+            .pop()
+            .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+
+        self.build_cache_result(row)
     }
 
+    /// Update an avatar's local ID mapping.
     pub async fn update_avatar(&self, local_id: u32, agent_id: Uuid) -> Result<(), InventoryError> {
-        sqlx::query(
-            r#"
-        INSERT INTO agents (agent_id, local_id)
-        VALUES (?, ?)
-        ON CONFLICT(agent_id) DO UPDATE SET
-            local_id = excluded.local_id,
-            last_update = CURRENT_TIMESTAMP
-        "#,
-        )
-        .bind(agent_id.to_string())
-        .bind(local_id as i64)
-        .execute(&self.db)
-        .await?;
+        let mut response = self
+            .db
+            .query(
+                r#"
+                UPSERT type::record('agents', $agent_id)
+                SET
+                    agent_id = $agent_id,
+                    local_id = $local_id,
+                    last_update = time::now();
+                "#,
+            )
+            .bind(("agent_id", agent_id.to_string()))
+            .bind(("local_id", local_id as i64))
+            .await?;
+
+        response.check()?;
 
         Ok(())
     }
 
-    pub async fn get_full_id(&self, object_id: u32) -> Result<Uuid, InventoryError> {
-        let row = sqlx::query(
-            r#"
-        SELECT full_id
-        FROM object_updates
-        WHERE id = ?
-        "#,
+    /// Retrieve the full UUID using the scene-local ID.
+    pub async fn get_full_id(&self, local_id: u32) -> Result<Uuid, InventoryError> {
+        let row = fetch_object(
+            &self.db,
+            "SELECT * FROM object_updates WHERE local_id = $local_id LIMIT 1",
+            "local_id",
+            Value::Number((local_id as i64).into()),
         )
-        .bind(object_id as i64)
-        .fetch_one(&self.db)
         .await?;
 
-        let full_id: String = row.try_get("full_id")?;
-
-        Ok(Uuid::parse_str(&full_id)?)
+        Ok(Uuid::parse_str(&row.full_id)?)
     }
 
+    /// Retrieve an avatar's agent UUID using its scene-local ID.
     pub async fn get_avatar_agent_id(&self, local_id: u32) -> Result<Uuid, InventoryError> {
-        let row = sqlx::query(
-            r#"
-        SELECT agent_id
-        FROM agents
-        WHERE local_id = ?
-        "#,
-        )
-        .bind(local_id as i64)
-        .fetch_one(&self.db)
-        .await?;
+        let mut response = self
+            .db
+            .query("SELECT agent_id FROM agents WHERE local_id = $local_id LIMIT 1")
+            .bind(("local_id", local_id as i64))
+            .await?;
 
-        let agent_id: String = row.try_get("agent_id")?;
+        let mut rows: Vec<AvatarAgentRow> = response.check()?.take(0)?;
 
-        Ok(Uuid::parse_str(&agent_id)?)
+        let row = rows
+            .pop()
+            .ok_or_else(|| InventoryError::CacheMiss("Avatar agent not found".to_string()))?;
+
+        Ok(Uuid::parse_str(&row.agent_id)?)
     }
 
-    pub async fn get_update(&self, object_id: u32) -> Result<PathBuf, InventoryError> {
-        let row = sqlx::query(
-            r#"
-        SELECT update_path
-        FROM object_updates
-        WHERE id = ?
-        "#,
-        )
-        .bind(object_id as i64)
-        .fetch_one(&self.db)
-        .await?;
+    /// Retrieve the serialized update path using the scene-local ID.
+    pub async fn get_update(&self, local_id: u32) -> Result<PathBuf, InventoryError> {
+        let mut response = self
+            .db
+            .query("SELECT update_path FROM object_updates WHERE local_id = $local_id LIMIT 1")
+            .bind(("local_id", local_id as i64))
+            .await?;
 
-        let update_path: String = row.try_get("update_path")?;
+        let mut rows: Vec<UpdatePathRow> = response.check()?.take(0)?;
 
-        Ok(PathBuf::from(update_path))
+        rows.pop()
+            .and_then(|row| row.update_path)
+            .map(PathBuf::from)
+            .ok_or_else(|| InventoryError::CacheMiss("Update path not found".to_string()))
     }
 
-    /// Retrieve an object from the cache based on its asset_id
-    /// Asset IDs are unique to the actual mesh data of the object. Full IDs and Scene-local IDs are unique to the
-    /// object instance.
-    ///
-    /// # Parameters
-    /// - `asset_id`: Asset ID of the object to retrieve
-    /// - `full_id`: unique UUID of the object's instance
-    ///
-    /// # Errors
-    /// Returns [`InventoryError`] if the object is not in cache
+    /// Retrieve an object using its asset ID and instance UUID.
     pub async fn check_cache_by_asset_id(
         &self,
         asset_id: Uuid,
         full_id: Uuid,
     ) -> Result<(PathBuf, ObjectInstanceInfo), InventoryError> {
-        let glb_row = sqlx::query(
-            r#"
-        SELECT glb
-        FROM object_updates
-        WHERE asset_id = ?
-          AND glb IS NOT NULL
-        "#,
-        )
-        .bind(asset_id)
-        .fetch_optional(&self.db)
-        .await?
-        .ok_or_else(|| InventoryError::CacheMiss("GLB not found in cache".to_string()))?;
+        let mut response = self
+            .db
+            .query(
+                r#"
+                SELECT glb FROM object_updates
+                WHERE asset_id = $asset_id
+                  AND glb IS NOT NONE
+                LIMIT 1;
+                "#,
+            )
+            .bind(("asset_id", asset_id.to_string()))
+            .await?;
 
-        let glb: String = glb_row.try_get("glb")?;
-        let glb_path = PathBuf::from(glb);
+        let mut rows: Vec<GlbRow> = response.check()?.take(0)?;
+
+        let glb_path = rows
+            .pop()
+            .and_then(|row| row.glb)
+            .map(PathBuf::from)
+            .ok_or_else(|| InventoryError::CacheMiss("GLB not found in cache".to_string()))?;
 
         if !glb_path.exists() {
             return Err(InventoryError::CacheMiss(
@@ -462,61 +303,46 @@ impl ObjectCache {
             ));
         }
 
-        let object_row = sqlx::query(
-            r#"
-        SELECT
-            full_id,
-            id,
-            parent,
-            scale_x, scale_y, scale_z,
-            rot_x, rot_y, rot_z, rot_w,
-            pos_x, pos_y, pos_z
-        FROM object_updates
-        WHERE full_id = ?
-        "#,
+        let row = fetch_object(
+            &self.db,
+            "SELECT * FROM object_updates WHERE full_id = $full_id LIMIT 1",
+            "full_id",
+            Value::String(full_id.to_string().into()),
         )
-        .bind(full_id)
-        .fetch_optional(&self.db)
-        .await?
-        .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+        .await?;
 
         let generator = ObjectInstanceInfo {
-            full_id: {
-                let id: String = object_row.try_get("full_id")?;
-                Uuid::parse_str(&id)?
-            },
-            local_id: object_row.try_get("id")?,
-            parent_id: object_row.try_get("parent")?,
-            position: vec3_from_row(&object_row, "pos_x", "pos_y", "pos_z")?,
-            scale: vec3_from_row(&object_row, "scale_x", "scale_y", "scale_z")?,
-            rotation: quat_from_row(&object_row, "rot_x", "rot_y", "rot_z", "rot_w")?,
+            full_id: Uuid::parse_str(&row.full_id)?,
+            local_id: row.local_id,
+            parent_id: row.parent.map(|id| id as u32),
+            position: Vec3::new(row.pos_x, row.pos_y, row.pos_z),
+            scale: Vec3::new(row.scale_x, row.scale_y, row.scale_z),
+            rotation: Quat::from_xyzw(row.rot_x, row.rot_y, row.rot_z, row.rot_w),
         };
 
         Ok((glb_path, generator))
     }
 
-    // convert a cache result to objects
-    // TODO: why is it returning the glb path twice
-    async fn build_cache_result(
+    /// Convert a cache result into object data.
+    fn build_cache_result(
         &self,
-        row: sqlx::sqlite::SqliteRow,
+        row: ObjectUpdateRow,
     ) -> Result<(Uuid, PathBuf, Option<PathBuf>, ObjectInstanceInfo), InventoryError> {
-        let asset_id: String = row.try_get("asset_id")?;
-        let asset_id = Uuid::parse_str(&asset_id)?;
+        let asset_id = Uuid::parse_str(
+            row.asset_id
+                .as_deref()
+                .ok_or_else(|| InventoryError::CacheMiss("Asset ID not found".to_string()))?,
+        )?;
 
-        let glb: Option<String> = row.try_get("glb")?;
-        let glb_path = glb.as_ref().map(PathBuf::from);
+        let glb_path = row.glb.map(PathBuf::from);
 
         let generator = ObjectInstanceInfo {
-            full_id: {
-                let id_str: String = row.try_get("full_id")?;
-                Uuid::parse_str(&id_str)?
-            },
-            local_id: row.try_get("id")?,
-            parent_id: row.try_get("parent")?,
-            position: vec3_from_row(&row, "pos_x", "pos_y", "pos_z")?,
-            scale: vec3_from_row(&row, "scale_x", "scale_y", "scale_z")?,
-            rotation: quat_from_row(&row, "rot_x", "rot_y", "rot_z", "rot_w")?,
+            full_id: Uuid::parse_str(&row.full_id)?,
+            local_id: row.local_id,
+            parent_id: row.parent.map(|id| id as u32),
+            position: Vec3::new(row.pos_x, row.pos_y, row.pos_z),
+            scale: Vec3::new(row.scale_x, row.scale_y, row.scale_z),
+            rotation: Quat::from_xyzw(row.rot_x, row.rot_y, row.rot_z, row.rot_w),
         };
 
         Ok((
@@ -527,38 +353,24 @@ impl ObjectCache {
         ))
     }
 
-    /// Get object parent by ID
-    ///
-    /// # Parameters
-    /// - `object_id`: scene-local u32 ID of the object
-    ///
-    /// # Errors
-    /// Returns an [`InventoryError`] on failure
-    pub async fn get_parent(&self, object_id: u32) -> Result<Option<u32>, InventoryError> {
-        let row = sqlx::query("SELECT parent FROM object_updates WHERE id = ?")
-            .bind(object_id as i64)
-            .fetch_one(&self.db)
+    /// Retrieve an object's parent using its scene-local ID.
+    pub async fn get_parent(&self, local_id: u32) -> Result<Option<u32>, InventoryError> {
+        let mut response = self
+            .db
+            .query("SELECT parent FROM object_updates WHERE local_id = $local_id LIMIT 1")
+            .bind(("local_id", local_id as i64))
             .await?;
 
-        Ok(row.try_get("parent")?)
+        let mut rows: Vec<ParentRow> = response.check()?.take(0)?;
+
+        let row = rows
+            .pop()
+            .ok_or_else(|| InventoryError::CacheMiss("Object not found in cache".to_string()))?;
+
+        Ok(row.parent.map(|id| id as u32))
     }
 
-    /// Add the full object update to the cache
-    ///
-    /// This ensures ObjecUpdates don't get lost if they fail to get handled, and should allow for
-    /// reprocessing.
-    ///
-    /// # Parameters
-    /// - `object`: [`ObjectInstanceInfo`] object. Contains ID information and position
-    /// - `crc`: crc of the object used elsewhere for cache validation
-    /// - `region_id`: Region where the object was downloaded
-    /// - `object_type`: Type of the object
-    ///
-    /// # Errors
-    /// Returns an [`InventoryError`] on failure
-    ///
-    /// # Side Effects
-    /// [Storage: SQLite]
+    /// Add or replace an object update in the cache.
     pub async fn update(
         &self,
         object: ObjectInstanceInfo,
@@ -567,49 +379,74 @@ impl ObjectCache {
         object_type: ObjectType,
         update_path: PathBuf,
     ) -> Result<(), InventoryError> {
-        self.queue
-            .send(CacheOperation::Object(
-                QueuedObjectCacheOperation::UpdateObject {
-                    object,
-                    crc,
-                    region_id,
-                    object_type,
-                    update_path,
-                },
-            ))
-            .await
-            .map_err(|_| {
-                InventoryError::CacheMiss("SQLite cache writer has stopped".to_string())
-            })?;
+        let parent_id = object.parent_id.map(|id| id as i64);
+        let rotation = object.rotation.normalize();
+
+        let mut response = self
+            .db
+            .query(
+                r#"
+                UPSERT object_updates
+                SET
+                    full_id = $full_id,
+                    local_id = $local_id,
+                    crc = $crc,
+                    region_id = $region_id,
+                    parent = $parent,
+                    pcode = $pcode,
+
+                    pos_x = $pos_x,
+                    pos_y = $pos_y,
+                    pos_z = $pos_z,
+
+                    rot_x = $rot_x,
+                    rot_y = $rot_y,
+                    rot_z = $rot_z,
+                    rot_w = $rot_w,
+
+                    scale_x = $scale_x,
+                    scale_y = $scale_y,
+                    scale_z = $scale_z,
+
+                    update_path = $update_path
+                WHERE full_id = $full_id;
+                "#,
+            )
+            .bind(("full_id", object.full_id.to_string()))
+            .bind(("local_id", object.local_id as i64))
+            .bind(("crc", crc as i64))
+            .bind(("region_id", region_id))
+            .bind(("parent", parent_id))
+            .bind(("pcode", object_type.to_string()))
+            .bind(("pos_x", object.position.x))
+            .bind(("pos_y", object.position.y))
+            .bind(("pos_z", object.position.z))
+            .bind(("rot_x", rotation.x))
+            .bind(("rot_y", rotation.y))
+            .bind(("rot_z", rotation.z))
+            .bind(("rot_w", rotation.w))
+            .bind(("scale_x", object.scale.x))
+            .bind(("scale_y", object.scale.y))
+            .bind(("scale_z", object.scale.z))
+            .bind(("update_path", update_path.to_string_lossy().into_owned()))
+            .await?;
+
+        response.check()?;
 
         Ok(())
     }
 }
 
-fn vec3_from_row(
-    row: &sqlx::sqlite::SqliteRow,
-    x: &str,
-    y: &str,
-    z: &str,
-) -> Result<Vec3, sqlx::Error> {
-    Ok(Vec3::new(
-        row.try_get::<f32, &str>(x)?,
-        row.try_get::<f32, &str>(y)?,
-        row.try_get::<f32, &str>(z)?,
-    ))
-}
+async fn fetch_object(
+    db: &Surreal<Db>,
+    query: &str,
+    binding_name: &str,
+    binding_value: Value,
+) -> Result<ObjectUpdateRow, InventoryError> {
+    let mut response = db.query(query).bind((binding_name, binding_value)).await?;
 
-fn quat_from_row(
-    row: &sqlx::sqlite::SqliteRow,
-    x: &str,
-    y: &str,
-    z: &str,
-    w: &str,
-) -> Result<Quat, sqlx::Error> {
-    Ok(Quat::from_xyzw(
-        row.try_get::<f32, &str>(x)?,
-        row.try_get::<f32, &str>(y)?,
-        row.try_get::<f32, &str>(z)?,
-        row.try_get::<f32, &str>(w)?,
-    ))
+    let mut rows: Vec<ObjectUpdateRow> = response.check()?.take(0)?;
+
+    rows.pop()
+        .ok_or_else(|| InventoryError::CacheMiss("Object not found".to_string()))
 }

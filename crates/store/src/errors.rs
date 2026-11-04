@@ -58,6 +58,9 @@ pub enum OutfitError {
 /// Errors that can arise fom sqlite inventory handling issues
 #[derive(Error, Debug)]
 pub enum InventoryError {
+    #[error("Surreal error: {0}")]
+    SurrealError(#[from] surrealdb::Error),
+
     #[error("Session Error: {0}")]
     SessionError(#[from] ProtocolSessionError),
 

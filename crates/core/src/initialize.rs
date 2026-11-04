@@ -4,19 +4,16 @@ use crate::transport::ui_event_listener::listen_for_ui_messages;
 use actix::Actor;
 use actix_rt::time;
 use benthic_protocol::errors::ProtocolSessionError;
-use benthic_protocol::messages::simulator::error_message::FeatureError;
 use benthic_protocol::messages::simulator::error_message::MailboxSessionError;
 use benthic_protocol::session::rate_limiter::RateLimiter;
-use benthic_protocol::session::storage::initialize_share_dir;
 use benthic_protocol::session::types::AssetKey;
 use benthic_protocol::session::types::DownloadState;
 use benthic_protocol::session::types::ServerState;
 use metaverse_store::initialize_sqlite::Cache;
-use metaverse_store::initialize_sqlite::init_sqlite;
+use metaverse_store::initialize_sqlite::init_surreal;
 use portpicker::pick_unused_port;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -34,19 +31,16 @@ pub async fn initialize(
 ) -> Result<JoinHandle<()>, ProtocolSessionError> {
     let notify = Arc::new(Notify::new());
     let state = Arc::new(Mutex::new(ServerState::Starting));
-
-    let share_dir = initialize_share_dir()?;
-    let db_path = share_dir.join("inventory.db");
-
-    let connection = init_sqlite(db_path.to_path_buf())
+    let cache_db = init_surreal()
         .await
-        .map_err(|e| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", e)))?;
-    let (cache, sqlite_queue) = Cache::new(connection.clone());
+        .map_err(|err| std::io::Error::other(err.to_string()))?;
+    let cache = Cache::new(cache_db);
+
     let http_client = awc::Client::default();
+
     let mailbox = Mailbox {
         client_socket: pick_unused_port().unwrap(),
         server_to_ui_socket: format!("127.0.0.1:{}", server_to_ui_socket),
-        inventory_db_location: db_path,
 
         server_acks: HashSet::new(),
         viewer_acks: HashSet::new(),
@@ -69,21 +63,19 @@ pub async fn initialize(
         pending_capability_messages: HashMap::new(),
         pending_animations: HashMap::new(),
         cache,
-        sqlite_queue,
-        pending_sqlite_batch: VecDeque::new(),
+
         http_client,
         permanent_failures: HashSet::new(),
         pending_avatars: HashSet::new(),
         flush_in_progress: false,
     }
     .start();
-    // wait until the mailbox starts
     notify.notified().await;
     if *state.lock().unwrap() != ServerState::Running {
         return Err(ProtocolSessionError::MailboxSession(MailboxSessionError {
-            message: ("Mailbox failed to enter state Running.".to_string()),
+            message: "Mailbox failed to enter state Running.".to_string(),
         }));
-    };
+    }
 
     let handle = actix::spawn(async move {
         listen_for_ui_messages(format!("127.0.0.1:{}", ui_to_server_socket), mailbox).await;
