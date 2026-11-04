@@ -25,7 +25,7 @@ use benthic_protocol::session::types::{
     AssetKey, DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
 };
 use glam::Vec2;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use metaverse_avatar::avatar::Avatar;
 use metaverse_environment::land::Land;
 use metaverse_messages::utils::object_types::ObjectType;
@@ -47,9 +47,7 @@ use metaverse_messages::{
         },
     },
 };
-use metaverse_store::cache::avatar::AvatarCache;
-use metaverse_store::cache::object::ObjectCache;
-use metaverse_store::initialize_sqlite::{Cache, CacheOperation, Inventory};
+use metaverse_store::initialize_sqlite::{Cache, Inventory, init_sqlite};
 use rand::RngExt;
 use rgb::Rgba;
 use std::any::type_name;
@@ -77,8 +75,6 @@ pub struct Mailbox {
     pub client_socket: u16,
     /// UDP socket for connecting mailbox to the UI
     pub server_to_ui_socket: String,
-    /// the location on disk of the inventory sqlite DB.
-    pub inventory_db_location: PathBuf,
     /// queue of acks sent from the server to be responded to by the client
     pub server_acks: HashSet<u32>,
     /// queue of packet IDs sent form the core to the server that the server hasn't yet acked
@@ -111,10 +107,6 @@ pub struct Mailbox {
     /// connetion to the cache sqlite DB, (which is the same DB as the inventory DB)
     /// This is used to store avatar and object data after download
     pub cache: Cache,
-    /// Queue of sqlite operations to perform on the cache
-    pub sqlite_queue: mpsc::Receiver<CacheOperation>,
-    /// Failed sqlite operations that get handled before the receiver queue
-    pub pending_sqlite_batch: VecDeque<CacheOperation>,
     /// Global awc client for requests. This allows connection pooling.
     pub http_client: Client,
     /// Storage for assets that should not be retried.
@@ -167,13 +159,6 @@ impl Mailbox {
             send(&addr);
         }
     }
-    /// Periodically flush the sqlite queue
-    /// This sends a flush cache queue every 100ms to ensure the queue stays current
-    pub fn start_sqlite_flush(&self, ctx: &mut Context<Self>) {
-        ctx.run_interval(std::time::Duration::from_millis(100), |_actor, ctx| {
-            ctx.address().do_send(FlushCacheQueue);
-        });
-    }
 
     /// Periodically check for avatars that have not received an object update in a while.
     /// when the timer runs out, render them.
@@ -210,187 +195,7 @@ impl Actor for Mailbox {
     fn started(&mut self, ctx: &mut Self::Context) {
         info!("Actix Mailbox has started");
         self.set_state(ServerState::Running, ctx);
-        self.start_sqlite_flush(ctx);
         self.avatar_finished_loading(ctx);
-    }
-}
-
-/// Message used for flushing the sqlite cache
-///
-/// # Cause
-/// Registered loop triggered after the mailbox gets started
-///
-///
-/// # Effects
-/// Writes sqlite operations to disk in batches
-/// this ensures sqlite doesn't block on writes
-///
-/// # Side Effects
-/// [Storage: SQLite]
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct FlushCacheQueue;
-impl Handler<FlushCacheQueue> for Mailbox {
-    type Result = ResponseActFuture<Self, ()>;
-
-    fn handle(&mut self, _msg: FlushCacheQueue, _ctx: &mut Context<Self>) -> Self::Result {
-        if self.session.is_none() || self.flush_in_progress {
-            return Box::pin(async {}.into_actor(self));
-        }
-
-        if self.pending_sqlite_batch.is_empty() && self.sqlite_queue.is_empty() {
-            return Box::pin(async {}.into_actor(self));
-        }
-
-        self.flush_in_progress = true;
-
-        let pending_count = self.pending_sqlite_batch.len();
-        let queued_count = self.sqlite_queue.len();
-
-        let mut batch = std::mem::take(&mut self.pending_sqlite_batch);
-
-        while batch.len() < SQLITE_BATCH_SIZE {
-            match self.sqlite_queue.try_recv() {
-                Ok(operation) => batch.push_back(operation),
-                Err(_) => break,
-            }
-        }
-
-        let batch_size = batch.len();
-        let db = self.cache.object.db.clone();
-
-        println!(
-            "Starting SQLite flush: batch={}, pending={}, queued={}, pool_size={}, pool_idle={}",
-            batch_size,
-            pending_count,
-            queued_count,
-            db.size(),
-            db.num_idle()
-        );
-
-        Box::pin(
-            async move {
-                let flush_start = std::time::Instant::now();
-
-                let mut object_batch = VecDeque::new();
-                let mut avatar_batch = VecDeque::new();
-
-                for operation in batch {
-                    match operation {
-                        CacheOperation::Object(operation) => {
-                            object_batch.push_back(operation);
-                        }
-                        CacheOperation::Avatar(operation) => {
-                            avatar_batch.push_back(operation);
-                        }
-                    }
-                }
-
-                let object_count = object_batch.len();
-                let avatar_count = avatar_batch.len();
-
-                println!(
-                    "SQLite flush split: objects={}, avatars={}",
-                    object_count,
-                    avatar_count
-                );
-
-                let object_start = std::time::Instant::now();
-                let object_result =
-                    ObjectCache::flush_queue(&db, &mut object_batch).await;
-                let object_elapsed = object_start.elapsed();
-
-                println!(
-                    "Object cache flush completed: operations={}, elapsed={:?}, success={}",
-                    object_count,
-                    object_elapsed,
-                    object_result.is_ok()
-                );
-
-                let avatar_start = std::time::Instant::now();
-                let avatar_result =
-                    AvatarCache::flush_queue(&db, &mut avatar_batch).await;
-                let avatar_elapsed = avatar_start.elapsed();
-
-                println!(
-                    "Avatar cache flush completed: operations={}, elapsed={:?}, success={}",
-                    avatar_count,
-                    avatar_elapsed,
-                    avatar_result.is_ok()
-                );
-
-                (
-                    object_batch,
-                    avatar_batch,
-                    object_result,
-                    avatar_result,
-                    flush_start.elapsed(),
-                )
-            }
-            .into_actor(self)
-            .map(
-                |(
-                    object_batch,
-                    avatar_batch,
-                    object_result,
-                    avatar_result,
-                    total_elapsed,
-                ),
-                 actor,
-                 ctx| {
-                    actor.flush_in_progress = false;
-
-                    match object_result {
-                        Ok(ids) => {
-                            info!("Applied {} object cache updates", ids.len());
-                        }
-                        Err(error) => {
-                            warn!(
-                                "Failed to flush object cache batch; retaining {} operations: {}",
-                                object_batch.len(),
-                                error
-                            );
-
-                            actor
-                                .pending_sqlite_batch
-                                .extend(object_batch.into_iter().map(CacheOperation::Object));
-                        }
-                    }
-
-                    match avatar_result {
-                        Ok(count) => {
-                            info!("Applied {} avatar cache operations", count);
-                        }
-                        Err(error) => {
-                            warn!(
-                                "Failed to flush avatar cache batch; retaining {} operations: {}",
-                                avatar_batch.len(),
-                                error
-                            );
-
-                            actor
-                                .pending_sqlite_batch
-                                .extend(avatar_batch.into_iter().map(CacheOperation::Avatar));
-                        }
-                    }
-
-                    debug!(
-                        "SQLite flush finished: elapsed={:?}, remaining_pending={}, remaining_queued={}, pool_size={}, pool_idle={}",
-                        total_elapsed,
-                        actor.pending_sqlite_batch.len(),
-                        actor.sqlite_queue.len(),
-                        actor.cache.object.db.size(),
-                        actor.cache.object.db.num_idle()
-                    );
-
-                    if !actor.pending_sqlite_batch.is_empty()
-                        || !actor.sqlite_queue.is_empty()
-                    {
-                        ctx.address().do_send(FlushCacheQueue);
-                    }
-                },
-            ),
-        )
     }
 }
 
@@ -833,10 +638,18 @@ async fn handle_login(
         })
         .unwrap_or(Uuid::nil());
 
+    let share_dir = initialize_share_dir()?;
+    let db_path = share_dir.join("inventory.db");
+    let inventory_db = init_sqlite(db_path.clone())
+        .await
+        .map_err(|err| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", err)))?;
+
+    let inventory = Inventory::new(inventory_db);
+
     if let Err(e) = mailbox_addr
         .send(StartSession {
             session: Session {
-                inventory: Inventory::new(cache.object.db.clone()),
+                inventory,
                 agent_id: login_response.agent_id,
                 session_id: login_response.session_id,
                 address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),

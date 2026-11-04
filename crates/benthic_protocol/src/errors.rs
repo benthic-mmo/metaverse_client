@@ -14,6 +14,8 @@ use thiserror::Error;
 /// Errors that can arise within the protocol crate
 #[derive(Error, Debug)]
 pub enum ProtocolSessionError {
+    #[error("{0}")]
+    FailureError(String),
     /// Failed to create a director
     #[error("Failed to create directory {dir}: {error}")]
     DirCreation {
