@@ -10,6 +10,12 @@ use crate::errors;
 /// Errors that can occur when building meshes for metaverse assets
 #[derive(Debug, thiserror::Error)]
 pub enum MeshBuildError {
+    #[error("Serde Errror: {0}")]
+    SerdeError(#[from] serde_json::Error),
+
+    #[error("Serde Error: {0}")]
+    IOError(#[from] std::io::Error),
+
     /// Mesh could not be generated
     #[error("Mesh Error: {0}")]
     MeshError(#[from] MetaverseMeshError),
