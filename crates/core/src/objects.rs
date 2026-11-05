@@ -89,8 +89,35 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         let out_dir = session.share_dir_root.clone();
         let addr = ctx.address();
         let avatars = session.avatars.clone();
+
+        let base_dir = create_sub_object_dir(&out_dir, &msg.0.sculpt_id.to_string())
+            .unwrap_or_else(|err| {
+                error!("MeshObjectUpdate failed: {:?}", err);
+                PathBuf::new()
+            });
+        let glb_path = base_dir.join(format!("{:?}_high.glb", msg.0.sculpt_id));
+
         ctx.spawn(
             async move {
+                // if the GLB already exists for the object, don't rebuild it, just use that.
+                if tokio::fs::try_exists(&glb_path)
+                    .await
+                    .unwrap_or_else(|err| {
+                        warn!("Failed to check GLB existence: {:?}", err);
+                        false
+                    })
+                {
+                    addr.do_send(RenderObjectMessage(RenderMeshData {
+                        asset_id: msg.0.object_info.full_id,
+                        object: msg.0.object_info,
+                        mesh_path: Some(glb_path),
+                        base_dir,
+                        retry_count: 0,
+                        download: None,
+                    }));
+                    return;
+                }
+
                 // Check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
@@ -152,7 +179,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     let action = match handle_mesh_avatar_object(
                         cache,
                         &msg.0,
-                        out_dir,
+                        base_dir,
                         mesh_bytes,
                         texture_paths,
                         material_paths,
@@ -174,6 +201,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                         cache,
                         &msg.0,
                         out_dir,
+                        glb_path,
                         mesh_bytes,
                         texture_paths,
                         material_paths,

@@ -32,30 +32,12 @@ use crate::{
 pub async fn handle_mesh_object(
     cache: Cache,
     data: &MeshObjectData,
-    out_dir: PathBuf,
+    base_dir: PathBuf,
+    glb_path: PathBuf,
     mesh_bytes: Bytes,
     texture_paths: HashMap<u32, PathBuf>,
     material_paths: HashMap<u32, PathBuf>,
 ) -> Result<ObjectUpdateAction, MeshBuildError> {
-    // Check whether the generated GLB already exists.
-    if let Ok((glb_path, generator)) = cache
-        .object
-        .check_cache_by_asset_id(data.sculpt_id, data.object_info.full_id)
-        .await
-    {
-        let base_dir = create_sub_object_dir(&out_dir, &data.object_info.full_id.to_string())?;
-
-        return Ok(ObjectUpdateAction::Render(RenderMeshData {
-            mesh_path: Some(glb_path),
-            base_dir,
-            asset_id: data.object_info.full_id,
-            object: generator,
-            retry_count: 0,
-            download: None,
-        }));
-    }
-    let base_dir = create_sub_object_dir(&out_dir, &data.sculpt_id.to_string())?;
-
     let mesh = Mesh::from_bytes(&mesh_bytes)?;
 
     let render_object = create_mesh_render_object(
@@ -69,15 +51,15 @@ pub async fn handle_mesh_object(
         data.texture_animation.clone(),
     )?;
 
-    // cahche generated render object on the filesystem
-    let json_path = write_json(
-        &render_object,
-        &data.sculpt_id.to_string(),
-        CacheDir::Object(data.sculpt_id),
-        &out_dir,
-    )?;
+    // cache render object on disk
+    let json_path = base_dir.join(format!("{}.json", data.sculpt_id));
+    let json = serde_json::to_vec(&render_object)?;
+    tokio::fs::write(&json_path, &json).await?;
 
-    // update the generated render object in the sqlite db
+    // generate mesh from the glb
+    generate_object_mesh(&json_path, &glb_path)?;
+
+    // update the generated render object in the db
     cache
         .object
         .update_json_path(
@@ -87,13 +69,7 @@ pub async fn handle_mesh_object(
         )
         .await?;
 
-    let glb_path = base_dir.join(format!("{:?}_high.glb", data.sculpt_id));
-
-    // generate mesh from the glb
-    // TODO: if this fails, this should also invalidate the previous caching.
-    generate_object_mesh(&json_path, &glb_path)?;
-
-    // cache the mesh's data in sqlite
+    // cache the generated mesh's data in sqlite
     cache
         .object
         .update_glb_path(data.object_info.full_id, &glb_path.to_string_lossy())
