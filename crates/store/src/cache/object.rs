@@ -3,7 +3,10 @@ use benthic_protocol::objects::types::ObjectInstanceInfo;
 use glam::{Quat, Vec3};
 use metaverse_messages::utils::object_types::ObjectType;
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use surrealdb::{
     Surreal,
     engine::local::Db,
@@ -204,7 +207,12 @@ impl ObjectCache {
 
     /// Update an avatar's local ID mapping.
     pub async fn update_avatar(&self, local_id: u32, agent_id: Uuid) -> Result<(), InventoryError> {
-        let mut response = self
+        let updated_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let response = self
             .db
             .query(
                 r#"
@@ -212,11 +220,12 @@ impl ObjectCache {
                 SET
                     agent_id = $agent_id,
                     local_id = $local_id,
-                    last_update = time::now();
+                    last_update = $updated_at;
                 "#,
             )
             .bind(("agent_id", agent_id.to_string()))
             .bind(("local_id", local_id as i64))
+            .bind(("updated_at", updated_at))
             .await?;
 
         response.check()?;
