@@ -49,8 +49,11 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
 pub enum AssetKey {
     /// The download is of type Mesh
     Mesh(Uuid),
-    /// The download is of type Texture
+    /// The download is of type Texture, used for sculpt textures
     Texture(Uuid),
+
+    /// The download is of type KTX2Texture, used for mesh textures
+    KTX2Texture(Uuid),
     /// the download is of type Material, used for PBR materials
     Material(Uuid),
 }
