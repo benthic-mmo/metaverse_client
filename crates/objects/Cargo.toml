@@ -31,6 +31,7 @@ tokio.workspace=true
 rgb.workspace = true
 serde.workspace = true
 bincode.workspace = true
+ktx-rs = "4.4.3"
 
 [dev-dependencies]
 axum = "0.8"

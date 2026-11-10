@@ -55,7 +55,7 @@ fn get_default_assets(out_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Err
             .map(PathBuf::from)
             .unwrap_or_else(|| manifest_dir.join("../../../benthic_default_assets/"));
 
-        if !assets_dir.join("Textures/default.png").is_file()
+        if !assets_dir.join("Textures/default.ktx2").is_file()
             || !assets_dir.join("Skeleton/skeleton.gltf").is_file()
             || !assets_dir.join("Mesh/empty.glb").is_file()
         {

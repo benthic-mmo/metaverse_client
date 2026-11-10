@@ -56,16 +56,16 @@ pub async fn finalize_avatar(
         used_joints,
     };
 
+    let base_dir = create_sub_agent_dir(out_dir, &agent_id.to_string())?;
     let json_path_str = agent_id.to_string();
 
     let json_path = write_json(
         &avatar_object,
         &json_path_str,
         CacheDir::Agent(agent_id),
-        out_dir,
+        &base_dir,
     )?;
 
-    let base_dir = create_sub_agent_dir(out_dir, &agent_id.to_string())?;
     let glb_path = base_dir.join(format!("{:?}_high.glb", agent_id));
 
     if !glb_path.exists() || !cache_enabled() {

@@ -11,6 +11,12 @@ use benthic_protocol::session::storage::create_sub_agent_dir;
 use benthic_protocol::session::storage::write_json;
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
+use ktx::{
+    encode_params::{BasisParams, KTX_BASIS_CODEC_UASTC_LDR_4X4, KTX_BASIS_PARAMS_SIZE},
+    texture::{TextureCreateInfo, TextureCreateStorage},
+    texture2::Texture2,
+    vkformat::VkFormat,
+};
 use log::info;
 use metaverse_messages::http::mesh::Mesh;
 use metaverse_messages::http::scene::SceneGroup;
@@ -211,6 +217,86 @@ pub async fn download_texture(
     Ok(())
 }
 
+pub async fn download_ktx2_texture(
+    asset_id: Uuid,
+    server_endpoint: &str,
+    out_path: &PathBuf,
+    client: Client,
+    rate_limiter: Arc<RateLimiter>,
+) -> Result<(), DownloadError> {
+    if out_path.exists() && cache_enabled() {
+        return Ok(());
+    }
+
+    let item_type = ObjectType::Texture.to_string();
+    let tex = download_asset(item_type, asset_id, server_endpoint, client, rate_limiter).await?;
+
+    let img = Image::from_bytes(&tex)?;
+    let pixels = img.get_pixels(None)?;
+
+    // Normalize source pixels to RGBA8 in memory.
+    let output = match pixels.data {
+        ImagePixelData::L8(data) => {
+            ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageLuma8)
+                .ok_or(DownloadError::UnknownPixelFormatError {})?
+        }
+        ImagePixelData::La8(data) => {
+            ImageBuffer::<LumaA<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageLumaA8)
+                .ok_or(DownloadError::UnknownPixelFormatError {})?
+        }
+        ImagePixelData::Rgb8(data) => {
+            ImageBuffer::<Rgb<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageRgb8)
+                .ok_or(DownloadError::UnknownPixelFormatError {})?
+        }
+        ImagePixelData::Rgba8(data) => {
+            ImageBuffer::<Rgba<u8>, _>::from_raw(pixels.width, pixels.height, data)
+                .map(DynamicImage::ImageRgba8)
+                .ok_or(DownloadError::UnknownPixelFormatError {})?
+        }
+        _ => return Err(DownloadError::UnknownPixelFormatError {}),
+    };
+
+    let rgba = output.to_rgba8();
+
+    // Create an uncompressed RGBA8 KTX2 texture.
+    let create_info = TextureCreateInfo {
+        gl_internalformat: 0,
+        vk_format: VkFormat::R8G8B8A8_UNORM,
+        dfd: None,
+        base_width: pixels.width,
+        base_height: pixels.height,
+        base_depth: 1,
+        num_dimensions: 2,
+        num_levels: 1,
+        num_layers: 1,
+        num_faces: 1,
+        is_array: false,
+        generate_mipmaps: false,
+    };
+
+    let mut texture = Texture2::create(&create_info, TextureCreateStorage::AllocStorage)?;
+
+    // Copy the decoded pixels into the KTX2 texture.
+    texture.set_image_from_memory(0, 0, 0, rgba.as_raw())?;
+
+    // Configure Basis Universal UASTC encoding.
+    let params = BasisParams {
+        struct_size: KTX_BASIS_PARAMS_SIZE,
+        codec: KTX_BASIS_CODEC_UASTC_LDR_4X4,
+        ..Default::default()
+    };
+
+    texture.compress_basis_ex(&params)?;
+
+    // Write the compressed KTX2 file.
+    texture.write_to_named_file(out_path)?;
+
+    Ok(())
+}
+
 /// Retrieves per-face textures from the capabiilty endpoint.
 ///
 /// Returns a hashmap linking the u32 face id to its texture's path on disk.
@@ -241,7 +327,7 @@ pub async fn download_face_textures(
     };
 
     let download = |texture_id: Uuid| {
-        let texture_path = out_dir.join(format!("{:?}.png", texture_id));
+        let texture_path = out_dir.join(format!("{:?}.ktx2", texture_id));
         let server_endpoint = server_endpoint.to_owned();
         let client = client.clone();
         let rate_limiter = rate_limiter.clone();

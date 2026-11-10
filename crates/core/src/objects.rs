@@ -19,6 +19,7 @@ use benthic_protocol::messages::world::mesh_update::MeshUpdate;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
 use benthic_protocol::objects::types::RetriableData;
 use benthic_protocol::session::storage::create_materials_dir;
+use benthic_protocol::session::storage::create_sculpt_textures_dir;
 use benthic_protocol::session::storage::create_sub_object_dir;
 use benthic_protocol::session::storage::create_textures_dir;
 use benthic_protocol::session::types::AssetKey;
@@ -35,6 +36,7 @@ use metaverse_messages::udp::object::object_update_cached::ObjectUpdateCached;
 use metaverse_messages::udp::object::request_multiple_objects::RequestMultipleObjects;
 use metaverse_messages::udp::object::util::PBRMaterial;
 use metaverse_messages::utils::texture_entry::TextureEntries;
+use metaverse_objects::download_asset::download_ktx2_texture;
 use metaverse_objects::download_asset::download_material;
 use metaverse_objects::download_asset::download_mesh;
 use metaverse_objects::download_asset::download_texture;
@@ -200,7 +202,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     let action = match handle_mesh_object(
                         cache,
                         &msg.0,
-                        out_dir,
+                        base_dir,
                         glb_path,
                         mesh_bytes,
                         texture_paths,
@@ -936,9 +938,14 @@ impl Handler<GetAsset> for Mailbox {
                     base_dir.join(format!("{:?}_high.bin", mesh_id))
                 }
                 AssetKey::Texture(texture_id) => {
-                    let textures_dir = create_textures_dir(&out_dir)
+                    let textures_dir = create_sculpt_textures_dir(&out_dir)
                         .map_err(|_| DownloadError::SenderFailure.to_string())?;
                     textures_dir.join(format!("{texture_id}.png"))
+                }
+                AssetKey::KTX2Texture(texture_id) => {
+                    let textures_dir = create_textures_dir(&out_dir)
+                        .map_err(|_| DownloadError::SenderFailure.to_string())?;
+                    textures_dir.join(format!("{texture_id}.ktx2"))
                 }
                 AssetKey::Material(material_id) => {
                     let materials_dir = create_materials_dir(&out_dir)
@@ -1061,6 +1068,16 @@ impl Handler<DownloadAsset> for Mailbox {
                         )
                         .await?;
                     }
+                    AssetKey::KTX2Texture(texture_id) => {
+                        download_ktx2_texture(
+                            texture_id,
+                            &endpoint,
+                            &msg.asset_path,
+                            client,
+                            rate_limiter,
+                        )
+                        .await?;
+                    }
                     AssetKey::Material(material_id) => {
                         // Download and cache the raw LLSD material.
                         download_material(
@@ -1173,7 +1190,7 @@ async fn face_textures_or_fallback(
         let addr = addr.clone();
 
         async move {
-            let result = resolve_asset(addr, AssetKey::Texture(texture_id)).await;
+            let result = resolve_asset(addr, AssetKey::KTX2Texture(texture_id)).await;
             (face, result)
         }
     });

@@ -46,6 +46,9 @@ pub enum MeshBuildError {
 /// Errors that can occur when downloading assets from the endpoint  
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
+    #[error("KTX encoding failed: {0}")]
+    Ktx(#[from] ktx::ErrorCode),
+
     #[error("Deserialize error {0}")]
     Deserialize(String),
 

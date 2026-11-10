@@ -74,6 +74,10 @@ pub fn create_textures_dir(root: &Path) -> Result<PathBuf, ProtocolSessionError>
     create_sub_share_dir(root, "textures")
 }
 
+pub fn create_sculpt_textures_dir(root: &Path) -> Result<PathBuf, ProtocolSessionError> {
+    create_sub_share_dir(root, "sculpt textures")
+}
+
 /// Create the global materials directory.
 pub fn create_materials_dir(root: &Path) -> Result<PathBuf, ProtocolSessionError> {
     create_sub_share_dir(root, "materials")
