@@ -25,7 +25,7 @@ use uuid::Uuid;
 /// Returns an [`ObjectUpdateError`] if generation fails
 ///
 /// # Side Effects
-/// [Storage: Filesystem]
+/// [Storage: Filesystem
 pub async fn handle_sculpt_object(
     out_dir: &Path,
     texture_path: &Path,

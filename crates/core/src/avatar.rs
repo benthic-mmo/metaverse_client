@@ -112,7 +112,7 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
         let current_outfit_id = session.inventory_data.current_outfit_root;
         let cache = self.cache.clone();
         let inventory = session.inventory.clone();
-        let out_dir = session.share_dir_root.clone();
+        let base_dir = session.share_dir_root.clone();
         let client = self.http_client.clone();
         let rate_limiter = self.rate_limiter.clone();
 
@@ -145,7 +145,7 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
                     return;
                 }
 
-                let asset_dir = match create_sub_agent_dir(&out_dir, &agent_id.to_string()) {
+                let asset_dir = match create_sub_agent_dir(&base_dir, &agent_id.to_string()) {
                     Ok(path) => path,
                     Err(e) => {
                         error!("Failed to create avatar asset directory: {e}");
@@ -455,6 +455,9 @@ pub struct HandleNewAvatarAnimation(pub AvatarAnimation);
 impl Handler<HandleNewAvatarAnimation> for Mailbox {
     type Result = ();
     fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
+        // temporarily disable animations
+        return;
+
         let Some(session) = self.session.as_mut() else {
             return;
         };

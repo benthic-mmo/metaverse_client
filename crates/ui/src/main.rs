@@ -5,6 +5,7 @@ use benthic_ui::plugin::MetaversePlugin;
 use benthic_ui::plugin::ViewerState;
 use bevy::app::TerminalCtrlCHandlerPlugin;
 use bevy::asset::UnapprovedPathMode;
+use bevy::asset::io::AssetSourceBuilder;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_egui::EguiPrimaryContextPass;
@@ -16,6 +17,7 @@ pub const CONFIG_FILE: &str = "login_conf.json";
 fn main() {
     unsafe { backtrace_on_stack_overflow::enable() };
     App::new()
+        .register_asset_source("fs", AssetSourceBuilder::platform_default("/", None))
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {

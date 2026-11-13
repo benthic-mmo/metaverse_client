@@ -51,9 +51,6 @@ pub enum AssetKey {
     Mesh(Uuid),
     /// The download is of type Texture, used for sculpt textures
     Texture(Uuid),
-
-    /// The download is of type KTX2Texture, used for mesh textures
-    KTX2Texture(Uuid),
     /// the download is of type Material, used for PBR materials
     Material(Uuid),
 }

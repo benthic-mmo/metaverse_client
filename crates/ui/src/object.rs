@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 
 use crate::mesh::BenthicMeshPlugin;
 use crate::plugin::Sockets;
@@ -6,7 +7,8 @@ use crate::{core_plugin::MeshUpdateEvent, plugin::send_packet_to_core};
 use benthic_protocol::messages::{
     simulator::orphan_objects::OrphanedObject, ui_protocol::UIResponse,
 };
-use bevy::asset::LoadState;
+use bevy::asset::io::AssetSourceId;
+use bevy::asset::{AssetPath, LoadState};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -218,9 +220,9 @@ fn drain_load_queue(
     mut commands: Commands,
 ) {
     // Drop finished/failed loads from the in-flight tracker.
-    scene_id_map.in_flight.retain(|(h, _)| {
+    scene_id_map.in_flight.retain(|(handle, _)| {
         matches!(
-            asset_server.get_load_state(h.id()),
+            asset_server.get_load_state(handle.id()),
             None | Some(LoadState::Loading) | Some(LoadState::NotLoaded)
         )
     });
@@ -230,12 +232,16 @@ fn drain_load_queue(
             break;
         };
 
+        let asset_path = AssetPath::from_path_buf(PathBuf::from(req.path))
+            .with_source(AssetSourceId::Name("fs".into()));
+
         let handle: Handle<WorldAsset> =
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset(req.path.clone()));
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset(asset_path));
 
         commands
             .entity(req.mesh_child)
             .insert(WorldAssetRoot(handle.clone()));
+
         scene_id_map.in_flight.push((handle, req.mesh_child));
     }
 }
