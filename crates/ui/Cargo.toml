@@ -64,6 +64,7 @@ dirs.workspace = true
 log.workspace = true 
 thiserror.workspace = true 
 backtrace-on-stack-overflow = "0.3.0"
+
 [dependencies.uuid]
 workspace = true 
 features = [

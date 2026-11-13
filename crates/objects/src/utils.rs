@@ -98,6 +98,7 @@ pub fn create_mesh_render_object(
                                     .or_else(|| texture_paths.get(&u32::MAX))
                                     .cloned()
                                     .unwrap_or_else(default_texture_path),
+                                ktx2_path: None,
                                 texture_animation: tex_animation,
                                 bump: face.bumpmap,
                                 color: face.rgba,

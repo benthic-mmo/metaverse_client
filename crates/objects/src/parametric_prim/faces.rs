@@ -66,6 +66,7 @@ fn make_face(
             MaterialModel::BlinnPhong(BlinnPhongMaterial {
                 texture_path: face_texture(texture_context.texture_paths, face_index)
                     .unwrap_or_else(default_texture_path),
+                ktx2_path: None,
                 bump: face.bumpmap,
                 color: face.rgba,
                 fullbright: face.fullbright,

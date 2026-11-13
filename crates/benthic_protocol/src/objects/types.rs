@@ -88,6 +88,8 @@ pub enum MaterialModel {
 pub struct BlinnPhongMaterial {
     /// Path to the texture
     pub texture_path: PathBuf,
+    /// Path to the optional GPU-optimized texture.
+    pub ktx2_path: Option<PathBuf>,
     /// Color tint of the texture
     pub color: Rgba<u8>,
     /// Transform applied to the texture

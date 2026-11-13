@@ -52,7 +52,7 @@ pub fn generated_animation_path() -> PathBuf {
 
 /// Path to the benthic default texture
 pub fn default_texture_path() -> PathBuf {
-    PathBuf::from(concat!(env!("OUT_DIR"), "/default.ktx2"))
+    PathBuf::from(concat!(env!("OUT_DIR"), "/default.png"))
 }
 
 /// Path to the benthic invisible mesh

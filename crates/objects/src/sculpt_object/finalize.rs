@@ -172,6 +172,7 @@ fn build_sculpt_material(
             .get(&u32::MAX)
             .cloned()
             .unwrap_or_else(default_texture_path),
+        ktx2_path: None,
         bump: face.bumpmap,
         color: face.rgba,
         fullbright: face.fullbright,
