@@ -55,7 +55,8 @@ bevy_egui = "0.42.0"
 
 actix-rt.workspace = true 
 bevy_panorbit_camera = {workspace=true, features=["bevy_egui"]}
-tokio = { workspace=true, features = ["full"] }
+tokio = { workspace=true, features = ["full", "tracing"] }
+console-subscriber = "0.5"
 serde.workspace = true 
 crossbeam-channel.workspace = true 
 serde_json.workspace = true 

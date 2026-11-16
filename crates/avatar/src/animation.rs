@@ -3,7 +3,7 @@ use benthic_default_asset_converter::generated_animation_path;
 use benthic_protocol::{
     animation::default_animations::DefaultAnimation,
     avatar::skeleton::{Skeleton, SkinJoint},
-    session::storage::{cache_enabled, create_agent_animation_dir, create_filtered_animation_dir},
+    session::storage::{AgentId, BenthicDirs, cache_enabled},
 };
 use metaverse_mesh::animation::{
     generate::{
@@ -39,7 +39,7 @@ pub async fn build_animation(
     animations: Vec<AnimationEntry>,
     used_joints: BTreeSet<SkinJoint>,
     target_skeleton: Skeleton,
-    out_dir: PathBuf,
+    dirs: &BenthicDirs,
     agent_id: Uuid,
 ) -> Result<Vec<PathBuf>, AnimationError> {
     let mut hasher = DefaultHasher::new();
@@ -47,6 +47,9 @@ pub async fn build_animation(
     let joint_hash = format!("{:016x}", hasher.finish());
 
     check_skeleton_cycles(&target_skeleton)?;
+
+    let agent = AgentId(agent_id);
+    let agent_animation_dir = dirs.ensure_agent_animation_dir(agent)?;
 
     let mut animation_paths = Vec::with_capacity(animations.len());
 
@@ -57,8 +60,7 @@ pub async fn build_animation(
                 feature: "non-default animations".to_string(),
             })?;
 
-        let agent_animation_dir = create_agent_animation_dir(&out_dir, &agent_id)?;
-        let filtered_animation_dir = create_filtered_animation_dir(&out_dir, &animation.anim_id)?;
+        let filtered_animation_dir = dirs.ensure_filtered_animation_dir(animation.anim_id)?;
         let filtered_animation_out_path = filtered_animation_dir.join(format!("{joint_hash}.json"));
 
         let json_out_path = agent_animation_dir.join(format!("{}.json", animation.anim_id));

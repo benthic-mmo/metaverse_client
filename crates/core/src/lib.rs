@@ -25,8 +25,6 @@ pub mod capabilities;
 pub mod environment;
 /// This module stores custom error definitions
 pub mod errors;
-/// This module initializes the mailbox
-pub mod initialize;
 /// Handles mailbox events for handling and updating inventory
 pub mod inventory;
 /// Handles mailbox events for retrieving and rendering objects
@@ -35,6 +33,12 @@ pub mod objects;
 pub mod session;
 /// handles packet sending between UI and core, and core and server
 pub mod transport;
+
+pub mod actors;
+
+pub mod login;
+
+pub mod ui_interactions;
 
 use glam::Quat;
 

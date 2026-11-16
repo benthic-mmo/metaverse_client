@@ -1,7 +1,8 @@
-use super::session::Mailbox;
 use crate::COORDINATE_CONVERSION;
-use crate::session::SendUIMessage;
+use crate::actors::InteractionActor;
+use crate::actors::SessionActor;
 use crate::transport::udp_handler::classify_object_update;
+use crate::ui_interactions::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::avatar::skeleton::Skeleton;
 use benthic_protocol::avatar::skeleton::SkinJoint;
@@ -10,8 +11,11 @@ use benthic_protocol::messages::agent::avatar_update::AvatarUpdate;
 use benthic_protocol::messages::agent::play_animation::PlayAnimation;
 use benthic_protocol::messages::camera::camera_position::CameraPosition;
 use benthic_protocol::messages::ui_protocol::UIMessage;
+use benthic_protocol::session::rate_limiter::RateLimiter;
+use benthic_protocol::session::storage::AgentId;
+use benthic_protocol::session::storage::BenthicDirs;
+use benthic_protocol::session::storage::ObjectId;
 use benthic_protocol::session::storage::cache_enabled;
-use benthic_protocol::session::storage::create_sub_agent_dir;
 use glam::{Quat, Vec3};
 use log::{error, info, warn};
 use metaverse_avatar::animation::build_animation;
@@ -26,8 +30,11 @@ use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_objects::download_asset::download_object;
 use metaverse_objects::object_updates::AvatarAttachment;
 use metaverse_objects::object_updates::AvatarObjectData;
+use metaverse_store::initialize_sqlite::Cache;
+use metaverse_store::initialize_sqlite::Inventory;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::SystemTime;
 use uuid::Uuid;
 
@@ -41,20 +48,21 @@ pub struct AvatarObjectUpdate {
     /// Position in space of the avatar
     pub position: Vec3,
 }
-impl Handler<AvatarObjectUpdate> for Mailbox {
+impl Handler<AvatarObjectUpdate> for SessionActor {
     type Result = ();
 
     fn handle(&mut self, msg: AvatarObjectUpdate, ctx: &mut Self::Context) {
-        // Always cache the avatar mapping first.
         let cache = self.cache.clone();
         let local_id = msg.local_id;
         let agent_id = msg.id;
 
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(&session_agent_id)) =
+            (self.session.as_mut(), self.session_context.agent_id.get())
+        else {
             return;
         };
-        // If this is the user's avatar, use the special handler, and don't add it to the cache.
-        if session.agent_id == msg.id {
+        // If this is the user's avatar, don't add it to the cache.
+        if session_agent_id == msg.id {
             ctx.address().do_send(UserAvatarObjectUpdate(msg));
             return;
         }
@@ -76,12 +84,15 @@ impl Handler<AvatarObjectUpdate> for Mailbox {
 #[derive(Message, Clone, Debug)]
 #[rtype(result = "()")]
 pub struct UserAvatarObjectUpdate(AvatarObjectUpdate);
-impl Handler<UserAvatarObjectUpdate> for Mailbox {
+impl Handler<UserAvatarObjectUpdate> for SessionActor {
     type Result = ();
-    fn handle(&mut self, msg: UserAvatarObjectUpdate, ctx: &mut Self::Context) {
-        let Some(session) = self.session.as_mut() else {
+    fn handle(&mut self, msg: UserAvatarObjectUpdate, _ctx: &mut Self::Context) {
+        let (Some(session), Some(&session_agent_id)) =
+            (self.session.as_mut(), self.session_context.agent_id.get())
+        else {
             return;
         };
+
         let Some(endpoint) = session
             .capability_urls
             .get(&Capability::ViewerAsset)
@@ -101,27 +112,59 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
         let avatar = Avatar::new(msg.0.id, msg.0.position);
         session.avatars.insert(msg.0.id, avatar);
 
-        let addr = ctx.address();
-        addr.do_send(SendUIMessage {
-            ui_message: UIMessage::new_camera_position(CameraPosition {
-                position: COORDINATE_CONVERSION.mul_vec3(msg.0.position),
-            }),
-        });
+        if let Some(addr) = self.interaction_actor.as_ref() {
+            addr.do_send(SendUIMessage {
+                ui_message: UIMessage::new_camera_position(CameraPosition {
+                    position: COORDINATE_CONVERSION.mul_vec3(msg.0.position),
+                }),
+            });
+            addr.do_send(ProcessUserUpdate {
+                avatar_update: msg.0.clone(),
+                dirs: self.session_context.dirs.clone(),
+                current_outfit_id: session.inventory_data.current_outfit_root,
+                session_agent_id,
+                endpoint,
+                inventory: session.inventory.clone(),
+                rate_limiter: self.rate_limiter.clone(),
+                cache: self.cache.clone(),
+            });
+        } else {
+            return;
+        }
+    }
+}
 
-        let agent_id = session.agent_id;
-        let current_outfit_id = session.inventory_data.current_outfit_root;
-        let cache = self.cache.clone();
-        let inventory = session.inventory.clone();
-        let base_dir = session.share_dir_root.clone();
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct ProcessUserUpdate {
+    pub avatar_update: AvatarObjectUpdate,
+    pub session_agent_id: Uuid,
+    pub current_outfit_id: Uuid,
+    pub endpoint: String,
+    pub dirs: BenthicDirs,
+    pub inventory: Inventory,
+    pub rate_limiter: Arc<RateLimiter>,
+    pub cache: Cache,
+}
+impl Handler<ProcessUserUpdate> for InteractionActor {
+    type Result = ();
+    fn handle(&mut self, msg: ProcessUserUpdate, ctx: &mut Self::Context) {
+        let cache = msg.cache.clone();
+        let inventory = msg.inventory.clone();
+        let addr = self.mailbox_addr.clone();
         let client = self.http_client.clone();
-        let rate_limiter = self.rate_limiter.clone();
+        let rate_limiter = msg.rate_limiter.clone();
 
         ctx.spawn(
             async move {
                 let (cached_avatar, outfit_items) = if cache_enabled() {
                     match cache
                         .avatar
-                        .current_outfit(agent_id, inventory.clone(), current_outfit_id)
+                        .current_outfit(
+                            msg.session_agent_id,
+                            inventory.clone(),
+                            msg.current_outfit_id,
+                        )
                         .await
                     {
                         Ok(result) => result,
@@ -131,7 +174,7 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
                         }
                     }
                 } else {
-                    match inventory.get_current_outfit(current_outfit_id).await {
+                    match inventory.get_current_outfit(msg.current_outfit_id).await {
                         Ok(items) => (None, items),
                         Err(e) => {
                             error!("Failed to retrieve current outfit: {e:?}");
@@ -145,7 +188,11 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
                     return;
                 }
 
-                let asset_dir = match create_sub_agent_dir(&base_dir, &agent_id.to_string()) {
+                let agent_id = msg.session_agent_id;
+
+                let agent = AgentId(agent_id);
+                let dirs = msg.dirs.clone();
+                let asset_dir = match dirs.ensure_agent_dir(agent) {
                     Ok(path) => path,
                     Err(e) => {
                         error!("Failed to create avatar asset directory: {e}");
@@ -157,11 +204,11 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
                 for item in outfit_items {
                     match item.item_type {
                         ObjectType::Object => {
-                            let object_path = asset_dir.join(format!("{}.xml", item.asset_id));
+                            let object_path = dirs.agent_object_xml(agent, ObjectId(item.asset_id));
 
                             if let Err(e) = download_object(
                                 item.asset_id,
-                                &endpoint,
+                                &msg.endpoint,
                                 &object_path,
                                 client.clone(),
                                 rate_limiter.clone(),
@@ -204,7 +251,6 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
                         }
                     }
                 }
-
                 let outfit_size = scenes.len();
                 if addr
                     .send(SetOutfitSize {
@@ -240,7 +286,6 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
         );
     }
 }
-
 /// Adds an object to the avatar's outfit list
 ///
 /// This updates the in-memory struct containing each player's avatar data, and updates
@@ -256,10 +301,12 @@ impl Handler<UserAvatarObjectUpdate> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct AddObjectToAvatar(pub AvatarObjectData);
-impl Handler<AddObjectToAvatar> for Mailbox {
+impl Handler<AddObjectToAvatar> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: AddObjectToAvatar, ctx: &mut Self::Context) {
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(&session_agent_id)) =
+            (self.session.as_mut(), self.session_context.agent_id.get())
+        else {
             return;
         };
         let Some(avatar) = session.avatars.get_mut(&msg.0.agent_id) else {
@@ -275,7 +322,7 @@ impl Handler<AddObjectToAvatar> for Mailbox {
         avatar.items.push(msg.0.json_path);
         avatar.last_update = SystemTime::now();
 
-        if session.agent_id == msg.0.agent_id && avatar.items.len() == avatar.outfit_size {
+        if session_agent_id == msg.0.agent_id && avatar.items.len() == avatar.outfit_size {
             ctx.address().do_send(FinalizeAvatar {
                 agent_id: msg.0.agent_id,
             });
@@ -289,7 +336,7 @@ pub struct AddNonMeshToAvatar {
     object_type: ObjectType,
     agent_id: Uuid,
 }
-impl Handler<AddNonMeshToAvatar> for Mailbox {
+impl Handler<AddNonMeshToAvatar> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: AddNonMeshToAvatar, ctx: &mut Self::Context) {
         //TODO: hande this.
@@ -314,7 +361,7 @@ pub struct FinalizeAvatar {
     /// the avatar object to generate
     pub agent_id: Uuid,
 }
-impl Handler<FinalizeAvatar> for Mailbox {
+impl Handler<FinalizeAvatar> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: FinalizeAvatar, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
@@ -332,15 +379,13 @@ impl Handler<FinalizeAvatar> for Mailbox {
         let items = avatar.items.clone();
         let position = COORDINATE_CONVERSION.mul_vec3(avatar.position);
         let cache = self.cache.clone();
-        let base_dir = session.share_dir_root.clone();
+        let dirs = self.session_context.dirs.clone();
         let mut avatar = avatar.clone();
 
         let addr = ctx.address();
         ctx.spawn(
             async move {
-                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items, &base_dir)
-                    .await
-                {
+                match finalize_avatar(agent_id, skeleton, used_joints.clone(), items, &dirs).await {
                     Ok((glb_path, skeleton)) => {
                         addr.do_send(SetAvatarGlbPath {
                             path: glb_path.clone(),
@@ -354,27 +399,23 @@ impl Handler<FinalizeAvatar> for Mailbox {
                         avatar.path = Some(glb_path.clone());
 
                         if cache_enabled() {
+                            let agent = AgentId(agent_id);
                             match serde_json::to_string_pretty(&avatar) {
-                                Ok(json) => {
-                                    match create_sub_agent_dir(&base_dir, &agent_id.to_string()) {
-                                        Ok(dir) => {
-                                            let avatar_path =
-                                                dir.join(format!("{agent_id}_finalized.json"));
-                                            if let Err(e) =
-                                                tokio::fs::write(&avatar_path, json).await
-                                            {
-                                                error!("Failed to write avatar cache file: {e}");
-                                            } else if let Err(e) =
-                                                cache.avatar.update(&avatar, avatar_path).await
-                                            {
-                                                error!("FinalizeAvatar cache error: {e}");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            error!("Failed to create avatar cache directory: {e}")
+                                Ok(json) => match dirs.ensure_agent_dir(agent) {
+                                    Ok(_) => {
+                                        let avatar_path = dirs.agent_finalized_json(agent);
+                                        if let Err(e) = tokio::fs::write(&avatar_path, json).await {
+                                            error!("Failed to write avatar cache file: {e}");
+                                        } else if let Err(e) =
+                                            cache.avatar.update(&avatar, avatar_path).await
+                                        {
+                                            error!("FinalizeAvatar cache error: {e}");
                                         }
                                     }
-                                }
+                                    Err(e) => {
+                                        error!("Failed to create avatar cache directory: {e}")
+                                    }
+                                },
                                 Err(e) => error!("Failed to serialize avatar: {e}"),
                             }
                         }
@@ -416,7 +457,7 @@ pub struct LoadFromCache {
     /// The avatar to load from cache.
     pub avatar: Avatar,
 }
-impl Handler<LoadFromCache> for Mailbox {
+impl Handler<LoadFromCache> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: LoadFromCache, ctx: &mut Self::Context) -> Self::Result {
         let Some(session) = self.session.as_mut() else {
@@ -452,13 +493,14 @@ impl Handler<LoadFromCache> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct HandleNewAvatarAnimation(pub AvatarAnimation);
-impl Handler<HandleNewAvatarAnimation> for Mailbox {
+impl Handler<HandleNewAvatarAnimation> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: HandleNewAvatarAnimation, ctx: &mut Self::Context) -> Self::Result {
-        // temporarily disable animations
-        return;
-
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(&session_agent_id), Some(interaction_actor)) = (
+            self.session.as_mut(),
+            self.session_context.agent_id.get(),
+            self.interaction_actor.clone(),
+        ) else {
             return;
         };
 
@@ -489,19 +531,18 @@ impl Handler<HandleNewAvatarAnimation> for Mailbox {
         let animations = msg.0.animations;
         let used_joints = avatar.used_joints.clone();
         let target_skeleton = avatar.skeleton.clone();
-        let out_dir = session.share_dir_root.clone();
-        let agent_id = session.agent_id;
+        let dirs = self.session_context.dirs.clone();
+        let agent_id = session_agent_id;
 
         let sender_id = msg.0.sender_id;
-        let addr = ctx.address();
         ctx.spawn(
             async move {
-                match build_animation(animations, used_joints, target_skeleton, out_dir, agent_id)
+                match build_animation(animations, used_joints, target_skeleton, &dirs, agent_id)
                     .await
                 {
                     Ok(mesh_paths) => {
                         for path in mesh_paths {
-                            addr.do_send(SendUIMessage {
+                            interaction_actor.do_send(SendUIMessage {
                                 ui_message: UIMessage::new_play_animation(PlayAnimation {
                                     player_id: sender_id,
                                     animation_path: path,
@@ -531,7 +572,7 @@ pub struct HandleNewAvatarAppearance {
     /// the avatar appearance data to handle
     pub avatar_appearance: AvatarAppearance,
 }
-impl Handler<HandleNewAvatarAppearance> for Mailbox {
+impl Handler<HandleNewAvatarAppearance> for SessionActor {
     type Result = ();
     fn handle(
         &mut self,
@@ -559,16 +600,17 @@ pub struct RenderAvatar {
     agent_id: Uuid,
     skeleton: BTreeSet<SkinJoint>,
 }
-impl Handler<RenderAvatar> for Mailbox {
+impl Handler<RenderAvatar> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: RenderAvatar, ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
             && let Some(avatar) = session.avatars.get_mut(&msg.agent_id)
+            && let Some(interaction_actor) = self.interaction_actor.clone()
         {
             avatar.used_joints = msg.skeleton;
             let addr = ctx.address();
 
-            addr.do_send(SendUIMessage {
+            interaction_actor.do_send(SendUIMessage {
                 ui_message: UIMessage::new_avatar_update(msg.message),
             });
 
@@ -597,7 +639,7 @@ pub struct SetOutfitSize {
     /// size of the outfit
     pub outfit_size: usize,
 }
-impl Handler<SetOutfitSize> for Mailbox {
+impl Handler<SetOutfitSize> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: SetOutfitSize, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
@@ -620,7 +662,7 @@ pub struct SetAvatarGlbPath {
     /// Agent ID to set
     pub agent_id: Uuid,
 }
-impl Handler<SetAvatarGlbPath> for Mailbox {
+impl Handler<SetAvatarGlbPath> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: SetAvatarGlbPath, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()
@@ -642,7 +684,7 @@ pub struct SetAvatarFinalSkeleton {
     /// Agent ID to set
     pub agent_id: Uuid,
 }
-impl Handler<SetAvatarFinalSkeleton> for Mailbox {
+impl Handler<SetAvatarFinalSkeleton> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: SetAvatarFinalSkeleton, _ctx: &mut Self::Context) -> Self::Result {
         if let Some(session) = self.session.as_mut()

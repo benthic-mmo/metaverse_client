@@ -1,4 +1,4 @@
-use awc::error::PayloadError;
+use awc::{cookie::time::Error, error::PayloadError};
 use benthic_protocol::errors::ProtocolSessionError;
 use metaverse_mesh::errors::MetaverseMeshError;
 use metaverse_messages::{errors::ParseError, http::capabilities::Capability};
@@ -185,8 +185,11 @@ pub enum DownloadError {
     MetaverseMeshError(#[from] MetaverseMeshError),
 
     /// this failure is trigered when a download is in progress, but the sender has disappeared.
-    #[error("Sender disappeared without publishing a result")]
-    SenderFailure,
+    #[error("Filesystem faiure {error}")]
+    FileSystemError { error: ProtocolSessionError },
+
+    #[error("Endpoint missing")]
+    MissingEndpoint,
 }
 /// This converts SendRequestErrors to REtryable or Unrecoverable errors.
 /// If it is a connect error, or a timeout error, it is retryable. re-queue, and try again.

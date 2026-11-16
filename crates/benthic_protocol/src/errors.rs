@@ -14,6 +14,9 @@ use thiserror::Error;
 /// Errors that can arise within the protocol crate
 #[derive(Error, Debug)]
 pub enum ProtocolSessionError {
+    #[error("Actor startup failed: {0}")]
+    StartupError(String),
+
     #[error("{0}")]
     FailureError(String),
     /// Failed to create a director

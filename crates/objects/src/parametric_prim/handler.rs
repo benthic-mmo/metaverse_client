@@ -5,14 +5,14 @@ use crate::{
 };
 use benthic_protocol::{
     objects::types::{RenderObject, TextureAnimation},
-    session::storage::{cache_enabled, create_sub_object_dir},
+    session::storage::{BenthicDirs, cache_enabled},
 };
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::utils::texture_entry::TextureEntries;
 use std::{
     collections::HashMap,
     hash::{Hash, Hasher},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use uuid::Uuid;
 
@@ -27,10 +27,8 @@ const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Creates a parametric prim from parametric prim data taken from an object update.
 ///
-/// This fully converts raw object update data to a mesh file that can be sent to the UI.
-///
 /// # Parameters
-/// - `out_dir`: The base dir for the mesh's GLTF and JSON data
+/// - `dirs`: The benthic directory manager
 /// - `object`: Data required for building a parametric prim
 /// - `texture_paths`: a HashMap keyed to the face with a path to each texture on disk
 ///
@@ -40,31 +38,28 @@ const MESH_GENERATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// # Side Effects
 /// [Storage: Filesystem]
 pub async fn handle_parametric_prim_object(
-    out_dir: &Path,
+    dirs: &BenthicDirs,
     object: &ParametricPrimData,
     texture_paths: HashMap<u32, PathBuf>,
     material_paths: HashMap<u32, PathBuf>,
     asset_id: Uuid,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let cache_key = create_cache_key(object);
-    let base_dir = create_sub_object_dir(out_dir, &format!("{cache_key:016x}"))?;
+    let base_dir = dirs.ensure_prim_dir(cache_key)?;
+    let json_path = dirs.prim_json(cache_key);
+    let gltf_path = dirs.prim_gltf(cache_key);
 
-    let json_path = base_dir.join(format!("{cache_key}.json"));
-    let glb_path = base_dir.join(format!("{cache_key}.glb"));
-
-    // if the glb path doesn't exist or we're running without cache,
-    // check to see if the json path exists. if it doesn't, then build the render object
-    if !glb_path.exists() || !cache_enabled() {
+    if !gltf_path.exists() || !cache_enabled() {
         if !json_path.exists() || !cache_enabled() {
             let render_object =
                 build_render_object(object, &texture_paths, &material_paths, asset_id)?;
             std::fs::write(&json_path, serde_json::to_vec_pretty(&render_object)?)?;
         }
-        generate_object_mesh(&json_path, &glb_path)?;
+        generate_object_mesh(&json_path, &gltf_path)?;
     }
 
     Ok(vec![ObjectUpdateAction::Render(RenderMeshData {
-        mesh_path: Some(glb_path),
+        mesh_path: Some(gltf_path),
         base_dir,
         asset_id,
         object: object.object_info.clone(),
@@ -73,6 +68,7 @@ pub async fn handle_parametric_prim_object(
     })])
 }
 
+// TODO: IMPLEMENT THIS
 pub async fn handle_parametric_prim_avatar_object() {}
 
 fn build_render_object(

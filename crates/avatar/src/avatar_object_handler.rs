@@ -4,15 +4,12 @@ use benthic_protocol::{
         skeleton::{Skeleton, SkinJoint},
         types::AvatarObject,
     },
-    session::storage::{CacheDir, cache_enabled, create_sub_agent_dir, write_json},
+    session::storage::{AgentId, BenthicDirs, cache_enabled},
 };
 use glam::Mat4;
 use indexmap::IndexMap;
 use metaverse_mesh::mesh::generate::generate_skinned_mesh;
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeSet, path::PathBuf};
 use uuid::Uuid;
 
 /// Enum to differentiate type of avatar.
@@ -46,7 +43,7 @@ pub async fn finalize_avatar(
     skeleton: Skeleton,
     used_joints: BTreeSet<SkinJoint>,
     items: Vec<PathBuf>,
-    out_dir: &Path,
+    dirs: &BenthicDirs,
 ) -> Result<(PathBuf, Skeleton), AvatarError> {
     let skeleton = finalize_skeleton(skeleton);
 
@@ -56,23 +53,21 @@ pub async fn finalize_avatar(
         used_joints,
     };
 
-    let base_dir = create_sub_agent_dir(out_dir, &agent_id.to_string())?;
-    let json_path_str = agent_id.to_string();
+    let agent = AgentId(agent_id);
+    dirs.ensure_agent_dir(agent)?;
 
-    let json_path = write_json(
-        &avatar_object,
-        &json_path_str,
-        CacheDir::Agent(agent_id),
-        &base_dir,
-    )?;
+    let json_path = dirs.agent_avatar_object_json(agent);
 
-    let glb_path = base_dir.join(format!("{:?}_high.glb", agent_id));
+    let json = serde_json::to_vec_pretty(&avatar_object)?;
+    std::fs::write(&json_path, json)?;
 
-    if !glb_path.exists() || !cache_enabled() {
-        generate_skinned_mesh(json_path, glb_path.clone())?;
+    let gltf_path = dirs.agent_high_gltf(agent);
+
+    if !gltf_path.exists() || !cache_enabled() {
+        generate_skinned_mesh(json_path, gltf_path.clone())?;
     }
 
-    Ok((glb_path, skeleton))
+    Ok((gltf_path, skeleton))
 }
 
 // finalize the skeleton and update the global transforms with its parent joint data

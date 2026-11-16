@@ -15,6 +15,8 @@ use bevy_panorbit_camera::PanOrbitCameraPlugin;
 pub const CONFIG_FILE: &str = "login_conf.json";
 
 fn main() {
+    #[cfg(feature = "tokio_unstable")]
+    console_subscriber::init();
     unsafe { backtrace_on_stack_overflow::enable() };
     App::new()
         .register_asset_source("fs", AssetSourceBuilder::platform_default("/", None))
