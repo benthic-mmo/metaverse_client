@@ -1,5 +1,7 @@
-use super::session::Mailbox;
-use crate::errors::CapabilityError;
+use crate::{
+    actors::{InteractionActor, SessionActor},
+    errors::CapabilityError,
+};
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use awc::Client;
 use log::error;
@@ -20,31 +22,31 @@ pub struct SendCapabilityRequest {
     /// The capabilities requested
     pub capability_request: CapabilityRequest,
 }
-impl Handler<SendCapabilityRequest> for Mailbox {
+impl Handler<SendCapabilityRequest> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: SendCapabilityRequest, ctx: &mut Self::Context) -> Self::Result {
-        if let Some(session) = &self.session {
-            let seed_capability_url = session.seed_capability_url.clone();
-            let address = ctx.address().clone();
-            let caps = msg.capability_request.capabilities;
-            let client = self.http_client.clone();
-            ctx.spawn(
-                async move {
-                    match send_cap_request(seed_capability_url, caps, client).await {
-                        Ok(capability_urls) => {
-                            address.do_send(SetCapabilityUrls { capability_urls });
-                        }
-                        Err(e) => {
-                            error!("{:?}", e)
-                        }
+        let Some(seed_capability_url) = self.session_context.seed_capability_url.get() else {
+            return;
+        };
+        let address = self.mailbox_addr.clone();
+        let caps = msg.capability_request.capabilities;
+        let client = self.http_client.clone();
+        let seed_capability = seed_capability_url.clone();
+        ctx.spawn(
+            async move {
+                match send_cap_request(seed_capability, caps, client).await {
+                    Ok(capability_urls) => {
+                        address.do_send(SetCapabilityUrls { capability_urls });
+                    }
+                    Err(e) => {
+                        error!("{:?}", e)
                     }
                 }
-                .into_actor(self),
-            );
-        }
+            }
+            .into_actor(self),
+        );
     }
 }
-
 /// Message to update the capability urls
 ///
 /// # Cause
@@ -54,7 +56,7 @@ impl Handler<SendCapabilityRequest> for Mailbox {
 pub struct SetCapabilityUrls {
     capability_urls: HashMap<Capability, String>,
 }
-impl Handler<SetCapabilityUrls> for Mailbox {
+impl Handler<SetCapabilityUrls> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: SetCapabilityUrls, ctx: &mut Self::Context) {
         let capabilities: Vec<Capability> = msg.capability_urls.keys().cloned().collect();

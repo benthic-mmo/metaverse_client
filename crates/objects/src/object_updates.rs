@@ -5,7 +5,10 @@ use benthic_protocol::{
         types::{AttachPoint, AttachmentData},
     },
     objects::types::{ObjectInstanceInfo, TextureAnimation},
-    session::{storage::create_sub_object_dir, types::DownloadState},
+    session::{
+        storage::{BenthicDirs, ObjectId},
+        types::DownloadState,
+    },
 };
 use glam::Vec3;
 use log::warn;
@@ -105,7 +108,7 @@ pub async fn object_update_cached(
     objects: Vec<CachedObjectData>,
     cache: Cache,
     region_id: String,
-    out_dir: PathBuf,
+    dirs: &BenthicDirs,
 ) -> Result<Vec<ObjectUpdateAction>, ObjectUpdateError> {
     let mut cache_results = Vec::new();
     for object in objects {
@@ -115,7 +118,7 @@ pub async fn object_update_cached(
             .await
         {
             Ok((asset_id, json_path, glb, generator_object)) => {
-                let base_dir = create_sub_object_dir(&out_dir, &asset_id.to_string())?;
+                let base_dir = dirs.ensure_object_dir(ObjectId(asset_id))?;
                 if let Some(mesh_path) = glb {
                     cache_results.push(ObjectUpdateAction::Render(RenderMeshData {
                         mesh_path: Some(mesh_path),

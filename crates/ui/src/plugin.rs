@@ -14,13 +14,13 @@ use actix_rt::System;
 use benthic_protocol::messages::agent::agent_update::AgentUpdate;
 use benthic_protocol::messages::login::login_response::LoginResponse;
 use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
-use benthic_protocol::session::storage::initialize_share_dir;
+use benthic_protocol::session::storage::{BenthicDirs, initialize_share_dir};
 use bevy::app::App;
 use bevy::prelude::*;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::window::WindowCloseRequested;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use metaverse_core::initialize::initialize;
+use metaverse_core::actors::initialize;
 use portpicker::pick_unused_port;
 use std::net::UdpSocket;
 use std::path::PathBuf;
@@ -48,7 +48,7 @@ pub struct AgentUpdateTimer(Timer);
 
 #[derive(Resource)]
 pub struct ShareDir {
-    pub _path: PathBuf,
+    pub _path: BenthicDirs,
     pub login_cred_path: PathBuf,
 }
 
@@ -74,7 +74,7 @@ pub struct EventChannel {
 struct LogoutRequestEvent;
 
 //ensure the share dir exists, and create the Benthic folder in the share dir at startup time.
-fn setup_share_dir() -> Result<PathBuf, ShareDirError> {
+fn setup_share_dir() -> Result<BenthicDirs, ShareDirError> {
     Ok(initialize_share_dir()?)
 }
 
@@ -96,7 +96,7 @@ impl Plugin for MetaversePlugin {
                 path
             }
         };
-        let login_cred_path = local_share_dir.join("login_conf.json");
+        let login_cred_path = local_share_dir.login_conf_json();
         let login_data = match login::load_login_data(&login_cred_path) {
             Ok(login_data) => login_data,
             Err(e) => {
@@ -259,7 +259,7 @@ fn send_agent_update(
     session: Res<SessionData>,
     mut timer: ResMut<AgentUpdateTimer>,
 ) {
-    if !timer.0.tick(time.delta()).just_finished()
+    if timer.0.tick(time.delta()).just_finished()
         && let Err(e) = send_packet_to_core(
             &UIResponse::new_agent_update(AgentUpdate {
                 camera_center: session.avatar_location,
@@ -269,8 +269,8 @@ fn send_agent_update(
             &sockets,
         )
     {
-        error!("{:?}", e)
-    };
+        error!("{:?}", e);
+    }
 }
 
 fn handle_logout(mut events: MessageReader<LogoutRequestEvent>, sockets: Res<Sockets>) {

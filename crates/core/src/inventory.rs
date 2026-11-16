@@ -1,5 +1,5 @@
-use super::session::Mailbox;
-use crate::session::SendUIMessage;
+use crate::actors::SessionActor;
+use crate::ui_interactions::SendUIMessage;
 use actix::{AsyncContext, Handler, Message, WrapFuture};
 use benthic_protocol::messages::ui_protocol::UIMessage;
 use log::error;
@@ -16,28 +16,27 @@ use metaverse_messages::http::folder_request::FolderRequest;
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct FetchCurrentOutfit {}
-impl Handler<FetchCurrentOutfit> for Mailbox {
+impl Handler<FetchCurrentOutfit> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: FetchCurrentOutfit, ctx: &mut Self::Context) -> Self::Result {
-        let server_endpoint = self.session.as_mut().and_then(|session| {
+        let Some((session, server_endpoint)) = self.session.as_mut().and_then(|session| {
             session
                 .capability_urls
                 .get(&Capability::FetchInventoryDescendents2)
                 .cloned()
-        });
-
-        let Some(server_endpoint) = server_endpoint else {
+                .map(|url| (session, url))
+        }) else {
             self.queue_for_capability(Capability::FetchInventoryDescendents2, msg);
             return;
         };
 
-        let Some(session) = self.session.as_mut() else {
+        let Some(&session_agent_id) = self.session_context.agent_id.get() else {
             return;
         };
 
         let current_outfit_root = session.inventory_data.current_outfit_root;
         let addr = ctx.address().clone();
-        let owner_id = session.agent_id;
+        let owner_id = session_agent_id;
         let inventory = session.inventory.clone();
 
         ctx.spawn(
@@ -70,14 +69,15 @@ impl Handler<FetchCurrentOutfit> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct InventoryInit;
-impl Handler<InventoryInit> for Mailbox {
+impl Handler<InventoryInit> for SessionActor {
     type Result = ();
     fn handle(&mut self, _: InventoryInit, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(interaction_actor)) =
+            (self.session.as_mut(), self.interaction_actor.clone())
+        else {
             return;
         };
         session.inventory_data.inventory_init = true;
-        let addr = ctx.address().clone();
         let inventory = session.inventory.clone();
         ctx.spawn(
             async move {
@@ -88,7 +88,7 @@ impl Handler<InventoryInit> for Mailbox {
                         return;
                     }
                 } {
-                    addr.do_send(SendUIMessage {
+                    interaction_actor.do_send(SendUIMessage {
                         ui_message: UIMessage::PopulateInventory(folder),
                     });
                 }
@@ -105,7 +105,7 @@ impl Handler<InventoryInit> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct AvatarInit;
-impl Handler<AvatarInit> for Mailbox {
+impl Handler<AvatarInit> for SessionActor {
     type Result = ();
 
     fn handle(&mut self, _: AvatarInit, ctx: &mut Self::Context) -> Self::Result {
@@ -134,7 +134,7 @@ impl Handler<AvatarInit> for Mailbox {
 #[rtype(result = "()")]
 pub struct RefreshInventoryEvent {}
 #[cfg(feature = "inventory")]
-impl Handler<RefreshInventoryEvent> for Mailbox {
+impl Handler<RefreshInventoryEvent> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: RefreshInventoryEvent, ctx: &mut Self::Context) -> Self::Result {
         let server_endpoint = {
@@ -150,11 +150,13 @@ impl Handler<RefreshInventoryEvent> for Mailbox {
             self.queue_for_capability(Capability::FetchInventoryDescendents2, msg);
             return;
         };
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(&session_agent_id)) =
+            (self.session.as_mut(), self.session_context.agent_id.get())
+        else {
             return;
         };
 
-        let owner_id = session.agent_id;
+        let owner_id = session_agent_id;
         let folder_id = session.inventory_data.inventory_root;
         let url = server_endpoint.clone();
         let addr = ctx.address();

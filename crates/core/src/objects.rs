@@ -1,9 +1,9 @@
-use super::session::Mailbox;
 use crate::COORDINATE_CONVERSION;
+use crate::actors::SessionActor;
 use crate::avatar::AddObjectToAvatar;
 use crate::session::OutgoingPacket;
 use crate::session::RetryMessage;
-use crate::session::SendUIMessage;
+use crate::ui_interactions::SendUIMessage;
 use actix::Addr;
 use actix::AsyncContext;
 use actix::ResponseFuture;
@@ -18,9 +18,9 @@ use benthic_protocol::messages::world::mesh_update::MeshType;
 use benthic_protocol::messages::world::mesh_update::MeshUpdate;
 use benthic_protocol::objects::types::ObjectInstanceInfo;
 use benthic_protocol::objects::types::RetriableData;
-use benthic_protocol::session::storage::create_materials_dir;
-use benthic_protocol::session::storage::create_sub_object_dir;
-use benthic_protocol::session::storage::create_textures_dir;
+use benthic_protocol::session::storage::AgentId;
+use benthic_protocol::session::storage::BenthicDirs;
+use benthic_protocol::session::storage::ObjectId;
 use benthic_protocol::session::types::AssetKey;
 use benthic_protocol::session::types::DownloadState;
 use futures::future::join_all;
@@ -75,10 +75,12 @@ use uuid::Uuid;
 /// [`GetAsset`] via [`resolve_asset`]
 /// [`RenderBlankMeshMessage`] if the mesh download fails
 /// [`RenderObjectMessage`]
+
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct MeshObjectUpdate(pub MeshObjectData);
-impl Handler<MeshObjectUpdate> for Mailbox {
+
+impl Handler<MeshObjectUpdate> for SessionActor {
     type Result = ();
     fn handle(&mut self, mut msg: MeshObjectUpdate, ctx: &mut Self::Context) {
         let Some(session) = self.session.as_mut() else {
@@ -86,39 +88,12 @@ impl Handler<MeshObjectUpdate> for Mailbox {
         };
 
         let cache = self.cache.clone();
-        let out_dir = session.share_dir_root.clone();
+        let dirs = self.session_context.dirs.clone();
         let addr = ctx.address();
         let avatars = session.avatars.clone();
 
-        let base_dir = create_sub_object_dir(&out_dir, &msg.0.sculpt_id.to_string())
-            .unwrap_or_else(|err| {
-                error!("MeshObjectUpdate failed: {:?}", err);
-                PathBuf::new()
-            });
-        let glb_path = base_dir.join(format!("{:?}_high.gltf", msg.0.sculpt_id));
-
         ctx.spawn(
             async move {
-                // if the GLB already exists for the object, don't rebuild it, just use that.
-                if tokio::fs::try_exists(&glb_path)
-                    .await
-                    .unwrap_or_else(|err| {
-                        warn!("Failed to check GLB existence: {:?}", err);
-                        false
-                    })
-                {
-                    addr.do_send(RenderObjectMessage(RenderMeshData {
-                        asset_id: msg.0.object_info.full_id,
-                        object: msg.0.object_info,
-                        mesh_path: Some(glb_path),
-                        base_dir,
-                        retry_count: 0,
-                        download: None,
-                    }));
-                    return;
-                }
-
-                // Check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
@@ -131,17 +106,58 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     msg.0.avatar_attachment = Some(attachment);
                 }
 
+                let (is_avatar, base_dir, gltf_path) =
+                    if let Some(av) = msg.0.avatar_attachment.as_ref() {
+                        let agent = AgentId(av.agent_id);
+                        let dir = match dirs.ensure_agent_dir(agent) {
+                            Ok(d) => d,
+                            Err(err) => {
+                                error!("MeshObjectUpdate failed: {:?}", err);
+                                return;
+                            }
+                        };
+                        (true, dir, dirs.agent_high_gltf(agent))
+                    } else {
+                        let sculpt = ObjectId(msg.0.sculpt_id);
+                        let dir = match dirs.ensure_object_dir(sculpt) {
+                            Ok(d) => d,
+                            Err(err) => {
+                                error!("MeshObjectUpdate failed: {:?}", err);
+                                return;
+                            }
+                        };
+                        (false, dir, dirs.object_high_gltf(sculpt))
+                    };
+
+                if !is_avatar
+                    && tokio::fs::try_exists(&gltf_path)
+                        .await
+                        .unwrap_or_else(|err| {
+                            warn!("Failed to check glTF existence: {:?}", err);
+                            false
+                        })
+                {
+                    addr.do_send(RenderObjectMessage(RenderMeshData {
+                        asset_id: msg.0.sculpt_id,
+                        object: msg.0.object_info,
+                        mesh_path: Some(gltf_path),
+                        base_dir,
+                        retry_count: 0,
+                        download: None,
+                    }));
+                    return;
+                }
+
                 if let Err(err) = cache_object_update(
                     &cache.object,
                     CachedObjectUpdateType::Mesh(msg.0.clone()),
-                    &out_dir,
+                    &dirs,
                 )
                 .await
                 {
                     error!("Failed to cache object update: {err}");
                 }
 
-                // Request the mesh and face textures concurrently.
                 let mesh_future = resolve_asset(addr.clone(), AssetKey::Mesh(msg.0.sculpt_id));
                 let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
                 let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
@@ -149,13 +165,12 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                 let (mesh_result, texture_paths, material_paths) =
                     tokio::join!(mesh_future, texture_future, materials_future);
 
-                // Resolve the mesh path.
                 let mesh_path = match mesh_result {
                     Ok(path) => path,
                     Err(e) => {
                         error!("Mesh download failed: {e}");
                         addr.do_send(RenderBlankMeshMessage {
-                            out_dir,
+                            dirs: dirs.clone(),
                             asset_id: msg.0.sculpt_id,
                             object: msg.0.object_info,
                             avatar_attachment: msg.0.avatar_attachment,
@@ -164,7 +179,6 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     }
                 };
 
-                // Read the downloaded raw mesh.
                 let mesh_bytes = match tokio::fs::read(&mesh_path).await {
                     Ok(bytes) => bytes.into(),
                     Err(e) => {
@@ -173,20 +187,18 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     }
                 };
 
-                if let Some(_avatar_data) = msg.0.avatar_attachment.as_ref() {
-                    // when handling avatar object updates, defer GLTF building until the avatar is
-                    // finalized.
+                if is_avatar {
                     let action = match handle_mesh_avatar_object(
                         cache,
                         &msg.0,
-                        base_dir,
+                        &dirs,
                         mesh_bytes,
                         texture_paths,
                         material_paths,
                     )
                     .await
                     {
-                        Ok(action) => action,
+                        Ok(a) => a,
                         Err(e) => {
                             error!("Mesh object processing failed: {e:?}");
                             return;
@@ -194,27 +206,24 @@ impl Handler<MeshObjectUpdate> for Mailbox {
                     };
                     if let ObjectUpdateAction::AvatarObject(action) = action {
                         addr.do_send(AddObjectToAvatar(action));
-                    };
+                    }
                 } else {
-                    // Build the GLTF.
                     let action = match handle_mesh_object(
                         cache,
                         &msg.0,
-                        base_dir,
-                        glb_path,
+                        &dirs,
                         mesh_bytes,
                         texture_paths,
                         material_paths,
                     )
                     .await
                     {
-                        Ok(action) => action,
+                        Ok(a) => a,
                         Err(e) => {
                             error!("Mesh object processing failed: {e:?}");
                             return;
                         }
                     };
-
                     if let ObjectUpdateAction::Render(mut action) = action {
                         action.download = None;
                         addr.do_send(RenderObjectMessage(action));
@@ -242,7 +251,7 @@ impl Handler<MeshObjectUpdate> for Mailbox {
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 pub struct ParametricPrimObjectUpdate(pub ParametricPrimData);
-impl Handler<ParametricPrimObjectUpdate> for Mailbox {
+impl Handler<ParametricPrimObjectUpdate> for SessionActor {
     type Result = ();
 
     fn handle(&mut self, mut msg: ParametricPrimObjectUpdate, ctx: &mut Self::Context) {
@@ -250,13 +259,13 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
             return;
         };
 
-        let out_dir = session.share_dir_root.clone();
+        let dirs = self.session_context.dirs.clone();
         let addr = ctx.address();
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
+
         ctx.spawn(
             async move {
-                // check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
@@ -272,26 +281,23 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                 if let Err(err) = cache_object_update(
                     &cache.object,
                     CachedObjectUpdateType::Prim(msg.0.clone()),
-                    &out_dir,
+                    &dirs,
                 )
                 .await
                 {
                     error!("Failed to cache object update: {err}");
                 }
 
-                // Resolve all face textures.
                 let texture_future = face_textures_or_fallback(&addr, &msg.0.texture);
                 let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
                 let (texture_paths, material_paths) =
                     tokio::join!(texture_future, materials_future);
+
                 if let Some(_avatar_data) = msg.0.avatar_attachment.as_ref() {
-                    // when handling avatar object updates, defer GLTF building until the avatar is
-                    // finalized.
                     handle_parametric_prim_avatar_object().await;
                 } else {
-                    // Build the parametric prim.
                     let actions = match handle_parametric_prim_object(
-                        &out_dir,
+                        &dirs,
                         &msg.0,
                         texture_paths,
                         material_paths,
@@ -299,16 +305,15 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
                     )
                     .await
                     {
-                        Ok(actions) => actions,
+                        Ok(a) => a,
                         Err(e) => {
                             error!("Parametric prim processing failed: {e:?}");
                             addr.do_send(RenderBlankMeshMessage {
-                                out_dir,
+                                dirs: dirs.clone(),
                                 asset_id: msg.0.object_info.full_id,
                                 object: msg.0.object_info,
                                 avatar_attachment: msg.0.avatar_attachment,
                             });
-
                             return;
                         }
                     };
@@ -340,7 +345,7 @@ impl Handler<ParametricPrimObjectUpdate> for Mailbox {
 #[derive(Debug, Message, Clone)]
 #[rtype(result = "()")]
 pub struct SculptObjectUpdate(pub SculptObjectData);
-impl Handler<SculptObjectUpdate> for Mailbox {
+impl Handler<SculptObjectUpdate> for SessionActor {
     type Result = ();
 
     fn handle(&mut self, mut msg: SculptObjectUpdate, ctx: &mut Self::Context) {
@@ -348,14 +353,13 @@ impl Handler<SculptObjectUpdate> for Mailbox {
             return;
         };
 
-        let out_dir = session.share_dir_root.clone();
+        let dirs = self.session_context.dirs.clone();
         let addr = ctx.address();
-
         let avatars = session.avatars.clone();
         let cache = self.cache.clone();
+
         ctx.spawn(
             async move {
-                // Check if the object belongs to an avatar. if it does, treat it like one.
                 if let Some(parent_id) = msg.0.object_info.parent_id
                     && let Some(attachment) = try_attach_to_avatar(
                         &cache.object,
@@ -371,7 +375,7 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 if let Err(err) = cache_object_update(
                     &cache.object,
                     CachedObjectUpdateType::Sculpt(msg.0.clone()),
-                    &out_dir,
+                    &dirs,
                 )
                 .await
                 {
@@ -379,8 +383,6 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 }
 
                 let sculpt_id = msg.0.data.texture_id;
-
-                // Request the sculpt texture and face textures concurrently.
                 let sculpt_future = resolve_asset(addr.clone(), AssetKey::Texture(sculpt_id));
                 let materials_future = face_pbr_materials(&addr, &msg.0.pbr_materials);
                 let face_textures_future = face_textures_or_fallback(&addr, &msg.0.texture);
@@ -388,28 +390,25 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                 let (sculpt_result, texture_paths, material_paths) =
                     tokio::join!(sculpt_future, face_textures_future, materials_future);
 
-                // Resolve the sculpt texture.
                 let sculpt_path = match sculpt_result {
                     Ok(path) => path,
                     Err(e) => {
                         error!("Sculpt texture download failed: {e}");
                         addr.do_send(RenderBlankMeshMessage {
-                            out_dir,
+                            dirs: dirs.clone(),
                             asset_id: sculpt_id,
                             object: msg.0.object_info,
                             avatar_attachment: msg.0.avatar_attachment,
                         });
-
                         return;
                     }
                 };
+
                 if let Some(_avatar_data) = msg.0.avatar_attachment.as_ref() {
-                    // when handling avatar object updates, defer GLTF building until the avatar is
-                    // finalized.
+                    // deferred until avatar finalize
                 } else {
-                    // Build the sculpt object.
                     let actions = match handle_sculpt_object(
-                        &out_dir,
+                        &dirs,
                         &sculpt_path,
                         &msg.0,
                         texture_paths,
@@ -418,11 +417,11 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                     )
                     .await
                     {
-                        Ok(actions) => actions,
+                        Ok(a) => a,
                         Err(e) => {
                             error!("Sculpt object processing failed: {e:?}");
                             addr.do_send(RenderBlankMeshMessage {
-                                out_dir,
+                                dirs: dirs.clone(),
                                 asset_id: sculpt_id,
                                 object: msg.0.object_info,
                                 avatar_attachment: msg.0.avatar_attachment,
@@ -430,8 +429,6 @@ impl Handler<SculptObjectUpdate> for Mailbox {
                             return;
                         }
                     };
-
-                    // Render the generated sculpt object.
                     for action in actions {
                         if let ObjectUpdateAction::Render(data) = action {
                             addr.do_send(RenderObjectMessage(data));
@@ -456,7 +453,7 @@ pub struct HandleImprovedTerseObjectUpdate {
     /// The improved terse object update packet to handle
     pub improved_terse_object_update: ImprovedTerseObjectUpdate,
 }
-impl Handler<HandleImprovedTerseObjectUpdate> for Mailbox {
+impl Handler<HandleImprovedTerseObjectUpdate> for SessionActor {
     type Result = ();
     fn handle(
         &mut self,
@@ -491,26 +488,31 @@ pub struct HandleObjectUpdateCached {
     /// the object update cached packet to handle
     pub object_update_cached: ObjectUpdateCached,
 }
-impl Handler<HandleObjectUpdateCached> for Mailbox {
+impl Handler<HandleObjectUpdateCached> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: HandleObjectUpdateCached, ctx: &mut Self::Context) {
-        let Some(session) = self.session.as_mut() else {
+        let (Some(session), Some(&session_agent_id), Some(&session_id), Some(interaction_actor)) = (
+            self.session.as_mut(),
+            self.session_context.agent_id.get(),
+            self.session_context.session_id.get(),
+            self.interaction_actor.as_ref(),
+        ) else {
             return;
         };
 
         let cache = self.cache.clone();
+        let interaction_addr = interaction_actor.clone();
         let addr = ctx.address();
         let region_id = session.region_data.region_id.clone();
-        let session_id = session.session_id;
-        let agent_id = session.agent_id;
-        let out_dir = session.share_dir_root.clone();
+        let agent_id = session_agent_id;
+        let dirs = self.session_context.dirs.clone();
         ctx.spawn(
             async move {
                 match object_update_cached(
                     msg.object_update_cached.objects,
                     cache,
                     region_id,
-                    out_dir,
+                    &dirs,
                 )
                 .await
                 {
@@ -531,7 +533,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
                             }
                         }
                         if !requests.is_empty() {
-                            addr.do_send(OutgoingPacket {
+                            interaction_addr.do_send(OutgoingPacket {
                                 packet: Packet::new_request_multiple_objects(
                                     RequestMultipleObjects {
                                         session_id,
@@ -562,7 +564,7 @@ impl Handler<HandleObjectUpdateCached> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct GenerateMeshMessage(pub RenderObjectJSONData);
-impl Handler<GenerateMeshMessage> for Mailbox {
+impl Handler<GenerateMeshMessage> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: GenerateMeshMessage, ctx: &mut Self::Context) -> Self::Result {
         let cache = self.cache.clone();
@@ -615,10 +617,13 @@ impl Handler<GenerateMeshMessage> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct RenderObjectMessage(RenderMeshData);
-impl Handler<RenderObjectMessage> for Mailbox {
+impl Handler<RenderObjectMessage> for SessionActor {
     type Result = ();
-    fn handle(&mut self, msg: RenderObjectMessage, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: RenderObjectMessage, _ctx: &mut Self::Context) -> Self::Result {
         let msg = msg.0;
+        let Some(interaction_actor) = self.interaction_actor.as_ref() else {
+            return;
+        };
 
         let Some(mesh_path) = msg.mesh_path else {
             error!("No mesh path available for object {}", msg.object.full_id);
@@ -636,7 +641,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
 
         info!("Rendering object {:?}", msg.asset_id);
 
-        ctx.address().do_send(SendUIMessage {
+        interaction_actor.do_send(SendUIMessage {
             ui_message: UIMessage::new_mesh_update(MeshUpdate {
                 position,
                 scale: msg.object.scale,
@@ -666,7 +671,7 @@ impl Handler<RenderObjectMessage> for Mailbox {
 #[rtype(result = "()")]
 struct RenderBlankMeshMessage {
     /// base dir of the session. usually ~/.local/share/benthic
-    out_dir: PathBuf,
+    dirs: BenthicDirs,
     /// ID of the object that failed
     asset_id: Uuid,
     /// common instance information such as location, scale, etc.
@@ -674,14 +679,14 @@ struct RenderBlankMeshMessage {
 
     avatar_attachment: Option<AvatarAttachment>,
 }
-impl Handler<RenderBlankMeshMessage> for Mailbox {
+impl Handler<RenderBlankMeshMessage> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: RenderBlankMeshMessage, ctx: &mut Self::Context) -> Self::Result {
         if let Some(_attachment_info) = msg.avatar_attachment {
             return;
         }
 
-        let base_dir = match create_sub_object_dir(&msg.out_dir, "empty") {
+        let base_dir = match msg.dirs.ensure_empty_object_dir() {
             Ok(path) => path,
             Err(e) => {
                 error!("Failed to create empty object dir: {e}");
@@ -702,19 +707,27 @@ impl Handler<RenderBlankMeshMessage> for Mailbox {
 async fn cache_object_update(
     cache: &ObjectCache,
     object: CachedObjectUpdateType,
-    base_dir: &PathBuf,
+    dirs: &BenthicDirs,
 ) -> Result<(), InventoryError> {
     let object_info = object.object_info().clone();
     let crc = object.crc();
     let region_id = object.region_id().to_owned();
     let object_type = object.object_type();
 
+    // Use the asset ID as the directory key.
+    let asset_id = match &object {
+        CachedObjectUpdateType::Mesh(update) => update.sculpt_id,
+        CachedObjectUpdateType::Sculpt(update) => update.data.texture_id,
+        CachedObjectUpdateType::Prim(update) => update.object_info.full_id,
+    };
+
+    let asset_id = ObjectId(asset_id);
+
+    dirs.ensure_object_updates_dir()?;
+
+    let path = dirs.object_update_json(asset_id);
+
     let json = serde_json::to_string_pretty(&object)?;
-    let base_path = create_sub_object_dir(&base_dir, &object.object_info().full_id.to_string())?;
-    let path = base_path.join(format!(
-        "{}_ObjectUpdate.json",
-        object.object_info().full_id
-    ));
     tokio::fs::write(&path, json).await?;
 
     cache
@@ -782,13 +795,10 @@ async fn try_attach_to_avatar(
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct HandleOrphanedObject(pub OrphanedObject);
-impl Handler<HandleOrphanedObject> for Mailbox {
+impl Handler<HandleOrphanedObject> for SessionActor {
     type Result = ();
 
     fn handle(&mut self, msg: HandleOrphanedObject, ctx: &mut Self::Context) {
-        // ignore this temporarily
-        return;
-
         let Some(session) = self.session.as_ref() else {
             return;
         };
@@ -838,7 +848,7 @@ impl Handler<HandleOrphanedObject> for Mailbox {
 }
 
 fn reschedule_orphan(
-    addr: &Addr<Mailbox>,
+    addr: &Addr<SessionActor>,
     orphan_id: u32,
     update: CachedObjectUpdateType,
     attachment: AvatarAttachment,
@@ -861,7 +871,7 @@ fn reschedule_orphan(
 }
 
 // creates something to await on
-pub async fn resolve_asset(addr: Addr<Mailbox>, key: AssetKey) -> Result<PathBuf, String> {
+pub async fn resolve_asset(addr: Addr<SessionActor>, key: AssetKey) -> Result<PathBuf, String> {
     let request = addr
         .send(GetAsset(key))
         .await
@@ -914,7 +924,7 @@ enum AssetRequest {
 #[derive(Message)]
 #[rtype(result = "Result<AssetRequest, String>")]
 struct GetAsset(AssetKey);
-impl Handler<GetAsset> for Mailbox {
+impl Handler<GetAsset> for SessionActor {
     type Result = ResponseFuture<Result<AssetRequest, String>>;
 
     fn handle(&mut self, msg: GetAsset, ctx: &mut Self::Context) -> Self::Result {
@@ -925,35 +935,37 @@ impl Handler<GetAsset> for Mailbox {
         let downloads = self.downloads.clone();
         let addr = ctx.address();
 
-        let Some(session) = self.session.as_ref() else {
-            return Box::pin(async { Err(DownloadError::SenderFailure.to_string()) });
-        };
-        let out_dir = session.share_dir_root.clone();
+        let dirs = self.session_context.dirs.clone();
         let asset_key = msg.0.clone();
 
         Box::pin(async move {
             let asset_path = match asset_key {
                 AssetKey::Mesh(mesh_id) => {
-                    let base_dir = create_sub_object_dir(&out_dir, &mesh_id.to_string())
+                    let object_id = ObjectId::new(mesh_id);
+
+                    dirs.ensure_object_dir(object_id)
                         .map_err(|e| e.to_string())?;
-                    base_dir.join(format!("{:?}_high.bin", mesh_id))
+
+                    dirs.object_mesh_file(object_id)
                 }
                 AssetKey::Texture(texture_id) => {
-                    let textures_dir = create_textures_dir(&out_dir)
-                        .map_err(|_| DownloadError::SenderFailure.to_string())?;
-                    textures_dir.join(format!("{texture_id}.png"))
+                    dirs.ensure_textures_dir()
+                        .map_err(|e| DownloadError::FileSystemError { error: e }.to_string())?;
+
+                    dirs.texture_file(texture_id)
                 }
                 AssetKey::Material(material_id) => {
-                    let materials_dir = create_materials_dir(&out_dir)
-                        .map_err(|_| DownloadError::SenderFailure.to_string())?;
-                    materials_dir.join(format!("{material_id}.json"))
+                    dirs.ensure_materials_dir()
+                        .map_err(|e| DownloadError::FileSystemError { error: e }.to_string())?;
+
+                    dirs.material_file(material_id)
                 }
             };
 
             // Already downloaded: return immediately.
             if tokio::fs::try_exists(&asset_path)
                 .await
-                .map_err(|_| DownloadError::SenderFailure.to_string())?
+                .map_err(|e| DownloadError::FileSystemError { error: e.into() }.to_string())?
             {
                 return Ok(AssetRequest::Ready(asset_path));
             }
@@ -1019,7 +1031,7 @@ impl RetriableData for DownloadAsset {
         self.retry_count += 1
     }
 }
-impl Handler<DownloadAsset> for Mailbox {
+impl Handler<DownloadAsset> for SessionActor {
     type Result = ResponseFuture<()>;
     fn handle(&mut self, msg: DownloadAsset, ctx: &mut Self::Context) -> Self::Result {
         let downloads = self.downloads.clone();
@@ -1036,13 +1048,19 @@ impl Handler<DownloadAsset> for Mailbox {
         let http_client = self.http_client.clone();
 
         Box::pin(async move {
+            let Some(endpoint) = endpoint else {
+                addr.do_send(RetryMessage {
+                    message: msg.clone(),
+                    info_message: "ViewerAsset not ready; retrying download".to_string(),
+                    network_overloaded: false,
+                });
+                return;
+            };
             let Some(tx) = downloads.lock().await.get(&msg.key).cloned() else {
-                // The request is no longer registered.
                 return;
             };
 
             match async {
-                let endpoint = endpoint.ok_or(DownloadError::SenderFailure)?;
                 match msg.key {
                     AssetKey::Mesh(mesh_id) => {
                         download_mesh(
@@ -1144,7 +1162,7 @@ impl Handler<DownloadAsset> for Mailbox {
 #[derive(Message, Clone)]
 #[rtype(result = "()")]
 struct RegisterPermanentFailure(AssetKey);
-impl Handler<RegisterPermanentFailure> for Mailbox {
+impl Handler<RegisterPermanentFailure> for SessionActor {
     type Result = ();
     fn handle(&mut self, msg: RegisterPermanentFailure, _ctx: &mut Self::Context) -> Self::Result {
         self.permanent_failures.insert(msg.0);
@@ -1152,7 +1170,7 @@ impl Handler<RegisterPermanentFailure> for Mailbox {
 }
 
 async fn face_textures_or_fallback(
-    addr: &Addr<Mailbox>,
+    addr: &Addr<SessionActor>,
     textures: &Option<TextureEntries>,
 ) -> HashMap<u32, PathBuf> {
     let Some(textures) = textures else {
@@ -1199,7 +1217,7 @@ async fn face_textures_or_fallback(
 }
 
 async fn face_pbr_materials(
-    addr: &Addr<Mailbox>,
+    addr: &Addr<SessionActor>,
     materials: &Option<MaterialsData>,
 ) -> HashMap<u32, PathBuf> {
     let Some(materials) = materials else {

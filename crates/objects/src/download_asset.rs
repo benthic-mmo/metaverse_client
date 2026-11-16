@@ -5,20 +5,11 @@ use benthic_default_asset_converter::default_texture_path;
 use benthic_protocol::avatar::types::AttachmentData;
 use benthic_protocol::objects::types::RenderObject;
 use benthic_protocol::session::rate_limiter::RateLimiter;
-use benthic_protocol::session::storage::CacheDir;
-use benthic_protocol::session::storage::cache_enabled;
-use benthic_protocol::session::storage::create_sub_agent_dir;
-use benthic_protocol::session::storage::write_json;
+use benthic_protocol::session::storage::{BenthicDirs, cache_enabled};
 use image::{DynamicImage, ImageBuffer, Luma, LumaA, Rgb, Rgba};
 use jpeg2k::{Image, ImagePixelData};
-use log::info;
-use metaverse_messages::http::mesh::Mesh;
-use metaverse_messages::http::scene::SceneGroup;
-use metaverse_messages::http::scene::SculptType;
-use metaverse_messages::udp::object::util::PBRMaterial;
 use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::utils::texture_entry::TextureEntries;
-use metaverse_store::initialize_sqlite::Cache;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -171,19 +162,24 @@ pub async fn download_object(
 pub async fn download_texture(
     asset_id: Uuid,
     server_endpoint: &str,
-    out_path: &PathBuf,
+    out_path: &Path,
     client: Client,
     rate_limiter: Arc<RateLimiter>,
 ) -> Result<(), DownloadError> {
     if out_path.exists() && cache_enabled() {
         return Ok(());
     }
-    let item_type = ObjectType::Texture.to_string();
-    let tex = &download_asset(item_type, asset_id, server_endpoint, client, rate_limiter).await?;
+    let tex = &download_asset(
+        ObjectType::Texture.to_string(),
+        asset_id,
+        server_endpoint,
+        client,
+        rate_limiter,
+    )
+    .await?;
     let img = Image::from_bytes(tex)?;
     let pixels = img.get_pixels(None)?;
 
-    // Determine output format
     let output = match pixels.data {
         ImagePixelData::L8(data) => {
             ImageBuffer::<Luma<u8>, _>::from_raw(pixels.width, pixels.height, data)
@@ -210,7 +206,6 @@ pub async fn download_texture(
     output.save(out_path)?;
     Ok(())
 }
-
 /// Retrieves per-face textures from the capabiilty endpoint.
 ///
 /// Returns a hashmap linking the u32 face id to its texture's path on disk.
@@ -227,12 +222,14 @@ pub async fn download_texture(
 /// # Side Effects
 /// [Storage: Filesystem]
 pub async fn download_face_textures(
-    out_dir: &Path,
+    dirs: &BenthicDirs,
     texture: &Option<TextureEntries>,
     server_endpoint: &str,
     client: Client,
     rate_limiter: Arc<RateLimiter>,
 ) -> Result<HashMap<u32, PathBuf>, DownloadError> {
+    dirs.ensure_textures_dir()?;
+
     let mut paths = HashMap::new();
 
     let Some(texture) = texture else {
@@ -241,7 +238,7 @@ pub async fn download_face_textures(
     };
 
     let download = |texture_id: Uuid| {
-        let texture_path = out_dir.join(format!("{:?}.png", texture_id));
+        let texture_path = dirs.texture_file(texture_id);
         let server_endpoint = server_endpoint.to_owned();
         let client = client.clone();
         let rate_limiter = rate_limiter.clone();

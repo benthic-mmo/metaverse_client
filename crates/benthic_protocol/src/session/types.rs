@@ -1,29 +1,43 @@
 use glam::{U16Vec2, Vec2};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::OnceLock};
 use strum_macros::Display;
 use uuid::Uuid;
+
+use crate::session::storage::BenthicDirs;
+
+#[derive(Debug, Clone)]
+pub struct SessionContext {
+    pub session_id: OnceLock<Uuid>,
+    pub agent_id: OnceLock<Uuid>,
+    pub address: OnceLock<String>,
+    pub seed_capability_url: OnceLock<String>,
+    /// root of the benthic share dir.
+    /// Used by the project to determine the base directory for written files.
+    /// useful for creating mock sessions when testing.
+    pub dirs: BenthicDirs,
+}
+impl SessionContext {
+    pub fn new(dirs: BenthicDirs) -> Self {
+        Self {
+            session_id: OnceLock::new(),
+            agent_id: OnceLock::new(),
+            address: OnceLock::new(),
+            seed_capability_url: OnceLock::new(),
+            dirs,
+        }
+    }
+}
 
 /// Struct for the current user's session.
 ///
 /// This includes all data that will be used throughout the session, and much of it is populated by
 /// the LoginResponse packet. This sets the active session for the Mailbox.
 #[derive(Debug)]
-pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
-    /// address of the server the client is connected to. formatted http://Url:Socket
-    pub address: String,
-    /// agent ID of the user
-    pub agent_id: Uuid,
-    /// session ID of the user
-    pub session_id: Uuid,
-    /// the running UDP socket attached to the session  
-    pub socket: Option<Arc<UdpSocket>>,
-    /// The sequence number of the packets sent. Created as a simple count from the core to the server.
-    pub sequence_number: u16,
+
+pub struct Session<Capability, Avatar, Land, Inventory> {
     /// The local IP that the login is sent from. This is stored to ensure the IP of the
     /// UseCircuitCode packet is sent from the same IP as the login, to prevent server errors.
     pub local_ip: std::net::IpAddr,
-    /// The URL endpoint to request more capabilities
-    pub seed_capability_url: String,
     /// The HashMap for storing capability URLs
     pub capability_urls: HashMap<Capability, String>,
     /// inventory details retrieved from initial login
@@ -37,10 +51,6 @@ pub struct Session<Capability, Avatar, Land, UdpSocket, Inventory> {
     /// the connection to the inventory sqlite DB
     /// this stores folder data and inventory metadata
     pub inventory: Inventory,
-    /// root of the benthic share dir.
-    /// Used by the project to determine the base directory for written files.
-    /// useful for creating mock sessions when testing.
-    pub share_dir_root: PathBuf,
 }
 
 /// Key type for asset downloads.

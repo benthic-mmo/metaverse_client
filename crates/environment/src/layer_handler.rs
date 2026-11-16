@@ -9,7 +9,7 @@ use crate::{
 use benthic_protocol::{
     messages::world::land_update::LandData,
     session::{
-        storage::{CacheDir, write_json},
+        storage::{BenthicDirs, CacheDir, write_json},
         types::Session,
     },
 };
@@ -42,9 +42,10 @@ pub enum PatchLayer {
 }
 
 /// Handle incoming terrain layers
-pub fn handle_layer<C, A, U, I>(
+pub fn handle_layer<C, A, I>(
     layer_data: LayerData,
-    session: &mut Session<C, A, Land, U, I>,
+    session: &mut Session<C, A, Land, I>,
+    dirs: BenthicDirs,
 ) -> Result<Vec<PathBuf>, LayerError> {
     let patch_data = parse_layer_data(&layer_data)?;
 
@@ -98,6 +99,7 @@ pub fn handle_layer<C, A, U, I>(
                 for (filename, patch_size, mesh, coordinate) in to_write {
                     let scale = patch_size as f32;
                     let json_path = write_json(
+                        &dirs,
                         &LandData {
                             vertices: mesh.faces[0].vertices.clone(),
                             indices: mesh.faces[0].indices.clone(),
@@ -109,7 +111,6 @@ pub fn handle_layer<C, A, U, I>(
                         },
                         &filename,
                         CacheDir::Land,
-                        &session.share_dir_root,
                     )?;
                     paths.push(json_path);
                 }

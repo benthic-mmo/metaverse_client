@@ -1,11 +1,14 @@
-use crate::session::{HandleUIResponse, Mailbox};
+use crate::{actors::InteractionActor, ui_interactions::HandleUIResponse};
 use benthic_protocol::messages::ui_protocol::UIResponse;
 use log::warn;
 use tokio::net::UdpSocket;
 
 /// This is used to enable the core to listen to messages coming in from the UI.
 /// Messages are sent to the core using UDP, and are deserializeable as UiResponse objects.
-pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: actix::Addr<Mailbox>) {
+pub async fn listen_for_ui_messages(
+    ui_to_core_socket: String,
+    interaction_addr: actix::Addr<InteractionActor>,
+) {
     let socket = UdpSocket::bind(ui_to_core_socket)
         .await
         .expect("Failed to bind to UDP socket");
@@ -20,7 +23,7 @@ pub async fn listen_for_ui_messages(ui_to_core_socket: String, mailbox_addr: act
                         continue;
                     }
                 };
-                mailbox_addr.do_send(HandleUIResponse { ui_response: event });
+                interaction_addr.do_send(HandleUIResponse { ui_response: event });
             }
             Err(e) => {
                 warn!("Core failed to read buffer sent from UI {}", e)

@@ -1,203 +1,32 @@
-use crate::avatar::{AvatarObjectUpdate, FinalizeAvatar, HandleNewAvatarAnimation};
-use crate::environment::FetchEnvironmentEvent;
-use crate::inventory::FetchCurrentOutfit;
-use crate::objects::{HandleOrphanedObject, RenderObjectMessage};
-use crate::{
-    capabilities::SendCapabilityRequest, inventory::RefreshInventoryEvent,
-    transport::http_handler::login_to_simulator,
-};
+use crate::actors::DEFAULT_MAX_RETRIES;
+use crate::actors::InteractionActor;
+use crate::actors::SessionActor;
+use crate::transport::udp_handler::start_udp_read;
+use crate::ui_interactions::SendUIMessage;
 use actix::prelude::*;
-use actix_rt::time;
-use awc::Client;
-use benthic_protocol::errors::ProtocolSessionError;
-use benthic_protocol::messages::login::login_event::Login;
-use benthic_protocol::messages::login::login_response::LoginResponse;
-use benthic_protocol::messages::simulator::error_message::{
-    CapabilityError, CircuitCodeError, CompleteAgentMovementError, FeatureError,
-    MailboxSessionError,
-};
-use benthic_protocol::messages::ui_protocol::{UIMessage, UIResponse};
+use benthic_protocol::messages::ui_protocol::UIMessage;
 use benthic_protocol::messages::world::water_update::WaterUpdate;
 use benthic_protocol::objects::types::RetriableData;
-use benthic_protocol::session::rate_limiter::RateLimiter;
-use benthic_protocol::session::storage::initialize_share_dir;
-use benthic_protocol::session::types::{
-    AssetKey, DownloadState, EnvironmentCache, InventoryData, RegionData, ServerState, Session,
-};
-use glam::Vec2;
+use benthic_protocol::session::types::Session;
 use log::{error, info, warn};
 use metaverse_avatar::avatar::Avatar;
 use metaverse_environment::land::Land;
-use metaverse_messages::utils::object_types::ObjectType;
 use metaverse_messages::{
-    http::capabilities::{Capability, CapabilityRequest},
+    http::capabilities::Capability,
     packet::packet_protocol::Packet,
-    udp::{
-        agent::agent_update::AgentUpdate,
-        chat::chat_from_viewer::ChatFromViewer,
-        core::{
-            agent_throttle::{AgentThrottle, ThrottleData},
-            circuit_code::CircuitCode,
-            complete_agent_movement::CompleteAgentMovementData,
-            complete_ping_check::CompletePingCheck,
-            logout_request::LogoutRequest,
-            packet_ack::PacketAck,
-            region_handshake::RegionHandshake,
-            region_handshake_reply::RegionHandshakeReply,
-        },
+    udp::core::{
+        complete_ping_check::CompletePingCheck, packet_ack::PacketAck,
+        region_handshake::RegionHandshake, region_handshake_reply::RegionHandshakeReply,
     },
 };
-use metaverse_store::initialize_sqlite::{Cache, Inventory, init_sqlite};
+use metaverse_store::initialize_sqlite::Inventory;
 use rand::RngExt;
 use rgb::Rgba;
 use std::any::type_name;
-use std::collections::VecDeque;
-use std::{
-    collections::{HashMap, HashSet},
-    net::UdpSocket as SyncUdpSocket,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    thread::sleep,
-};
-use tokio::sync::watch::{self};
-use tokio::sync::{Mutex as tokioMutex, mpsc};
-use tokio::{net::UdpSocket, sync::Notify, time::Duration};
-use uuid::Uuid;
-
-const SQLITE_BATCH_SIZE: usize = 500;
-static DEFAULT_MAX_RETRIES: u32 = 50;
-static AVATAR_RENDER_TIMEOUT: u64 = 10;
-type PendingSend = Box<dyn FnOnce(&Addr<Mailbox>) + Send>;
-
-/// Central Actix actor responsible for all client actix message handling within the session.
-pub struct Mailbox {
-    /// the client socket for UDP connections
-    pub client_socket: u16,
-    /// UDP socket for connecting mailbox to the UI
-    pub server_to_ui_socket: String,
-    /// queue of acks sent from the server to be responded to by the client
-    pub server_acks: HashSet<u32>,
-    /// queue of packet IDs sent form the core to the server that the server hasn't yet acked
-    pub viewer_acks: HashSet<u32>,
-    /// state of the mailbox. If it is running or not.
-    pub state: Arc<Mutex<ServerState>>,
-    /// notify for etablishing when it begins running
-    pub notify: Arc<Notify>,
-    /// Session information for after login
-    pub session: Option<Session<Capability, Avatar, Land, UdpSocket, Inventory>>,
-    /// the global number of packets that have been sent to the UI
-    pub sent_packet_count: u16,
-    /// the global ping information
-    pub ping_info: PingInfo,
-    /// Global rate limiter. This internally is a semaphore with a timer to prevent flooding the
-    /// network with requests.
-    pub rate_limiter: Arc<RateLimiter>,
-    /// The list of currently downloading objects.
-    /// this contains a UUID of the object downloading, along with a receiver that other
-    /// objectupdats can subscribe to, in order to wake up when the download is complete.
-    pub downloads: Arc<tokioMutex<HashMap<AssetKey, watch::Sender<DownloadState>>>>,
-    /// RenderObjectMessages pending their parent to load in. The u32 is the local ID of the parent.
-    pub pending_children: Arc<tokioMutex<HashMap<u32, Vec<RenderObjectMessage>>>>,
-    /// Avatar objects pending because the current outfit is not loaded yet.
-    pub pending_avatar_objects: Vec<AvatarObjectUpdate>,
-    /// Messages that need capabilities to be present before sending
-    pub pending_capability_messages: HashMap<Capability, Vec<PendingSend>>,
-    /// animations that need an avatar to be rendered before sending
-    pub pending_animations: HashMap<Uuid, Vec<HandleNewAvatarAnimation>>,
-    /// connetion to the cache sqlite DB, (which is the same DB as the inventory DB)
-    /// This is used to store avatar and object data after download
-    pub cache: Cache,
-    /// Global awc client for requests. This allows connection pooling.
-    pub http_client: Client,
-    /// Storage for assets that should not be retried.
-    /// this prevents sending new requests for assets that permanently failed on a different
-    /// download attempt.
-    pub permanent_failures: HashSet<AssetKey>,
-
-    pub pending_avatars: HashSet<Uuid>,
-
-    pub flush_in_progress: bool,
-}
-impl Mailbox {
-    /// Set the state of the mailbox.
-    /// Determines if it's running or started or stopped.
-    pub fn set_state(&mut self, new_state: ServerState, _ctx: &mut Context<Self>) {
-        let state_clone: Arc<Mutex<ServerState>> = Arc::clone(&self.state);
-        {
-            let mut state = state_clone.lock().unwrap();
-            *state = new_state.clone();
-        }
-        // notify on start and stop
-        if new_state == ServerState::Running || new_state == ServerState::Stopped {
-            self.notify.notify_one();
-        }
-    }
-
-    /// Add to the queue of messages waiting for capability endpoints.
-    pub fn queue_for_capability<M>(&mut self, capability: Capability, msg: M)
-    where
-        M: Message<Result = ()> + Send + 'static,
-        Mailbox: Handler<M>,
-    {
-        self.pending_capability_messages
-            .entry(capability)
-            .or_default()
-            .push(Box::new(move |addr| {
-                addr.do_send(msg);
-            }));
-    }
-
-    /// Once the capabilities have loaded in, restart all of the pending messages
-    pub fn flush_capability(&mut self, capability: Capability, ctx: &mut Context<Self>) {
-        let Some(pending) = self.pending_capability_messages.remove(&capability) else {
-            return;
-        };
-
-        let addr = ctx.address();
-
-        for send in pending {
-            send(&addr);
-        }
-    }
-
-    /// Periodically check for avatars that have not received an object update in a while.
-    /// when the timer runs out, render them.
-    pub fn avatar_finished_loading(&self, ctx: &mut Context<Self>) {
-        ctx.run_interval(std::time::Duration::from_millis(100), |actor, ctx| {
-            let finished: Vec<Uuid> = {
-                let Some(session) = actor.session.as_ref() else {
-                    return;
-                };
-
-                actor
-                    .pending_avatars
-                    .iter()
-                    .filter(|id| {
-                        session.avatars.get(id).is_some_and(|avatar| {
-                            avatar.last_update.elapsed().is_ok_and(|elapsed| {
-                                elapsed >= std::time::Duration::from_secs(AVATAR_RENDER_TIMEOUT)
-                            })
-                        })
-                    })
-                    .copied()
-                    .collect()
-            };
-
-            for agent_id in finished {
-                actor.pending_avatars.remove(&agent_id);
-                ctx.address().do_send(FinalizeAvatar { agent_id });
-            }
-        });
-    }
-}
-impl Actor for Mailbox {
-    type Context = Context<Self>;
-    fn started(&mut self, ctx: &mut Self::Context) {
-        info!("Actix Mailbox has started");
-        self.set_state(ServerState::Running, ctx);
-        self.avatar_finished_loading(ctx);
-    }
-}
+use std::net::IpAddr;
+use std::sync::Arc;
+use std::time;
+use tokio::{net::UdpSocket, time::Duration};
 
 /// Message used for initializing the session
 ///
@@ -209,26 +38,18 @@ impl Actor for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct StartSession {
-    /// The session to start
-    pub session: Session<Capability, Avatar, Land, UdpSocket, Inventory>,
+    pub local_ip: IpAddr,
 }
-impl Handler<StartSession> for Mailbox {
+impl Handler<StartSession> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: StartSession, ctx: &mut Self::Context) -> Self::Result {
-        let mut session = msg.session;
-        if let Some(current_session) = self.session.as_ref() {
-            session.socket = current_session.socket.clone();
-        }
-        self.session = Some(session);
-
         // if the session doesn't already have a UDP socket to watch, create one
-        if let Some(session) = self.session.as_ref()
-            && session.socket.is_none()
-        {
-            let addr = format!("{}:{}", session.local_ip, self.client_socket);
+        if self.socket.is_none() {
+            let addr = format!("{}:{}", msg.local_ip, self.client_socket);
 
             let addr_clone = addr.clone();
-            let mailbox_addr = ctx.address();
+            let interaction_addr = ctx.address();
+            let mailbox_addr = self.mailbox_addr.clone();
 
             info!("session established, starting UDP processing");
 
@@ -238,7 +59,7 @@ impl Handler<StartSession> for Mailbox {
                         info!("Successfully bound to {}", addr);
                         let sock = Arc::new(sock);
                         // Spawn a new Tokio task for reading from the socket
-                        tokio::spawn(Mailbox::start_udp_read(sock.clone(), mailbox_addr));
+                        tokio::spawn(start_udp_read(sock.clone(), interaction_addr, mailbox_addr));
                         Ok(sock) // Return the socket wrapped in Arc
                     }
                     Err(e) => {
@@ -251,9 +72,7 @@ impl Handler<StartSession> for Mailbox {
             // wait for the socket to be successfully bound and then assign it
             ctx.spawn(fut.into_actor(self).map(|result, act, _| match result {
                 Ok(sock) => {
-                    if let Some(session) = &mut act.session {
-                        session.socket = Some(sock);
-                    }
+                    act.socket = Some(sock.clone());
                 }
                 Err(_) => {
                     panic!("Socket binding failed");
@@ -262,17 +81,19 @@ impl Handler<StartSession> for Mailbox {
         }
     }
 }
-
-/// Information struct for storing latency and ping info
-#[derive(Debug)]
-pub struct PingInfo {
-    /// the number of the ping
-    pub ping_number: u8,
-    /// how long the latency is. Currently not doing anything.
-    pub ping_latency: Duration,
-    /// time of last ping
-    pub last_ping: time::Instant,
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+pub struct AttachSession {
+    pub session: Session<Capability, Avatar, Land, Inventory>,
 }
+
+impl Handler<AttachSession> for SessionActor {
+    type Result = ();
+    fn handle(&mut self, msg: AttachSession, _ctx: &mut Self::Context) -> Self::Result {
+        self.session = Some(msg.session);
+    }
+}
+
 /// Handles incoming pings from the server
 ///
 /// # Cause
@@ -283,7 +104,7 @@ pub struct HandlePing {
     /// The ID of the ping
     pub ping_id: u8,
 }
-impl Handler<HandlePing> for Mailbox {
+impl Handler<HandlePing> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: HandlePing, ctx: &mut Self::Context) -> Self::Result {
         ctx.address().do_send(OutgoingPacket {
@@ -310,10 +131,10 @@ impl Handler<HandlePing> for Mailbox {
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
 pub struct SendAckList {}
-impl Handler<SendAckList> for Mailbox {
+impl Handler<SendAckList> for InteractionActor {
     type Result = ();
     fn handle(&mut self, _: SendAckList, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+        let Some(address) = self.session_context.address.get().clone() else {
             return;
         };
         // send ack directly to the server
@@ -322,9 +143,9 @@ impl Handler<SendAckList> for Mailbox {
         }
         let packet_ids: Vec<u32> = self.server_acks.drain().collect();
 
-        let addr = session.address.clone();
+        let addr = address.clone();
         let packet = Packet::new_packet_ack(PacketAck { packet_ids }).to_bytes();
-        let sock_clone = session.socket.clone().unwrap();
+        let sock_clone = self.socket.clone().unwrap();
         let ack_wait = async move {
             if let Err(e) = sock_clone.send_to(&packet, addr).await {
                 error!("Failed to send ack: {:?}", e)
@@ -347,7 +168,7 @@ pub struct AddToAckList {
     /// The ID of the packet to be acked
     pub id: u32,
 }
-impl Handler<AddToAckList> for Mailbox {
+impl Handler<AddToAckList> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: AddToAckList, ctx: &mut Self::Context) -> Self::Result {
         self.server_acks.insert(msg.id);
@@ -373,7 +194,7 @@ pub struct ResendPacket {
     /// the packet to resend
     pub packet: Packet,
 }
-impl Handler<ResendPacket> for Mailbox {
+impl Handler<ResendPacket> for InteractionActor {
     type Result = ();
     fn handle(&mut self, mut msg: ResendPacket, ctx: &mut Self::Context) -> Self::Result {
         if self
@@ -399,22 +220,22 @@ pub struct OutgoingPacket {
     /// The outgoing packet
     pub packet: Packet,
 }
-impl Handler<OutgoingPacket> for Mailbox {
+impl Handler<OutgoingPacket> for InteractionActor {
     type Result = ();
     fn handle(&mut self, mut msg: OutgoingPacket, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+        let Some(address) = self.session_context.address.get().cloned() else {
             return;
         };
-        let addr = session.address.clone();
+
         if !msg.packet.header.resent {
-            msg.packet.header.sequence_number = session.sequence_number as u32;
-            session.sequence_number += 1;
+            msg.packet.header.sequence_number = self.sequence_number as u32;
+            self.sequence_number += 1;
         }
 
         let data = msg.packet.to_bytes().clone();
-        let socket_clone = session.socket.as_ref().unwrap().clone();
+        let socket_clone = self.socket.as_ref().unwrap().clone();
         let fut = async move {
-            if let Err(e) = socket_clone.send_to(&data, &addr).await {
+            if let Err(e) = socket_clone.send_to(&data, &address).await {
                 error!("Failed to send data: {}", e);
             }
         };
@@ -447,14 +268,18 @@ pub struct HandleRegionHandshake {
     /// The region hanshake data
     pub region_handshake: RegionHandshake,
 }
-impl Handler<HandleRegionHandshake> for Mailbox {
+impl Handler<HandleRegionHandshake> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: HandleRegionHandshake, ctx: &mut Self::Context) -> Self::Result {
-        let Some(session) = self.session.as_mut() else {
+        let (Some(&agent_id), Some(&session_id)) = (
+            self.session_context.agent_id.get(),
+            self.session_context.session_id.get(),
+        ) else {
             return;
         };
+
         // set some region info
-        session.region_data.water_height = msg.region_handshake.water_height;
+        //session.region_data.water_height = msg.region_handshake.water_height;
         ctx.address().do_send(SendUIMessage {
             ui_message: UIMessage::new_water_update(WaterUpdate {
                 height: msg.region_handshake.water_height,
@@ -464,8 +289,8 @@ impl Handler<HandleRegionHandshake> for Mailbox {
 
         ctx.address().do_send(OutgoingPacket {
             packet: Packet::new_region_handshake_reply(RegionHandshakeReply {
-                session_id: session.session_id,
-                agent_id: session.agent_id,
+                session_id,
+                agent_id,
                 flags: 0,
             }),
         });
@@ -485,312 +310,13 @@ pub struct HandlePacketAck {
     /// Ack data
     pub packet_ack: PacketAck,
 }
-impl Handler<HandlePacketAck> for Mailbox {
+impl Handler<HandlePacketAck> for InteractionActor {
     type Result = ();
     fn handle(&mut self, msg: HandlePacketAck, _ctx: &mut Self::Context) -> Self::Result {
         for id in msg.packet_ack.packet_ids {
             self.viewer_acks.remove(&id);
         }
     }
-}
-
-/// Message for receiving updates from the UI to the core
-///
-/// # Cause
-/// - Received a UIRespones message forom the UI-Core UDP socket
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct HandleUIResponse {
-    /// UI response data
-    pub ui_response: UIResponse,
-}
-impl Handler<HandleUIResponse> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: HandleUIResponse, ctx: &mut Self::Context) -> Self::Result {
-        // handle login before session is established
-        if let UIResponse::Login(data) = &msg.ui_response {
-            let ctx_addr = ctx.address().clone();
-            let login_data = data.clone();
-            let cache = self.cache.clone();
-            actix::spawn(async move {
-                if let Err(e) = handle_login(login_data, &ctx_addr, cache).await {
-                    error!("Login Error:{:?}", e);
-                };
-            });
-        }
-        // other messages require session
-        if let Some(ref session) = self.session {
-            match msg.ui_response {
-                UIResponse::ChatFromViewer(data) => {
-                    ctx.address().do_send(OutgoingPacket {
-                        packet: Packet::new_chat_from_viewer(ChatFromViewer {
-                            session_id: session.session_id,
-                            agent_id: session.agent_id,
-                            channel: data.channel,
-                            message: data.message,
-                            message_type: data.message_type,
-                        }),
-                    });
-                }
-                UIResponse::Logout(_) => {
-                    ctx.address().do_send(OutgoingPacket {
-                        packet: Packet::new_logout_request(LogoutRequest {
-                            session_id: session.session_id,
-                            agent_id: session.agent_id,
-                        }),
-                    });
-                }
-                UIResponse::AgentUpdate(mut data) => {
-                    data.agent_id = session.agent_id;
-                    data.session_id = session.session_id;
-                    ctx.address().do_send(OutgoingPacket {
-                        packet: Packet::new_agent_update(AgentUpdate {
-                            session_id: data.session_id,
-                            agent_id: data.session_id,
-                            body_rotation: data.body_rotation,
-                            head_rotation: data.head_rotation,
-                            state: data.state,
-                            camera_center: data.camera_center,
-                            camera_at_axis: data.camera_at_axis,
-                            camera_left_axis: data.camera_left_axis,
-                            camera_up_axis: data.camera_up_axis,
-                            far: data.far,
-                            control_flags: data.control_flags,
-                            flags: data.flags,
-                        }),
-                    });
-                }
-                UIResponse::OrphanedObject(data) => {
-                    ctx.address().do_send(HandleOrphanedObject(data));
-                }
-                data => {
-                    error!("Unrecognized UIMessage: {:?}", data)
-                }
-            }
-        }
-    }
-}
-
-/// Message for sending data from the core to the UI
-///
-/// # Effect
-/// - UDP packet sent to UI
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-pub struct SendUIMessage {
-    /// UI response data
-    pub ui_message: UIMessage,
-}
-impl Handler<SendUIMessage> for Mailbox {
-    type Result = ();
-    fn handle(&mut self, msg: SendUIMessage, _: &mut Self::Context) -> Self::Result {
-        let client_socket = SyncUdpSocket::bind("0.0.0.0:0").unwrap();
-        if let Err(e) = client_socket.send_to(&msg.ui_message.to_bytes(), &self.server_to_ui_socket)
-        {
-            error!("Failed to send UI message:{:?}", e)
-        }
-    }
-}
-
-async fn handle_login(
-    login_data: Login,
-    mailbox_addr: &actix::Addr<Mailbox>,
-    cache: Cache,
-) -> Result<(), ProtocolSessionError> {
-    let (login_response, local_ip) = match login_to_simulator(login_data).await {
-        Ok((login_response, local_ip)) => {
-            if let Err(e) = mailbox_addr
-                .send(SendUIMessage {
-                    ui_message: UIMessage::new_login_response_event(LoginResponse {
-                        firstname: login_response.first_name.clone(),
-                        lastname: login_response.last_name.clone(),
-                        agent_id: login_response.agent_id,
-                    }),
-                })
-                .await
-            {
-                error!("Failed to send login response to UI {:?}", e)
-            };
-            (login_response, local_ip)
-        }
-        Err(e) => {
-            if let Err(e) = mailbox_addr
-                .send(SendUIMessage {
-                    ui_message: UIMessage::new_session_error(e.clone().into()),
-                })
-                .await
-            {
-                error!("Failed to send session error: {:?}", e)
-            };
-            Err(e)?
-        }
-    };
-
-    // get the current outfit root from the login response's inventory skeleton
-    let current_outfit_root = login_response
-        .inventory_skeleton
-        .as_ref()
-        .and_then(|folders| {
-            folders
-                .iter()
-                .find(|folder| folder.type_default == ObjectType::CurrentOutfit)
-                .map(|folder| folder.folder_id)
-        })
-        .unwrap_or(Uuid::nil());
-
-    let share_dir = initialize_share_dir()?;
-    let db_path = share_dir.join("inventory.db");
-    let inventory_db = init_sqlite(db_path.clone())
-        .await
-        .map_err(|err| FeatureError::Inventory(format!("Failed to initialize SQLite: {}", err)))?;
-
-    let inventory = Inventory::new(inventory_db);
-
-    if let Err(e) = mailbox_addr
-        .send(StartSession {
-            session: Session {
-                inventory,
-                agent_id: login_response.agent_id,
-                session_id: login_response.session_id,
-                address: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
-                seed_capability_url: login_response.seed_capability.unwrap(),
-                sequence_number: 0,
-                local_ip,
-                capability_urls: HashMap::new(),
-                region_data: RegionData {
-                    region_coordinates: Vec2 {
-                        x: (login_response.region_x.unwrap() as f32),
-                        y: (login_response.region_y.unwrap() as f32),
-                    },
-                    region_id: format!("{}:{}", login_response.sim_ip, login_response.sim_port),
-                    ..Default::default()
-                },
-
-                environment_cache: EnvironmentCache {
-                    patch_queue: HashMap::new(),
-                    patch_cache: HashMap::new(),
-                },
-
-                inventory_data: InventoryData {
-                    inventory_root: login_response.inventory_root.ok_or_else(|| {
-                        FeatureError::Inventory(
-                            "Login response contained no inventory_root".to_string(),
-                        )
-                    })?,
-                    inventory_lib_owner: login_response.inventory_lib_owner.ok_or_else(|| {
-                        FeatureError::Inventory(
-                            "Login response contained no inventory_lib_owner".to_string(),
-                        )
-                    })?,
-                    inventory_init: false,
-                    current_outfit_root,
-                    current_outfit_init: false,
-                },
-                socket: None,
-                share_dir_root: initialize_share_dir()?,
-
-                #[cfg(feature = "avatar")]
-                avatars: HashMap::new(),
-            },
-        })
-        .await
-    {
-        Err(MailboxSessionError {
-            message: e.to_string(),
-        })?;
-    };
-
-    match CapabilityRequest::new_capability_request(vec![
-        Capability::ViewerAsset,
-        Capability::FetchInventoryDescendents2,
-        Capability::ExtEnvironment,
-    ]) {
-        Ok(caps) => {
-            if let Err(e) = mailbox_addr
-                .send(SendCapabilityRequest {
-                    capability_request: caps,
-                })
-                .await
-            {
-                Err(CapabilityError {
-                    message: e.to_string(),
-                })?
-            }
-        }
-        Err(e) => {
-            error!("{:?}", e)
-        }
-    };
-
-    if let Err(e) = mailbox_addr
-        .send(OutgoingPacket {
-            packet: Packet::new_circuit_code(CircuitCode {
-                code: login_response.circuit_code,
-                session_id: login_response.session_id,
-                id: login_response.agent_id,
-            }),
-        })
-        .await
-    {
-        Err(CircuitCodeError {
-            message: e.to_string(),
-        })?;
-    };
-
-    sleep(Duration::from_secs(1));
-    if let Err(e) = mailbox_addr
-        .send(OutgoingPacket {
-            packet: Packet::new_complete_agent_movement(CompleteAgentMovementData {
-                circuit_code: login_response.circuit_code,
-                session_id: login_response.session_id,
-                agent_id: login_response.agent_id,
-            }),
-        })
-        .await
-    {
-        Err(CompleteAgentMovementError {
-            message: e.to_string(),
-        })?;
-    };
-    if let Err(e) = mailbox_addr
-        .send(OutgoingPacket {
-            packet: Packet::new_agent_throttle(AgentThrottle {
-                agent_id: login_response.agent_id,
-                session_id: login_response.session_id,
-                circuit_code: login_response.circuit_code,
-                gen_counter: 0,
-                throttles: ThrottleData {
-                    ..Default::default()
-                },
-            }),
-        })
-        .await
-    {
-        Err(CompleteAgentMovementError {
-            message: e.to_string(),
-        })?;
-    };
-
-    #[cfg(feature = "inventory")]
-    if let Err(e) = mailbox_addr.send(FetchCurrentOutfit {}).await {
-        Err(CapabilityError {
-            message: e.to_string(),
-        })?
-    }
-    #[cfg(feature = "inventory")]
-    if let Err(e) = mailbox_addr.send(RefreshInventoryEvent {}).await {
-        Err(CapabilityError {
-            message: e.to_string(),
-        })?
-    }
-
-    if let Err(e) = mailbox_addr.send(FetchEnvironmentEvent {}).await {
-        Err(CapabilityError {
-            message: e.to_string(),
-        })?
-    }
-
-    Ok(())
 }
 
 /// Generic Message for handling retries of network dependent assets.
@@ -807,7 +333,7 @@ pub struct RetryMessage<Retriable>
 where
     Retriable: Send + actix::Message,
     Retriable::Result: Send,
-    Mailbox: Handler<Retriable>,
+    SessionActor: Handler<Retriable>,
 {
     /// Message to retry
     pub message: Retriable,
@@ -818,11 +344,11 @@ where
     /// this should be handled differently than a network error.
     pub network_overloaded: bool,
 }
-impl<Retriable> Handler<RetryMessage<Retriable>> for Mailbox
+impl<Retriable> Handler<RetryMessage<Retriable>> for SessionActor
 where
     Retriable: Send + 'static + actix::Message + RetriableData,
     Retriable::Result: Send,
-    Mailbox: Handler<Retriable>,
+    SessionActor: Handler<Retriable>,
 {
     type Result = ();
 

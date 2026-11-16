@@ -1,6 +1,3 @@
-use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
-
 use crate::mesh::BenthicMeshPlugin;
 use crate::plugin::Sockets;
 use crate::{core_plugin::MeshUpdateEvent, plugin::send_packet_to_core};
@@ -8,12 +5,14 @@ use benthic_protocol::messages::{
     simulator::orphan_objects::OrphanedObject, ui_protocol::UIResponse,
 };
 use bevy::asset::io::AssetSourceId;
-use bevy::asset::{AssetPath, LoadState};
+use bevy::asset::{AssetPath, LoadState, RecursiveDependencyLoadState};
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_gltf::GltfAssetLabel;
 use bevy_world_serialization::WorldAssetRoot;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 pub struct BenthicObjectPlugin;
@@ -219,14 +218,29 @@ fn drain_load_queue(
     mut scene_id_map: ResMut<SceneIDMap>,
     mut commands: Commands,
 ) {
-    // Drop finished/failed loads from the in-flight tracker.
+    // Keep each load in-flight until the root asset and all its
+    // recursive dependencies have finished loading.
     scene_id_map.in_flight.retain(|(handle, _)| {
-        matches!(
-            asset_server.get_load_state(handle.id()),
-            None | Some(LoadState::Loading) | Some(LoadState::NotLoaded)
-        )
+        let asset_id = handle.id();
+
+        match asset_server.get_load_state(asset_id) {
+            // The root asset is loaded, but its dependencies may not be.
+            Some(LoadState::Loaded) => !matches!(
+                asset_server.get_recursive_dependency_load_state(asset_id),
+                Some(
+                    RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed(_)
+                )
+            ),
+
+            // A failed root asset is no longer consuming a loading slot.
+            Some(LoadState::Failed(_)) => false,
+
+            // Still loading, not loaded yet, or not currently tracked.
+            None | Some(LoadState::Loading | LoadState::NotLoaded) => true,
+        }
     });
 
+    // Only start another load when a slot is available.
     while scene_id_map.in_flight.len() < MAX_IN_FLIGHT {
         let Some(req) = scene_id_map.load_queue.pop_front() else {
             break;

@@ -2,9 +2,13 @@ use crate::core_plugin::{AvatarUpdateEvent, CameraUpdateEvent};
 use crate::mesh::BenthicMeshPlugin;
 use crate::plugin::{MainCamera, SessionData};
 use bevy::app::App;
+use bevy::asset::AssetPath;
+use bevy::asset::io::AssetSourceId;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use bevy_gltf::GltfAssetLabel;
 use bevy_panorbit_camera::PanOrbitCamera;
+use bevy_world_serialization::WorldAssetRoot;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -79,7 +83,12 @@ pub fn handle_avatar_update(
             continue;
         };
 
-        let scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(avatar.path.clone()));
+        // Load from the "fs" source so absolute paths resolve correctly,
+        // matching how object.rs loads meshes.
+        let asset_path = AssetPath::from_path_buf(PathBuf::from(&avatar.path))
+            .with_source(AssetSourceId::Name("fs".into()));
+        let scene: Handle<WorldAsset> =
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset(asset_path));
 
         let mut entity_commands = commands.spawn((
             Transform {

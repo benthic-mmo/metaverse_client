@@ -1,12 +1,12 @@
+use crate::actors::{InteractionActor, SessionActor};
 use crate::avatar::{AvatarObjectUpdate, HandleNewAvatarAnimation, HandleNewAvatarAppearance};
 use crate::environment::{HandleLayerData, HandleSimulatorViewerTimeMessage};
 use crate::objects::{
     HandleImprovedTerseObjectUpdate, HandleObjectUpdateCached, MeshObjectUpdate,
     ParametricPrimObjectUpdate, SculptObjectUpdate,
 };
-use crate::session::{
-    AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake, Mailbox, SendUIMessage,
-};
+use crate::session::{AddToAckList, HandlePacketAck, HandlePing, HandleRegionHandshake};
+use crate::ui_interactions::SendUIMessage;
 use actix::Addr;
 use benthic_protocol::messages::chat::chat_from_simulator::ChatFromSimulator;
 use benthic_protocol::messages::ui_protocol::UIMessage;
@@ -25,200 +25,201 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 use uuid::Uuid;
 
-impl Mailbox {
-    /// Start_udp_read is for reading packets coming from the external server
-    pub async fn start_udp_read(sock: Arc<UdpSocket>, mailbox_address: Addr<Mailbox>) {
-        let mut buf = [0; 1500];
+/// Start
+/// _udp_read is for reading packets coming from the external server
+pub async fn start_udp_read(
+    sock: Arc<UdpSocket>,
+    interaction_address: Addr<InteractionActor>,
+    session_address: Addr<SessionActor>,
+) {
+    let mut buf = [0; 1500];
 
-        loop {
-            match sock.recv_from(&mut buf).await {
-                Ok((size, _addr)) => {
-                    let packet = match Packet::from_bytes(&buf[..size]) {
-                        Ok(packet) => packet,
-                        Err(e) => {
-                            //use std::fs::File;
-                            //use std::io::Write;
-                            //let mut file = File::create("foo.txt").unwrap();
-                            //file.write_all(&buf[..size]).unwrap();
-                            warn!("failed to parse: {:?}", e);
-                            continue;
-                        }
-                    };
-                    // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
-                    if packet.header.reliable
-                        && let Err(e) = mailbox_address
-                            .send(AddToAckList {
-                                id: packet.header.sequence_number,
+    loop {
+        match sock.recv_from(&mut buf).await {
+            Ok((size, _addr)) => {
+                let packet = match Packet::from_bytes(&buf[..size]) {
+                    Ok(packet) => packet,
+                    Err(e) => {
+                        //use std::fs::File;
+                        //use std::io::Write;
+                        //let mut file = File::create("foo.txt").unwrap();
+                        //file.write_all(&buf[..size]).unwrap();
+                        warn!("failed to parse: {:?}", e);
+                        continue;
+                    }
+                };
+                // if the incoming packet's header is reliable, add it to the ack list, and then trigger a send
+                if packet.header.reliable
+                    && let Err(e) = interaction_address
+                        .send(AddToAckList {
+                            id: packet.header.sequence_number,
+                        })
+                        .await
+                {
+                    warn!("Failed to send ping: {:?}", e)
+                }
+
+                match &packet.body {
+                    PacketType::PacketAck(data) => {
+                        if let Err(e) = interaction_address
+                            .send(HandlePacketAck {
+                                packet_ack: *data.clone(),
                             })
                             .await
-                    {
-                        warn!("Failed to send ping: {:?}", e)
+                        {
+                            error!("Failed to handle PacketAck {:?}", e)
+                        }
                     }
-
-                    match &packet.body {
-                        PacketType::PacketAck(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandlePacketAck {
-                                    packet_ack: *data.clone(),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle PacketAck {:?}", e)
-                            }
+                    PacketType::StartPingCheck(data) => {
+                        if let Err(e) = interaction_address
+                            .send(HandlePing {
+                                ping_id: data.ping_id,
+                            })
+                            .await
+                        {
+                            warn!("failed to handle pong {:?}", e)
+                        };
+                    }
+                    PacketType::RegionHandshake(data) => {
+                        if let Err(e) = interaction_address
+                            .send(HandleRegionHandshake {
+                                region_handshake: *data.clone(),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle RegionHandshake {:?}", e)
                         }
-                        PacketType::StartPingCheck(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandlePing {
-                                    ping_id: data.ping_id,
-                                })
-                                .await
-                            {
-                                warn!("failed to handle pong {:?}", e)
-                            };
+                    }
+                    PacketType::DisableSimulator(_) => {
+                        warn!("Simulator shutting down...");
+                        if let Err(e) = interaction_address
+                            .send(SendUIMessage {
+                                ui_message: UIMessage::new_disable_simulator(),
+                            })
+                            .await
+                        {
+                            warn!("failed to send to ui: {:?}", e)
                         }
-                        PacketType::RegionHandshake(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleRegionHandshake {
-                                    region_handshake: *data.clone(),
-                                })
+                        break;
+                    }
+                    PacketType::ObjectUpdate(data) => {
+                        if let Err(e) =
+                            classify_object_update(*data.clone(), session_address.clone(), None)
                                 .await
-                            {
-                                error!("Failed to handle RegionHandshake {:?}", e)
-                            }
+                        {
+                            error!("Failed to handle object update: {:?}", e);
                         }
-                        PacketType::DisableSimulator(_) => {
-                            warn!("Simulator shutting down...");
-                            if let Err(e) = mailbox_address
-                                .send(SendUIMessage {
-                                    ui_message: UIMessage::new_disable_simulator(),
-                                })
-                                .await
-                            {
-                                warn!("failed to send to ui: {:?}", e)
-                            }
-                            break;
-                        }
-                        PacketType::ObjectUpdate(data) => {
+                    }
+                    PacketType::ObjectUpdateCached(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleObjectUpdateCached {
+                                object_update_cached: *data.clone(),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle ObjectUpdateCached {:?}", e)
+                        };
+                    }
+                    PacketType::ImprovedTerseObjectUpdate(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleImprovedTerseObjectUpdate {
+                                improved_terse_object_update: *data.clone(),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle TerseObjectUpdate {:?}", e)
+                        };
+                    }
+                    PacketType::ObjectUpdateCompressed(data) => {
+                        for object in data.object_data.clone() {
                             if let Err(e) =
-                                classify_object_update(*data.clone(), mailbox_address.clone(), None)
-                                    .await
+                                classify_object_update(object, session_address.clone(), None).await
                             {
-                                error!("Failed to handle object update: {:?}", e);
+                                error!("Failed to handle object update compressed: {:?}", e);
                             }
-                        }
-                        PacketType::ObjectUpdateCached(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleObjectUpdateCached {
-                                    object_update_cached: *data.clone(),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle ObjectUpdateCached {:?}", e)
-                            };
-                        }
-                        PacketType::ImprovedTerseObjectUpdate(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleImprovedTerseObjectUpdate {
-                                    improved_terse_object_update: *data.clone(),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle TerseObjectUpdate {:?}", e)
-                            };
-                        }
-                        PacketType::ObjectUpdateCompressed(data) => {
-                            for object in data.object_data.clone() {
-                                if let Err(e) =
-                                    classify_object_update(object, mailbox_address.clone(), None)
-                                        .await
-                                {
-                                    error!("Failed to handle object update compressed: {:?}", e);
-                                }
-                            }
-                        }
-                        #[cfg(feature = "environment")]
-                        PacketType::LayerData(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleLayerData {
-                                    layer_data: *data.clone(),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle LayerData {:?}", e)
-                            };
-                        }
-                        // Send UI packets to the UI as UiMessages.
-                        PacketType::ChatFromSimulator(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(SendUIMessage {
-                                    ui_message: UIMessage::new_chat_from_simulator(
-                                        ChatFromSimulator {
-                                            from_name: data.from_name.clone(),
-                                            audible: data.audible.clone(),
-                                            chat_type: data.chat_type.clone(),
-                                            source_id: data.source_id,
-                                            owner_id: data.owner_id,
-                                            position: data.position,
-                                            source_type: data.source_type.clone(),
-                                            message: data.message.clone(),
-                                        },
-                                    ),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle chatfromsimulator{:?}", e)
-                            }
-                        }
-                        PacketType::AvatarAppearance(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleNewAvatarAppearance {
-                                    avatar_appearance: *data.clone(),
-                                })
-                                .await
-                            {
-                                error!("Failed to handle AvatarAppearance {:?}", e)
-                            };
-                        }
-                        PacketType::AvatarAnimation(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleNewAvatarAnimation(*data.clone()))
-                                .await
-                            {
-                                error!("Failed to handle AvatarAppearance {:?}", e)
-                            };
-                        }
-                        PacketType::SimulatorViewerTimeMessage(data) => {
-                            if let Err(e) = mailbox_address
-                                .send(HandleSimulatorViewerTimeMessage {
-                                    seconds_since_start: data.seconds_since_start,
-                                    sun_phase: data.sun_phase,
-                                    seconds_per_day: data.seconds_per_day,
-                                    seconds_per_year: data.seconds_per_year,
-                                })
-                                .await
-                            {
-                                error!("Failed to handle SimulatorViewerTimeMessage {:?}", e)
-                            };
-                        }
-
-                        other => {
-                            warn!("unhandled packet: {:?}", other);
                         }
                     }
+                    #[cfg(feature = "environment")]
+                    PacketType::LayerData(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleLayerData {
+                                layer_data: *data.clone(),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle LayerData {:?}", e)
+                        };
+                    }
+                    // Send UI packets to the UI as UiMessages.
+                    PacketType::ChatFromSimulator(data) => {
+                        if let Err(e) = interaction_address
+                            .send(SendUIMessage {
+                                ui_message: UIMessage::new_chat_from_simulator(ChatFromSimulator {
+                                    from_name: data.from_name.clone(),
+                                    audible: data.audible.clone(),
+                                    chat_type: data.chat_type.clone(),
+                                    source_id: data.source_id,
+                                    owner_id: data.owner_id,
+                                    position: data.position,
+                                    source_type: data.source_type.clone(),
+                                    message: data.message.clone(),
+                                }),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle chatfromsimulator{:?}", e)
+                        }
+                    }
+                    PacketType::AvatarAppearance(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleNewAvatarAppearance {
+                                avatar_appearance: *data.clone(),
+                            })
+                            .await
+                        {
+                            error!("Failed to handle AvatarAppearance {:?}", e)
+                        };
+                    }
+                    PacketType::AvatarAnimation(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleNewAvatarAnimation(*data.clone()))
+                            .await
+                        {
+                            error!("Failed to handle AvatarAppearance {:?}", e)
+                        };
+                    }
+                    PacketType::SimulatorViewerTimeMessage(data) => {
+                        if let Err(e) = session_address
+                            .send(HandleSimulatorViewerTimeMessage {
+                                seconds_since_start: data.seconds_since_start,
+                                sun_phase: data.sun_phase,
+                                seconds_per_day: data.seconds_per_day,
+                                seconds_per_year: data.seconds_per_year,
+                            })
+                            .await
+                        {
+                            error!("Failed to handle SimulatorViewerTimeMessage {:?}", e)
+                        };
+                    }
+
+                    other => {
+                        warn!("unhandled packet: {:?}", other);
+                    }
                 }
-                Err(e) => {
-                    error!("Failed to receive data: {}", e);
-                    break;
-                }
+            }
+            Err(e) => {
+                error!("Failed to receive data: {}", e);
+                break;
             }
         }
     }
 }
+
 /// If this object update is attached to an avatar, this agent_id is set, and used to prevent
 /// rendering it as a regular object.
 pub async fn classify_object_update(
     object: impl ObjectUpdateData,
-    addr: Addr<Mailbox>,
+    addr: Addr<SessionActor>,
     avatar_attachment: Option<AvatarAttachment>,
 ) -> Result<(), ObjectUpdateError> {
     match object.object_type() {
@@ -229,7 +230,6 @@ pub async fn classify_object_update(
                     _ => None,
                 })
             });
-
             match sculpt {
                 Some(sculpt)
                     if sculpt.texture_id != Uuid::nil()

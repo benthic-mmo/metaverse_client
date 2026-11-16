@@ -1,4 +1,4 @@
-use benthic_protocol::session::storage::{CacheDir, create_sub_object_dir, write_json};
+use benthic_protocol::session::storage::{AgentId, BenthicDirs, CacheDir, ObjectId, write_json};
 use bytes::Bytes;
 use metaverse_mesh::mesh::generate::generate_object_mesh;
 use metaverse_messages::http::mesh::Mesh;
@@ -32,8 +32,7 @@ use crate::{
 pub async fn handle_mesh_object(
     cache: Cache,
     data: &MeshObjectData,
-    base_dir: PathBuf,
-    glb_path: PathBuf,
+    dirs: &BenthicDirs,
     mesh_bytes: Bytes,
     texture_paths: HashMap<u32, PathBuf>,
     material_paths: HashMap<u32, PathBuf>,
@@ -51,13 +50,17 @@ pub async fn handle_mesh_object(
         data.texture_animation.clone(),
     )?;
 
+    let sculpt = ObjectId(data.sculpt_id);
+    let base_dir = dirs.ensure_object_dir(sculpt)?;
+    let json_path = dirs.object_json(sculpt);
+    let gltf_path = dirs.object_high_gltf(sculpt);
+
     // cache render object on disk
-    let json_path = base_dir.join(format!("{}.json", data.sculpt_id));
     let json = serde_json::to_vec(&render_object)?;
     tokio::fs::write(&json_path, &json).await?;
 
-    // generate mesh from the glb
-    generate_object_mesh(&json_path, &glb_path)?;
+    // generate mesh from the json
+    generate_object_mesh(&json_path, &gltf_path)?;
 
     // update the generated render object in the db
     cache
@@ -72,12 +75,12 @@ pub async fn handle_mesh_object(
     // cache the generated mesh's data in sqlite
     cache
         .object
-        .update_glb_path(data.object_info.full_id, &glb_path.to_string_lossy())
+        .update_glb_path(data.object_info.full_id, &gltf_path.to_string_lossy())
         .await?;
 
     // return a render mesh data action from the generated mesh
     Ok(ObjectUpdateAction::Render(RenderMeshData {
-        mesh_path: Some(glb_path),
+        mesh_path: Some(gltf_path),
         base_dir,
         asset_id: data.sculpt_id,
         object: data.object_info.clone(),
@@ -89,7 +92,7 @@ pub async fn handle_mesh_object(
 pub async fn handle_mesh_avatar_object(
     cache: Cache,
     data: &MeshObjectData,
-    out_dir: PathBuf,
+    dirs: &BenthicDirs,
     mesh_bytes: Bytes,
     texture_paths: HashMap<u32, PathBuf>,
     material_paths: HashMap<u32, PathBuf>,
@@ -111,12 +114,14 @@ pub async fn handle_mesh_avatar_object(
         data.texture_animation.clone(),
     )?;
 
-    // cahche generated render object on the filesystem
+    let agent = AgentId(attachment.agent_id);
+    let object = ObjectId(data.sculpt_id);
+
     let json_path = write_json(
+        dirs,
         &render_object,
-        &data.sculpt_id.to_string(),
-        CacheDir::Agent(attachment.agent_id),
-        &out_dir,
+        "",
+        CacheDir::AgentObject { agent, object },
     )?;
 
     // Include the skeleton in the update data, to be handled on the add object without having to
